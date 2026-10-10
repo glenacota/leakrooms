@@ -21,6 +21,15 @@ stun it, and cannot save you. It is a narrow beam — aim it by facing where you
 walk — that reveals exits and scrawled warnings. Battery is a budget you spend
 on *knowing*.
 
+**Only the room you are in is lit.** The fluorescents are per room, not per
+floor, so the maze is a run of bright rooms separated by dark ones and you
+cross between them through gates you can see down. The room you leave goes
+dark behind you, over about a third of a second — long enough to read as the
+lights being somewhere else, short enough not to lag behind your feet.
+
+This is a *visibility* rule, not a safety one. A dark room is still there, and
+so is anything standing in it.
+
 **Noise is the entire stealth layer.**
 
 | action | power | heard within |
@@ -126,6 +135,54 @@ What it actually checks:
     no single frame may jump more than 0.2 tiles, and the avatar must end up
     flush (centre-to-face distance == collision radius, not sunk in and not
     short). Checked for up, left and right.
+12. **Room-scoped light** — the feature is two layers and the second is where
+    the bugs live. The ambient bake is per fixture and is asserted unchanged by
+    test 1; the scope layered on top is asserted per region over 120 floors:
+    the region you are standing in is fully visible, a region one gate away
+    gets exactly the spill allowance and no more, everything beyond is dark,
+    and your room is more than twice as bright as the ones past it. It also
+    asserts the failure modes that would each silently break the feature: a
+    wall darker than the brightest floor it touches (a partition becomes a black
+    hole punched through a lit room), a floor tile belonging to no region, a
+    disconnected region graph, the bake mutated in place instead of copied, a
+    scope computed once at floor build that never follows the player, and a
+    crossfade that either swaps on a single frame or never settles and leaves
+    you standing in a half-dark room.
+
+### Lighting
+
+The bake is per fixture and unchanged: a radius, a line-of-sight test, a 3x3
+blur, a floor of 0.42 so nothing is ever pure black, and wall tiles lit from
+adjacent floor so a partition reads as a wall rather than a hole. What changed
+is a second layer *on top* of it, recomputed when the player crosses into a new
+region.
+
+That layer is a BFS over **regions**, not tiles. Tiles would be the obvious
+choice and would not work: a gate tunnel is only two tiles wide, so the far side
+of a doorway is three tiles away — closer than the far corner of the room you
+are standing in. Scoping by tile distance lights the neighbouring room anyway
+and the feature is a no-op. A region is a BSP room, or a run of partition-band
+floor between two rooms, flood filled as its own lit space, so standing in a
+doorway lights the doorway and not either room behind it.
+
+`DARK_ROOM` is a multiplier on the bake, not a brightness. The bake spans 0.42
+in a dim corner to about 2.0 under a tube, so anything above roughly 0.15 lets
+a dark room's fixture hotspot out-shine your own room's dim corner and the two
+stop being distinguishable at all. At 0.14 a dark room sits around a third of
+the dimmest lit tile — a clear silhouette, never a void.
+
+Two things that are easy to miss and both were wrong first:
+
+- The flicker pass is `lighter`, which *adds* light on top of whatever the bake
+  left. Ungated, it paints every fixture on the floor at full strength, so
+  every "dark" room has its tube blazing in it and the scoping is invisible.
+- The sight check read the bake. Reading the bake alone lets the entity see you
+  standing in a room whose lights are, as far as the screen is concerned, off.
+
+The crossfade is quantised to ten repacks over `LIGHT_FADE`. The lightmap is
+76x76 tiles at 4 samples per tile; repacking it every frame for a third of a
+second is 116k pixel writes per frame for an effect nobody can see at that
+cadence.
 
 ### Level generation
 
@@ -185,7 +242,15 @@ slides left on screen, mean luminance 97/255, 0.1% clipped, 2% near-black,
 ### Known gaps
 
 - **Difficulty is untuned.** A bot cannot tell you whether three lives across a
-  ten-minute descent is fun or brutal. That needs a human.
+  ten-minute descent is fun or brutal. That needs a human. Room scoping makes
+  this worse before it makes it better: you can no longer see the whole floor,
+  so exits are found with the torch rather than by looking, which is the
+  intended direction — but it is a change to the light budget and the budget
+  has never been tuned.
+- Scoping is by region, so it cannot distinguish "the room you are in" from
+  "the two rooms joined by a band you happen to be standing in". In practice
+  the bands are two to six tiles of corridor, so this reads correctly, but it is
+  a coarse instrument rather than a precise one.
 - Wall tops are lit from their neighbours rather than self-lit, so a partition
   deep inside a block is flatter than one bordering a room. It reads fine but
   is a simplification.

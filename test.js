@@ -87,11 +87,19 @@ vm.runInContext(`
 globalThis.__api = {
   get G(){ return G; },
   get lightArr(){ return lightArr; },
+  get visArr(){ return visArr; },
+  get visTgt(){ return visTgt; },
+  get regionOf(){ return regionOf; },
+  get regionAdj(){ return regionAdj; },
+  get visRegion(){ return visRegion; },
+  get DARK_ROOM(){ return DARK_ROOM; },
+  get GATE_SPILL(){ return GATE_SPILL; },
+  buildFloor, blocked, moveEnt, update, render, emitNoise, setPrompt, drawPlayer,
+  scopeRoomLight, regionAt,
   get STATE(){ return STATE; },
   set STATE(v){ STATE = v; },
   get floorIdx(){ return floorIdx; },
   get keys(){ return keys; },
-  buildFloor, blocked, moveEnt, update, render, emitNoise, setPrompt, drawPlayer,
   get TORCH_OFF(){ return TORCH_OFF; }, get R(){ return R; }, drawAgent,
   get cvs(){ return cvs; }, get TILE(){ return TILE; }
 };
@@ -904,6 +912,184 @@ console.log('[11] room shape (area cap) and 2-tile gates');
   }
   console.log(`  rooms with fewer than 2 doorway tiles: ${isolated}/${G.rooms.length}`);
   assert(isolated === 0, `${isolated} rooms are effectively sealed — they do not flow into each other`);
+}
+
+/* ============ TEST 12: room-scoped visibility =======================
+   The room you are standing in is lit; the rooms you are not, are dark.
+
+   The BAKE is unchanged by this (test 1 still asserts its coverage), so the
+   risk is entirely in the second layer: a scope that leaks, a scope that does
+   not follow the player, a scope that punches a black hole through the wall
+   you are leaning on, or a scope that quietly mutates the bake. Each of those
+   is a separate failure mode, so each gets its own assertion.             */
+console.log('[12] room-scoped light — your room is lit, the rest is dark');
+{
+  const W=76, H=76, DARK=A.DARK_ROOM, SPILL=A.GATE_SPILL;
+
+  const hopsFrom = (start)=>{
+    const adj=A.regionAdj, hops=new Int32Array(adj.length).fill(-1);
+    const q=[start]; hops[start]=0;
+    for (let h=0; h<q.length; h++){
+      for (const nb of adj[q[h]]) if (hops[nb]<0){ hops[nb]=hops[q[h]]+1; q.push(nb); }
+    }
+    return hops;
+  };
+  /* Put the player on a real floor tile of the given room and rescope.
+     A stub partition can occupy a room's nominal centre, so scan rather
+     than trusting rx+rw/2. */
+  const standIn = (ri)=>{
+    const r=G.rooms[ri];
+    for (let y=r.ry;y<r.ry+r.rh;y++)
+      for (let x=r.rx;x<r.rx+r.rw;x++){
+        const i=y*W+x;
+        if (G.grid[i]!==1 || A.regionOf[i]!==ri) continue;
+        G.player.x=x+0.5; G.player.y=y+0.5;
+        A.scopeRoomLight(0, true);
+        return true;
+      }
+    return false;
+  };
+
+  let floors=0, placed=0, leak=0, blackHole=0, noFollow=0, bakeMut=0, unreachable=0;
+  let ratioSum=0, ratios=0;
+
+  for (let s=0; s<120; s++){
+    buildFloor(s%5, s*7717+31);
+    floors++;
+    const regOf=A.regionOf, vis=A.visArr, bake=A.lightArr;
+
+    // every floor tile must belong to SOME region, or scoping has a hole in
+    // its coverage and part of the maze can never light up
+    for (let i=0;i<W*H;i++){
+      if (G.grid[i]===1 && regOf[i]<0){ unreachable++; break; }
+    }
+
+    // the bake must be a pure input: scoping must not scale it in place
+    const bakeBefore = Float32Array.from(bake);
+
+    const rooms = G.rooms;
+    const homeRi = (s*13)%rooms.length;
+    if (!standIn(homeRi)) continue;
+    placed++;
+
+    const here = A.visRegion;
+    assert(here>=0, `seed ${s}: player region is -1 while standing on floor`);
+    const hops = hopsFrom(here);
+
+    // region graph must be connected, or a player could be sealed into one
+    // lit island with the rest of the floor unreachable by light forever
+    for (let r=0;r<hops.length;r++) if (hops[r]<0){ unreachable++; break; }
+
+    let ownSum=0, ownN=0, farSum=0, farN=0;
+    for (let y=0;y<H;y++) for (let x=0;x<W;x++){
+      const i=y*W+x;
+      const shown = bake[i]*vis[i];          // what actually reaches the screen
+      if (Number.isNaN(shown)) leak++;
+
+      if (G.grid[i]===1){
+        const r=regOf[i], h=hops[r]>=0?hops[r]:99;
+        if (h===0){
+          // the room you are in: fully scoped, and bright enough to see by
+          if (vis[i] < 0.999) leak++;
+          if (shown < 0.40) blackHole++;
+          ownSum+=shown; ownN++;
+        } else if (h===1){
+          if (Math.abs(vis[i]-SPILL) > 1e-6) leak++;   // spill ceiling, exactly
+        } else if (h>=2){
+          // the actual feature: rooms you are NOT in are dark
+          if (Math.abs(vis[i]-DARK) > 1e-6) leak++;
+          farSum+=shown; farN++;
+        }
+      } else {
+        // a wall must never be darker than the brightest floor it touches —
+        // that is what stops a partition from reading as a hole in the floor
+        let nb=0;
+        if (x+1<W   && G.grid[i+1]===1)   nb=Math.max(nb, vis[i+1]);
+        if (x>0    && G.grid[i-1]===1)   nb=Math.max(nb, vis[i-1]);
+        if (y+1<H  && G.grid[i+W]===1)   nb=Math.max(nb, vis[i+W]);
+        if (y>0    && G.grid[i-W]===1)   nb=Math.max(nb, vis[i-W]);
+        if (nb>0 && vis[i] < nb-1e-6) blackHole++;
+      }
+    }
+    if (ownN && farN){ ratioSum += (ownSum/ownN)/Math.max(1e-6,(farSum/farN)); ratios++; }
+
+    // scoping must not have touched the bake
+    for (let i=0;i<W*H;i++) if (bake[i]!==bakeBefore[i]){ bakeMut++; break; }
+
+    /* And it must FOLLOW the player: rescope into a different room, then
+       check the room just left went dark. A scope computed once at floor
+       build would pass every check above and still be a no-op in play. */
+    const otherRi = (s*13+7)%rooms.length;
+    if (otherRi!==homeRi && standIn(otherRi)){
+      if (A.regionAt(G.player.x, G.player.y) !== A.visRegion) noFollow++;
+      const oldR=rooms[homeRi];
+      for (let y=oldR.ry;y<oldR.ry+oldR.rh && !noFollow;y++)
+        for (let x=oldR.rx;x<oldR.rx+oldR.rw;x++){
+          const i=y*W+x;
+          if (G.grid[i]===1 && vis[i] > DARK+1e-6){ noFollow++; break; }
+        }
+    }
+  }
+
+  assert(unreachable===0, `${unreachable}/120 floors had floor tiles with no region, or an unreachable region`);
+  assert(leak===0, `${leak} visibility values did not match their region's scope`);
+  assert(blackHole===0, `${blackHole} tiles were too dark to stand in or to see the wall beside`);
+  assert(noFollow===0, `${noFollow} cases where the light did not follow the player into the next room`);
+  assert(bakeMut===0, `${bakeMut} floors where scoping mutated the ambient bake in place`);
+  const ratio = ratios? ratioSum/ratios : 0;
+  assert(ratio > 2.0, `your room is only ${ratio.toFixed(2)}x brighter than the rooms beyond it (want >2)`);
+
+  console.log(`  ${floors} floors, ${placed} scoped; your room is ${ratio.toFixed(2)}x brighter than the far ones`);
+  console.log(`  no leaks, no black walls, bake untouched, light follows the player`);
+
+  /* --- the crossfade is not optional decoration ---
+     An instant swap pops the whole screen; a fade that never converges
+     leaves the player standing in a half-dark room forever. Both are bugs,
+     so both are asserted. */
+  buildFloor(0, 4242);
+  {
+    // pick two rooms that both have a standable tile
+    let aRi=-1, bRi=-1;
+    for (let i=0;i<G.rooms.length && bRi<0;i++){
+      if (aRi<0){ if (standIn(i)) aRi=i; }
+      else if (standIn(i)) bRi=i;
+    }
+    assert(aRi>=0 && bRi>=0, 'no two standable rooms found for the crossfade check');
+    if (aRi>=0 && bRi>=0){
+      standIn(aRi);
+      const a=G.rooms[aRi], b=G.rooms[bRi];
+      // a floor tile of A and of B to sample, found the same way
+      const tileOf = (ri)=>{
+        const r=G.rooms[ri];
+        for (let y=r.ry;y<r.ry+r.rh;y++) for (let x=r.rx;x<r.rx+r.rw;x++)
+          if (G.grid[y*W+x]===1 && A.regionOf[y*W+x]===ri) return y*W+x;
+        return -1;
+      };
+      const ai=tileOf(aRi), bi=tileOf(bRi);
+
+      standIn(aRi);
+      const litBefore = A.visArr[ai];
+
+      // land on a real tile of B, then begin the fade (non-instant)
+      let placedB=false;
+      for (let y=b.ry;y<b.ry+b.rh && !placedB;y++)
+        for (let x=b.rx;x<b.rx+b.rw;x++){
+          if (G.grid[y*W+x]!==1 || A.regionOf[y*W+x]!==bRi) continue;
+          G.player.x=x+0.5; G.player.y=y+0.5; placedB=true; break;
+        }
+      assert(placedB, 'room B had no standable floor tile');
+      A.scopeRoomLight(0, false);
+      const during = A.visArr[ai];
+      assert(during > litBefore - 1e-6,
+        'the room you left went dark on the same frame you entered the new one — no crossfade');
+      for (let i=0;i<600;i++) update(1/60);            // 10s: far past LIGHT_FADE
+      const settled = A.visArr[ai];
+      const nowLit  = A.visArr[bi];
+      assert(settled < DARK+1e-6, `the room you left settled at ${settled.toFixed(3)}, want <= ${DARK}`);
+      assert(nowLit  > 0.999, `the room you entered settled at ${nowLit.toFixed(3)}, want 1`);
+      console.log(`  crossfade settles: left room ${settled.toFixed(2)}, entered room ${nowLit.toFixed(2)}`);
+    }
+  }
 }
 
 console.log('\n' + (fail? `\n${fail} FAILURE(S)\n` : 'ALL TESTS PASSED\n'));

@@ -42,6 +42,32 @@ const EXIT_COUNT = 3;
 
 const WALL = 0, FLOOR = 1;
 
+/* Room-scoped light.
+   The bake below is per FIXTURE: how bright a tile would be if its fluorescents
+   were the only thing you could see. This is per VIEWER: of that bake, only
+   the room you are standing in is actually lit. The band of floor between two
+   rooms keeps a dim spill so a doorway reads as a doorway rather than a void,
+   and every other room falls to DARK_ROOM.
+
+   The torch is deliberately untouched by this. It is portable, it is aimed,
+   and it reveals exits in rooms you are not standing in — that is the whole
+   reason it is worth spending battery on. */
+/* DARK_ROOM is a MULTIPLIER on the bake, not a brightness, and that matters:
+   the bake ranges 0.42 (a dim corner) to ~2.0 (under a tube), so any value
+   above ~0.15 lets a dark room's fixture hotspot out-shine your own room's
+   dim corner and the two become indistinguishable. 0.14 puts a dark room at
+   roughly a third of the dimmest lit tile, which is a clear silhouette
+   without ever being a void. */
+const DARK_ROOM      = 0.14;   // a room you are not standing in
+/* GATE_SPILL is deliberately well below 1. At 0.5 a neighbouring room
+   measured 58 mean luminance against 76 for the room you were standing in —
+   bright enough that the two rooms are hard to tell apart, which defeats the
+   whole point. At 0.30 the doorway reads as a lit slot with a dark room behind
+   it, which is what you actually want to see when you check a gate. */
+const GATE_SPILL     = 0.30;   // light that made it through an open gate
+const LIGHT_FADE     = 0.30;   // s, fluorescents coming up as you cross a threshold
+const LIGHT_FADE_STEPS = 10;   // the fade is quantised: a repack per frame is 116k writes
+
 /* ---------- canvas ---------- */
 const cvs = document.getElementById('game');
 const ctx = cvs.getContext('2d', { alpha:false });
@@ -452,6 +478,12 @@ function genMaze(rng){
    ============================================================ */
 let G;                       // everything below belongs to one floor
 let lightArr, lightCv, postCv;  // postCv = VHS composite scratch
+let lightImg, lightCtx;      // the packed lightmap, repacked as visArr fades
+let regionOf, regionAdj, regionCount;  // lit spaces and how they connect
+let visArr, visFrom, visTgt;          // per-tile visibility: bake x room scope
+let visScratch;                       // preallocated, so scoping never allocates
+let visRegion = -1;                   // the region the player is lighting
+let visStep = 0, visFadeT = 0;        // quantised crossfade between two regions
 
 function buildFloor(floorNum, seed){
   const rng = mulberry32(seed + floorNum*7919);
@@ -679,24 +711,84 @@ function buildFloor(floorNum, seed){
     lightArr[i] = Math.max(m*0.95, 0.34);
   }
 
-  // pack to an image (4 samples/tile, upscaled smoothly at draw time)
-  lightCv = document.createElement('canvas');
-  lightCv.width = MAP_W*LS; lightCv.height = MAP_H*LS;
-  const lg = lightCv.getContext('2d');
-  const im = lg.createImageData(lightCv.width, lightCv.height);
-  for (let y=0;y<lightCv.height;y++){
-    const ty = (y/LS)|0;
-    for (let x=0;x<lightCv.width;x++){
-      const tx = (x/LS)|0;
-      const b = Math.min(1, lightArr[ty*MAP_W+tx]);
-      const k = (y*lightCv.width+x)*4;
-      im.data[k]   = Math.min(255, 255*b + 18);
-      im.data[k+1] = Math.min(255, 246*b + 16);
-      im.data[k+2] = Math.min(255, 186*b + 10);
-      im.data[k+3] = 255;
+  /* --- room regions -------------------------------------------------
+     A region is one lit space: a BSP room, or a run of band floor between
+     rooms (a gate tunnel). Labelling them is what lets "the room you are in"
+     be a well-defined thing at all — the maze is one connected component,
+     so a flood fill from the player would light the entire floor and the
+     feature would be a no-op.
+
+     Room rects come from disjoint BSP leaves, so they never overlap. The
+     partition bands between them are not in any rect, and those tiles are
+     flood filled into their own regions: a gate tunnel is a lit space of its
+     own, which is exactly right — standing in a doorway lights the doorway,
+     not the room behind you. */
+  regionOf = new Int32Array(MAP_W*MAP_H).fill(-1);
+  maze.rooms.forEach((r, ri)=>{
+    /* FLOOR TILES ONLY. Labelling the whole rect swept up the stub
+       partitions that rooms are carved with, and a stub wall then carried its
+       room's scope directly and skipped the brightest-neighbour pass below —
+       so a wall standing in the middle of your own room rendered darker than
+       the floor it bordered. Walls are not lit spaces; they are lit BY the
+       spaces around them. Note this also keeps a stub from splitting a room
+       into two lit regions, which is what we want: a partition stub is
+       furniture, not a doorway. */
+    for (let y=r.ry; y<r.ry+r.rh; y++)
+      for (let x=r.rx; x<r.rx+r.rw; x++)
+        if (at(x,y) === FLOOR) regionOf[y*MAP_W+x] = ri;
+  });
+  let nRegions = maze.rooms.length;
+  for (let y=0;y<MAP_H;y++) for (let x=0;x<MAP_W;x++){
+    const i0=y*MAP_W+x;
+    if (at(x,y)!==FLOOR || regionOf[i0]>=0) continue;
+    const id = nRegions++;
+    const stack=[i0]; regionOf[i0]=id;
+    while (stack.length){
+      const c=stack.pop(), cx=c%MAP_W, cy=(c/MAP_W)|0;
+      for (const [nx,ny] of [[cx+1,cy],[cx-1,cy],[cx,cy+1],[cx,cy-1]]){
+        if (nx<0||ny<0||nx>=MAP_W||ny>=MAP_H) continue;
+        const ni=ny*MAP_W+nx;
+        if (at(nx,ny)!==FLOOR || regionOf[ni]>=0) continue;
+        regionOf[ni]=id; stack.push(ni);
+      }
     }
   }
-  lg.putImageData(im,0,0);
+  /* adjacency: regions that share a 4-connected floor edge. Two rooms can
+     also be neighbours through a band, and a room with two gates has two
+     different neighbours — the BFS has to see the real graph, not just
+     "the next room over". */
+  const regAdj = Array.from({length:nRegions}, ()=>[]);
+  const regSeen = new Set();
+  for (let y=0;y<MAP_H;y++) for (let x=0;x<MAP_W;x++){
+    const a=regionOf[y*MAP_W+x];
+    if (a<0) continue;
+    for (const [nx,ny] of [[x+1,y],[x,y+1]]){
+      if (nx>=MAP_W||ny>=MAP_H) continue;
+      const b=regionOf[ny*MAP_W+nx];
+      if (b<0 || a===b) continue;
+      const key = a<b ? a+','+b : b+','+a;
+      if (regSeen.has(key)) continue;
+      regSeen.add(key);
+      regAdj[a].push(b); regAdj[b].push(a);
+    }
+  }
+  regionAdj = regAdj;
+  regionCount = nRegions;
+
+  /* pack to an image (4 samples/tile, upscaled smoothly at draw time).
+     The pack is bake x VISIBILITY, not the bake alone: visArr is 1 in the
+     player's own room, GATE_SPILL in the region they can see through a gate,
+     and DARK_ROOM everywhere else. Repacked whenever visArr moves. */
+  lightCv = document.createElement('canvas');
+  lightCv.width = MAP_W*LS; lightCv.height = MAP_H*LS;
+  lightCtx = lightCv.getContext('2d');
+  lightImg = lightCtx.createImageData(lightCv.width, lightCv.height);
+  visArr  = new Float32Array(MAP_W*MAP_H).fill(DARK_ROOM);
+  visFrom = new Float32Array(MAP_W*MAP_H).fill(DARK_ROOM);
+  visTgt  = new Float32Array(MAP_W*MAP_H).fill(DARK_ROOM);
+  visScratch = new Float32Array(MAP_W*MAP_H);
+  visStep = 0;
+  visRegion = -1;
 
   /* --- entities --- */
   const spawn = {
@@ -746,6 +838,134 @@ function buildFloor(floorNum, seed){
     stat: { noises:0, found:0, deaths:0 }
   };
   HUD.exitsFound = 0;
+  /* Light the room the player spawned in. After this point it follows them:
+     G exists, so regionAt(G.player) is meaningful. */
+  scopeRoomLight(0, true);
+}
+
+/* ============================================================
+   ROOM SCOPED VISIBILITY
+   The bake answers "how bright is this tile under its own
+   fluorescents". These answer "which of those tiles can the
+   player see right now" — the room they are standing in, plus
+   whatever spills through a gate they can see down.
+
+   A BFS over REGIONS, not tiles. Tile distance would light the
+   next room anyway, because a gate tunnel is only 2 tiles wide:
+   the far side of a doorway is 3 tiles away, which is closer than
+   the far corner of the room you are standing in. Region distance
+   is what makes "the room you are in" mean a room.
+   ============================================================ */
+
+/* Region visibility level: 0 hops = your room, 1 hop = through one
+   gate, 2+ = you would have to walk there to see it. */
+function scopeFor(hops){
+  if (hops <= 0) return 1;
+  if (hops === 1) return GATE_SPILL;
+  return DARK_ROOM;
+}
+
+function regionAt(x,y){
+  const tx=Math.floor(x), ty=Math.floor(y);
+  if (tx<0||ty<0||tx>=MAP_W||ty>=MAP_H) return -1;
+  return regionOf[ty*MAP_W+tx];
+}
+
+/* How visible a fixture is right now: the visibility of the tile it hangs
+   over. Sampled from visArr (the FADED field), not visTgt, so a tube does not
+   pop to full brightness the instant you enter its room. */
+function fixtureVis(f){
+  const tx=Math.floor(f.x), ty=Math.floor(f.y);
+  if (tx<0||ty<0||tx>=MAP_W||ty>=MAP_H) return 0;
+  return visArr[ty*MAP_W+tx];
+}
+
+/* Recompute the target visibility field for the region the player is in.
+   `instant` skips the crossfade (floor start, retry). */
+function scopeRoomLight(dt, instant){
+  const p = G.player;
+  const here = regionAt(p.x, p.y);
+  if (here === visRegion && !instant) return false;
+
+  // snapshot the current field so the change crossfades instead of popping
+  visFrom.set(visArr);
+  visRegion = here;
+  visFadeT  = instant ? 1 : 0;
+  visStep   = instant ? LIGHT_FADE_STEPS : 0;
+
+  if (here < 0){
+    // off the map (only possible in a degenerate state): everything dark,
+    // walls included — there is nothing to borrow light from
+    visTgt.fill(DARK_ROOM);
+  } else {
+    const hops = new Int32Array(regionCount).fill(-1);
+    const q = [here];
+    hops[here] = 0;
+    for (let h=0; h<q.length; h++){
+      const r = q[h];
+      for (const nb of regionAdj[r]) if (hops[nb] < 0){ hops[nb] = hops[r]+1; q.push(nb); }
+    }
+    for (let i=0; i<regionOf.length; i++){
+      const r = regionOf[i];
+      visTgt[i] = r < 0 ? -1 : scopeFor(hops[r] < 0 ? 99 : hops[r]);
+    }
+    /* Solid rock has no region, so scoping by region alone would multiply
+       every partition down to DARK_ROOM — including the wall you are standing
+       against, whose face and top would read as a black hole punched through
+       a lit room. The bake already lights walls from adjacent floor; scope
+       them the same way, brightest neighbour wins. A wall deep inside a block
+       with no lit neighbour stays dark, which is correct. */
+    const src = visScratch;
+    src.set(visTgt);
+    for (let y=0; y<MAP_H; y++) for (let x=0; x<MAP_W; x++){
+      const i = y*MAP_W+x;
+      if (src[i] >= 0) continue;
+      let m = DARK_ROOM;
+      if (x+1<MAP_W   && src[i+1]   >= 0) m = Math.max(m, src[i+1]);
+      if (x>0        && src[i-1]   >= 0) m = Math.max(m, src[i-1]);
+      if (y+1<MAP_H  && src[i+MAP_W]>= 0) m = Math.max(m, src[i+MAP_W]);
+      if (y>0        && src[i-MAP_W]>= 0) m = Math.max(m, src[i-MAP_W]);
+      visTgt[i] = m;
+    }
+  }
+  if (instant){
+    visArr.set(visTgt);
+    packLight();
+  }
+  return true;
+}
+
+/* Bake x visibility -> the lightmap image. This is the whole feature: the
+   bake is unchanged, so the room you are in still has its pools of light and
+   its dim corners, and every other room drops to a silhouette. */
+function packLight(){
+  const im = lightImg, W = lightCv.width;
+  for (let y=0; y<lightCv.height; y++){
+    const ty = (y/LS)|0, row = ty*MAP_W;
+    for (let x=0; x<W; x++){
+      const i0 = row + ((x/LS)|0);
+      const b = Math.min(1, lightArr[i0] * visArr[i0]);
+      const k = (y*W+x)*4;
+      im.data[k]   = Math.min(255, 255*b + 18);
+      im.data[k+1] = Math.min(255, 246*b + 16);
+      im.data[k+2] = Math.min(255, 186*b + 10);
+      im.data[k+3] = 255;
+    }
+  }
+  lightCtx.putImageData(im, 0, 0);
+}
+
+/* Advance the crossfade. Quantised: LIGHT_FADE_STEPS repacks over LIGHT_FADE
+   seconds, so a room change costs 10 repacks and not one per frame forever. */
+function fadeRoomLight(dt){
+  if (visStep >= LIGHT_FADE_STEPS) return;
+  visFadeT = Math.min(1, visFadeT + dt/LIGHT_FADE);
+  const step = Math.max(visStep, Math.ceil(visFadeT*LIGHT_FADE_STEPS));
+  if (step === visStep) return;
+  visStep = step;
+  const k = step/LIGHT_FADE_STEPS;
+  for (let i=0; i<visArr.length; i++) visArr[i] = visFrom[i] + (visTgt[i]-visFrom[i])*k;
+  packLight();
 }
 
 /* NOTE: x/y here may be FRACTIONAL world coords (collision), so they MUST be
@@ -1020,6 +1240,13 @@ function update(dt){
   if (bumped && sprinting) emitNoise(0.55, p.x, p.y);
   else if (bumped) sustainedNoise(0.3, p.x, p.y);
 
+  /* --- room-scoped light ---
+     Runs AFTER movement, so the room you just walked into is the room that
+     lights up this frame. Checked before, it would lag a frame behind and
+     read as the fluorescents chasing you. */
+  scopeRoomLight(dt, false);
+  fadeRoomLight(dt);
+
   /* --- torch reveals --- */
   let seenBy = 0, nearest = 99;
   for (const a of G.agents){
@@ -1031,7 +1258,11 @@ function update(dt){
       const vx=Math.cos(a.face), vy=Math.sin(a.face);
       const dot = ((p.x-a.x)*vx + (p.y-a.y)*vy) / (d||1);
       if (dot > 0.28 && G.los(a.x,a.y,p.x,p.y)){
-        const amb = lightArr[Math.floor(p.y)*MAP_W+Math.floor(p.x)] || 0;
+        /* What it can see you by is the BAKE times the VISIBILITY, not the
+           bake alone. Reading the bake would let it see you standing in a
+           room whose lights are, as far as the screen is concerned, off. */
+        const pi = Math.floor(p.y)*MAP_W+Math.floor(p.x);
+        const amb = (lightArr[pi] || 0) * (visArr[pi] || 0);
         if (amb > 0.30 || G.torch && d<3.2){
           seenBy = Math.max(seenBy, 1);
           if (a.born<=0){ a.state='HUNT'; a.target={x:p.x,y:p.y}; a.t=0; }
@@ -1384,10 +1615,17 @@ function caught(){
   ctx.imageSmoothingEnabled = true;
   ctx.drawImage(lightCv, dx, dy, MAP_W*TILE*SCALE, MAP_H*TILE*SCALE);
 
-  // flickering fluorescents (additive, above the bake)
+  /* flickering fluorescents (additive, above the bake).
+     GATED BY VISIBILITY. The bake is a multiply, so an unlit room is already
+     dark — but this pass is 'lighter', which ADDS light on top of whatever
+     the bake left. Left ungated it paints every fixture on the floor at full
+     strength, so every "dark" room would have its tube blazing in it and the
+     room scoping would be invisible. */
   ctx.globalCompositeOperation='lighter';
   for (const f of G.fixtures){
-    let a = 0.12;
+    const fv = fixtureVis(f);
+    if (fv < 0.02) continue;
+    let a = 0.12 * fv;
     if (f.flicker){
       a *= (0.35 + 0.65*Math.max(0, Math.sin(t*0.001*f.flicker + f.phase)));
       if (Math.random()<0.02) a*=0.15;
@@ -1408,9 +1646,9 @@ function caught(){
     ctx.save();
     ctx.translate(fx, fy);
     ctx.rotate(f.phase);
-    ctx.fillStyle=`rgba(255,250,214,${0.10 + a*0.5})`;
+    ctx.fillStyle=`rgba(255,250,214,${(0.10 + a*0.5)*fv})`;
     ctx.fillRect(-tw2/2, -th2/2, tw2, th2);
-    ctx.fillStyle='rgba(255,252,226,0.10)';
+    ctx.fillStyle=`rgba(255,252,226,${0.10*fv})`;
     ctx.fillRect(-tw2/2, -th2/2, tw2, th2*0.45);
     ctx.restore();
   }
