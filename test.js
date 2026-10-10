@@ -845,5 +845,66 @@ console.log('[10] pressing into a wall produces no lateral drift and no teleport
   console.log('  no lateral drift on any axis, no teleports');
 }
 
+/* ============ TEST 11: room shape and gate size ====================
+   Spec: "smaller rooms, like mostly not above 120 tiles large, flowing one
+   into the other through smaller door-like gates, e.g. 2 tiles large."
+   So: room area capped, and the openings that link rooms are 2 tiles wide
+   rather than full-width gaps.                                             */
+console.log('[11] room shape (area cap) and 2-tile gates');
+{
+  let rooms=0, floors=0, side=[], maxArea=0, over120=0;
+  for (let f=0; f<30; f++){
+    buildFloor(f, 4000+f*613);
+    floors++;
+    for (const r of G.rooms){
+      rooms++;
+      side.push((r.rw+r.rh)/2);
+      const area = r.rw*r.rh;
+      if (area > maxArea) maxArea = area;
+      if (area > 120) over120++;
+    }
+  }
+  const mean = side.reduce((a,b)=>a+b,0)/side.length;
+  console.log(`  ${(rooms/floors).toFixed(0)} rooms/floor, mean side ${mean.toFixed(1)} tiles, `+
+              `max area ${maxArea} tiles`);
+  assert(rooms/floors > 40, `only ${(rooms/floors).toFixed(0)} rooms per floor`);
+  assert(over120 === 0, `${over120} rooms exceed 120 tiles of area (max was ${maxArea})`);
+
+  /* Gate width. A doorway through a wall band shows as W O O W along an axis;
+     a 1-tile gap shows as W O W. Tunnels flare where they meet a room, so
+     wide runs are expected — but 1-tile pinholes should be rare. */
+  buildFloor(0, 4000);
+  const sol=(x,y)=> (x<0||y<0||x>=76||y>=76) ? true : G.grid[y*76+x]===0;
+  let one=0, two=0;
+  for (let x=0;x<76;x++) for (let y=2;y<74;y++){
+    if (sol(x,y-1) && !sol(x,y)   &&  sol(x,y+1))            one++;
+    if (sol(x,y-1) && !sol(x,y)   && !sol(x,y+1) && sol(x,y+2)) two++;
+  }
+  for (let y=0;y<76;y++) for (let x=2;x<74;x++){
+    if (sol(x-1,y) && !sol(x,y)   &&  sol(x+1,y))            one++;
+    if (sol(x-1,y) && !sol(x,y)   && !sol(x+1,y) && sol(x+2,y)) two++;
+  }
+  const ratio = one/Math.max(1,two);
+  console.log(`  vertical-wall openings: ${two} two-tile, ${one} one-tile `+
+              `(${one+two} total)`);
+  assert(two > one*2, `only ${two} two-tile gates vs ${one} one-tile — gates are too narrow`);
+  assert(ratio < 0.5, `${(ratio*100).toFixed(0)}% of gates are 1 tile wide — rooms are pinholed, not linked`);
+
+  // rooms must actually link to each other, not sit sealed in solid rock
+  let isolated=0;
+  for (const r of G.rooms){
+    let opens=0;
+    const per=[[-1,0],[1,0],[0,-1],[0,1]];
+    for (let y=r.ry-1;y<=r.ry+r.rh;y++) for (let x=r.rx-1;x<=r.rx+r.rw;x++){
+      if (x<0||y<0||x>=76||y>=76) continue;
+      if (G.grid[y*76+x]===1) continue;
+      for (const [dx,dy] of per) if (G.grid[(y+dy)*76+(x+dx)]===1) opens++;
+    }
+    if (opens < 2) isolated++;
+  }
+  console.log(`  rooms with fewer than 2 doorway tiles: ${isolated}/${G.rooms.length}`);
+  assert(isolated === 0, `${isolated} rooms are effectively sealed — they do not flow into each other`);
+}
+
 console.log('\n' + (fail? `\n${fail} FAILURE(S)\n` : 'ALL TESTS PASSED\n'));
 process.exit(fail?1:0);

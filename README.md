@@ -115,11 +115,40 @@ What it actually checks:
 9. **Wall contact does not accelerate** — pushing into a wall for a simulated
    second must not move the avatar faster along the wall than it walks, and a
    sprint in the open must still reach full speed.
+11. **Room shape and gate size** — asserts room area never exceeds 120 tiles,
+    many small rooms per floor, that openings through wall bands are mostly
+    2 tiles wide rather than 1-tile pinholes, and that no room is effectively
+    sealed. This encodes the brief directly: small rooms, flowing into one
+    another through ~2-tile gates.
 10. **Pressing into a wall produces no lateral drift and no teleport** —
     holding a direction into a wall must not move the avatar sideways at all,
     no single frame may jump more than 0.2 tiles, and the avatar must end up
     flush (centre-to-face distance == collision radius, not sunk in and not
     short). Checked for up, left and right.
+
+### Level generation
+
+BSP subdivision driven by a **size ceiling**, not a depth counter — a fixed
+depth ran out of budget while cells were still ~18 tiles across, so every
+floor kept at least one room big enough to read as an empty field. Each cell
+is cut along its longer axis until it is at most 12 tiles, then carved as a
+room with an uneven 1-2 tile inset, so the band between neighbours stays thin
+and rooms read as linked rather than sealed.
+
+Every split punches a **2-tile gate** through the partition and tunnels it
+until it breaks into a room on each side, and ~45% of splits punch a second
+gate, so rooms chain rather than dead-end. Gates carry an explicit axis: a
+vertical partition takes a gate that straddles *columns*, a horizontal one
+straddles *rows*. (Those two were previously swapped, so gates landed beside
+the wall they were meant to pierce and the connectivity repair masked it by
+tunnelling diagonal holes through partitions.)
+
+Larger rooms then get extra partition stubs, 1-2 tiles thick and dead-ending
+partway across. These break up open carpet and make alcoves without dividing
+a room in two, which could strand one half and force the repair pass to tunnel
+a visible hole. Stubs are placed away from each room's centre so the player
+never spawns inside one, and fixtures, batteries and graffiti all pick
+validated floor tiles rather than blind random coordinates.
 
 ### Movement model
 
