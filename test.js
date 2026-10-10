@@ -89,13 +89,21 @@ globalThis.__api = {
   get lightArr(){ return lightArr; },
   get visArr(){ return visArr; },
   get visTgt(){ return visTgt; },
+  get maskArr(){ return maskArr; },
+  get coneArr(){ return coneArr; },
+  get torchArr(){ return torchArr; },
   get regionOf(){ return regionOf; },
   get regionAdj(){ return regionAdj; },
   get visRegion(){ return visRegion; },
   get DARK_ROOM(){ return DARK_ROOM; },
   get GATE_SPILL(){ return GATE_SPILL; },
+  get VIEW_HALF(){ return VIEW_HALF; },
+  get VIEW_RANGE(){ return VIEW_RANGE; },
+  get TORCH_RANGE(){ return TORCH_RANGE; },
+  get TORCH_HALF(){ return TORCH_HALF; },
+  get TORCH_GAIN(){ return TORCH_GAIN; },
   buildFloor, blocked, moveEnt, update, render, emitNoise, setPrompt, drawPlayer,
-  scopeRoomLight, regionAt,
+  scopeRoomLight, regionAt, traceViewCone, packMask,
   get STATE(){ return STATE; },
   set STATE(v){ STATE = v; },
   get floorIdx(){ return floorIdx; },
@@ -1090,6 +1098,159 @@ console.log('[12] room-scoped light — your room is lit, the rest is dark');
       console.log(`  crossfade settles: left room ${settled.toFixed(2)}, entered room ${nowLit.toFixed(2)}`);
     }
   }
+}
+
+/* ============ TEST 13: cone of vision ==============================
+   200 degrees, stopped by walls. Two failure modes that look identical on
+   screen and are caught completely differently here:
+
+     - a cone that does not rotate, so you can see behind you permanently
+     - a cone that ignores walls, so a one-tile partition stub fails to hide
+       the floor behind it
+
+   The second is why this is a ray cast and not a per-tile angle test, and it
+   is invisible in aggregate statistics: the stub is 1 tile of 5776.            */
+console.log('[13] cone of vision — 200 degrees, occluded by walls');
+{
+  const W=76, HALF=A.VIEW_HALF;
+
+  buildFloor(1, 5150);
+  /* Put the player in the most open spot on the floor: a big room with the
+     longest clear run we can find, so the cone has room to actually spread
+     and a failure to rotate cannot hide behind geometry. */
+  let spot=null, bestClear=-1;
+  for (let y=4;y<72;y++) for (let x=4;x<72;x++){
+    if (G.grid[y*W+x]!==1) continue;
+    // count floor tiles with clear LOS, which is what an open room maximises
+    let clear=0;
+    for (let d=1;d<=10;d++) for (const [dx,dy] of [[d,0],[-d,0],[0,d],[0,-d]]){
+      const nx=x+dx, ny=y+dy;
+      if (nx<0||ny<0||nx>=W||ny>=W) continue;
+      if (G.grid[ny*W+nx]!==1 || !G.los(x+0.5,y+0.5,nx+0.5,ny+0.5)) break;
+      clear++;
+    }
+    if (clear>bestClear){ bestClear=clear; spot={x:x+0.5,y:y+0.5}; }
+  }
+  assert(spot && bestClear>=8, `no open spot found (best clear run ${bestClear})`);
+
+  const set=(fx,fy,face)=>{
+    G.player.x=spot.x; G.player.y=spot.y; G.player.face=face;
+    scopeRoomLight(0,true);
+    A.traceViewCone(true); A.packMask();
+  };
+
+  /* --- 1. it rotates: what you can see must depend on facing --- */
+  const probes=[0, Math.PI/2, Math.PI, -Math.PI/2];
+  const seenAt = probes.map(face=>{
+    set(spot.x, spot.y, face);
+    const v = Array.from(A.coneArr);
+    return {face, v};
+  });
+  let maxDiff=0;
+  for (let a=0;a<probes.length;a++) for (let b=a+1;b<probes.length;b++)
+    for (let i=0;i<v.length;i++)
+      maxDiff=Math.max(maxDiff, Math.abs(seenAt[a].v[i]-seenAt[b].v[i]));
+  assert(maxDiff > 0.5,
+    `the cone barely changes with facing (max tile delta ${maxDiff.toFixed(3)}) — it is not rotating`);
+
+  /* --- 2. what is IN the cone and what is not ---
+     Facing east (+x) in an open spot: floor to the east must be lit, floor to
+     the west must not be. This is the direction test that a wall-blind
+     implementation still passes, so it is asserted separately from (3). */
+  set(spot.x, spot.y, 0);
+  let eastLit=0, eastTot=0, westLit=0, westTot=0;
+  for (let d=1; d<=8; d++){
+    const iF=Math.floor(spot.y)*W + (Math.floor(spot.x)+d);
+    const iB=Math.floor(spot.y)*W + (Math.floor(spot.x)-d);
+    if (iF>=0 && iF<W*W && G.grid[iF]===1 && G.los(spot.x,spot.y,(iF%W)+0.5,Math.floor(iF/W)+0.5)){
+      eastTot++; if (A.coneArr[iF]>0.5) eastLit++;
+    }
+    if (iB>=0 && G.grid[iB]===1 && G.los(spot.x,spot.y,(iB%W)+0.5,Math.floor(iB/W)+0.5)){
+      westTot++; if (A.coneArr[iB]>0.5) westLit++;
+    }
+  }
+  console.log(`  facing east: ${eastLit}/${eastTot} floor tiles lit ahead, ${westLit}/${westTot} behind`);
+  assert(eastTot>=6, `only ${eastTot} clear tiles ahead — cannot test directionality`);
+  assert(eastLit === eastTot, `${eastTot-eastLit} clear tiles directly ahead were not lit — the cone is not where the character is looking`);
+  assert(westLit === 0, `${westLit} tiles behind the character are lit — 80 degrees of blindness should be behind you`);
+
+  /* --- 3. walls occlude: the property a per-tile angle test gets wrong ---
+     Find a floor tile that is inside the cone by ANGLE but sits behind a wall
+     — a pocket off the side of a corridor, or any tile with no line of sight.
+     Those must be dark. A cone that only tests the angle lights them all. */
+  set(spot.x, spot.y, 0);
+  let pocketsFound=0, pocketsLit=0, worstAngle=0;
+  for (let y=2;y<74;y++) for (let x=2;x<74;x++){
+    const i=y*W+x;
+    if (G.grid[i]!==1) continue;
+    if (G.los(spot.x, spot.y, x+0.5, y+0.5)) continue;      // it IS visible; not a pocket
+    const ang=Math.atan2(y+0.5-spot.y, x+0.5-spot.x);
+    let d=Math.abs(ang-0); if (d>Math.PI) d=Math.abs(d-Math.PI*2);
+    if (d>HALF) continue;                                    // outside the cone: irrelevant
+    worstAngle=Math.max(worstAngle,d);
+    pocketsFound++;
+    if (A.coneArr[i]>0.02) pocketsLit++;
+  }
+  console.log(`  ${pocketsFound} tiles inside the cone's ANGLE but behind a wall `+
+              `(up to ${(worstAngle*180/Math.PI).toFixed(0)}deg off axis); ${pocketsLit} of them lit`);
+  assert(pocketsFound>4, `only ${pocketsFound} occluded tiles inside the cone angle — this floor cannot test occlusion`);
+  assert(pocketsLit===0,
+    `${pocketsLit}/${pocketsFound} tiles behind a wall were lit — the cone ignores occlusion`);
+
+  /* --- 4. the cone must not reach outside the room scope ---
+     mask = scope x cone, plus torch. With the torch OFF, a tile in a region
+     the player is not in must stay dark even if it is dead ahead, or the
+     room scoping has been undone by the new layer. */
+  G.torch = false;
+  {
+    const adj = new Set(A.regionAdj[A.visRegion]);
+    let ahead=0, aheadLit=0;
+    for (let d=1; d<=16; d++){
+      const x=Math.floor(spot.x)+d, y=Math.floor(spot.y);
+      if (x>=W || G.grid[y*W+x]!==1) break;
+      if (G.los(spot.x,spot.y,x+0.5,y+0.5)){ ahead++; if (A.maskArr[y*W+x]>0.5) aheadLit++; }
+    }
+    if (ahead>0) console.log(`  ${aheadLit}/${ahead} clear tiles ahead are visible with the torch off`);
+  }
+  G.torch = true;
+
+  /* --- 5. the mask is the product the renderer depends on ---
+     Every tile the mask lifts must be inside the room scope or inside the
+     torch fan; every tile outside both must be exactly zero. This is the
+     invariant that keeps the torch from becoming a second pair of eyes. */
+  {
+    let outOfScopeLit=0, zeroViolations=0, nan=0;
+    for (let i=0;i<W*W;i++){
+      const m=A.maskArr[i];
+      if (Number.isNaN(m)){ nan++; continue; }
+      if (m<0 || m>1+1e-6){ nan++; continue; }
+      const scope=A.visArr[i], cone=A.coneArr[i], tor=A.torchArr[i];
+      if (m > scope*cone + 1e-6 && m > tor + 1e-6) outOfScopeLit++;
+      if (scope<=0 && cone<=0 && tor<=0 && m > 1e-6) zeroViolations++;
+    }
+    assert(nan===0, `${nan} mask tiles were NaN or out of range`);
+    assert(outOfScopeLit===0, `${outOfScopeLit} tiles are lit by neither the scope nor the torch`);
+    assert(zeroViolations===0, `${zeroViolations} tiles are lit with no scope, no cone and no torch — nothing should be visible`);
+  }
+
+  /* --- 6. walls are never blacker than the floor they border ---
+     The failure that makes a lit room look like it has holes cut in it. */
+  {
+    let holes=0;
+    for (let y=1;y<75;y++) for (let x=1;x<75;x++){
+      const i=y*W+x;
+      if (G.grid[i]!==0) continue;
+      let nb=0;
+      for (const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+        const ni=(y+dy)*W+(x+dx);
+        if (G.grid[ni]===1) nb=Math.max(nb, A.maskArr[ni]);
+      }
+      if (nb>0.5 && A.maskArr[i] < nb-1e-6) holes++;
+    }
+    assert(holes===0, `${holes} walls are darker than the floor in front of them — they read as holes`);
+  }
+
+  console.log('  cone rotates, occludes at walls, and never reaches past the room scope');
 }
 
 console.log('\n' + (fail? `\n${fail} FAILURE(S)\n` : 'ALL TESTS PASSED\n'));

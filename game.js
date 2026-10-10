@@ -52,21 +52,54 @@ const WALL = 0, FLOOR = 1;
    The torch is deliberately untouched by this. It is portable, it is aimed,
    and it reveals exits in rooms you are not standing in — that is the whole
    reason it is worth spending battery on. */
-/* DARK_ROOM is a MULTIPLIER on the bake, not a brightness, and that matters:
-   the bake ranges 0.42 (a dim corner) to ~2.0 (under a tube), so any value
-   above ~0.15 lets a dark room's fixture hotspot out-shine your own room's
-   dim corner and the two become indistinguishable. 0.14 puts a dark room at
-   roughly a third of the dimmest lit tile, which is a clear silhouette
-   without ever being a void. */
-const DARK_ROOM      = 0.14;   // a room you are not standing in
-/* GATE_SPILL is deliberately well below 1. At 0.5 a neighbouring room
-   measured 58 mean luminance against 76 for the room you were standing in —
-   bright enough that the two rooms are hard to tell apart, which defeats the
-   whole point. At 0.30 the doorway reads as a lit slot with a dark room behind
-   it, which is what you actually want to see when you check a gate. */
+/* DARK_ROOM is a MULTIPLIER on the bake, not a brightness. It was 0.14 for a
+   while — chosen against measured luminance, since the bake spans 0.42 (a dim
+   corner) to ~2.0 (under a tube) and anything above ~0.15 lets a dark room's
+   fixture hotspot out-shine your own room's dim corner, at which point the two
+   rooms are indistinguishable and the feature is pointless. It is now 0:
+   rooms you are not standing in are black. Any non-zero floor here is an
+   ambient reveal of geometry the character cannot see, which is worse than
+   showing nothing — it reads as the game drawing a map rather than the
+   character looking at a room. */
+const DARK_ROOM      = 0.0;    // a room you are not standing in
+
+/* GATE_SPILL is deliberately well below 1. At 0.5 a neighbouring room measured
+   58 mean luminance against 76 for the room you were standing in — bright
+   enough that the two rooms are hard to tell apart, which defeats the whole
+   point. At 0.30 the doorway reads as a lit slot with a dark room behind it. */
 const GATE_SPILL     = 0.30;   // light that made it through an open gate
 const LIGHT_FADE     = 0.30;   // s, fluorescents coming up as you cross a threshold
 const LIGHT_FADE_STEPS = 10;   // the fade is quantised: a repack per frame is 116k writes
+
+/* ---- cone of vision ----
+   A 200 degree cone, so there is always 80 degrees of blindness behind you and
+   turning is how you check behind you. It is NOT a light: it decides what the
+   character can SEE, and it stops dead at a wall, so a partition hides the
+   room behind it however open the doorway is.
+
+   Cast as a fan of rays from the eye and stopped by geometry, rather than a
+   per-tile angle test. A per-tile test is O(5776) every frame and is also
+   wrong: it lights the floor on the far side of a one-tile partition stub,
+   which is exactly the case the ray cast gets right and the angle test does
+   not. */
+const VIEW_DEG   = 200;
+const VIEW_HALF  = VIEW_DEG*Math.PI/360;      // radians either side of facing
+const VIEW_RAYS  = 240;                        // angular fan resolution
+const VIEW_RANGE = 22;                         // hard stop; a room is at most 12 across
+const VIEW_STEP  = 0.35;                       // tile spacing along one ray
+
+/* The torch, as its own ray fan. Narrower and shorter than the cone, and
+   traced independently of it: a lamp is not a pair of eyes and must not be
+   clipped to the cone's 200 degrees. These match the numbers the renderer has
+   always drawn with, so what the torch reveals and what it looks like agree. */
+const TORCH_HALF  = 1.05;      // radians; matches the drawn beam's arc
+const TORCH_RANGE = 7.6;       // tiles; matches the drawn beam's radius
+const TORCH_RAYS  = 96;
+/* The torch reveals at less than full brightness, and that is the point. A beam
+   that lights a black room as brightly as the room you are standing in stops
+   being a torch and becomes a second pair of eyes, which would let you stand
+   still and sweep the whole floor for exits without ever entering a room. */
+const TORCH_GAIN  = 0.72;
 
 /* ---------- canvas ---------- */
 const cvs = document.getElementById('game');
@@ -482,6 +515,9 @@ let lightImg, lightCtx;      // the packed lightmap, repacked as visArr fades
 let regionOf, regionAdj, regionCount;  // lit spaces and how they connect
 let visArr, visFrom, visTgt;          // per-tile visibility: bake x room scope
 let visScratch;                       // preallocated, so scoping never allocates
+let maskArr, coneArr, torchArr, maskTmp;  // the combined visibility mask
+let maskCv, maskCtx, maskImg;             // its own 1-sample-per-tile canvas
+let coneTileX=-1, coneTileY=-1, coneFace=NaN, coneTorch=null;  // last traced pose
 let visRegion = -1;                   // the region the player is lighting
 let visStep = 0, visFadeT = 0;        // quantised crossfade between two regions
 
@@ -775,20 +811,48 @@ function buildFloor(floorNum, seed){
   regionAdj = regAdj;
   regionCount = nRegions;
 
-  /* pack to an image (4 samples/tile, upscaled smoothly at draw time).
-     The pack is bake x VISIBILITY, not the bake alone: visArr is 1 in the
-     player's own room, GATE_SPILL in the region they can see through a gate,
-     and DARK_ROOM everywhere else. Repacked whenever visArr moves. */
+  /* Pack the BAKE — pure, unchanged. Every viewer-side term (room scope, cone
+     of vision, torch) is folded into a single mask on a separate canvas, which
+     is what lets the torch still reveal rooms the room scope has zeroed out:
+     a second additive pass over an already-blackened frame would light nothing,
+     because there is no longer any geometry under it to reveal. One multiply,
+     one mask, and the mask can only ever remove light the bake put there. */
   lightCv = document.createElement('canvas');
   lightCv.width = MAP_W*LS; lightCv.height = MAP_H*LS;
   lightCtx = lightCv.getContext('2d');
   lightImg = lightCtx.createImageData(lightCv.width, lightCv.height);
+  for (let y=0;y<lightCv.height;y++){
+    const ty=(y/LS)|0, row=ty*MAP_W;
+    for (let x=0;x<lightCv.width;x++){
+      const b = Math.min(1, lightArr[row + ((x/LS)|0)]);
+      const k=(y*lightCv.width+x)*4;
+      lightImg.data[k]   = Math.min(255, 255*b + 18);
+      lightImg.data[k+1] = Math.min(255, 246*b + 16);
+      lightImg.data[k+2] = Math.min(255, 186*b + 10);
+      lightImg.data[k+3] = 255;
+    }
+  }
+  lightCtx.putImageData(lightImg, 0, 0);
+
   visArr  = new Float32Array(MAP_W*MAP_H).fill(DARK_ROOM);
   visFrom = new Float32Array(MAP_W*MAP_H).fill(DARK_ROOM);
   visTgt  = new Float32Array(MAP_W*MAP_H).fill(DARK_ROOM);
   visScratch = new Float32Array(MAP_W*MAP_H);
   visStep = 0;
   visRegion = -1;
+
+  /* The mask is a SEPARATE canvas at 1 sample per tile rather than another
+     term folded into the light bake. It changes every frame the character
+     turns, and folding it into the lightmap would mean repacking 116k pixels
+     on every small movement instead of 5.8k. */
+  maskArr  = new Float32Array(MAP_W*MAP_H);
+  coneArr  = new Float32Array(MAP_W*MAP_H);
+  torchArr = new Float32Array(MAP_W*MAP_H);
+  maskTmp  = new Float32Array(MAP_W*MAP_H);
+  maskCv = document.createElement('canvas');
+  maskCv.width = MAP_W; maskCv.height = MAP_H;
+  maskCtx = maskCv.getContext('2d');
+  maskImg = maskCtx.createImageData(MAP_W, MAP_H);
 
   /* --- entities --- */
   const spawn = {
@@ -841,6 +905,8 @@ function buildFloor(floorNum, seed){
   /* Light the room the player spawned in. After this point it follows them:
      G exists, so regionAt(G.player) is meaningful. */
   scopeRoomLight(0, true);
+  traceViewCone(true);
+  packMask();
 }
 
 /* ============================================================
@@ -872,12 +938,126 @@ function regionAt(x,y){
 }
 
 /* How visible a fixture is right now: the visibility of the tile it hangs
-   over. Sampled from visArr (the FADED field), not visTgt, so a tube does not
-   pop to full brightness the instant you enter its room. */
+   over, from the combined mask. Sampled from the CURRENT mask, not from a
+   target, so a tube does not pop to full brightness the instant you turn. */
 function fixtureVis(f){
   const tx=Math.floor(f.x), ty=Math.floor(f.y);
   if (tx<0||ty<0||tx>=MAP_W||ty>=MAP_H) return 0;
-  return visArr[ty*MAP_W+tx];
+  return maskArr[ty*MAP_W+tx];
+}
+
+/* ============================================================
+   WHAT THE CHARACTER CAN SEE
+   Three terms, one mask:
+
+     room scope   which lit space you are standing in (GATE_SPILL for
+                  the space next door, black beyond)
+     cone         200 degrees, stopped by walls
+     torch        aimed, narrow, and NOT occluded by the cone
+
+   The torch is a separate term rather than being drawn on top afterwards,
+   and that is the whole reason for the shape of this code. Folding the cone
+   into the light bake and then adding the torch additively does not work once
+   dark rooms are BLACK: the multiply has already reduced those rooms to zero,
+   so there is no geometry left underneath for an additive beam to reveal. It
+   lights the empty frame, not the room. One mask, one multiply, and the torch
+   reveals because the mask never zeroed the tiles it can reach.
+   ============================================================ */
+
+/* Fan of rays from (ox,oy) within halfAngle radians of `facing`, stopping at
+   the first wall. `gain` scales the result. Shared by the cone and the torch
+   because they are the same computation with different numbers. */
+function castFan(out, ox, oy, facing, halfAngle, range, rays, gain){
+  for (let r=0; r<rays; r++){
+    const a = facing - halfAngle + (rays===1 ? 0 : (r/(rays-1))*halfAngle*2);
+    const ca=Math.cos(a), sa=Math.sin(a);
+    for (let d=VIEW_STEP; d<=range; d+=VIEW_STEP){
+      const x=ox+ca*d, y=oy+sa*d;
+      const ix=x|0, iy=y|0;
+      if (ix<0||iy<0||ix>=MAP_W||iy>=MAP_H) break;
+      const i = iy*MAP_W+ix;
+      if (G.grid[i]===WALL) break;         // the wall occludes; stop the ray
+      const v = gain*(1 - 0.55*Math.min(1, d/range));
+      if (v > out[i]) out[i] = v;
+    }
+  }
+}
+
+/* Rebuild coneArr and torchArr, then fold everything into maskArr. Called
+   only when the pose moved, so standing still costs nothing at all. */
+function traceViewCone(force){
+  const p = G.player;
+  const tx=Math.floor(p.x), ty=Math.floor(p.y);
+  /* Torch state is part of the pose: pressing F while standing still must
+     retrace, or the beam only appears once you next move a tile. */
+  if (!force && tx===coneTileX && ty===coneTileY && p.face===coneFace && G.torch===coneTorch)
+    return false;
+  coneTileX=tx; coneTileY=ty; coneFace=p.face; coneTorch=G.torch;
+
+  coneArr.fill(0);
+  torchArr.fill(0);
+
+  const ex = p.x + Math.cos(p.face)*TORCH_OFF;
+  const ey = p.y + Math.sin(p.face)*TORCH_OFF;
+
+  /* The cone has no range limit and is not feathered by distance. It is a
+     statement about ANGLES and OCCLUSION only: inside 100 degrees of facing,
+     until a wall. Anything that reaches further than that is the room scope's
+     job, and letting the cone fade with distance on top of it would darken the
+     far corner of the room you are standing in — which is the one thing this
+     feature must never do. */
+  castFan(coneArr, ex, ey, p.face, VIEW_HALF, VIEW_RANGE, VIEW_RAYS, 1);
+
+  /* The torch is a light: it has a range and it falls off. It is traced
+     independently of the cone so it is not clipped to 100 degrees — the cone
+     is a limit on the eyes, not on the lamp. */
+  if (G.torch) castFan(torchArr, ex, ey, p.face, TORCH_HALF, TORCH_RANGE, TORCH_RAYS, TORCH_GAIN);
+
+  /* One tile of guaranteed visibility under the player. Without it the avatar
+     can back into a corner where every ray exits before reaching its own tile
+     and the figure renders inside a black hole. */
+  if (tx>=0&&ty>=0&&tx<MAP_W&&ty<MAP_H) coneArr[ty*MAP_W+tx]=1;
+
+  /* Walls: a wall you can see the face of is visible, and it is visible at
+     least as brightly as the floor in front of it, or a partition reads as a
+     hole cut in the world. A wall deep inside a block with nothing lit around
+     it stays black, which is what you want — you should not be able to see the
+     inside of the building. */
+  for (let y=0;y<MAP_H;y++) for (let x=0;x<MAP_W;x++){
+    const i=y*MAP_W+x;
+    if (G.grid[i]!==WALL) continue;
+    let m = 0;
+    if (x+1<MAP_W   && G.grid[i+1]===FLOOR)   m=Math.max(m, coneArr[i+1], torchArr[i+1]);
+    if (x>0        && G.grid[i-1]===FLOOR)   m=Math.max(m, coneArr[i-1], torchArr[i-1]);
+    if (y+1<MAP_H  && G.grid[i+MAP_W]===FLOOR) m=Math.max(m, coneArr[i+MAP_W], torchArr[i+MAP_W]);
+    if (y>0        && G.grid[i-MAP_W]===FLOOR) m=Math.max(m, coneArr[i-MAP_W], torchArr[i-MAP_W]);
+    coneArr[i] = Math.max(coneArr[i], m*0.9);
+    torchArr[i]= Math.max(torchArr[i], m*0.9);
+  }
+
+  /* Combine: room scope gates everything, then the cone, then the torch.
+     `max` and not a product — the torch has to be able to lift a tile the
+     scope and the cone both zeroed, which is the entire reason it is here. */
+  for (let i=0; i<maskArr.length; i++){
+    maskArr[i] = Math.min(1, Math.max(visArr[i]*coneArr[i], torchArr[i]));
+  }
+
+  /* One blur, at the very end. Applied to the combined mask so the cone edge,
+     the room threshold and the torch rim are all softened together; applied
+     before the combine it would let the torch's blur leak light around a
+     corner the ray cast had correctly stopped at. */
+  maskTmp.set(maskArr);
+  for (let y=0;y<MAP_H;y++) for (let x=0;x<MAP_W;x++){
+    const i=y*MAP_W+x;
+    let s=0,n=0;
+    for (let dy=-1;dy<=1;dy++) for (let dx=-1;dx<=1;dx++){
+      const nx=x+dx, ny=y+dy;
+      if (nx<0||ny<0||nx>=MAP_W||ny>=MAP_H) continue;
+      s+=maskTmp[ny*MAP_W+nx]; n++;
+    }
+    maskArr[i]=s/n;
+  }
+  return true;
 }
 
 /* Recompute the target visibility field for the region the player is in.
@@ -930,30 +1110,15 @@ function scopeRoomLight(dt, instant){
   }
   if (instant){
     visArr.set(visTgt);
-    packLight();
+    traceViewCone(true);   // the mask bakes in the scope, so it follows it
+    packMask();
   }
   return true;
 }
 
-/* Bake x visibility -> the lightmap image. This is the whole feature: the
-   bake is unchanged, so the room you are in still has its pools of light and
-   its dim corners, and every other room drops to a silhouette. */
-function packLight(){
-  const im = lightImg, W = lightCv.width;
-  for (let y=0; y<lightCv.height; y++){
-    const ty = (y/LS)|0, row = ty*MAP_W;
-    for (let x=0; x<W; x++){
-      const i0 = row + ((x/LS)|0);
-      const b = Math.min(1, lightArr[i0] * visArr[i0]);
-      const k = (y*W+x)*4;
-      im.data[k]   = Math.min(255, 255*b + 18);
-      im.data[k+1] = Math.min(255, 246*b + 16);
-      im.data[k+2] = Math.min(255, 186*b + 10);
-      im.data[k+3] = 255;
-    }
-  }
-  lightCtx.putImageData(im, 0, 0);
-}
+/* The bake is packed ONCE, at floor build. The viewer mask is repacked per
+   pose change; see traceViewCone. Keeping them apart is what makes the torch
+   work at all — see the note on the mask. */
 
 /* Advance the crossfade. Quantised: LIGHT_FADE_STEPS repacks over LIGHT_FADE
    seconds, so a room change costs 10 repacks and not one per frame forever. */
@@ -961,11 +1126,27 @@ function fadeRoomLight(dt){
   if (visStep >= LIGHT_FADE_STEPS) return;
   visFadeT = Math.min(1, visFadeT + dt/LIGHT_FADE);
   const step = Math.max(visStep, Math.ceil(visFadeT*LIGHT_FADE_STEPS));
-  if (step === visStep) return;
-  visStep = step;
-  const k = step/LIGHT_FADE_STEPS;
-  for (let i=0; i<visArr.length; i++) visArr[i] = visFrom[i] + (visTgt[i]-visFrom[i])*k;
-  packLight();
+  if (step !== visStep){
+    visStep = step;
+    const k = step/LIGHT_FADE_STEPS;
+    for (let i=0; i<visArr.length; i++) visArr[i] = visFrom[i] + (visTgt[i]-visFrom[i])*k;
+    /* The mask bakes in the room scope, so it has to follow the fade — but
+       only on fade steps, not every frame. */
+    traceViewCone(true);
+    packMask();
+  }
+}
+
+/* Mask -> image. 5776 writes on a turn, nothing at all while standing still.
+   Pure luminance: this is a visibility gate, not a colour. */
+function packMask(){
+  const d = maskImg.data;
+  for (let i=0; i<MAP_W*MAP_H; i++){
+    const b = Math.min(255, maskArr[i]*255);
+    const k = i*4;
+    d[k]=b; d[k+1]=b; d[k+2]=b; d[k+3]=255;
+  }
+  maskCtx.putImageData(maskImg, 0, 0);
 }
 
 /* NOTE: x/y here may be FRACTIONAL world coords (collision), so they MUST be
@@ -1246,6 +1427,7 @@ function update(dt){
      read as the fluorescents chasing you. */
   scopeRoomLight(dt, false);
   fadeRoomLight(dt);
+  if (traceViewCone(false)) packMask();
 
   /* --- torch reveals --- */
   let seenBy = 0, nearest = 99;
@@ -1610,10 +1792,15 @@ function caught(){
   /* ---------- 6. lighting ---------- */
   ctx.setTransform(1,0,0,1,0,0);
 
-  // ambient bake (multiply) — never pitch black, always mono-yellow
+  // ambient bake (multiply) — mono-yellow, and only where the character can see
   ctx.globalCompositeOperation='multiply';
   ctx.imageSmoothingEnabled = true;
   ctx.drawImage(lightCv, dx, dy, MAP_W*TILE*SCALE, MAP_H*TILE*SCALE);
+
+  /* The visibility mask: room scope x cone of vision, with the torch taking the
+     max. One multiply. Multiplicative, not additive, so it can only ever
+     REMOVE light the bake put there — which is the whole point. */
+  ctx.drawImage(maskCv, dx, dy, MAP_W*TILE*SCALE, MAP_H*TILE*SCALE);
 
   /* flickering fluorescents (additive, above the bake).
      GATED BY VISIBILITY. The bake is a multiply, so an unlit room is already
@@ -1653,37 +1840,15 @@ function caught(){
     ctx.restore();
   }
 
-  // torch — INFORMATION ONLY. it does not repel anything.
-  if (G.torch){
-    /* The beam starts at the torch, which is held out in FRONT of the figure.
-       It used to be anchored at (p.x,p.y) — the tile's top-left corner — while
-       the avatar was drawn at the tile centre, so the light appeared to come
-       from the top-left of the body rather than out of the torch. */
-    const thx = p.x + Math.cos(p.face)*TORCH_OFF;
-    const thy = p.y + Math.sin(p.face)*TORCH_OFF;
-    const px2=w2sx(thx), py2=w2sy(thy);
-    const rad=7.6*T;
-    ctx.save();
-    ctx.translate(px2,py2);
-    ctx.rotate(p.face);
-    const cone = ctx.createRadialGradient(0,0,6,0,0,rad);
-    cone.addColorStop(0,'rgba(255,250,214,0.26)');
-    cone.addColorStop(0.42,'rgba(238,230,180,0.15)');
-    cone.addColorStop(1,'rgba(210,200,150,0)');
-    ctx.fillStyle=cone;
-    ctx.beginPath();
-    ctx.moveTo(0,0);
-    ctx.arc(0,0,rad,-1.05,1.05);
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
-    // close spill so you never stand in pitch dark
-    const sp=ctx.createRadialGradient(px2,py2,0,px2,py2,rad*0.34);
-    sp.addColorStop(0,'rgba(232,224,176,0.09)');
-    sp.addColorStop(1,'rgba(232,224,176,0)');
-    ctx.fillStyle=sp;
-    ctx.fillRect(px2-rad*0.34,py2-rad*0.34,rad*0.68,rad*0.68);
-  }
+  /* The torch no longer gets an additive pass of its own. It used to, and
+     that was correct while the dark rooms still had geometry under them. It is
+     not correct now: the mask has already multiplied those rooms down to
+     black, so an additive beam paints a yellow haze onto an empty frame — a
+     glow with no room in it, which reads as a rendering fault rather than as
+     light. The torch's reveal now lives in the mask instead (see
+     traceViewCone), where it lifts the bake back up on the tiles the beam
+     actually reaches and leaves everything else at zero. It is still
+     INFORMATION ONLY and it still repels nothing. */
   ctx.globalCompositeOperation='source-over';
 
   /* ---------- 7. danger / awareness ---------- */
