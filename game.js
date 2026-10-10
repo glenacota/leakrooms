@@ -45,23 +45,43 @@ const WALL = 0, FLOOR = 1;
 /* Room-scoped light.
    The bake below is per FIXTURE: how bright a tile would be if its fluorescents
    were the only thing you could see. This is per VIEWER: of that bake, only
-   the room you are standing in is actually lit. The band of floor between two
-   rooms keeps a dim spill so a doorway reads as a doorway rather than a void,
-   and every other room falls to DARK_ROOM.
+   the parts you can actually see are lit. Rooms are separated by walls, so the
+   scope falls off with how many gates you must look through — see HOP_FALL.
 
    The torch is deliberately untouched by this. It is portable, it is aimed,
    and it reveals exits in rooms you are not standing in — that is the whole
    reason it is worth spending battery on. */
-/* DARK_ROOM is a MULTIPLIER on the bake, not a brightness. It was 0.14 for a
-   while — chosen against measured luminance, since the bake spans 0.42 (a dim
-   corner) to ~2.0 (under a tube) and anything above ~0.15 lets a dark room's
-   fixture hotspot out-shine your own room's dim corner, at which point the two
-   rooms are indistinguishable and the feature is pointless. It is now 0:
-   rooms you are not standing in are black. Any non-zero floor here is an
-   ambient reveal of geometry the character cannot see, which is worse than
-   showing nothing — it reads as the game drawing a map rather than the
-   character looking at a room. */
-const DARK_ROOM      = 0.0;    // a room you are not standing in
+/* DARK_ROOM is what a tile is worth when there is no scope at all — only
+   reachable in a degenerate state where the player is off the map. Normal
+   darkness is not this number: it is the product of the scope, the distance
+   falloff and the cone, and any tile the cone cannot reach is exactly black
+   regardless. It was 0.14 for a while, chosen against measured luminance, and
+   that was wrong twice over — it revealed geometry the character cannot see
+   (which reads as the game drawing a map), and it hid the fact that the scope
+   itself was a cliff. */
+const DARK_ROOM      = 0.0;
+
+/* How visible a region is, by how many gates you must look through to reach
+   it. This USED to be a cliff: your room 1.0, one gate away 0.30, everything
+   beyond hard zero. Measured on a 40-tile straight corridor, that blacked out
+   the floor from 10 tiles onward — dead ahead, in line of sight, inside a
+   200 degree cone — because the corridor happened to be a second region. You
+   could not see down a hallway in your own house.
+
+   So it is a falloff, not a cliff, and the falloff is what makes the "other
+   rooms are dark" rule survivable: a room two gates away down a clear line is
+   dim, and one four gates away is nearly black, but the light arrives
+   continuously instead of stopping at a boundary you cannot see. */
+const HOP_FALL = [1.0, 0.62, 0.40, 0.26, 0.17, 0.11];   // index = gates passed
+
+/* Distance attenuation, applied ONLY to regions that are not your own. Without
+   it a 40-tile corridor stays at 11% all the way to the far wall and reads as
+   a lit tube rather than a corridor receding into the dark. Your own room gets
+   no distance falloff at all: it is at most 12 tiles across, and dimming the
+   far corner of the room you are standing in is the one thing this whole
+   feature must never do. */
+const VIEW_FADE_NEAR = 13;    // tiles, full brightness up to here
+const VIEW_FADE_FAR  = 31;    // tiles, black from here
 
 /* BAKE_FLOOR is how dimmest a LIT surface is allowed to get. With darkness
    moved onto the mask this can sit at 1.0: a surface you can see is the
@@ -77,11 +97,6 @@ const DARK_ROOM      = 0.0;    // a room you are not standing in
    and the walls another 18% off that. */
 const BAKE_FLOOR     = 1.0;
 
-/* GATE_SPILL is deliberately well below 1. At 0.5 a neighbouring room measured
-   58 mean luminance against 76 for the room you were standing in — bright
-   enough that the two rooms are hard to tell apart, which defeats the whole
-   point. At 0.30 the doorway reads as a lit slot with a dark room behind it. */
-const GATE_SPILL     = 0.30;   // light that made it through an open gate
 const LIGHT_FADE     = 0.30;   // s, fluorescents coming up as you cross a threshold
 const LIGHT_FADE_STEPS = 10;   // the fade is quantised: a repack per frame is 116k writes
 
@@ -99,7 +114,7 @@ const LIGHT_FADE_STEPS = 10;   // the fade is quantised: a repack per frame is 1
 const VIEW_DEG   = 200;
 const VIEW_HALF  = VIEW_DEG*Math.PI/360;      // radians either side of facing
 const VIEW_RAYS  = 240;                        // angular fan resolution
-const VIEW_RANGE = 22;                         // hard stop; a room is at most 12 across
+const VIEW_RANGE = 34;                         // hard stop; the distance fade ends first
 /* VIEW_MID is how close a ray must pass to a tile's CENTRE for that tile to
    count as seen. It is a radius in tiles: 0.5 is the inscribed circle, 0.71
    the circumscribed one. Below 0.5 the tile goes black before its edge, which
@@ -976,12 +991,11 @@ function buildFloor(floorNum, seed){
    is what makes "the room you are in" mean a room.
    ============================================================ */
 
-/* Region visibility level: 0 hops = your room, 1 hop = through one
-   gate, 2+ = you would have to walk there to see it. */
+/* Region visibility level: how much of the room's own light survives the
+   number of gates between you and it. See HOP_FALL. */
 function scopeFor(hops){
-  if (hops <= 0) return 1;
-  if (hops === 1) return GATE_SPILL;
-  return DARK_ROOM;
+  if (hops < 0) return 0;
+  return HOP_FALL[Math.min(hops, HOP_FALL.length-1)];
 }
 
 function regionAt(x,y){
@@ -1141,11 +1155,31 @@ function traceViewCone(force){
     torchArr[i]= Math.max(torchArr[i], m);
   }
 
-  /* Combine: room scope gates everything, then the cone, then the torch.
-     `max` and not a product — the torch has to be able to lift a tile the
-     scope and the cone both zeroed, which is the entire reason it is here. */
+  /* Combine: room scope, then distance, then the cone. `max` with the torch
+     and not a product — the torch has to be able to lift a tile the scope and
+     the cone both zeroed, which is the entire reason it is in here.
+
+     The distance term is skipped for the player's own region (scope 1.0), so
+     the room you are standing in is uniformly bright no matter which corner
+     you are in. Everywhere else it is what turns a long corridor into a
+     corridor instead of a lit pipe. */
+  const px2=G.player.x, py2=G.player.y;
   for (let i=0; i<maskArr.length; i++){
-    maskArr[i] = Math.min(1, Math.max(visArr[i]*coneArr[i], torchArr[i]));
+    const sc = visArr[i], cn = coneArr[i];
+    let v = 0;
+    if (sc > 0 && cn > 0){
+      if (sc >= 0.999){
+        v = cn;                                   // your own room: no falloff
+      } else {
+        const dx=(i%MAP_W)+0.5-px2, dy=((i/MAP_W)|0)+0.5-py2;
+        const d=Math.sqrt(dx*dx+dy*dy);
+        let f = d<=VIEW_FADE_NEAR ? 1
+              : d>=VIEW_FADE_FAR  ? 0
+              : (VIEW_FADE_FAR-d)/(VIEW_FADE_FAR-VIEW_FADE_NEAR);
+        v = sc*f*cn;
+      }
+    }
+    maskArr[i] = Math.min(1, Math.max(v, torchArr[i]));
   }
   /* Deliberately NOT blurred. There was a 3x3 pass here and it quietly broke
      the centre of vision: an average of the player's own fully-lit tile with

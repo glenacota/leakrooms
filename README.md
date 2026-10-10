@@ -172,16 +172,24 @@ What it actually checks:
     disconnected region graph, the bake mutated in place instead of copied, a
     scope computed once at floor build that never follows the player, and a
     crossfade that either swaps on a single frame or never settles and leaves
-    you standing in a half-dark room.
+    you standing in a half-dark room. It also pins the falloff table itself —
+    strictly decreasing, and dim but non-zero at the far end — and asserts that
+    sight survives **down a straight corridor**: on a 40-tile clear run the mask
+    must still be lit 18 tiles out. That is the regression this falloff exists
+    to prevent, and the old step-function assertion could not see it.
 13. **Cone of vision** — 200 degrees, stopped by walls. Asserts that the cone
     *rotates* (the set of visible tiles must genuinely depend on facing), that
     floor directly ahead is lit and floor directly behind is not, and — the one
-    that matters — that tiles inside the cone's **angle** but with no line of
-    sight are dark. That last case is invisible in aggregate statistics: a
-    one-tile partition stub is 1 tile out of 5776, so a cone that ignores walls
-    still passes every brightness check. It also asserts the mask is exactly
-    the function the renderer depends on (lit by neither scope nor torch is
-    zero), and that walls are never blacker than the floor in front of them.
+    that matters — that tiles with no line of sight are never visible. That last
+    case is invisible in aggregate statistics: a one-tile partition stub is 1
+    tile out of 5776, so a cone that ignores walls still passes every brightness
+    check. The oracle is deliberately *neither* the game's voxel walk nor
+    Bresenham — it samples the sightline finely and asks whether any line
+    reaches a disc inside the tile, because the two traversals disagree by a
+    tile exactly at the corners where the question is interesting. It also
+    asserts the mask is the function the renderer depends on, and that **no
+    visible tile in your own room is ever dimmed** — the distance falloff must
+    not touch the room you are standing in.
 
 ### Lighting
 
@@ -203,12 +211,14 @@ once. Three terms:
 
 | term | what it is |
 |---|---|
-| room scope | a BFS over **regions**, not tiles |
+| room scope | a BFS over **regions**, falling off by gates crossed |
+| distance | 1.0 at 13 tiles to 0.0 at 31 — your own room excluded |
 | cone | 200 degrees, stopped by walls |
 | torch | aimed, narrow, and *not* clipped to the cone |
 
-`mask = min(1, max(scope × cone, torch))` — a `max` and not a product, and that
-is the load-bearing detail. It is what keeps the torch working at all.
+`mask = min(1, max(scope × distance × cone, torch))` — a `max` and not a
+product, and that is the load-bearing detail. It is what keeps the torch
+working at all.
 
 **Why the torch had to move into the mask.** It used to be its own additive
 pass drawn after the lighting. That was correct while unlit rooms still had
@@ -221,6 +231,24 @@ else at zero. It still reveals, still repels nothing, and still reveals at
 0.72 rather than 1.0 — a beam that lit a black room as brightly as the room you
 stand in would let you sweep the whole floor for exits without ever entering
 one.
+
+**Why the scope is a falloff, not a cliff.** It started as one: your room 1.0,
+one gate away 0.30, everything beyond hard zero. That is what you want between
+*rooms* — but a corridor is itself a band region, so on a measured 40-tile
+straight run the floor went black at 10 tiles while dead ahead, in line of
+sight, inside a 200 degree cone. You could not see down a hallway in your own
+house. The rule is now `1.00 → 0.62 → 0.40 → 0.26 → 0.17 → 0.11` by gates
+crossed, which keeps a room two gates away plainly darker than yours (6.5x,
+asserted) while letting light arrive continuously instead of stopping at a
+boundary you cannot see.
+
+**And why there is also a distance falloff.** `1.00` at 13 tiles to `0.00` at
+31, applied *only* outside your own room. Without it a 40-tile corridor stays at
+11% all the way to the far wall and reads as a lit pipe rather than a corridor
+receding into the dark. It is skipped for your own region on purpose: that room
+is at most 12 tiles across, and dimming the far corner of the room you are
+standing in is the one thing this whole feature must never do. Test 13 asserts
+that no visible tile in your own room is ever dimmed.
 
 **Why the scope is a BFS over regions.** Tile distance would be the obvious
 choice and would not work: a gate tunnel is two tiles wide, so the far side of a
@@ -236,8 +264,14 @@ bordered.
 **Why the cone is a ray cast.** A per-tile angle test is O(5776) every frame
 and is also wrong: it lights the floor on the far side of a one-tile partition
 stub, which is the case the ray cast gets right and the angle test does not.
+The traversal is an exact voxel walk rather than a fixed-distance sample,
+because sampling skipped walls it was clipping for a 0.4-tile sliver and lit
+the pocket behind them — 15 tiles out of 1722, invisible in any aggregate
+brightness number. A tile only counts as seen if the ray passes within
+`VIEW_MID` of its *centre*, so a tile you can only see the corner of counts as
+hidden rather than lit.
 
-Three things in here were wrong before they were right, and each is a trap
+Four things in here were wrong before they were right, and each is a trap
 rather than a typo:
 
 - The flicker pass is `lighter`, which *adds* light on top of whatever the bake
@@ -251,12 +285,14 @@ rather than a typo:
   Any average of a field with hard zeros in it eats into the lit side of every
   edge. There is no blur now; the 76x76 mask is bilinearly upscaled at draw
   time, which softens edges across about a tile without leaking.
+- The mask dimmed walls by 10% "so they would read as walls", which is
+  backwards. They already read as walls — different texture, and the bake floors
+  them at 80% of the carpet. Dimming them twice left them measurably darker
+  than the floor in front, which is the signature of a hole.
 
-The cone deliberately has **no distance falloff**. It is a statement about
-angles and occlusion only. With one it put the far corner of a room at 0.6 and
-the tile underfoot at 1.0, making the room you are standing in a gradient from
-bright to dim — the exact thing this feature exists to prevent. Only the torch,
-which is a light, falls off.
+The cone deliberately has **no falloff of its own**. It is a statement about
+angles and occlusion only; brightness falloff is a separate term so the torch
+can have one and your own room cannot.
 
 The room crossfade is quantised to ten repacks over `LIGHT_FADE`. The lightmap
 is 76x76 tiles at 4 samples per tile; repacking it every frame for a third of a

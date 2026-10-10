@@ -96,7 +96,9 @@ globalThis.__api = {
   get regionAdj(){ return regionAdj; },
   get visRegion(){ return visRegion; },
   get DARK_ROOM(){ return DARK_ROOM; },
-  get GATE_SPILL(){ return GATE_SPILL; },
+  get HOP_FALL(){ return HOP_FALL; },
+  get VIEW_FADE_NEAR(){ return VIEW_FADE_NEAR; },
+  get VIEW_FADE_FAR(){ return VIEW_FADE_FAR; },
   get VIEW_HALF(){ return VIEW_HALF; },
   get VIEW_RANGE(){ return VIEW_RANGE; },
   get TORCH_RANGE(){ return TORCH_RANGE; },
@@ -939,7 +941,7 @@ console.log('[11] room shape (area cap) and 2-tile gates');
    is a separate failure mode, so each gets its own assertion.             */
 console.log('[12] room-scoped light — your room is lit, the rest is dark');
 {
-  const W=76, H=76, DARK=A.DARK_ROOM, SPILL=A.GATE_SPILL;
+  const W=76, H=76, DARK=A.DARK_ROOM, HOP=A.HOP_FALL;
 
   const hopsFrom = (start)=>{
     const adj=A.regionAdj, hops=new Int32Array(adj.length).fill(-1);
@@ -967,6 +969,14 @@ console.log('[12] room-scoped light — your room is lit, the rest is dark');
 
   let floors=0, placed=0, leak=0, blackHole=0, noFollow=0, bakeMut=0, unreachable=0;
   let ownTotal=0, ownFloors=0, farTotal=0, farFloors=0;
+
+  /* The falloff must be strictly decreasing — a table that rises at hop 3
+     would light the room beyond a dark one, which is exactly the inversion
+     that made the old step function confusing. */
+  for (let i=1;i<HOP.length;i++)
+    assert(HOP[i] < HOP[i-1], `scope rises at ${i} gates: ${HOP[i-1]} -> ${HOP[i]}`);
+  assert(HOP[HOP.length-1] > 0 && HOP[HOP.length-1] < 0.2,
+    `the far end of the falloff is ${HOP[HOP.length-1]}, want dim but not zero`);
 
   for (let s=0; s<120; s++){
     buildFloor(s%5, s*7717+31);
@@ -1003,18 +1013,18 @@ console.log('[12] room-scoped light — your room is lit, the rest is dark');
 
       if (G.grid[i]===1){
         const r=regOf[i], h=hops[r]>=0?hops[r]:99;
+        const want = h>=HOP.length ? HOP[HOP.length-1] : HOP[h];
+        /* The scope must be exactly the falloff table for this tile's hop
+           count. It USED to be asserted as a three-value step function, which
+           is what let it be a cliff in the first place — nothing in the suite
+           noticed that a corridor went black ten tiles ahead. */
+        if (Math.abs(vis[i]-want) > 1e-6) leak++;
         if (h===0){
           // the room you are in: fully scoped, and bright enough to see by
           if (vis[i] < 0.999) leak++;
           if (shown < 0.40) blackHole++;
           ownSum+=shown; ownN++;
-        } else if (h===1){
-          if (Math.abs(vis[i]-SPILL) > 1e-6) leak++;   // spill ceiling, exactly
-        } else if (h>=2){
-          // the actual feature: rooms you are NOT in are dark
-          if (Math.abs(vis[i]-DARK) > 1e-6) leak++;
-          farSum+=shown; farN++;
-        }
+        } else { farSum+=shown; farN++; }
       } else {
         // a wall must never be darker than the brightest floor it touches —
         // that is what stops a partition from reading as a hole in the floor
@@ -1036,16 +1046,20 @@ console.log('[12] room-scoped light — your room is lit, the rest is dark');
     for (let i=0;i<W*H;i++) if (bake[i]!==bakeBefore[i]){ bakeMut++; break; }
 
     /* And it must FOLLOW the player: rescope into a different room, then
-       check the room just left went dark. A scope computed once at floor
-       build would pass every check above and still be a no-op in play. */
+       check the room just left is now dimmer than the one you are in. A scope
+       computed once at floor build would pass every check above and still be a
+       no-op in play. Note this used to assert the old room went BLACK; with a
+       falloff that is the wrong rule — leaving a room dims it, it does not
+       delete it. */
     const otherRi = (s*13+7)%rooms.length;
     if (otherRi!==homeRi && standIn(otherRi)){
       if (A.regionAt(G.player.x, G.player.y) !== A.visRegion) noFollow++;
       const oldR=rooms[homeRi];
+      const newScope = vis[Math.floor(G.player.y)*W+Math.floor(G.player.x)];
       for (let y=oldR.ry;y<oldR.ry+oldR.rh && !noFollow;y++)
         for (let x=oldR.rx;x<oldR.rx+oldR.rw;x++){
           const i=y*W+x;
-          if (G.grid[i]===1 && vis[i] > DARK+1e-6){ noFollow++; break; }
+          if (G.grid[i]===1 && vis[i] >= newScope - 1e-6){ noFollow++; break; }
         }
     }
   }
@@ -1055,16 +1069,14 @@ console.log('[12] room-scoped light — your room is lit, the rest is dark');
   assert(blackHole===0, `${blackHole} tiles were too dark to stand in or to see the wall beside`);
   assert(noFollow===0, `${noFollow} cases where the light did not follow the player into the next room`);
   assert(bakeMut===0, `${bakeMut} floors where scoping mutated the ambient bake in place`);
-  /* DARK_ROOM is 0, so the far rooms should be genuinely black and a ratio
-     against them is division by zero. Report that plainly rather than letting
-     an epsilon guard print a large fake number. */
-  const anyFarLit = farFloors > 0;
-  const ratio = anyFarLit ? (ownTotal/ownFloors)/(farTotal/farFloors) : Infinity;
-  assert(!anyFarLit || ratio > 2.0,
-    `your room is only ${ratio.toFixed(2)}x brighter than the rooms beyond it (want black, or >2x)`);
-  console.log(`  ${floors} floors, ${placed} scoped; ` +
-    (anyFarLit ? `your room is ${ratio.toFixed(2)}x brighter than the far ones`
-               : 'every room two gates away is fully black'));
+  /* The far rooms are dim now, not black — that is the point of the falloff —
+     but your own room must still be plainly brighter than them, or the whole
+     scoping rule has stopped meaning anything. */
+  const ratio = farFloors ? (ownTotal/ownFloors)/(farTotal/farFloors) : Infinity;
+  assert(ratio > 3.0,
+    `your room is only ${ratio.toFixed(2)}x brighter than the rooms beyond it (want >3)`);
+  console.log(`  ${floors} floors, ${placed} scoped; your room is ${ratio.toFixed(2)}x brighter than the far ones`);
+  console.log(`  scope falls off ${HOP.map(v=>v.toFixed(2)).join(' -> ')} by gates crossed`);
   console.log(`  no leaks, no black walls, bake untouched, light follows the player`);
 
   /* --- the crossfade is not optional decoration ---
@@ -1110,11 +1122,54 @@ console.log('[12] room-scoped light — your room is lit, the rest is dark');
       for (let i=0;i<600;i++) update(1/60);            // 10s: far past LIGHT_FADE
       const settled = A.visArr[ai];
       const nowLit  = A.visArr[bi];
-      assert(settled < DARK+1e-6, `the room you left settled at ${settled.toFixed(3)}, want <= ${DARK}`);
+      assert(settled < HOP[1]+1e-6, `the room you left settled at ${settled.toFixed(3)}, want <= ${HOP[1]}`);
       assert(nowLit  > 0.999, `the room you entered settled at ${nowLit.toFixed(3)}, want 1`);
       console.log(`  crossfade settles: left room ${settled.toFixed(2)}, entered room ${nowLit.toFixed(2)}`);
     }
   }
+
+  /* --- sight down a corridor, which is the bug this falloff exists to fix ---
+     A corridor is a band region, so under the old step-function scope it went
+     black two regions out: on a measured 40-tile straight run the floor died
+     at 10 tiles while dead ahead, in line of sight, inside the cone. Assert
+     that a clear straight line stays visible well past a single gate. */
+  {
+    let best=null;
+    for (let s=0; s<25 && !best; s++){
+      buildFloor(0, 3000+s*1777);
+      for (let i=0;i<2;i++) update(1/60);
+      for (let y=3;y<73 && !best;y++) for (let x=3;x<73;x++){
+        if (G.grid[y*W+x]!==1) continue;
+        let run=0;
+        while (x+run<73 && G.grid[y*W+x+run]===1) run++;
+        if (run<18) continue;
+        if (regionOfIdx(y*W+x)===regionOfIdx(y*W+x+run-1)) continue;
+        if (run > (best?best.run:0)) best={x,y,run};
+      }
+    }
+    assert(best, 'no long open run found to test sight distance with');
+    if (best){
+      G.player.x=best.x+0.5; G.player.y=best.y+0.5; G.player.face=0;
+      G.torch=false;                                  // isolate the cone + scope
+      A.scopeRoomLight(0,true); A.traceViewCone(true); A.packMask();
+      const at=(d)=>{ const i=best.y*W+best.x+d; return {d, mask:A.maskArr[i], scope:A.visArr[i], cone:A.coneArr[i]}; };
+      const far = at(Math.min(18, best.run-1));
+      const near= at(2);
+      console.log(`  straight ${best.run}-tile run: mask at 2 tiles ${near.mask.toFixed(2)}, `+
+                  `at ${far.d} tiles ${far.mask.toFixed(2)} (scope ${far.scope.toFixed(2)})`);
+      assert(far.cone > 0.5,
+        `the cone only reaches ${far.cone.toFixed(2)} at ${far.d} tiles down a clear straight line`);
+      assert(far.mask > 0.05,
+        `sight dies at ${far.d} tiles down a clear straight corridor — the scope is a cliff again`);
+      assert(far.mask < near.mask,
+        'a corridor does not get brighter with distance');
+      // and it must still fade out eventually, not run to the far wall
+      const end = at(best.run-1);
+      assert(end.mask <= far.mask + 1e-6,
+        'the corridor gets brighter toward the far end');
+    }
+  }
+  function regionOfIdx(i){ return A.regionOf[i]; }
 }
 
 /* ============ TEST 13: cone of vision ==============================
@@ -1289,12 +1344,33 @@ console.log('[13] cone of vision — 200 degrees, occluded by walls');
       if (Number.isNaN(m)){ nan++; continue; }
       if (m<0 || m>1+1e-6){ nan++; continue; }
       const scope=A.visArr[i], cone=A.coneArr[i], tor=A.torchArr[i];
+      /* Every term the mask is built from must be able to explain it. The
+         distance falloff only makes it SMALLER, so it can never be the source
+         of light — scope and cone together are an upper bound. */
       if (m > scope*cone + 1e-6 && m > tor + 1e-6) outOfScopeLit++;
       if (scope<=0 && cone<=0 && tor<=0 && m > 1e-6) zeroViolations++;
     }
     assert(nan===0, `${nan} mask tiles were NaN or out of range`);
     assert(outOfScopeLit===0, `${outOfScopeLit} tiles are lit by neither the scope nor the torch`);
     assert(zeroViolations===0, `${zeroViolations} tiles are lit with no scope, no cone and no torch — nothing should be visible`);
+  }
+
+  /* --- 6. your own room does not dim with distance ---
+     The distance falloff exists to make a corridor recede. It must not touch
+     the room you are standing in, which is at most 12 tiles across: the far
+     corner of your own room has to be as bright as the tile underfoot, or the
+     feature has quietly reintroduced the gradient it was built to remove. */
+  {
+    let dimmed=0, checked=0;
+    for (let y=1;y<75;y++) for (let x=1;x<75;x++){
+      const i=y*W+x;
+      if (G.grid[i]!==1 || A.visArr[i] < 0.999) continue;
+      if (A.coneArr[i] <= 0.02) continue;             // not in view: nothing to judge
+      checked++;
+      if (A.maskArr[i] < 0.999) dimmed++;
+    }
+    assert(checked>0, 'no visible tiles in the player\'s own room to check');
+    assert(dimmed===0, `${dimmed}/${checked} visible tiles in your own room are dimmed — the room must not fade with distance`);
   }
 
   /* --- 6. walls are never blacker than the floor they border ---
