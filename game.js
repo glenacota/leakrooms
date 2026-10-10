@@ -217,12 +217,12 @@ function buildPatterns(){
   g.fillStyle='rgba(232,220,150,0.16)'; g.fillRect(0,0,32,3);
   wallPat = ctx.createPattern(c,'repeat');
 
-  // --- wall top (seen from above) ---
+  // --- wall top (seen from directly above) ---
   c = document.createElement('canvas'); c.width=c.height=24;
   g = c.getContext('2d');
-  g.fillStyle='#8c8249'; g.fillRect(0,0,24,24);
-  for(let i=0;i<420;i++){
-    g.fillStyle = Math.random()<0.5?'rgba(60,55,28,0.25)':'rgba(180,170,110,0.20)';
+  g.fillStyle='#7d7442'; g.fillRect(0,0,24,24);
+  for(let i=0;i<520;i++){
+    g.fillStyle = Math.random()<0.5?'rgba(34,30,14,0.30)':'rgba(150,140,86,0.16)';
     g.fillRect(Math.random()*24, Math.random()*24, 2,2);
   }
   ceilPat = ctx.createPattern(c,'repeat');
@@ -230,8 +230,8 @@ function buildPatterns(){
   // --- VHS scanlines ---
   c = document.createElement('canvas'); c.width=1; c.height=4;
   g = c.getContext('2d');
-  g.fillStyle='rgba(0,0,0,0)'; g.fillRect(0,0,1,3);
-  g.fillStyle='rgba(0,0,0,0.85)'; g.fillRect(0,3,1,1);
+  g.fillStyle='rgba(0,0,0,0)'; g.fillRect(0,0,1,4);
+  g.fillStyle='rgba(0,0,0,0.28)'; g.fillRect(0,3,1,1);
   scanPat = ctx.createPattern(c,'repeat');
 
   // --- grain ---
@@ -256,7 +256,7 @@ function genMaze(rng){
 
   const leaves = [];
   (function split(x,y,w,h,depth){
-    const MIN = 15;
+    const MIN = 11;
     const tooSmall = (w < MIN*2 && h < MIN*2);
     if (depth <= 0 || tooSmall){
       leaves.push({x,y,w,h,id:leaves.length});
@@ -278,7 +278,7 @@ function genMaze(rng){
       const py = y + 2 + Math.floor(rng()*(h-4));
       doors.push([x+cut-1, py, x+cut, py]);
     }
-  })(1,1,MAP_W-2,MAP_H-2,4);
+  })(1,1,MAP_W-2,MAP_H-2,5);
 
   // carve each leaf as a room, inset unevenly (fake partition walls)
   for (const L of leaves){
@@ -374,7 +374,7 @@ function genMaze(rng){
    FLOOR STATE
    ============================================================ */
 let G;                       // everything below belongs to one floor
-let lightArr, lightCv;       // baked ambient light
+let lightArr, lightCv, postCv;  // postCv = VHS composite scratch
 
 function buildFloor(floorNum, seed){
   const rng = mulberry32(seed + floorNum*7919);
@@ -401,7 +401,7 @@ function buildFloor(floorNum, seed){
   }
 
   /* --- pick 3 exits, greedily spread across the floor --- */
-  const candidates = maze.rooms.filter(r=>r.rw>=8 && r.rh>=8);
+  const candidates = maze.rooms.filter(r=>r.rw>=6 && r.rh>=6);
   const pool = candidates.length>=6 ? candidates : maze.rooms;
   const exits = [];
   const entryRoom = pool[0];
@@ -425,26 +425,50 @@ function buildFloor(floorNum, seed){
     exits.push(best);
   }
 
-  /* --- each exit = an INTERIOR wall tile touching its room's floor.
+  /* --- each exit = an INTERIOR wall tile that touches open floor.
          Must not land on the outer border: there the player's body can
          never get within the descend radius, which would make the floor
-         unwinnable. --- */
+         unwinnable.
+         With a dense BSP the ring just outside a room is often another
+         room's floor rather than wall, so the ring alone is not enough —
+         hence three escalating fallbacks before we give up on a slot. --- */
   const exitTiles = [];
   const INTERIOR = (x,y)=> x>0 && y>0 && x<MAP_W-1 && y<MAP_H-1;
+  const touchesFloor = (tx,ty)=>
+    (inB(tx+1,ty)&&at(tx+1,ty)===FLOOR)||(inB(tx-1,ty)&&at(tx-1,ty)===FLOOR)||
+    (inB(tx,ty+1)&&at(tx,ty+1)===FLOOR)||(inB(tx,ty-1)&&at(tx,ty-1)===FLOOR);
+
   for (const r of exits){
+    // 1. the ring immediately around the room
     const ring = [];
     for (let x=r.rx; x<r.rx+r.rw; x++){ ring.push([x,r.ry-1]); ring.push([x,r.ry+r.rh]); }
     for (let y=r.ry; y<r.ry+r.rh; y++){ ring.push([r.rx-1,y]); ring.push([r.rx+r.rw,y]); }
-    const valid = ring.filter(([tx,ty]) =>
-      INTERIOR(tx,ty) && at(tx,ty)===WALL &&
-      (at(tx+1,ty)===FLOOR||at(tx-1,ty)===FLOOR||at(tx,ty+1)===FLOOR||at(tx,ty-1)===FLOOR));
-    // prefer a tile that also touches this room's own floor (a real doorway)
-    const own = valid.filter(([tx,ty]) =>
-      (tx>=r.rx&&tx<r.rx+r.rw&&(ty===r.ry-1||ty===r.ry+r.h ||
-        (ty>=r.ry&&ty<r.ry+r.rh&&(tx===r.rx-1||tx===r.rx+r.w)))));
-    const pool2 = (own.length ? own : valid);
+    let pool2 = ring.filter(([tx,ty]) => INTERIOR(tx,ty) && at(tx,ty)===WALL && touchesFloor(tx,ty));
+
+    // 2. any interior wall tile touching THIS room's floor
+    if (!pool2.length){
+      const near = [];
+      for (let y=r.ry; y<r.ry+r.rh; y++) for (let x=r.rx; x<r.rx+r.rw; x++){
+        for (const [tx,ty] of [[x,y-1],[x,y+1],[x-1,y],[x+1,y]])
+          if (INTERIOR(tx,ty) && at(tx,ty)===WALL && touchesFloor(tx,ty)) near.push([tx,ty]);
+      }
+      pool2 = near;
+    }
+    // 3. any interior wall tile touching floor anywhere — keeps the floor
+    //    winnable even if a room is fully walled in by other rooms
+    if (!pool2.length){
+      const any = [];
+      for (let y=1;y<MAP_H-1 && any.length<4000;y++) for (let x=1;x<MAP_W-1;x++){
+        if (at(x,y)===WALL && touchesFloor(x,y)) any.push([x,y]);
+      }
+      // prefer one reasonably near the room it belongs to
+      const cx=r.rx+r.rw/2, cy=r.ry+r.rh/2;
+      any.sort((a,b)=>Math.hypot(a[0]-cx,a[1]-cy)-Math.hypot(b[0]-cx,b[1]-cy));
+      pool2 = any.slice(0,60);
+    }
     if (!pool2.length) continue;
     const [bx,by] = pool2[(rng()*pool2.length)|0];
+    if (exitTiles.some(e=>e.x===bx && e.y===by)) continue;
     exitTiles.push({x:bx, y:by, found:false, open:0, room:r});
   }
 
@@ -524,7 +548,7 @@ function buildFloor(floorNum, seed){
       if (at(x,y)===WALL) continue;
       if (!los(f.x,f.y,x+0.5,y+0.5)) continue;
       const fall = 1 - Math.sqrt(d2)/f.r;
-      const v = f.i * fall * fall * 2.1;
+      const v = Math.min(1, f.i * fall * fall * 1.95);
       const i0 = y*MAP_W+x;
       if (v > lightArr[i0]) lightArr[i0] = v;
     }
@@ -544,18 +568,24 @@ function buildFloor(floorNum, seed){
   // nothing is ever fully black — the fluorescents are always humming
   for (let y=0;y<MAP_H;y++) for (let x=0;x<MAP_W;x++){
     const i=y*MAP_W+x;
-    if (at(x,y)===FLOOR && lightArr[i] < 0.13) lightArr[i] = 0.13;
+    if (at(x,y)===FLOOR && lightArr[i] < 0.42) lightArr[i] = 0.42;
   }
-  // walls catch light from adjacent floor (their face is visible)
+  // walls catch light from adjacent floor (their face is visible).
+  // This MUST read the post-blur, post-floor values. It used to read `tmp`
+  // (pre-blur and pre-ambient-floor), so a wall beside unlit floor got ~0
+  // light, multiplied to near-black, and every partition read as a hole in
+  // the ground rather than a wall.
+  const wallSrc = new Float32Array(lightArr);
   for (let y=0;y<MAP_H;y++) for (let x=0;x<MAP_W;x++){
     const i=y*MAP_W+x;
     if (at(x,y)!==WALL) continue;
     let m=0;
-    if (inB(x+1,y)&&at(x+1,y)===FLOOR) m=Math.max(m,tmp[i+1]);
-    if (inB(x-1,y)&&at(x-1,y)===FLOOR) m=Math.max(m,tmp[i-1]);
-    if (inB(x,y+1)&&at(x,y+1)===FLOOR) m=Math.max(m,tmp[i+MAP_W]);
-    if (inB(x,y-1)&&at(x,y-1)===FLOOR) m=Math.max(m,tmp[i-MAP_W]);
-    lightArr[i] = m*0.80;
+    if (inB(x+1,y)&&at(x+1,y)===FLOOR) m=Math.max(m,wallSrc[i+1]);
+    if (inB(x-1,y)&&at(x-1,y)===FLOOR) m=Math.max(m,wallSrc[i-1]);
+    if (inB(x,y+1)&&at(x,y+1)===FLOOR) m=Math.max(m,wallSrc[i+MAP_W]);
+    if (inB(x,y-1)&&at(x,y-1)===FLOOR) m=Math.max(m,wallSrc[i-MAP_W]);
+    // a wall deep inside a block still catches some bounce from its room
+    lightArr[i] = Math.max(m*0.95, 0.34);
   }
 
   // pack to an image (4 samples/tile, upscaled smoothly at draw time)
@@ -1047,32 +1077,66 @@ function caught(){
 /* ============================================================
    RENDER
    ============================================================ */
-const cam = {x:0,y:0, jx:0, jy:0};
+/* ---- camera ----
+     ONE mapping, used everywhere:
+        device_px = SCALE * (world_tiles*TILE + tx)
+     so the player's own tile always lands at the centre of the viewport, and
+     the light bake (which shares that origin) lines up with the geometry.
+     The previous version mixed a pre-scaled offset with a device-space one and
+     carried SCALE twice, which panned the world the wrong way and threw the
+     player off-screen. */
+  const cam = {x:0, y:0, jx:0, jy:0};
 
-function render(t){
-  if (!G) return;
-  const p=G.player;
+  function render(t){
+    if (!G) return;
+    const p=G.player;
 
-  /* camera follow with a slight lead + breathing */
-  cam.x += (p.x - cam.x) * Math.min(1, 0.12);
-  cam.y += (p.y - cam.y) * Math.min(1, 0.12);
-  const breathe = Math.sin(t*0.0009)*7;
-  cam.jx = (Math.random()-0.5)*2.4 + breathe*0.3;
-  cam.jy = (Math.random()-0.5)*2.4;
+    // camera follow + breathing jitter.
+    // Exponential smoothing with a TIME CONSTANT, not a fixed per-frame
+    // fraction: 0.12/frame is twice as fast at 144fps as at 72fps, which
+    // makes the camera lag inconsistently across machines.
+    const dt   = Math.max(0.001, Math.min(0.1, (t - (render.prevT || t-16))/1000));
+    render.prevT = t;
+    const k    = 1 - Math.exp(-dt/0.09);
+    cam.x += (p.x - cam.x) * k;
+    cam.y += (p.y - cam.y) * k;
+    const breathe = Math.sin(t*0.0009)*0.06;
+    cam.jx = (Math.random()-0.5)*0.10 + breathe*0.35;
+    cam.jy = (Math.random()-0.5)*0.10;
 
-  const px = cvs.width/(2*TILE*SCALE) ;
-  const ox = (cam.x - px)*TILE*SCALE + cam.jx;
-  const oy = (cam.y - cvs.height/(2*TILE*SCALE))*TILE*SCALE + cam.jy;
+    // clamp to the maze so the viewport is never half off-map void
+    const T = TILE*SCALE;
+    const halfW = cvs.width /(2*T), halfH = cvs.height/(2*T);
+    if (MAP_W > halfW*2) cam.x = Math.max(halfW, Math.min(MAP_W-halfW, cam.x));
+    if (MAP_H > halfH*2) cam.y = Math.max(halfH, Math.min(MAP_H-halfH, cam.y));
 
-  ctx.setTransform(SCALE,0,0,SCALE,0,0);
-  ctx.save();
-  ctx.translate(ox, oy);
+    // translate applied inside the scaled context, in world pixels
+    const tx = -cam.x*TILE + cvs.width /(2*SCALE) + cam.jx;
+    const ty = -cam.y*TILE + cvs.height/(2*SCALE) + cam.jy;
+    // same mapping, expressed in device pixels
+    const dx = tx*SCALE, dy = ty*SCALE;
+    const w2sx = wx => SCALE*(wx*TILE + tx);
+    const w2sy = wy => SCALE*(wy*TILE + ty);
 
-  const tlx = Math.floor((-ox)/TILE)-1, tly = Math.floor((-oy)/TILE)-1;
-  const tw  = Math.ceil(cvs.width/(TILE*SCALE))+3;
-  const th  = Math.ceil(cvs.height/(TILE*SCALE))+3;
+    // clean slate. Without this, anything the scene does not paint (the
+    // off-map margin at the maze edges) keeps last frame's pixels and the
+    // post-processors compound on top of it.
+    ctx.setTransform(1,0,0,1,0,0);
+    ctx.globalAlpha=1;
+    ctx.globalCompositeOperation='source-over';
+    ctx.fillStyle='#000';
+    ctx.fillRect(0,0,cvs.width,cvs.height);
 
-  const x0=Math.max(0,tlx), y0=Math.max(0,tly);
+    ctx.setTransform(SCALE,0,0,SCALE,0,0);
+    ctx.save();
+    ctx.translate(tx, ty);
+
+    const tlx = Math.floor(cam.x - cvs.width /(2*T)) - 1;
+    const tly = Math.floor(cam.y - cvs.height/(2*T)) - 1;
+    const tw  = Math.ceil(cvs.width /T) + 3;
+    const th  = Math.ceil(cvs.height/T) + 3;
+
+    const x0=Math.max(0,tlx), y0=Math.max(0,tly);
   const x1=Math.min(MAP_W-1,tlx+tw), y1=Math.min(MAP_H-1,tly+th);
 
   /* ---------- 1. carpet ---------- */
@@ -1087,25 +1151,54 @@ function render(t){
     }
   }
 
-  /* ---------- 2. wall faces (south-facing) ---------- */
+  /* ---------- 2. wall faces + contact shadow ---------- */
+  // The face is the vertical side of a partition, drawn into the floor tile
+  // below it. A soft shadow on the carpet under it sells the height, which is
+  // what makes a top-down maze read as a photographed room instead of a
+  // colour-coded grid.
   const FACE = TILE*0.46;
   for (let y=y0;y<=y1;y++) for (let x=x0;x<=x1;x++){
     if (G.grid[y*MAP_W+x]!==WALL) continue;
-    if (y+1<MAP_H && G.grid[(y+1)*MAP_W+x]===FLOOR){
-      ctx.fillStyle = wallPat;
-      ctx.fillRect(x*TILE, (y+1)*TILE, TILE, FACE);
-      ctx.fillStyle = 'rgba(30,26,12,0.34)';
-      ctx.fillRect(x*TILE, (y+1)*TILE+FACE-2, TILE, 2);
-    }
+    if (y+1>=MAP_H || G.grid[(y+1)*MAP_W+x]!==FLOOR) continue;
+    const fx=x*TILE, fy=(y+1)*TILE;
+
+    // shadow cast onto the carpet
+    const sh=ctx.createLinearGradient(0, fy, 0, fy+TILE*0.5);
+    sh.addColorStop(0,'rgba(12,10,4,0.30)');
+    sh.addColorStop(1,'rgba(12,10,4,0)');
+    ctx.fillStyle=sh;
+    ctx.fillRect(fx, fy, TILE, TILE*0.5);
+
+    // wallpapered face
+    ctx.fillStyle = wallPat;
+    ctx.fillRect(fx, fy, TILE, FACE);
+    // hard line where the face meets the ceiling
+    ctx.fillStyle='rgba(18,15,6,0.55)';
+    ctx.fillRect(fx, fy, TILE, 2);
+    // skirting shadow at the base
+    ctx.fillStyle='rgba(26,22,9,0.42)';
+    ctx.fillRect(fx, fy+FACE-2, TILE, 2);
   }
 
   /* ---------- 3. wall tops ---------- */
-  ctx.fillStyle = ceilPat;
+  // Seen from directly above, so they read as the top of a partition: cooler
+  // and clearly darker than the carpet. Deliberately NO per-tile banding —
+  // a lip/edge/seam on every tile made a solid wall block look like decking.
+  // Edges are drawn only where wall actually meets carpet.
   for (let y=y0;y<=y1;y++) for (let x=x0;x<=x1;x++){
     if (G.grid[y*MAP_W+x]!==WALL) continue;
+    ctx.fillStyle = ceilPat;
     ctx.fillRect(x*TILE, y*TILE, TILE, TILE);
-    ctx.fillStyle='rgba(20,17,8,0.20)';
-    ctx.fillRect(x*TILE, y*TILE, TILE, 3);
+  }
+  ctx.fillStyle='rgba(10,8,3,0.55)';
+  for (let y=y0;y<=y1;y++) for (let x=x0;x<=x1;x++){
+    if (G.grid[y*MAP_W+x]!==WALL) continue;
+    const below = (y+1<MAP_H && G.grid[(y+1)*MAP_W+x]===FLOOR);
+    if (below){ ctx.fillRect(x*TILE, y*TILE+TILE-2, TILE, 2); }
+    if (x>0      && G.grid[y*MAP_W+x-1]===FLOOR) ctx.fillRect(x*TILE, y*TILE, 2, TILE);
+    if (x<MAP_W-1 && G.grid[y*MAP_W+x+1]===FLOOR) ctx.fillRect(x*TILE+TILE-2, y*TILE, 2, TILE);
+    if (y>0      && G.grid[(y-1)*MAP_W+x]===FLOOR) ctx.fillRect(x*TILE, y*TILE, TILE, 2);
+    if (y<MAP_H-1 && G.grid[(y+1)*MAP_W+x]===FLOOR) ctx.fillRect(x*TILE, y*TILE+TILE-2, TILE, 2);
   }
 
   /* ---------- 4. world markers ---------- */
@@ -1159,18 +1252,18 @@ function render(t){
   // ambient bake (multiply) — never pitch black, always mono-yellow
   ctx.globalCompositeOperation='multiply';
   ctx.imageSmoothingEnabled = true;
-  ctx.drawImage(lightCv, ox, oy, MAP_W*TILE*SCALE, MAP_H*TILE*SCALE);
+  ctx.drawImage(lightCv, dx, dy, MAP_W*TILE*SCALE, MAP_H*TILE*SCALE);
 
   // flickering fluorescents (additive, above the bake)
   ctx.globalCompositeOperation='lighter';
   for (const f of G.fixtures){
-    let a = 0.16;
+    let a = 0.12;
     if (f.flicker){
       a *= (0.35 + 0.65*Math.max(0, Math.sin(t*0.001*f.flicker + f.phase)));
       if (Math.random()<0.02) a*=0.15;
     }
-    const fx=(f.x*TILE)*SCALE+ox, fy=(f.y*TILE)*SCALE+oy;
-    const rr=f.r*TILE*SCALE;
+    const fx=w2sx(f.x), fy=w2sy(f.y);
+    const rr=f.r*T;
     if (fx<-rr||fy<-rr||fx>cvs.width+rr||fy>cvs.height+rr) continue;
     const gr=ctx.createRadialGradient(fx,fy,0,fx,fy,rr);
     gr.addColorStop(0,`rgba(255,248,196,${a})`);
@@ -1178,21 +1271,30 @@ function render(t){
     gr.addColorStop(1,'rgba(180,170,110,0)');
     ctx.fillStyle=gr;
     ctx.fillRect(fx-rr,fy-rr,rr*2,rr*2);
-    // the tube itself
-    ctx.fillStyle=`rgba(255,252,220,${0.32+a})`;
-    ctx.fillRect(fx-rr*0.13, fy-rr*0.05, rr*0.26, rr*0.1);
+    /* The tube itself must be a FIXED physical size. It used to scale with
+       f.r (the 10-19 tile light radius), painting a 130-400px additive slab
+       per fixture; two or three overlapping blew the whole frame to white. */
+    const tw2 = 2.4*T, th2 = 0.34*T;
+    ctx.save();
+    ctx.translate(fx, fy);
+    ctx.rotate(f.phase);
+    ctx.fillStyle=`rgba(255,250,214,${0.10 + a*0.5})`;
+    ctx.fillRect(-tw2/2, -th2/2, tw2, th2);
+    ctx.fillStyle='rgba(255,252,226,0.10)';
+    ctx.fillRect(-tw2/2, -th2/2, tw2, th2*0.45);
+    ctx.restore();
   }
 
   // torch — INFORMATION ONLY. it does not repel anything.
   if (G.torch){
-    const px2=p.x*TILE*SCALE+ox, py2=p.y*TILE*SCALE+oy;
-    const rad=7.6*TILE*SCALE;
+    const px2=w2sx(p.x), py2=w2sy(p.y);
+    const rad=7.6*T;
     ctx.save();
     ctx.translate(px2,py2);
     ctx.rotate(p.face);
     const cone = ctx.createRadialGradient(0,0,6,0,0,rad);
-    cone.addColorStop(0,'rgba(255,250,214,0.42)');
-    cone.addColorStop(0.42,'rgba(238,230,180,0.17)');
+    cone.addColorStop(0,'rgba(255,250,214,0.26)');
+    cone.addColorStop(0.42,'rgba(238,230,180,0.15)');
     cone.addColorStop(1,'rgba(210,200,150,0)');
     ctx.fillStyle=cone;
     ctx.beginPath();
@@ -1200,21 +1302,13 @@ function render(t){
     ctx.arc(0,0,rad,-1.05,1.05);
     ctx.closePath();
     ctx.fill();
-    // faint peripheral spill so the beam has a soft edge
-    ctx.strokeStyle='rgba(232,224,176,0.10)';
-    ctx.lineWidth=rad*0.34;
-    ctx.beginPath();
-    ctx.moveTo(0,0);
-    ctx.arc(0,0,rad*0.80,-1.25,1.25);
-    ctx.closePath();
-    ctx.fill();
     ctx.restore();
     // close spill so you never stand in pitch dark
-    const sp=ctx.createRadialGradient(px2,py2,0,px2,py2,rad*0.3);
-    sp.addColorStop(0,'rgba(232,224,176,0.16)');
+    const sp=ctx.createRadialGradient(px2,py2,0,px2,py2,rad*0.34);
+    sp.addColorStop(0,'rgba(232,224,176,0.09)');
     sp.addColorStop(1,'rgba(232,224,176,0)');
     ctx.fillStyle=sp;
-    ctx.fillRect(px2-rad*0.3,py2-rad*0.3,rad*0.6,rad*0.6);
+    ctx.fillRect(px2-rad*0.34,py2-rad*0.34,rad*0.68,rad*0.68);
   }
   ctx.globalCompositeOperation='source-over';
 
@@ -1231,15 +1325,29 @@ function render(t){
   const vg2=ctx.createRadialGradient(cvs.width/2,cvs.height/2,cvs.height*0.30,
                                      cvs.width/2,cvs.height/2,cvs.height*0.95);
   vg2.addColorStop(0,'rgba(0,0,0,0)');
-  vg2.addColorStop(1,'rgba(0,0,0,0.82)');
+  vg2.addColorStop(1,'rgba(0,0,0,0.52)');
   ctx.fillStyle=vg2; ctx.fillRect(0,0,cvs.width,cvs.height);
 
   /* ---------- 8. VHS composite ---------- */
+  /* The chromatic ghost used to do drawImage(cvs, ...) — the canvas ONTO
+     ITSELF — with 'lighter'. That feeds back: each frame's source already
+     contained the previous frame's ghost, so brightness compounded until the
+     whole image desaturated to flat white. Snapshot first, then composite
+     the ghost from the snapshot, and clear at the top of the frame. */
+  if (!postCv || postCv.width!==cvs.width || postCv.height!==cvs.height){
+    postCv = document.createElement('canvas');
+    postCv.width = cvs.width; postCv.height = cvs.height;
+  }
+  const pg = postCv.getContext('2d');
+  pg.globalCompositeOperation='copy';
+  pg.drawImage(cvs,0,0);
+  pg.globalCompositeOperation='source-over';
+
   // tracking band
   const bandY = ((t*0.055) % (cvs.height+220)) - 110;
   const tg=ctx.createLinearGradient(0,bandY,0,bandY+110);
   tg.addColorStop(0,'rgba(255,255,255,0)');
-  tg.addColorStop(0.5,'rgba(255,248,220,0.055)');
+  tg.addColorStop(0.5,'rgba(255,248,220,0.05)');
   tg.addColorStop(1,'rgba(255,255,255,0)');
   ctx.fillStyle=tg; ctx.fillRect(0,bandY,cvs.width,110);
 
@@ -1251,41 +1359,53 @@ function render(t){
 
   // grain
   ctx.globalCompositeOperation='overlay';
-  ctx.globalAlpha=0.055;
+  ctx.globalAlpha=0.032;
   const gx=-(Math.random()*160)|0, gy=-(Math.random()*160)|0;
   for(let y=gy;y<cvs.height;y+=160) for(let x=gx;x<cvs.width;x+=160) ctx.drawImage(grainCv,x,y);
   ctx.globalAlpha=1;
   ctx.globalCompositeOperation='source-over';
 
-  // chromatic ghost
+  // chromatic ghost, from the snapshot — bounded, no feedback
   ctx.globalCompositeOperation='lighter';
-  ctx.globalAlpha=0.055;
+  ctx.globalAlpha=0.03;
   const ca = 1 + Math.round(Math.random()*2);
-  ctx.drawImage(cvs, -ca, 0);
-  ctx.drawImage(cvs, ca*1.6, 0);
+  ctx.drawImage(postCv, -ca, 0);
+  ctx.drawImage(postCv,  ca, 0);
   ctx.globalAlpha=1;
   ctx.globalCompositeOperation='source-over';
 
   // dropouts
   if (Math.random()<0.02){
     const y=(Math.random()*cvs.height)|0;
-    ctx.fillStyle='rgba(210,206,190,0.16)';
+    ctx.fillStyle='rgba(210,206,190,0.14)';
     ctx.fillRect(0,y,cvs.width,1+Math.random()*2|0);
   }
 }
 
 function drawPlayer(p, t){
   const x=(p.x+0.5)*TILE, y=(p.y+0.5)*TILE;
-  ctx.fillStyle='rgba(10,8,4,0.42)';
-  ctx.beginPath(); ctx.ellipse(x, y+7, TILE*0.34, TILE*0.17, 0,0,6.283); ctx.fill();
-  // body
-  ctx.fillStyle='#22201a';
-  ctx.beginPath(); ctx.ellipse(x, y+2, TILE*0.28, TILE*0.31, 0,0,6.283); ctx.fill();
-  // head, offset "up" so it reads as a figure seen from behind/above
-  ctx.fillStyle='#8d8262';
-  ctx.beginPath(); ctx.arc(x, y-3, TILE*0.155, 0, 6.283); ctx.fill();
-  ctx.fillStyle='rgba(0,0,0,0.35)';
-  ctx.beginPath(); ctx.arc(x, y-1.5, TILE*0.155, 0.2, 2.94); ctx.fill();
+
+  // contact shadow
+  ctx.fillStyle='rgba(10,8,4,0.45)';
+  ctx.beginPath(); ctx.ellipse(x+2, y+9, TILE*0.36, TILE*0.18, 0,0,6.283); ctx.fill();
+
+  // shoulders, offset slightly "up" so it reads as a figure seen from behind
+  ctx.fillStyle='#191712';
+  ctx.beginPath(); ctx.ellipse(x, y+1, TILE*0.31, TILE*0.34, 0,0,6.283); ctx.fill();
+  ctx.fillStyle='#2e2b22';
+  ctx.beginPath(); ctx.ellipse(x, y-1, TILE*0.26, TILE*0.26, 0,0,6.283); ctx.fill();
+
+  // head
+  ctx.fillStyle='#b7a97e';
+  ctx.beginPath(); ctx.arc(x, y-5, TILE*0.155, 0, 6.283); ctx.fill();
+  ctx.fillStyle='rgba(20,16,6,0.45)';
+  ctx.beginPath(); ctx.arc(x, y-3.6, TILE*0.155, 0.25, 2.89); ctx.fill();
+
+  // facing nub — you must know which way you are looking with the torch off
+  ctx.fillStyle='#d8c894';
+  ctx.beginPath();
+  ctx.arc(x + Math.cos(p.face)*TILE*0.30, y + Math.sin(p.face)*TILE*0.30, TILE*0.075, 0, 6.283);
+  ctx.fill();
 }
 
 function drawAgent(a, t){

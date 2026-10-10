@@ -76,7 +76,7 @@ Three lives for a full descent.
 ## Tests
 
 ```
-node test.js      # exit 0 = pass, ~65s
+node test.js      # exit 0 = pass, ~70s
 ```
 
 `game.js` is DOM/canvas-coupled, so `test.js` stubs enough of both to load the
@@ -100,14 +100,35 @@ What it actually checks:
    connectivity is not navigability: a one-tile corridor can be connected on the
    grid and still trap a disc of the player's radius. This samples the
    collision disc across free space at quarter-tile resolution and flood-fills
-   it. All 1 765 616 free positions across 25 floors are reachable from spawn,
+   it. All 1 742 752 free positions across 25 floors are reachable from spawn,
    which is a guarantee that **no position on any generated map can soft-lock
    the player.**
+7. **Camera mapping** — asserts the player's tile lands at the viewport centre,
+   that a fixed world point moves the *opposite* way on screen to the direction
+   of travel, that `SCALE` is applied exactly once (10 tiles spans exactly
+   10·TILE·SCALE), and that the light bake shares the geometry's origin.
+
+### Verified in a real browser
+
+Test 7 came from a build that was unplayable despite passing tests 1–6. Three
+bugs only a rendered frame could reveal:
+
+- The camera offset mixed a pre-scaled value with a device-space one and
+  carried `SCALE` twice, so the world panned the wrong way and the player left
+  the screen.
+- The chroma ghost drew the canvas *onto itself* with `lighter`, feeding back
+  each frame's ghost into the next until the image desaturated to flat white.
+- Fixture radii were `f.r * T * T` — `T` squared — making every light a
+  19 000px disc that saturated the entire frame.
+
+Checked after the fix: moving right raises world-x while a fixed landmark
+slides left on screen, mean luminance 97/255, 0.1% clipped, 2% near-black,
+33% wall coverage around the player.
 
 ### Known gaps
 
 - **Difficulty is untuned.** A bot cannot tell you whether three lives across a
   ten-minute descent is fun or brutal. That needs a human.
-- Nothing has been viewed in a real browser. The rendering code is
-  exception-free under a stub context and the maths is unit-checked, but
-  composition, palette and the VHS overlay have not been looked at.
+- Wall tops are lit from their neighbours rather than self-lit, so a partition
+  deep inside a block is flatter than one bordering a room. It reads fine but
+  is a simplification.

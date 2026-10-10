@@ -14,13 +14,16 @@
    ============================================================ */
 const fs = require('fs');
 
-const calls = { pattern:0, imageData:0, gradient:0 };
+const calls = { pattern:0, imageData:0, gradient:0, list:[] };
 
 function fakeCtx(){
   const noop = ()=>{};
   const grad = { addColorStop: noop };
   return new Proxy({
     canvas:{width:0,height:0},
+    setTransform(...a){ calls.list.push(['setTransform',...a]); },
+    translate(...a){ calls.list.push(['translate',...a]); },
+    drawImage(...a){ calls.list.push(['drawImage',...a]); },
     createPattern: ()=>{ calls.pattern++; return {}; },
     createImageData:(w,h)=>{ calls.imageData++; return {width:w,height:h,data:new Uint8ClampedArray(w*h*4)}; },
     putImageData: noop, getImageData: noop,
@@ -88,7 +91,8 @@ globalThis.__api = {
   set STATE(v){ STATE = v; },
   get floorIdx(){ return floorIdx; },
   get keys(){ return keys; },
-  buildFloor, blocked, moveEnt, update, render, emitNoise, setPrompt
+  buildFloor, blocked, moveEnt, update, render, emitNoise, setPrompt,
+  get cvs(){ return cvs; }, get TILE(){ return TILE; }
 };
 `, ctxObj);
 
@@ -603,6 +607,63 @@ console.log('[6] config-space connectivity — 25 floors at 1/4-tile resolution'
   }
   console.log(`  ${cellsTotal} free disc positions sampled across 25 floors`);
   assert(trappedTotal===0, `${trappedTotal} positions are legal but unreachable — the player can soft-lock there`);
+}
+
+/* ============ TEST 7: camera mapping ==============================
+   The first playable build panned the world the wrong way and threw the
+   player off-screen: the camera offset mixed a pre-scaled value with a
+   device-space one and carried SCALE twice. Lock the mapping down.        */
+console.log('[7] camera mapping — player centred, world not inverted');
+{
+  buildFloor(2, 31337);
+  G.player.x = 51.25; G.player.y = 18.6; G.player.face = 0;
+  for (let i=1;i<=90;i++) render(1000 + i*16.7);   // let the camera settle
+
+  calls.list.length = 0;
+  render(1000 + 91*16.7);
+
+  let SCALE=1, tx=null, ty=null, lightDraw=null;
+  for (const c of calls.list){
+    if (c[0]==='setTransform' && SCALE===1 && c[1]!==1) SCALE = c[1];   // FIRST one is the camera
+    if (c[0]==='translate' && tx===null){ tx = c[1]; ty = c[2]; }
+    if (c[0]==='drawImage' && lightDraw===null) lightDraw = c;
+  }
+  assert(SCALE>0, 'no setTransform captured');
+  assert(tx!==null, 'no translate captured');
+  const TW = A.TILE;
+  const w2s = (wx,wy)=> [ SCALE*(wx*TW + tx), SCALE*(wy*TW + ty) ];
+
+  const [pxDev, pyDev] = w2s(G.player.x+0.5, G.player.y+0.5);
+  const CW = A.cvs.width, CH = A.cvs.height;
+  const tol = TW*SCALE*0.6;
+  assert(Math.abs(pxDev-CW/2) < tol,
+    `player x is ${(pxDev-CW/2).toFixed(0)}px from centre (tol ${tol.toFixed(0)})`);
+  assert(Math.abs(pyDev-CH/2) < tol,
+    `player y is ${(pyDev-CH/2).toFixed(0)}px from centre`);
+
+  // orientation: 5 tiles to the LEFT must be LEFT of centre on screen
+  const [lxDev] = w2s(G.player.x+0.5-5, G.player.y+0.5);
+  const [rDev ] = w2s(G.player.x+0.5+5, G.player.y+0.5);
+  const [,uDev] = w2s(G.player.x+0.5, G.player.y+0.5-5);
+  const [,dDev] = w2s(G.player.x+0.5, G.player.y+0.5+5);
+  assert(lxDev < pxDev, `X inverted: 5 tiles left landed ${(lxDev-pxDev).toFixed(0)}px from centre`);
+  assert(rDev > pxDev, 'X inverted (right)');
+  assert(uDev < pyDev, `Y inverted (up): up=${uDev} vs centre=${pyDev}`);
+  assert(dDev > pyDev, 'Y inverted (down)');
+
+  // scale must be applied exactly once
+  const span = rDev - lxDev;
+  assert(Math.abs(span - 10*TW*SCALE) < 0.5,
+    `10 tiles spans ${span.toFixed(0)}px, expected ${(10*TW*SCALE).toFixed(0)}px — SCALE applied twice?`);
+
+  // the light bake must share the origin of the geometry
+  assert(lightDraw, 'lightmap drawImage not captured');
+  // drawImage args are [img, x, y, ...] so the origin is at index 2/3
+  assert(Math.abs(lightDraw[2] - tx*SCALE) < 0.01 && Math.abs(lightDraw[3] - ty*SCALE) < 0.01,
+    `lightmap origin (${lightDraw[2]?.toFixed(1)},${lightDraw[3]?.toFixed(1)}) != world origin `+
+    `(${(tx*SCALE).toFixed(1)},${(ty*SCALE).toFixed(1)}) — lighting will be offset`);
+  console.log(`  player at ${pxDev.toFixed(0)},${pyDev.toFixed(0)}; viewport centre ${CW/2},${CH/2}`);
+  console.log(`  10 tiles spans ${span.toFixed(0)}px; lightmap origin aligned with geometry`);
 }
 
 console.log('\n' + (fail? `\n${fail} FAILURE(S)\n` : 'ALL TESTS PASSED\n'));
