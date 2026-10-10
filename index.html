@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>THE BACKROOMS</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="crt">
+  <canvas id="game"></canvas>
+
+  <!-- ============ HUD ============ -->
+  <div id="hud">
+    <div class="hud-left">
+      <div class="stat">
+        <span class="lbl">BATTERY</span>
+        <div class="bar"><i id="bar-batt"></i></div>
+        <span id="val-batt">100</span>
+      </div>
+      <div class="stat">
+        <span class="lbl">NOISE</span>
+        <div class="bar noise"><i id="bar-noise"></i></div>
+        <span id="val-noise">00</span>
+      </div>
+    </div>
+
+    <div class="hud-right">
+      <div class="stat">
+        <span class="lbl">EXITS</span>
+        <span id="val-exits">0 / 3</span>
+      </div>
+      <div class="stat">
+        <span class="lbl">DEPTH</span>
+        <span id="val-depth">1</span>
+      </div>
+      <div class="stat lives">
+        <span class="lbl">LIVES</span>
+        <span id="val-lives">&#9679;&#9679;&#9679;</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="prompt"></div>
+  <div id="flashnote"></div>
+
+  <!-- ============ SCREENS ============ -->
+  <div id="screen-title" class="screen">
+    <div class="tape">
+      <h1>THE BACKROOMS</h1>
+      <p class="sub">RECOVERED TAPE&nbsp;&mdash;&nbsp;NO TIMESTAMP</p>
+
+      <blockquote>
+        &ldquo;If you&rsquo;re not careful and you noclip out of reality in the wrong
+        areas, you&rsquo;ll end up in the Backrooms, where it&rsquo;s nothing but the
+        stink of old moist carpet, the madness of mono-yellow, the endless
+        background noise of fluorescent lights at maximum hum-buzz, and
+        approximately six hundred million square miles of randomly segmented
+        empty rooms to be trapped in.<br><br>
+        God save you if you hear something wandering around nearby, because it
+        sure as hell has heard you.&rdquo;
+      </blockquote>
+
+      <div class="controls">
+        <div><b>WASD</b> / <b>ARROWS</b><span>move</span></div>
+        <div><b>SHIFT</b><span>sprint &mdash; loud</span></div>
+        <div><b>F</b><span>flashlight &mdash; costs battery</span></div>
+        <div><b>ESC</b><span>pause</span></div>
+      </div>
+
+      <p class="hint">
+        The torch will not save you. It only lets you <i>see</i>.<br>
+        It is a narrow beam &mdash; face where you walk to look for a door.<br>
+        Find all three exits. Finding one is loud. Then get back to one without running.
+      </p>
+
+      <button id="btn-start">NO-CLIP</button>
+    </div>
+  </div>
+
+  <div id="screen-pause" class="screen hidden">
+    <div class="tape">
+      <h1>PAUSED</h1>
+      <p class="sub">TAPE STILL RUNNING</p>
+      <button id="btn-resume">RESUME</button>
+    </div>
+  </div>
+
+  <div id="screen-dead" class="screen hidden">
+    <div class="tape">
+      <h1 class="bad">IT HEARD YOU</h1>
+      <p class="sub" id="dead-sub">SIGNAL LOST</p>
+      <button id="btn-retry">REWIND</button>
+    </div>
+  </div>
+
+  <div id="screen-win" class="screen hidden">
+    <div class="tape">
+      <h1>NOCLIP</h1>
+      <p class="sub">YOU FOUND THE EDGE</p>
+      <p class="hint" id="win-stats"></p>
+      <button id="btn-again">RUN IT AGAIN</button>
+    </div>
+  </div>
+</div>
+
+<script src="game.js"></script>
+</body>
+</html>
