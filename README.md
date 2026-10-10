@@ -107,6 +107,17 @@ What it actually checks:
    that a fixed world point moves the *opposite* way on screen to the direction
    of travel, that `SCALE` is applied exactly once (10 tiles spans exactly
    10·TILE·SCALE), and that the light bake shares the geometry's origin.
+8. **Avatar fits the collision disc** — every drawn part (shadow, torso, arms,
+   head, torch glow) is asserted to stay inside the 0.33-tile collision radius,
+   that the beam origin is a forward offset rather than the body centre, and
+   that the avatar and agents are drawn at their *true* positions rather than
+   offset by half a tile.
+9. **Wall contact does not accelerate** — pushing into a wall for a simulated
+   second must not move the avatar faster along the wall than it walks, and a
+   sprint in the open must still reach full speed. The corner assist uses a
+   fixed 0.30-tile perpendicular nudge applied every frame, which slid the
+   avatar sideways at ~18 tiles/second on contact; the nudge is now bounded by
+   the movement step.
 
 ### Verified in a real browser
 
@@ -132,3 +143,6 @@ slides left on screen, mean luminance 97/255, 0.1% clipped, 2% near-black,
 - Wall tops are lit from their neighbours rather than self-lit, so a partition
   deep inside a block is flatter than one bordering a room. It reads fine but
   is a simplification.
+- The avatar is drawn to fit a 0.33-tile disc, which at normal zoom is a small
+  figure. It is legible, but a bigger player would need either a smaller
+  collision radius or wider corridors.

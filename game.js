@@ -33,6 +33,7 @@ const FLOORS = 5;
 const WALK   = 3.3;               // tiles/sec
 const SPRINT = 6.0;
 const R      = 0.33;              // player collision radius (tiles)
+const TORCH_OFF = 0.135;           // how far in front the torch is held, in tiles
 
 const BATT_MAX   = 100;
 const BATT_DRAIN = 2.4;           // per second while lit
@@ -707,21 +708,24 @@ function unstick(e, force){
   return false;
 }
 
-/* Move with CORNER ASSIST.
-   A pure per-axis move snags whenever a wall ends in a corner: sliding left
-   under a wall block is blocked by that block's bottom-left corner even though
-   the lane is wide open. Nudging perpendicular lets you slip past the corner,
-   which is what makes wall-sliding feel smooth instead of sticky. */
+/* Move with a BOUNDED corner assist.
+   Sliding left under a wall block is blocked by that block's bottom-left corner
+   even though the lane is wide open, so a nudge perpendicular lets you slip
+   past. The nudge must be proportional to the step, though: at a fixed 0.30
+   tiles it fired every frame while you held into a wall, sliding you 18 tiles
+   a second sideways — which felt like the avatar accelerated on contact. */
 function moveEnt(e, dx, dy, r){
   const wantX = dx, wantY = dy;
+  const step  = Math.hypot(dx, dy);
+  const nudge = Math.min(0.10, step);
   let movedX=false, movedY=false;
 
   if (dx!==0){
     if (!blocked(e.x+dx, e.y, r)){ e.x += dx; movedX=true; }
     else {
       for (const s of [1,-1]){
-        const ny = e.y + s*0.30;
-        if (!blocked(e.x+dx, ny, r)){ e.x += dx; e.y = ny; movedX=true; break; }
+        const ny = e.y + s*nudge;
+        if (!blocked(e.x+dx, ny, r)){ e.x += dx; e.y += ny; movedX=true; break; }
       }
     }
   }
@@ -729,8 +733,8 @@ function moveEnt(e, dx, dy, r){
     if (!blocked(e.x, e.y+dy, r)){ e.y += dy; movedY=true; }
     else {
       for (const s of [1,-1]){
-        const nx = e.x + s*0.30;
-        if (!blocked(nx, e.y+dy, r)){ e.x = nx; e.y += dy; movedY=true; break; }
+        const nx = e.x + s*nudge;
+        if (!blocked(nx, e.y+dy, r)){ e.x += nx; e.y += dy; movedY=true; break; }
       }
     }
   }
@@ -918,7 +922,8 @@ function update(dt){
      radius let you find exits the light was not even pointing at, which made
      the torch cosmetic. Aim it by facing where you walk. */
   if (G.torch){
-    const fx=p.x, fy=p.y;
+    const fx=p.x + Math.cos(p.face)*TORCH_OFF;
+    const fy=p.y + Math.sin(p.face)*TORCH_OFF;
     const ax=Math.cos(p.face), ay=Math.sin(p.face);
     const inBeam = (tx,ty)=>{
       const d = Math.hypot(tx-fx, ty-fy);
@@ -927,7 +932,7 @@ function update(dt){
     };
     for (const e of G.exitTiles){
       if (e.found) continue;
-      const d=Math.hypot(e.x-fx, e.y-fy);
+      const d=Math.hypot(e.x+0.5-fx, e.y+0.5-fy);
       if (d < 6.5 && inBeam(e.x+0.5, e.y+0.5) && G.los(fx,fy,e.x+0.5,e.y+0.5)){
         e.found = true;
         G.exitsFound++; G.stat.found++;
@@ -938,7 +943,7 @@ function update(dt){
     }
     for (const gr of G.graffiti){
       if (gr.seen) continue;
-      const d=Math.hypot(gr.x-fx, gr.y-fy);
+      const d=Math.hypot(gr.x+0.5-fx, gr.y+0.5-fy);
       if (d<4.2 && inBeam(gr.x+0.5, gr.y+0.5) && G.los(fx,fy,gr.x+0.5,gr.y+0.5)){
         gr.seen=true; flash(gr.text);
       }
@@ -1287,7 +1292,13 @@ function caught(){
 
   // torch — INFORMATION ONLY. it does not repel anything.
   if (G.torch){
-    const px2=w2sx(p.x), py2=w2sy(p.y);
+    /* The beam starts at the torch, which is held out in FRONT of the figure.
+       It used to be anchored at (p.x,p.y) — the tile's top-left corner — while
+       the avatar was drawn at the tile centre, so the light appeared to come
+       from the top-left of the body rather than out of the torch. */
+    const thx = p.x + Math.cos(p.face)*TORCH_OFF;
+    const thy = p.y + Math.sin(p.face)*TORCH_OFF;
+    const px2=w2sx(thx), py2=w2sy(thy);
     const rad=7.6*T;
     ctx.save();
     ctx.translate(px2,py2);
@@ -1382,34 +1393,55 @@ function caught(){
   }
 }
 
+/* The avatar, seen from directly above.
+   Every part of it is drawn INSIDE the collision disc (R = 0.33 tiles).
+   The old art used a body ellipse TILE*0.34 tall — already wider than the
+   collision radius — so the figure visually clipped into walls it was
+   colliding with perfectly well, which read as a collision bug. */
 function drawPlayer(p, t){
-  const x=(p.x+0.5)*TILE, y=(p.y+0.5)*TILE;
+  const x=p.x*TILE, y=p.y*TILE;
 
-  // contact shadow
-  ctx.fillStyle='rgba(10,8,4,0.45)';
-  ctx.beginPath(); ctx.ellipse(x+2, y+9, TILE*0.36, TILE*0.18, 0,0,6.283); ctx.fill();
+  // contact shadow, kept tight so it never spills onto a wall
+  ctx.fillStyle='rgba(8,6,3,0.34)';
+  ctx.beginPath(); ctx.ellipse(x+1.5, y+3, TILE*0.19, TILE*0.11, 0,0,6.283); ctx.fill();
 
-  // shoulders, offset slightly "up" so it reads as a figure seen from behind
-  ctx.fillStyle='#191712';
-  ctx.beginPath(); ctx.ellipse(x, y+1, TILE*0.31, TILE*0.34, 0,0,6.283); ctx.fill();
-  ctx.fillStyle='#2e2b22';
-  ctx.beginPath(); ctx.ellipse(x, y-1, TILE*0.26, TILE*0.26, 0,0,6.283); ctx.fill();
+  ctx.save();
+  ctx.translate(x,y);
+  // local -y is forward, so the figure turns to face p.face
+  ctx.rotate(p.face + Math.PI/2);
+
+  // torso / shoulders: a slab across the body, seen from above
+  ctx.fillStyle='#14120e';
+  ctx.beginPath(); ctx.ellipse(0, TILE*0.024, TILE*0.172, TILE*0.136, 0,0,6.283); ctx.fill();
+  ctx.fillStyle='#2a2619';
+  ctx.beginPath(); ctx.ellipse(0, TILE*0.014, TILE*0.147, TILE*0.111, 0,0,6.283); ctx.fill();
+
+  // arms, either side of the shoulders
+  ctx.fillStyle='#1b1913';
+  for (const sgn of [-1,1]){
+    ctx.beginPath();
+    ctx.ellipse(sgn*TILE*0.156, TILE*0.057, TILE*0.054, TILE*0.071, 0,0,6.283);
+    ctx.fill();
+  }
 
   // head
-  ctx.fillStyle='#b7a97e';
-  ctx.beginPath(); ctx.arc(x, y-5, TILE*0.155, 0, 6.283); ctx.fill();
-  ctx.fillStyle='rgba(20,16,6,0.45)';
-  ctx.beginPath(); ctx.arc(x, y-3.6, TILE*0.155, 0.25, 2.89); ctx.fill();
+  ctx.fillStyle='#ab9d73';
+  ctx.beginPath(); ctx.arc(0, -TILE*0.017, TILE*0.095, 0, 6.283); ctx.fill();
+  ctx.fillStyle='rgba(16,13,6,0.42)';   // back of the head, away from the light
+  ctx.beginPath(); ctx.arc(0, -TILE*0.017+TILE*0.024, TILE*0.095, 0.25, 2.89); ctx.fill();
 
-  // facing nub — you must know which way you are looking with the torch off
-  ctx.fillStyle='#d8c894';
-  ctx.beginPath();
-  ctx.arc(x + Math.cos(p.face)*TILE*0.30, y + Math.sin(p.face)*TILE*0.30, TILE*0.075, 0, 6.283);
-  ctx.fill();
+  // the torch, held out in front — the beam originates exactly here
+  const tg = G.torch ? 1 : 0.4;
+  ctx.fillStyle=`rgba(255,250,222,${0.55*tg})`;
+  ctx.beginPath(); ctx.arc(0, -TORCH_OFF*TILE, TILE*0.047, 0, 6.283); ctx.fill();
+  ctx.fillStyle=`rgba(255,244,196,${0.22*tg})`;
+  ctx.beginPath(); ctx.arc(0, -TORCH_OFF*TILE, TILE*0.085, 0, 6.283); ctx.fill();
+
+  ctx.restore();
 }
 
 function drawAgent(a, t){
-  const x=(a.x+0.5)*TILE, y=(a.y+0.5)*TILE;
+  const x=a.x*TILE, y=a.y*TILE;
   const h = a.rise;
   const wob = Math.sin(t*0.004 + a.x)*0.06;
 

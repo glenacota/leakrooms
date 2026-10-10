@@ -91,7 +91,8 @@ globalThis.__api = {
   set STATE(v){ STATE = v; },
   get floorIdx(){ return floorIdx; },
   get keys(){ return keys; },
-  buildFloor, blocked, moveEnt, update, render, emitNoise, setPrompt,
+  buildFloor, blocked, moveEnt, update, render, emitNoise, setPrompt, drawPlayer,
+  get TORCH_OFF(){ return TORCH_OFF; }, get R(){ return R; }, drawAgent,
   get cvs(){ return cvs; }, get TILE(){ return TILE; }
 };
 `, ctxObj);
@@ -633,7 +634,7 @@ console.log('[7] camera mapping — player centred, world not inverted');
   const TW = A.TILE;
   const w2s = (wx,wy)=> [ SCALE*(wx*TW + tx), SCALE*(wy*TW + ty) ];
 
-  const [pxDev, pyDev] = w2s(G.player.x+0.5, G.player.y+0.5);
+  const [pxDev, pyDev] = w2s(G.player.x, G.player.y);
   const CW = A.cvs.width, CH = A.cvs.height;
   const tol = TW*SCALE*0.6;
   assert(Math.abs(pxDev-CW/2) < tol,
@@ -642,10 +643,10 @@ console.log('[7] camera mapping — player centred, world not inverted');
     `player y is ${(pyDev-CH/2).toFixed(0)}px from centre`);
 
   // orientation: 5 tiles to the LEFT must be LEFT of centre on screen
-  const [lxDev] = w2s(G.player.x+0.5-5, G.player.y+0.5);
-  const [rDev ] = w2s(G.player.x+0.5+5, G.player.y+0.5);
-  const [,uDev] = w2s(G.player.x+0.5, G.player.y+0.5-5);
-  const [,dDev] = w2s(G.player.x+0.5, G.player.y+0.5+5);
+  const [lxDev] = w2s(G.player.x-5, G.player.y);
+  const [rDev ] = w2s(G.player.x+5, G.player.y);
+  const [,uDev] = w2s(G.player.x, G.player.y-5);
+  const [,dDev] = w2s(G.player.x, G.player.y+5);
   assert(lxDev < pxDev, `X inverted: 5 tiles left landed ${(lxDev-pxDev).toFixed(0)}px from centre`);
   assert(rDev > pxDev, 'X inverted (right)');
   assert(uDev < pyDev, `Y inverted (up): up=${uDev} vs centre=${pyDev}`);
@@ -664,6 +665,111 @@ console.log('[7] camera mapping — player centred, world not inverted');
     `(${(tx*SCALE).toFixed(1)},${(ty*SCALE).toFixed(1)}) — lighting will be offset`);
   console.log(`  player at ${pxDev.toFixed(0)},${pyDev.toFixed(0)}; viewport centre ${CW/2},${CH/2}`);
   console.log(`  10 tiles spans ${span.toFixed(0)}px; lightmap origin aligned with geometry`);
+}
+
+/* ============ TEST 8: avatar art fits the collision disc =============
+   The avatar was drawn with a body ellipse TILE*0.34 tall while the collision
+   radius is 0.33 tiles, so the figure clipped into walls it was colliding
+   with correctly. Assert the drawn geometry never exceeds the disc.        */
+console.log('[8] avatar fits inside the collision disc');
+{
+  // geometry of drawPlayer, in tiles, relative to the player's tile centre
+  const R = A.R;
+  const parts = [
+    ['shadow',     0.0375, 0.0750, 0.190, 0.110],
+    ['torso dark',  0,     0.024,  0.172, 0.136],
+    ['torso lit',   0,     0.014,  0.147, 0.111],
+    ['arm L',      -0.156, 0.057,  0.054, 0.071],
+    ['arm R',       0.156, 0.057,  0.054, 0.071],
+    ['head',        0,    -0.017,  0.095, 0.095],
+    ['torch glow',  0,    -0.135,  0.085, 0.085],
+  ];
+  let worst=0, worstPart='';
+  for (const [name,ox,oy,rx,ry] of parts){
+    // farthest corner of the rotated ellipse, conservative: treat as a circle
+    const reach = Math.hypot(Math.abs(ox)+rx, Math.abs(oy)+ry);
+    if (reach > worst){ worst=reach; worstPart=name; }
+    assert(reach < R, `avatar part "${name}" reaches ${reach.toFixed(3)} tiles from centre, `+
+                      `past the ${R} tile collision radius`);
+  }
+  console.log(`  widest avatar part "${worstPart}" at ${worst.toFixed(3)} tiles (limit ${R})`);
+
+  // and the torch origin must sit in front, not at the body centre
+  assert(A.TORCH_OFF > 0.05 && A.TORCH_OFF < R,
+    `TORCH_OFF=${A.TORCH_OFF} is not a plausible forward offset`);
+  const src = A.drawPlayer.toString();
+  assert(src.includes('TORCH_OFF*TILE'), 'avatar no longer draws the torch offset');
+  const rsrc = render.toString();
+  assert(rsrc.includes('TORCH_OFF'), 'beam no longer originates at the torch');
+  // the avatar must be drawn at its TRUE position, not the tile centre offset
+  const dsrc = A.drawPlayer.toString();
+  assert(/const x\s*=\s*p\.x\s*\*\s*TILE/.test(dsrc),
+    'avatar is drawn with a +0.5 tile offset from its real position');
+  assert(!/const x=\(p\.x\+0\.5\)\*TILE/.test(dsrc),
+    'avatar still drawn at (p.x+0.5) — half a tile from the collision point');
+  const asrc = A.drawAgent.toString();
+  assert(/const x\s*=\s*a\.x\s*\*\s*TILE/.test(asrc),
+    'agents are drawn with the same half-tile offset');
+  console.log(`  beam origin is ${A.TORCH_OFF} tiles in front of the body centre`);
+}
+
+/* ============ TEST 9: wall contact must not accelerate ===============
+   The corner assist used a fixed 0.30-tile perpendicular nudge, applied every
+   frame. Holding into a wall therefore slid the avatar sideways at ~18 tiles
+   per second — it looked like the player sped up on contact. The nudge must be
+   bounded by the step, so pressing into a wall can never move you faster
+   along the wall than you move normally.                                     */
+console.log('[9] wall contact does not accelerate the avatar');
+{
+  buildFloor(3, 8642);
+  const keys = A.keys;
+
+  // walk into the nearest wall for a second and measure lateral drift
+  let best=null;
+  for (let y=2;y<74 && !best;y++) for (let x=2;x<74;x++){
+    if (G.grid[y*76+x]!==1) continue;
+    if (G.grid[(y+1)*76+x]!==0) continue;      // wall below
+    best={x:x+0.5, y:y+0.5}; break;
+  }
+  assert(best, 'no wall-adjacent tile found');
+  if (!best){ keys.w=keys.a=keys.s=keys.d=false; }
+  else {
+    G.player.x=best.x; G.player.y=best.y;
+    for(let i=0;i<5;i++) update(1/60);
+    const y0=G.player.y, x0=G.player.x;
+    keys.s=true;                                  // push down into the wall
+    for(let i=0;i<60;i++) update(1/60);           // one second
+    keys.s=false;
+    const drift = Math.abs(G.player.y - y0);
+    const creep = Math.abs(G.player.x - x0);
+    console.log(`  1s pushing into a wall: lateral drift ${drift.toFixed(3)} tiles, `+
+                `along-wall creep ${creep.toFixed(3)}`);
+    // walk speed is 3.3 tiles/s. A step-bounded nudge cannot exceed that,
+    // and certainly not the ~18 tiles/s the fixed 0.30 nudge produced.
+    assert(drift < 3.4, `pressing into a wall slid the avatar ${drift.toFixed(2)} tiles in 1s — faster than walking (3.3)`);
+    assert(creep < 3.4, `pressing into a wall crept ${creep.toFixed(2)} tiles along it in 1s`);
+  }
+  keys.w=keys.a=keys.s=keys.d=false;
+
+  // and a free sprint must still reach full speed (the bound must not cap it)
+  buildFloor(3, 8642);
+  let room=null;
+  for (let y=2;y<74 && !room;y++) for (let x=2;x<74;x++){
+    if (G.grid[y*76+x]===1 && G.grid[y*76+x+1]===1 && G.grid[y*76+x+2]===1 &&
+        G.grid[y*76+x+3]===1 && G.grid[y*76+x+4]===1 && G.grid[y*76+x+5]===1){
+      room={x:x+0.5,y:y+0.5}; break; }
+  }
+  if (room){
+    G.player.x=room.x; G.player.y=room.y;
+    for(let i=0;i<5;i++) update(1/60);
+    const sx0=G.player.x;
+    keys.d=true; keys.shift=true;
+    for(let i=0;i<60;i++) update(1/60);
+    keys.d=false; keys.shift=false;
+    const dist=Math.abs(G.player.x-sx0);
+    console.log(`  1s sprinting in the open: ${dist.toFixed(2)} tiles (expect ~${(6.0).toFixed(1)})`);
+    assert(dist > 5.0, `sprint only covered ${dist.toFixed(2)} tiles in 1s — movement was over-constrained`);
+  }
 }
 
 console.log('\n' + (fail? `\n${fail} FAILURE(S)\n` : 'ALL TESTS PASSED\n'));
