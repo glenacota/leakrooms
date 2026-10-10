@@ -3,14 +3,22 @@
    mono-yellow palette, CRT treatment, tape UI
    ============================================================ */
 
+/* The five colours of the place. These are the same five the canvas renders
+   the world from, so the shell and the game are one palette rather than two
+   that happen to be yellowish. Roles are the canvas's, for the same reason. */
 :root{
-  --yellow:      #e8d98a;
-  --yellow-dim:  #b8ab63;
-  --yellow-deep: #6d6432;
-  --carpet:      #b3a469;
-  --carpet-dark: #6b6136;
-  --ink:         #14110a;
-  --danger:      #d8503c;
+  --bright:      #e4e6a8;   /* the pale end — brightest surface, wall faces */
+  --pale:        #e1e2bb;
+  --mid:         #d6dea7;
+  --carpet:      #c3cb6e;   /* the saturated one — the colour it is named for */
+  --wall-top:    #c6c58b;
+
+  --yellow:      #e4e6a8;   /* alias: what the UI calls its primary */
+  --yellow-dim:  #c3cb6e;
+  --yellow-deep: #8f9445;
+  --carpet-dark: #6d7434;
+  --ink:         #1c1a14;
+  --danger:      #d8503c;   /* deliberately off-palette: it is a UI accent */
   --ok:          #8fd07a;
   --mono: "Courier New", "Courier", monospace;
 }
@@ -60,7 +68,7 @@ body{ display:flex; align-items:center; justify-content:center; }
   text-transform:uppercase;
   opacity:0;
   transition:opacity .6s ease;
-  text-shadow:0 0 8px rgba(232,217,138,.35);
+  text-shadow:0 0 8px rgba(228,230,168,.35);
 }
 #hud.on{ opacity:.85; }
 
@@ -74,7 +82,7 @@ body{ display:flex; align-items:center; justify-content:center; }
   position:relative;
   width:120px; height:9px;
   background:rgba(20,17,10,.75);
-  border:1px solid rgba(232,217,138,.28);
+  border:1px solid rgba(228,230,168,.28);
   overflow:hidden;
 }
 .bar i{
@@ -84,7 +92,7 @@ body{ display:flex; align-items:center; justify-content:center; }
   background:linear-gradient(90deg,var(--yellow-deep),var(--yellow));
   transition:width .12s linear;
 }
-.bar.noise i{ background:linear-gradient(90deg,var(--yellow-dim),#f2e9a8); }
+.bar.noise i{ background:linear-gradient(90deg,var(--yellow-dim),#e4e6a8); }
 .bar.noise.hot i{ background:linear-gradient(90deg,var(--danger),#ff8f6b); }
 
 #val-batt,#val-noise,#val-exits,#val-depth{ min-width:34px; font-variant-numeric:tabular-nums; }
@@ -120,7 +128,7 @@ body{ display:flex; align-items:center; justify-content:center; }
   font-style:italic;
   opacity:0;
   pointer-events:none;
-  color:#f4eab0;
+  color:#e1e2bb;
   text-shadow:0 0 18px rgba(0,0,0,1), 0 0 40px rgba(0,0,0,1);
 }
 #flashnote.on{ opacity:1; }
@@ -144,11 +152,11 @@ body{ display:flex; align-items:center; justify-content:center; }
   max-width:660px;
   padding:34px 40px;
   text-align:center;
-  border:1px solid rgba(232,217,138,.22);
+  border:1px solid rgba(228,230,168,.22);
   background:
     repeating-linear-gradient(0deg, rgba(0,0,0,.16) 0 2px, transparent 2px 4px),
     rgba(14,12,8,.9);
-  box-shadow:0 0 60px rgba(0,0,0,.9), inset 0 0 40px rgba(232,217,138,.05);
+  box-shadow:0 0 60px rgba(0,0,0,.9), inset 0 0 40px rgba(228,230,168,.05);
 }
 
 h1{
@@ -189,8 +197,8 @@ blockquote{
 .controls div{ display:flex; gap:9px; align-items:baseline; }
 .controls b{
   color:var(--yellow);
-  background:rgba(232,217,138,.1);
-  border:1px solid rgba(232,217,138,.25);
+  background:rgba(228,230,168,.1);
+  border:1px solid rgba(228,230,168,.25);
   padding:2px 7px;
   min-width:56px;
   text-align:center;
@@ -218,8 +226,8 @@ button{
   transition:background .15s, box-shadow .15s, transform .1s;
 }
 button:hover{
-  background:#fff2b8;
-  box-shadow:0 0 26px rgba(232,217,138,.5);
+  background:#eef0c4;
+  box-shadow:0 0 26px rgba(228,230,168,.5);
 }
 button:active{ transform:translateY(1px); }
 

@@ -715,8 +715,15 @@ console.log('[8] avatar fits inside the collision disc');
     `TORCH_OFF=${A.TORCH_OFF} is not a plausible forward offset`);
   const src = A.drawPlayer.toString();
   assert(src.includes('TORCH_OFF*TILE'), 'avatar no longer draws the torch offset');
-  const rsrc = render.toString();
-  assert(rsrc.includes('TORCH_OFF'), 'beam no longer originates at the torch');
+  /* The beam must originate at the torch, not the body centre. It used to be
+     an additive gradient drawn inside render(); it is now a ray fan in the
+     visibility mask, because once dark rooms are black an additive pass has no
+     geometry left underneath it to reveal. The assertion follows the code
+     rather than the file it used to live in — the invariant is where the beam
+     comes from, not which function draws it. */
+  const vsrc = A.traceViewCone.toString();
+  assert(vsrc.includes('TORCH_OFF'),
+    'the beam no longer originates at the torch offset');
   // the avatar must be drawn at its TRUE position, not the tile centre offset
   const dsrc = A.drawPlayer.toString();
   assert(/const x\s*=\s*p\.x\s*\*\s*TILE/.test(dsrc),
@@ -959,7 +966,7 @@ console.log('[12] room-scoped light — your room is lit, the rest is dark');
   };
 
   let floors=0, placed=0, leak=0, blackHole=0, noFollow=0, bakeMut=0, unreachable=0;
-  let ratioSum=0, ratios=0;
+  let ownTotal=0, ownFloors=0, farTotal=0, farFloors=0;
 
   for (let s=0; s<120; s++){
     buildFloor(s%5, s*7717+31);
@@ -1019,7 +1026,11 @@ console.log('[12] room-scoped light — your room is lit, the rest is dark');
         if (nb>0 && vis[i] < nb-1e-6) blackHole++;
       }
     }
-    if (ownN && farN){ ratioSum += (ownSum/ownN)/Math.max(1e-6,(farSum/farN)); ratios++; }
+    /* Accumulate across floors rather than per floor: DARK_ROOM is 0, so the
+       far rooms sum to exactly zero and a per-floor ratio is division by
+       zero. What is worth knowing is whether ANY far tile is ever lit. */
+    if (ownN){ ownTotal += ownSum/ownN; ownFloors++; }
+    if (farN && farSum > 0){ farTotal += farSum/farN; farFloors++; }
 
     // scoping must not have touched the bake
     for (let i=0;i<W*H;i++) if (bake[i]!==bakeBefore[i]){ bakeMut++; break; }
@@ -1044,10 +1055,16 @@ console.log('[12] room-scoped light — your room is lit, the rest is dark');
   assert(blackHole===0, `${blackHole} tiles were too dark to stand in or to see the wall beside`);
   assert(noFollow===0, `${noFollow} cases where the light did not follow the player into the next room`);
   assert(bakeMut===0, `${bakeMut} floors where scoping mutated the ambient bake in place`);
-  const ratio = ratios? ratioSum/ratios : 0;
-  assert(ratio > 2.0, `your room is only ${ratio.toFixed(2)}x brighter than the rooms beyond it (want >2)`);
-
-  console.log(`  ${floors} floors, ${placed} scoped; your room is ${ratio.toFixed(2)}x brighter than the far ones`);
+  /* DARK_ROOM is 0, so the far rooms should be genuinely black and a ratio
+     against them is division by zero. Report that plainly rather than letting
+     an epsilon guard print a large fake number. */
+  const anyFarLit = farFloors > 0;
+  const ratio = anyFarLit ? (ownTotal/ownFloors)/(farTotal/farFloors) : Infinity;
+  assert(!anyFarLit || ratio > 2.0,
+    `your room is only ${ratio.toFixed(2)}x brighter than the rooms beyond it (want black, or >2x)`);
+  console.log(`  ${floors} floors, ${placed} scoped; ` +
+    (anyFarLit ? `your room is ${ratio.toFixed(2)}x brighter than the far ones`
+               : 'every room two gates away is fully black'));
   console.log(`  no leaks, no black walls, bake untouched, light follows the player`);
 
   /* --- the crossfade is not optional decoration ---
@@ -1139,6 +1156,42 @@ console.log('[13] cone of vision — 200 degrees, occluded by walls');
     A.traceViewCone(true); A.packMask();
   };
 
+  /* Independent occlusion oracle: does the segment from the eye to the tile
+     centre pass through any solid tile? Sampled finely rather than walked with
+     Bresenham, because the game walks with an exact voxel traversal and the
+     two disagree by a tile exactly at the corners and diagonals where the
+     question is interesting. Sampling is neither of them. */
+  const solid=(x,y)=> (x<0||y<0||x>=W||y>=W) || G.grid[y*W+x]===0;
+  const occluded=(ax,ay,bx,by)=>{
+    const n=Math.ceil(Math.hypot(bx-ax,by-ay)/0.04);
+    for (let i=1;i<n;i++){
+      const t=i/n;
+      if (solid(Math.floor(ax+(bx-ax)*t), Math.floor(ay+(by-ay)*t))) return true;
+    }
+    return false;
+  };
+  const eye=()=>[spot.x + Math.cos(G.player.face)*A.TORCH_OFF,
+                 spot.y + Math.sin(G.player.face)*A.TORCH_OFF];
+
+  /* Can ANY line from the eye reach this tile? Sampled over a disc inside the
+     tile rather than to its exact centre, because "the tile is visible" means
+     some part of it is, and testing only the centre line flags tiles you can
+     plainly see the edge of. Built from the fine occlusion sampler above, so
+     it shares no traversal code with the game's voxel walk. */
+  const SEES=(()=>{
+    const pts=[[0,0]];
+    for (const r of [0.25, 0.42]) for (let a=0; a<8; a++){
+      const th=a/8*Math.PI*2;
+      pts.push([Math.cos(th)*r, Math.sin(th)*r]);
+    }
+    return pts;
+  })();
+  const seesTile=(ax,ay,ix,iy)=>{
+    for (const [ox,oy] of SEES)
+      if (!occluded(ax,ay, ix+0.5+ox, iy+0.5+oy)) return true;
+    return false;
+  };
+
   /* --- 1. it rotates: what you can see must depend on facing --- */
   const probes=[0, Math.PI/2, Math.PI, -Math.PI/2];
   const seenAt = probes.map(face=>{
@@ -1148,7 +1201,7 @@ console.log('[13] cone of vision — 200 degrees, occluded by walls');
   });
   let maxDiff=0;
   for (let a=0;a<probes.length;a++) for (let b=a+1;b<probes.length;b++)
-    for (let i=0;i<v.length;i++)
+    for (let i=0;i<seenAt[0].v.length;i++)
       maxDiff=Math.max(maxDiff, Math.abs(seenAt[a].v[i]-seenAt[b].v[i]));
   assert(maxDiff > 0.5,
     `the cone barely changes with facing (max tile delta ${maxDiff.toFixed(3)}) — it is not rotating`);
@@ -1159,13 +1212,14 @@ console.log('[13] cone of vision — 200 degrees, occluded by walls');
      implementation still passes, so it is asserted separately from (3). */
   set(spot.x, spot.y, 0);
   let eastLit=0, eastTot=0, westLit=0, westTot=0;
+  const [ex1,ey1]=eye();
   for (let d=1; d<=8; d++){
     const iF=Math.floor(spot.y)*W + (Math.floor(spot.x)+d);
     const iB=Math.floor(spot.y)*W + (Math.floor(spot.x)-d);
-    if (iF>=0 && iF<W*W && G.grid[iF]===1 && G.los(spot.x,spot.y,(iF%W)+0.5,Math.floor(iF/W)+0.5)){
+    if (iF>=0 && iF<W*W && G.grid[iF]===1 && seesTile(ex1,ey1,iF%W,Math.floor(iF/W))){
       eastTot++; if (A.coneArr[iF]>0.5) eastLit++;
     }
-    if (iB>=0 && G.grid[iB]===1 && G.los(spot.x,spot.y,(iB%W)+0.5,Math.floor(iB/W)+0.5)){
+    if (iB>=0 && G.grid[iB]===1 && seesTile(ex1,ey1,iB%W,Math.floor(iB/W))){
       westTot++; if (A.coneArr[iB]>0.5) westLit++;
     }
   }
@@ -1175,27 +1229,37 @@ console.log('[13] cone of vision — 200 degrees, occluded by walls');
   assert(westLit === 0, `${westLit} tiles behind the character are lit — 80 degrees of blindness should be behind you`);
 
   /* --- 3. walls occlude: the property a per-tile angle test gets wrong ---
-     Find a floor tile that is inside the cone by ANGLE but sits behind a wall
-     — a pocket off the side of a corridor, or any tile with no line of sight.
-     Those must be dark. A cone that only tests the angle lights them all. */
+     The claim is not "the cone never reaches an occluded tile" — the cone is
+     a fan of rays and it will happily sweep across a wall that is further
+     away than the thing it is occluding. The claim is that NOTHING OCCLUDED
+     IS EVER VISIBLE, which is what the player experiences. So this asserts on
+     the mask, and counts separately the occluded tiles that lie inside the
+     cone's angle AND in a lit region, where nothing but occlusion could be
+     keeping them dark. */
   set(spot.x, spot.y, 0);
-  let pocketsFound=0, pocketsLit=0, worstAngle=0;
+  let occludedVisible=0, occludedTotal=0, inLitRegion=0, worstAngle=0;
+  const [ex2,ey2]=eye();
   for (let y=2;y<74;y++) for (let x=2;x<74;x++){
-    const i=y*W+x;
+    const i=y*76+x;
     if (G.grid[i]!==1) continue;
-    if (G.los(spot.x, spot.y, x+0.5, y+0.5)) continue;      // it IS visible; not a pocket
+    if (seesTile(ex2,ey2,x,y)) continue;      // reachable: not a pocket
+    occludedTotal++;
+    if (A.maskArr[i] > 0.02) occludedVisible++;
     const ang=Math.atan2(y+0.5-spot.y, x+0.5-spot.x);
-    let d=Math.abs(ang-0); if (d>Math.PI) d=Math.abs(d-Math.PI*2);
-    if (d>HALF) continue;                                    // outside the cone: irrelevant
+    let d=Math.abs(ang); if (d>Math.PI) d=Math.abs(d-Math.PI*2);
+    if (d>HALF) continue;                 // outside the cone: irrelevant either way
+    if (A.visArr[i] <= 0) continue;       // dark room: the scope hides it regardless
+    inLitRegion++;
     worstAngle=Math.max(worstAngle,d);
-    pocketsFound++;
-    if (A.coneArr[i]>0.02) pocketsLit++;
+    if (A.maskArr[i] > 0.02) occludedVisible++;
   }
-  console.log(`  ${pocketsFound} tiles inside the cone's ANGLE but behind a wall `+
-              `(up to ${(worstAngle*180/Math.PI).toFixed(0)}deg off axis); ${pocketsLit} of them lit`);
-  assert(pocketsFound>4, `only ${pocketsFound} occluded tiles inside the cone angle — this floor cannot test occlusion`);
-  assert(pocketsLit===0,
-    `${pocketsLit}/${pocketsFound} tiles behind a wall were lit — the cone ignores occlusion`);
+  console.log(`  ${occludedTotal} floor tiles behind a wall; ${occludedVisible} of them visible. `+
+              `${inLitRegion} sit inside the cone's angle AND a lit room `+
+              `(up to ${(worstAngle*180/Math.PI).toFixed(0)}deg off axis)`);
+  assert(occludedTotal>4, `only ${occludedTotal} occluded tiles on this floor — cannot test occlusion`);
+  assert(inLitRegion>4, `only ${inLitRegion} occluded tiles in a lit region — cannot isolate occlusion from scoping`);
+  assert(occludedVisible===0,
+    `${occludedVisible} tiles behind a wall are visible — the cone ignores occlusion`);
 
   /* --- 4. the cone must not reach outside the room scope ---
      mask = scope x cone, plus torch. With the torch OFF, a tile in a region

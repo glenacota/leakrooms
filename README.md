@@ -21,14 +21,39 @@ stun it, and cannot save you. It is a narrow beam — aim it by facing where you
 walk — that reveals exits and scrawled warnings. Battery is a budget you spend
 on *knowing*.
 
-**Only the room you are in is lit.** The fluorescents are per room, not per
-floor, so the maze is a run of bright rooms separated by dark ones and you
-cross between them through gates you can see down. The room you leave goes
-dark behind you, over about a third of a second — long enough to read as the
-lights being somewhere else, short enough not to lag behind your feet.
+**Only what you can see is lit.** The world is drawn in five colours — the
+mono-yellow of the original — and the lights are per room, so the maze is a
+run of bright rooms separated by black ones. On top of that the character has
+a **200 degree cone of vision** that stops at walls, so there is always 80
+degrees of blindness behind you and turning is how you check behind you. What
+is inside the cone and inside a lit room is the palette at full strength.
+Everything else is black: rooms you are not in, the 80 degrees behind you, and
+anything a partition hides. The room you leave goes dark over about a third of
+a second — long enough to read as the lights being somewhere else, short enough
+not to lag behind your feet.
 
 This is a *visibility* rule, not a safety one. A dark room is still there, and
 so is anything standing in it.
+
+### The palette
+
+Every surface in the game is one of five colours, and there is no other hue
+anywhere in the world:
+
+| | | role |
+|---|---|---|
+| `#e4e6a8` | 228,230,168 | brightest — the lit face of a partition |
+| `#e1e2bb` | 225,226,187 | pale — wallpaper mid-tone |
+| `#d6dea7` | 214,222,167 | the skirting end of a wall face, and the avatar's head |
+| `#c3cb6e` | 195,203,110 | **the carpet** — the saturated one, the colour it is named for |
+| `#c6c58b` | 198,197,139 | wall tops, seen from above |
+
+The last one is the interesting choice. Wall tops have to separate from the
+carpet without going dark, and `#c6c58b` sits within two points of luminance of
+`#c3cb6e` — it is separated by *saturation*, not brightness, backed up by the
+dark edge strokes along every wall/carpet boundary. The canvas and `style.css`
+share these five values, so the shell and the game are one palette rather than
+two that happen to be yellowish.
 
 **Noise is the entire stealth layer.**
 
@@ -148,41 +173,96 @@ What it actually checks:
     scope computed once at floor build that never follows the player, and a
     crossfade that either swaps on a single frame or never settles and leaves
     you standing in a half-dark room.
+13. **Cone of vision** — 200 degrees, stopped by walls. Asserts that the cone
+    *rotates* (the set of visible tiles must genuinely depend on facing), that
+    floor directly ahead is lit and floor directly behind is not, and — the one
+    that matters — that tiles inside the cone's **angle** but with no line of
+    sight are dark. That last case is invisible in aggregate statistics: a
+    one-tile partition stub is 1 tile out of 5776, so a cone that ignores walls
+    still passes every brightness check. It also asserts the mask is exactly
+    the function the renderer depends on (lit by neither scope nor torch is
+    zero), and that walls are never blacker than the floor in front of them.
 
 ### Lighting
 
-The bake is per fixture and unchanged: a radius, a line-of-sight test, a 3x3
-blur, a floor of 0.42 so nothing is ever pure black, and wall tiles lit from
-adjacent floor so a partition reads as a wall rather than a hole. What changed
-is a second layer *on top* of it, recomputed when the player crosses into a new
-region.
+Lighting is two layers, and they do completely different jobs.
 
-That layer is a BFS over **regions**, not tiles. Tiles would be the obvious
-choice and would not work: a gate tunnel is only two tiles wide, so the far side
-of a doorway is three tiles away — closer than the far corner of the room you
-are standing in. Scoping by tile distance lights the neighbouring room anyway
-and the feature is a no-op. A region is a BSP room, or a run of partition-band
+**The bake** is per fixture and is a pure brightness: a radius, a line-of-sight
+test, a 3x3 blur, and a floor of `BAKE_FLOOR` — which is 1.0. That number used
+to be 0.42, and it was low because the bake used to be the only thing deciding
+brightness and a floor had to stop the darkest corner of a lit room collapsing
+into black. Darkness moved onto the mask, so the floor could go to 1.0: a
+surface you can see is the palette at full strength, unmodified. The bake is
+also neutral grey now, not tinted `(255,246,186)` with a warm `+18` lift —
+tinting it would double-count a hue the surfaces already carry. Variation
+inside a room comes from the additive fixture pass, not from dimming everything
+else.
+
+**The mask** is what the viewer can see, folded into one array and multiplied
+once. Three terms:
+
+| term | what it is |
+|---|---|
+| room scope | a BFS over **regions**, not tiles |
+| cone | 200 degrees, stopped by walls |
+| torch | aimed, narrow, and *not* clipped to the cone |
+
+`mask = min(1, max(scope × cone, torch))` — a `max` and not a product, and that
+is the load-bearing detail. It is what keeps the torch working at all.
+
+**Why the torch had to move into the mask.** It used to be its own additive
+pass drawn after the lighting. That was correct while unlit rooms still had
+geometry under them. Once dark rooms went black it became a bug with no
+visible cause: the multiply had already reduced those rooms to zero, so an
+additive beam was painting a yellow haze onto an empty frame — a glow with no
+room in it, which reads as a rendering fault. With the torch inside the mask,
+it lifts the bake back up on the tiles the beam reaches and leaves everything
+else at zero. It still reveals, still repels nothing, and still reveals at
+0.72 rather than 1.0 — a beam that lit a black room as brightly as the room you
+stand in would let you sweep the whole floor for exits without ever entering
+one.
+
+**Why the scope is a BFS over regions.** Tile distance would be the obvious
+choice and would not work: a gate tunnel is two tiles wide, so the far side of a
+doorway is three tiles away — closer than the far corner of the room you are
+standing in. Scoping by tile distance lights the neighbouring room anyway and
+the feature is a no-op. A region is a BSP room, or a run of partition-band
 floor between two rooms, flood filled as its own lit space, so standing in a
-doorway lights the doorway and not either room behind it.
+doorway lights the doorway and not either room behind it. Walls carry no
+region and take their brightest floor neighbour instead — labelling whole room
+rects swept up the stub partitions and left walls darker than the floor they
+bordered.
 
-`DARK_ROOM` is a multiplier on the bake, not a brightness. The bake spans 0.42
-in a dim corner to about 2.0 under a tube, so anything above roughly 0.15 lets
-a dark room's fixture hotspot out-shine your own room's dim corner and the two
-stop being distinguishable at all. At 0.14 a dark room sits around a third of
-the dimmest lit tile — a clear silhouette, never a void.
+**Why the cone is a ray cast.** A per-tile angle test is O(5776) every frame
+and is also wrong: it lights the floor on the far side of a one-tile partition
+stub, which is the case the ray cast gets right and the angle test does not.
 
-Two things that are easy to miss and both were wrong first:
+Three things in here were wrong before they were right, and each is a trap
+rather than a typo:
 
 - The flicker pass is `lighter`, which *adds* light on top of whatever the bake
-  left. Ungated, it paints every fixture on the floor at full strength, so
-  every "dark" room has its tube blazing in it and the scoping is invisible.
+  left. Ungated, it paints every fixture on the floor at full strength, so every
+  "dark" room has its tube blazing in it and the scoping is invisible.
 - The sight check read the bake. Reading the bake alone lets the entity see you
   standing in a room whose lights are, as far as the screen is concerned, off.
+- A 3x3 blur over the final mask ate the middle of vision. Averaging the
+  player's own fully-lit tile with the dark tiles around it measured **0.55
+  underfoot** — the character stood in a dimple in the middle of a lit room.
+  Any average of a field with hard zeros in it eats into the lit side of every
+  edge. There is no blur now; the 76x76 mask is bilinearly upscaled at draw
+  time, which softens edges across about a tile without leaking.
 
-The crossfade is quantised to ten repacks over `LIGHT_FADE`. The lightmap is
-76x76 tiles at 4 samples per tile; repacking it every frame for a third of a
+The cone deliberately has **no distance falloff**. It is a statement about
+angles and occlusion only. With one it put the far corner of a room at 0.6 and
+the tile underfoot at 1.0, making the room you are standing in a gradient from
+bright to dim — the exact thing this feature exists to prevent. Only the torch,
+which is a light, falls off.
+
+The room crossfade is quantised to ten repacks over `LIGHT_FADE`. The lightmap
+is 76x76 tiles at 4 samples per tile; repacking it every frame for a third of a
 second is 116k pixel writes per frame for an effect nobody can see at that
-cadence.
+cadence. The mask is a separate 76x76 canvas so that turning — which changes the
+cone every frame — costs 5.8k writes instead.
 
 ### Level generation
 
@@ -251,6 +331,19 @@ slides left on screen, mean luminance 97/255, 0.1% clipped, 2% near-black,
   "the two rooms joined by a band you happen to be standing in". In practice
   the bands are two to six tiles of corridor, so this reads correctly, but it is
   a coarse instrument rather than a precise one.
+- **The vision cone makes a hunting entity much harder to see.** It is not
+  visible at all until it enters the cone or crosses a threshold into your
+  room, which puts it on the same footing as the exits you now have to torch
+  for. The proximity drone and the red `seenBy` vignette are the only warnings
+  that something is close. This was a deliberate trade — a dark room with a
+  plainly visible silhouette is not a dark room — but it makes the untuned
+  difficulty worse before it makes it better, and it has not been played by a
+  human.
+- The cone is a per-tile mask upscaled bilinearly, so the boundary of vision
+  is quantised to the tile grid and a gate two tiles wide can either vanish or
+  sit stubbornly in view depending on how it lines up with the ray fan. It is
+  smooth enough in motion that this has never been visible in play, but a
+  sub-tile field would fix it properly.
 - Wall tops are lit from their neighbours rather than self-lit, so a partition
   deep inside a block is flatter than one bordering a room. It reads fine but
   is a simplification.

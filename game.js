@@ -63,6 +63,20 @@ const WALL = 0, FLOOR = 1;
    character looking at a room. */
 const DARK_ROOM      = 0.0;    // a room you are not standing in
 
+/* BAKE_FLOOR is how dimmest a LIT surface is allowed to get. With darkness
+   moved onto the mask this can sit at 1.0: a surface you can see is the
+   palette at full strength, unmodified, because that is the whole look — the
+   walls are a sickly yellow and they are always on. Anything you cannot see
+   is multiplied by zero and this number is irrelevant to it. The variation
+   within a room comes from the additive fixture pass (bright pools under the
+   tubes) rather than from the bake dimming everything else, which is what lets
+   the flat floor value coexist with a lit-looking room.
+
+   At 0.82 the same room measured 172 against a carpet palette of 195 — close,
+   but every lit surface was quietly 12% off the colour it was supposed to be,
+   and the walls another 18% off that. */
+const BAKE_FLOOR     = 1.0;
+
 /* GATE_SPILL is deliberately well below 1. At 0.5 a neighbouring room measured
    58 mean luminance against 76 for the room you were standing in — bright
    enough that the two rooms are hard to tell apart, which defeats the whole
@@ -86,7 +100,12 @@ const VIEW_DEG   = 200;
 const VIEW_HALF  = VIEW_DEG*Math.PI/360;      // radians either side of facing
 const VIEW_RAYS  = 240;                        // angular fan resolution
 const VIEW_RANGE = 22;                         // hard stop; a room is at most 12 across
-const VIEW_STEP  = 0.35;                       // tile spacing along one ray
+/* VIEW_MID is how close a ray must pass to a tile's CENTRE for that tile to
+   count as seen. It is a radius in tiles: 0.5 is the inscribed circle, 0.71
+   the circumscribed one. Below 0.5 the tile goes black before its edge, which
+   makes vision look eaten away at the walls; at 0.71 a corner sliver counts as
+   seeing the tile, which is the leak this exists to stop. */
+const VIEW_MID   = 0.48;
 
 /* The torch, as its own ray fan. Narrower and shorter than the cone, and
    traced independently of it: a lamp is not a pair of eyes and must not be
@@ -250,19 +269,41 @@ function hash2(x,y){ let h = x*374761393 + y*668265263; h = (h ^ (h>>13))*127412
 
 let carpetPat, wallPat, ceilPat, scanPat, grainCv;
 
+/* THE PALETTE.
+   The five colours of the place, and every surface in the game is drawn from
+   them — there is no other hue anywhere in the world. They are the walls, the
+   carpet and the ceiling in the original, and the roles are assigned by how
+   they read from directly above:
+
+     WALL_TOP   the ceiling of a partition, seen from above. Muted and
+                desaturated, because it has to separate from the carpet
+                without going dark — a wall you cannot tell from the floor is
+                not a wall.
+     CARPET     the saturated one. It is the dominant surface in the frame and
+                it is the colour the place is named for.
+     WALL_FACE  the pale end. The vertical face of a partition catches the
+                fluorescents, so it is the brightest thing in the room. */
+const PAL = {
+  bright:  '#e4e6a8',   // (228,230,168)
+  pale:    '#e1e2bb',   // (225,226,187)
+  mid:     '#d6dea7',   // (214,222,167)
+  carpet:  '#c3cb6e',   // (195,203,110)
+  wallTop: '#c6c58b',   // (198,197,139)
+};
+
 function buildPatterns(){
-  // --- carpet: 64x64 speckled beige, seamless-ish ---
+  // --- carpet: 64x64 speckled, seamless-ish ---
   let c = document.createElement('canvas'); c.width=c.height=64;
   let g = c.getContext('2d');
-  g.fillStyle='#b3a469'; g.fillRect(0,0,64,64);
+  g.fillStyle=PAL.carpet; g.fillRect(0,0,64,64);
   for(let i=0;i<2600;i++){
     const x=Math.random()*64, y=Math.random()*64;
     const v = Math.random();
-    g.fillStyle = v<0.4 ? 'rgba(90,82,44,0.30)' : 'rgba(214,203,148,0.28)';
+    g.fillStyle = v<0.4 ? 'rgba(150,156,74,0.30)' : 'rgba(228,230,168,0.28)';
     g.fillRect(x,y,1.6,1.6);
   }
   for(let i=0;i<260;i++){           // faint tile seams
-    g.fillStyle='rgba(70,63,34,0.14)';
+    g.fillStyle='rgba(150,156,74,0.14)';
     g.fillRect(Math.random()*64|0, Math.random()*64|0, 2,2);
   }
   carpetPat = ctx.createPattern(c,'repeat');
@@ -271,19 +312,19 @@ function buildPatterns(){
   c = document.createElement('canvas'); c.width=32; c.height=48;
   g = c.getContext('2d');
   const grd = g.createLinearGradient(0,0,0,48);
-  grd.addColorStop(0,'#b9ac6a'); grd.addColorStop(0.55,'#cfc079'); grd.addColorStop(1,'#7d7442');
+  grd.addColorStop(0,PAL.bright); grd.addColorStop(0.55,PAL.pale); grd.addColorStop(1,PAL.mid);
   g.fillStyle=grd; g.fillRect(0,0,32,48);
-  g.fillStyle='rgba(120,110,58,0.55)';
+  g.fillStyle='rgba(195,203,110,0.55)';
   for(let y=6;y<48;y+=11) for(let x=(y/11|0)%2?4:12;x<32;x+=8) g.fillRect(x,y,2,2);
-  g.fillStyle='rgba(232,220,150,0.16)'; g.fillRect(0,0,32,3);
+  g.fillStyle='rgba(228,230,168,0.16)'; g.fillRect(0,0,32,3);
   wallPat = ctx.createPattern(c,'repeat');
 
   // --- wall top (seen from directly above) ---
   c = document.createElement('canvas'); c.width=c.height=24;
   g = c.getContext('2d');
-  g.fillStyle='#7d7442'; g.fillRect(0,0,24,24);
+  g.fillStyle=PAL.wallTop; g.fillRect(0,0,24,24);
   for(let i=0;i<520;i++){
-    g.fillStyle = Math.random()<0.5?'rgba(34,30,14,0.30)':'rgba(150,140,86,0.16)';
+    g.fillStyle = Math.random()<0.5?'rgba(163,163,112,0.30)':'rgba(214,222,167,0.16)';
     g.fillRect(Math.random()*24, Math.random()*24, 2,2);
   }
   ceilPat = ctx.createPattern(c,'repeat');
@@ -724,10 +765,17 @@ function buildFloor(floorNum, seed){
     }
     lightArr[y*MAP_W+x] = s/n;
   }
-  // nothing is ever fully black — the fluorescents are always humming
+  /* The ambient floor is high, and that is a change of what this number
+     MEANS. It used to be 0.42 because the bake was the only thing deciding
+     brightness, so a floor had to stop the darkest corner of a lit room
+     collapsing into black. Darkness is now the MASK's job — a room you cannot
+     see is multiplied by zero regardless of what its fluorescents are doing.
+     So the bake only describes LIT SURFACES, and its floor is set high enough
+     that a room you can see shows the palette essentially at full strength,
+     with the fixtures as bright pools on top rather than as the only light. */
   for (let y=0;y<MAP_H;y++) for (let x=0;x<MAP_W;x++){
     const i=y*MAP_W+x;
-    if (at(x,y)===FLOOR && lightArr[i] < 0.42) lightArr[i] = 0.42;
+    if (at(x,y)===FLOOR && lightArr[i] < BAKE_FLOOR) lightArr[i] = BAKE_FLOOR;
   }
   // walls catch light from adjacent floor (their face is visible).
   // This MUST read the post-blur, post-floor values. It used to read `tmp`
@@ -744,7 +792,7 @@ function buildFloor(floorNum, seed){
     if (inB(x,y+1)&&at(x,y+1)===FLOOR) m=Math.max(m,wallSrc[i+MAP_W]);
     if (inB(x,y-1)&&at(x,y-1)===FLOOR) m=Math.max(m,wallSrc[i-MAP_W]);
     // a wall deep inside a block still catches some bounce from its room
-    lightArr[i] = Math.max(m*0.95, 0.34);
+    lightArr[i] = Math.max(m*0.95, BAKE_FLOOR*0.80);
   }
 
   /* --- room regions -------------------------------------------------
@@ -824,11 +872,16 @@ function buildFloor(floorNum, seed){
   for (let y=0;y<lightCv.height;y++){
     const ty=(y/LS)|0, row=ty*MAP_W;
     for (let x=0;x<lightCv.width;x++){
+      /* NEUTRAL, not mono-yellow. This used to be tinted (255,246,186) plus a
+         warm +18 lift, which existed to stop unlit floor going black. Now that
+         darkness is the mask's job, tinting the bake would double-count it:
+         a lit room would come out green-yellow a second time on top of a
+         palette that is already the right colour. The bake is now a pure
+         brightness, and the hue comes from the surfaces themselves. */
       const b = Math.min(1, lightArr[row + ((x/LS)|0)]);
+      const v = Math.round(255*b);
       const k=(y*lightCv.width+x)*4;
-      lightImg.data[k]   = Math.min(255, 255*b + 18);
-      lightImg.data[k+1] = Math.min(255, 246*b + 16);
-      lightImg.data[k+2] = Math.min(255, 186*b + 10);
+      lightImg.data[k]=v; lightImg.data[k+1]=v; lightImg.data[k+2]=v;
       lightImg.data[k+3] = 255;
     }
   }
@@ -965,20 +1018,69 @@ function fixtureVis(f){
    ============================================================ */
 
 /* Fan of rays from (ox,oy) within halfAngle radians of `facing`, stopping at
-   the first wall. `gain` scales the result. Shared by the cone and the torch
-   because they are the same computation with different numbers. */
-function castFan(out, ox, oy, facing, halfAngle, range, rays, gain){
+   the first wall. `gain` scales the result; `fall` is how much brightness is
+   lost at maximum range (0 = none). Shared by the cone and the torch because
+   they are the same computation with different numbers — but the difference in
+   `fall` is not cosmetic, see the call sites.
+
+   Traversal is an exact voxel walk (Amanatides-Woo), one step per tile
+   crossed, NOT a fixed-distance sample. Sampling was subtly wrong in a way
+   that only showed up as an assertion failure: a ray stepping every 0.35
+   tiles skipped a wall it was clipping for a 0.4-tile sliver, and lit the
+   pocket behind it. Fifteen tiles out of 1722 occluded ones, invisible in any
+   aggregate brightness number, and exactly the "the cone stops at a wall"
+   claim being false. It is also cheaper: one step per tile instead of 2.9. */
+function castFan(out, ox, oy, facing, halfAngle, range, rays, gain, fall){
+  const grid=G.grid;
   for (let r=0; r<rays; r++){
     const a = facing - halfAngle + (rays===1 ? 0 : (r/(rays-1))*halfAngle*2);
-    const ca=Math.cos(a), sa=Math.sin(a);
-    for (let d=VIEW_STEP; d<=range; d+=VIEW_STEP){
-      const x=ox+ca*d, y=oy+sa*d;
-      const ix=x|0, iy=y|0;
+    const dx=Math.cos(a), dy=Math.sin(a);
+    let ix=Math.floor(ox), iy=Math.floor(oy);
+    if (ix<0||iy<0||ix>=MAP_W||iy>=MAP_H) continue;
+    if (grid[iy*MAP_W+ix]===WALL) continue;    // eye inside a wall: see nothing
+    const stepX = dx>0?1:-1, stepY = dy>0?1:-1;
+    const invX = dx!==0 ? 1/Math.abs(dx) : Infinity;
+    const invY = dy!==0 ? 1/Math.abs(dy) : Infinity;
+    let tMaxX = dx!==0 ? (dx>0 ? (ix+1-ox) : (ox-ix)) * invX : Infinity;
+    let tMaxY = dy!==0 ? (dy>0 ? (iy+1-oy) : (oy-iy)) * invY : Infinity;
+    const tDeltaX = invX, tDeltaY = invY;
+    let t = 0;
+    while (t <= range){
       if (ix<0||iy<0||ix>=MAP_W||iy>=MAP_H) break;
       const i = iy*MAP_W+ix;
-      if (G.grid[i]===WALL) break;         // the wall occludes; stop the ray
-      const v = gain*(1 - 0.55*Math.min(1, d/range));
-      if (v > out[i]) out[i] = v;
+      if (grid[i]===WALL) break;                // the wall occludes; stop
+      /* Only light the tile if the ray passes NEAR ITS CENTRE, not if it
+         clips the corner. A voxel walk marks every tile the ray enters, which
+         includes the ones it grazes by a few pixels — so you could see a
+         one-tile sliver of floor around the far side of a wall corner, a tile
+         that is geometrically behind the wall. Requiring the ray to come
+         within VIEW_MID of the tile centre makes "visible" mean "there is a
+         clear line to the middle of it", which is both what the eye means and
+         what the occlusion oracle checks. */
+      const cx=ix+0.5-ox, cy=iy+0.5-oy;
+      const tc = cx*dx + cy*dy;                 // closest approach along the ray
+      if (tc>=0 && tc<=range){
+        const miss2 = cx*cx + cy*cy - tc*tc;    // |d| is 1, so this is the squared miss
+        if (miss2 <= VIEW_MID*VIEW_MID){
+          const v = gain*(1 - fall*Math.min(1, tc/range));
+          if (v > out[i]) out[i] = v;
+        }
+      }
+      /* Exact corner: the ray passes precisely through a vertex. Step both
+         axes and refuse if both tiles it stepped past are solid, so it cannot
+         thread the diagonal pinch between two partition stubs. */
+      if (Math.abs(tMaxX-tMaxY) < 1e-9){
+        const ax=ix+stepX, ay=iy;
+        const bx=ix, by=iy+stepY;
+        const sa=(ax<0||ay<0||ax>=MAP_W||ay>=MAP_H)||grid[ay*MAP_W+ax]===WALL;
+        const sb=(bx<0||by<0||bx>=MAP_W||by>=MAP_H)||grid[by*MAP_W+bx]===WALL;
+        if (sa && sb) break;
+        t=tMaxX; tMaxX+=tDeltaX; tMaxY+=tDeltaY; ix=ax; iy=ay;
+      } else if (tMaxX < tMaxY){
+        t=tMaxX; tMaxX+=tDeltaX; ix+=stepX;
+      } else {
+        t=tMaxY; tMaxY+=tDeltaY; iy+=stepY;
+      }
     }
   }
 }
@@ -1000,29 +1102,33 @@ function traceViewCone(force){
   const ex = p.x + Math.cos(p.face)*TORCH_OFF;
   const ey = p.y + Math.sin(p.face)*TORCH_OFF;
 
-  /* The cone has no range limit and is not feathered by distance. It is a
-     statement about ANGLES and OCCLUSION only: inside 100 degrees of facing,
-     until a wall. Anything that reaches further than that is the room scope's
-     job, and letting the cone fade with distance on top of it would darken the
-     far corner of the room you are standing in — which is the one thing this
-     feature must never do. */
-  castFan(coneArr, ex, ey, p.face, VIEW_HALF, VIEW_RANGE, VIEW_RAYS, 1);
+  /* The cone has NO distance falloff. It is a statement about ANGLES and
+     OCCLUSION only: inside 100 degrees of facing, until a wall. It used to
+     fade with range like a light, which put the far corner of a 12-tile room
+     at 0.6 while the tile underfoot was at 1.0 — so the room you are standing
+     in was a gradient from bright to dim, which is the one thing this feature
+     must never do. What you can see is bright; what you cannot is black. */
+  castFan(coneArr, ex, ey, p.face, VIEW_HALF, VIEW_RANGE, VIEW_RAYS, 1, 0);
 
-  /* The torch is a light: it has a range and it falls off. It is traced
-     independently of the cone so it is not clipped to 100 degrees — the cone
-     is a limit on the eyes, not on the lamp. */
-  if (G.torch) castFan(torchArr, ex, ey, p.face, TORCH_HALF, TORCH_RANGE, TORCH_RAYS, TORCH_GAIN);
+  /* The torch IS a light, so it keeps its falloff. It is traced independently
+     of the cone so it is not clipped to 100 degrees: a lamp is not a pair of
+     eyes. */
+  if (G.torch) castFan(torchArr, ex, ey, p.face, TORCH_HALF, TORCH_RANGE, TORCH_RAYS, TORCH_GAIN, 0.55);
 
   /* One tile of guaranteed visibility under the player. Without it the avatar
      can back into a corner where every ray exits before reaching its own tile
      and the figure renders inside a black hole. */
   if (tx>=0&&ty>=0&&tx<MAP_W&&ty<MAP_H) coneArr[ty*MAP_W+tx]=1;
 
-  /* Walls: a wall you can see the face of is visible, and it is visible at
-     least as brightly as the floor in front of it, or a partition reads as a
-     hole cut in the world. A wall deep inside a block with nothing lit around
-     it stays black, which is what you want — you should not be able to see the
-     inside of the building. */
+  /* Walls: a wall you can see the face of is visible, and it takes the
+     brightest floor it touches — no dimming factor. The mask dimmed walls by
+     10% "so they would read as walls", which is backwards: they already read
+     as walls because they are a different texture AND the bake floors them at
+     80% of the carpet. Dimming them twice in the mask as well left them
+     measurably darker than the floor in front, which is the signature of a
+     hole rather than a wall. A wall deep inside a block with nothing lit
+     around it stays black, which is what you want — you should not be able to
+     see the inside of the building. */
   for (let y=0;y<MAP_H;y++) for (let x=0;x<MAP_W;x++){
     const i=y*MAP_W+x;
     if (G.grid[i]!==WALL) continue;
@@ -1031,8 +1137,8 @@ function traceViewCone(force){
     if (x>0        && G.grid[i-1]===FLOOR)   m=Math.max(m, coneArr[i-1], torchArr[i-1]);
     if (y+1<MAP_H  && G.grid[i+MAP_W]===FLOOR) m=Math.max(m, coneArr[i+MAP_W], torchArr[i+MAP_W]);
     if (y>0        && G.grid[i-MAP_W]===FLOOR) m=Math.max(m, coneArr[i-MAP_W], torchArr[i-MAP_W]);
-    coneArr[i] = Math.max(coneArr[i], m*0.9);
-    torchArr[i]= Math.max(torchArr[i], m*0.9);
+    coneArr[i] = Math.max(coneArr[i], m);
+    torchArr[i]= Math.max(torchArr[i], m);
   }
 
   /* Combine: room scope gates everything, then the cone, then the torch.
@@ -1041,22 +1147,13 @@ function traceViewCone(force){
   for (let i=0; i<maskArr.length; i++){
     maskArr[i] = Math.min(1, Math.max(visArr[i]*coneArr[i], torchArr[i]));
   }
-
-  /* One blur, at the very end. Applied to the combined mask so the cone edge,
-     the room threshold and the torch rim are all softened together; applied
-     before the combine it would let the torch's blur leak light around a
-     corner the ray cast had correctly stopped at. */
-  maskTmp.set(maskArr);
-  for (let y=0;y<MAP_H;y++) for (let x=0;x<MAP_W;x++){
-    const i=y*MAP_W+x;
-    let s=0,n=0;
-    for (let dy=-1;dy<=1;dy++) for (let dx=-1;dx<=1;dx++){
-      const nx=x+dx, ny=y+dy;
-      if (nx<0||ny<0||nx>=MAP_W||ny>=MAP_H) continue;
-      s+=maskTmp[ny*MAP_W+nx]; n++;
-    }
-    maskArr[i]=s/n;
-  }
+  /* Deliberately NOT blurred. There was a 3x3 pass here and it quietly broke
+     the centre of vision: an average of the player's own fully-lit tile with
+     the dark tiles around it measured 0.55 underfoot, so the character stood
+     in a dimple in the middle of a lit room. Any blur of a field with hard
+     zeros in it eats into the lit side of every edge. The mask canvas is
+     drawn with bilinear upscaling from 76x76 to full screen, which already
+     softens edges across about a tile, and it does it without leaking. */
   return true;
 }
 
@@ -1689,7 +1786,7 @@ function caught(){
   for (let y=y0;y<=y1;y++) for (let x=x0;x<=x1;x++){
     const h=hash2(x,y);
     if (h<0.14){
-      ctx.fillStyle = h<0.05 ? 'rgba(52,47,22,0.16)' : 'rgba(238,228,168,0.10)';
+      ctx.fillStyle = h<0.05 ? 'rgba(163,163,112,0.16)' : 'rgba(228,230,168,0.10)';
       ctx.fillRect(x*TILE, y*TILE, TILE, TILE);
     }
   }
@@ -1716,10 +1813,10 @@ function caught(){
     ctx.fillStyle = wallPat;
     ctx.fillRect(fx, fy, TILE, FACE);
     // hard line where the face meets the ceiling
-    ctx.fillStyle='rgba(18,15,6,0.55)';
+    ctx.fillStyle='rgba(40,38,24,0.55)';
     ctx.fillRect(fx, fy, TILE, 2);
     // skirting shadow at the base
-    ctx.fillStyle='rgba(26,22,9,0.42)';
+    ctx.fillStyle='rgba(48,46,30,0.42)';
     ctx.fillRect(fx, fy+FACE-2, TILE, 2);
   }
 
@@ -1733,7 +1830,7 @@ function caught(){
     ctx.fillStyle = ceilPat;
     ctx.fillRect(x*TILE, y*TILE, TILE, TILE);
   }
-  ctx.fillStyle='rgba(10,8,3,0.55)';
+  ctx.fillStyle='rgba(28,26,16,0.55)';
   for (let y=y0;y<=y1;y++) for (let x=x0;x<=x1;x++){
     if (G.grid[y*MAP_W+x]!==WALL) continue;
     const below = (y+1<MAP_H && G.grid[(y+1)*MAP_W+x]===FLOOR);
@@ -1821,9 +1918,9 @@ function caught(){
     const rr=f.r*T;
     if (fx<-rr||fy<-rr||fx>cvs.width+rr||fy>cvs.height+rr) continue;
     const gr=ctx.createRadialGradient(fx,fy,0,fx,fy,rr);
-    gr.addColorStop(0,`rgba(255,248,196,${a})`);
-    gr.addColorStop(0.5,`rgba(226,214,150,${a*0.4})`);
-    gr.addColorStop(1,'rgba(180,170,110,0)');
+    gr.addColorStop(0,`rgba(228,230,168,${a})`);
+    gr.addColorStop(0.5,`rgba(225,226,187,${a*0.4})`);
+    gr.addColorStop(1,'rgba(198,197,139,0)');
     ctx.fillStyle=gr;
     ctx.fillRect(fx-rr,fy-rr,rr*2,rr*2);
     /* The tube itself must be a FIXED physical size. It used to scale with
@@ -1833,9 +1930,9 @@ function caught(){
     ctx.save();
     ctx.translate(fx, fy);
     ctx.rotate(f.phase);
-    ctx.fillStyle=`rgba(255,250,214,${(0.10 + a*0.5)*fv})`;
+    ctx.fillStyle=`rgba(228,230,168,${(0.10 + a*0.5)*fv})`;
     ctx.fillRect(-tw2/2, -th2/2, tw2, th2);
-    ctx.fillStyle=`rgba(255,252,226,${0.10*fv})`;
+    ctx.fillStyle=`rgba(225,226,187,${0.10*fv})`;
     ctx.fillRect(-tw2/2, -th2/2, tw2, th2*0.45);
     ctx.restore();
   }
@@ -1860,11 +1957,14 @@ function caught(){
     vg.addColorStop(1,`rgba(150,26,16,${0.62*seen})`);
     ctx.fillStyle=vg; ctx.fillRect(0,0,cvs.width,cvs.height);
   }
-  // vignette
-  const vg2=ctx.createRadialGradient(cvs.width/2,cvs.height/2,cvs.height*0.30,
-                                     cvs.width/2,cvs.height/2,cvs.height*0.95);
+  /* Vignette. Was 0.52, which was tuned when the whole floor was lit and the
+     only job was to stop the frame feeling like a wallpaper sample. With the
+     room scoped and the cone doing the framing, a vignette that strong just
+     eats the palette at the edges of the very room you are standing in. */
+  const vg2=ctx.createRadialGradient(cvs.width/2,cvs.height/2,cvs.height*0.34,
+                                     cvs.width/2,cvs.height/2,cvs.height*1.05);
   vg2.addColorStop(0,'rgba(0,0,0,0)');
-  vg2.addColorStop(1,'rgba(0,0,0,0.52)');
+  vg2.addColorStop(1,'rgba(0,0,0,0.34)');
   ctx.fillStyle=vg2; ctx.fillRect(0,0,cvs.width,cvs.height);
 
   /* ---------- 8. VHS composite ---------- */
@@ -1939,13 +2039,13 @@ function drawPlayer(p, t){
   ctx.rotate(p.face + Math.PI/2);
 
   // torso / shoulders: a slab across the body, seen from above
-  ctx.fillStyle='#14120e';
+  ctx.fillStyle='#1c1a14';
   ctx.beginPath(); ctx.ellipse(0, TILE*0.024, TILE*0.172, TILE*0.136, 0,0,6.283); ctx.fill();
-  ctx.fillStyle='#2a2619';
+  ctx.fillStyle='#33301f';
   ctx.beginPath(); ctx.ellipse(0, TILE*0.014, TILE*0.147, TILE*0.111, 0,0,6.283); ctx.fill();
 
   // arms, either side of the shoulders
-  ctx.fillStyle='#1b1913';
+  ctx.fillStyle='#232019';
   for (const sgn of [-1,1]){
     ctx.beginPath();
     ctx.ellipse(sgn*TILE*0.156, TILE*0.057, TILE*0.054, TILE*0.071, 0,0,6.283);
@@ -1953,9 +2053,9 @@ function drawPlayer(p, t){
   }
 
   // head
-  ctx.fillStyle='#ab9d73';
+  ctx.fillStyle=PAL.mid;
   ctx.beginPath(); ctx.arc(0, -TILE*0.017, TILE*0.095, 0, 6.283); ctx.fill();
-  ctx.fillStyle='rgba(16,13,6,0.42)';   // back of the head, away from the light
+  ctx.fillStyle='rgba(28,26,16,0.42)';   // back of the head, away from the light
   ctx.beginPath(); ctx.arc(0, -TILE*0.017+TILE*0.024, TILE*0.095, 0.25, 2.89); ctx.fill();
 
   // the torch, held out in front — the beam originates exactly here
