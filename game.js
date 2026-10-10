@@ -83,6 +83,12 @@ const HOP_FALL = [1.0, 0.62, 0.40, 0.26, 0.17, 0.11];   // index = gates passed
 const VIEW_FADE_NEAR = 13;    // tiles, full brightness up to here
 const VIEW_FADE_FAR  = 31;    // tiles, black from here
 
+/* How fast the drawn mask chases the freshly traced one. The mask is per
+   TILE, so even retraced every frame it is quantised — tiles enter and leave
+   the fan one at a time as you walk and the boundary of vision chatters.
+   Approaching the target exponentially turns that into sliding motion. */
+const MASK_TAU = 0.055;       // s; much shorter than LIGHT_FADE on purpose
+
 /* BAKE_FLOOR is how dimmest a LIT surface is allowed to get. With darkness
    moved onto the mask this can sit at 1.0: a surface you can see is the
    palette at full strength, unmodified, because that is the whole look — the
@@ -571,9 +577,11 @@ let lightImg, lightCtx;      // the packed lightmap, repacked as visArr fades
 let regionOf, regionAdj, regionCount;  // lit spaces and how they connect
 let visArr, visFrom, visTgt;          // per-tile visibility: bake x room scope
 let visScratch;                       // preallocated, so scoping never allocates
-let maskArr, coneArr, torchArr, maskTmp;  // the combined visibility mask
+let maskArr, maskTgt;                     // the mask, and where it is heading
+let coneArr, torchArr;                    // per-tile cone and torch fans
 let maskCv, maskCtx, maskImg;             // its own 1-sample-per-tile canvas
-let coneTileX=-1, coneTileY=-1, coneFace=NaN, coneTorch=null;  // last traced pose
+let coneX=NaN, coneY=NaN, coneFace=NaN, coneTorch=null;  // last traced pose
+let scopeDirty = false;       // the room crossfade moved visArr; recombine
 let visRegion = -1;                   // the region the player is lighting
 let visStep = 0, visFadeT = 0;        // quantised crossfade between two regions
 
@@ -914,9 +922,9 @@ function buildFloor(floorNum, seed){
      turns, and folding it into the lightmap would mean repacking 116k pixels
      on every small movement instead of 5.8k. */
   maskArr  = new Float32Array(MAP_W*MAP_H);
+  maskTgt  = new Float32Array(MAP_W*MAP_H);
   coneArr  = new Float32Array(MAP_W*MAP_H);
   torchArr = new Float32Array(MAP_W*MAP_H);
-  maskTmp  = new Float32Array(MAP_W*MAP_H);
   maskCv = document.createElement('canvas');
   maskCv.width = MAP_W; maskCv.height = MAP_H;
   maskCtx = maskCv.getContext('2d');
@@ -973,8 +981,7 @@ function buildFloor(floorNum, seed){
   /* Light the room the player spawned in. After this point it follows them:
      G exists, so regionAt(G.player) is meaningful. */
   scopeRoomLight(0, true);
-  traceViewCone(true);
-  packMask();
+  snapMask();
 }
 
 /* ============================================================
@@ -1099,16 +1106,23 @@ function castFan(out, ox, oy, facing, halfAngle, range, rays, gain, fall){
   }
 }
 
-/* Rebuild coneArr and torchArr, then fold everything into maskArr. Called
-   only when the pose moved, so standing still costs nothing at all. */
+/* Rebuild coneArr and torchArr, then fold everything into maskTarget.
+   Called only when the pose moved, so standing still costs nothing at all.
+
+   The pose test is on the player's POSITION, not their tile. It used to be on
+   the tile, which meant the cone was recomputed about three times a second
+   while walking and held still in between — so the boundary of vision jumped a
+   whole tile at a time and the world flickered as you crossed each boundary.
+   Retracing on any movement costs the same per frame (it was going to run on
+   every frame anyway) and the edge now tracks you continuously. */
 function traceViewCone(force){
   const p = G.player;
   const tx=Math.floor(p.x), ty=Math.floor(p.y);
   /* Torch state is part of the pose: pressing F while standing still must
-     retrace, or the beam only appears once you next move a tile. */
-  if (!force && tx===coneTileX && ty===coneTileY && p.face===coneFace && G.torch===coneTorch)
+     retrace, or the beam only appears once you next move. */
+  if (!force && p.x===coneX && p.y===coneY && p.face===coneFace && G.torch===coneTorch)
     return false;
-  coneTileX=tx; coneTileY=ty; coneFace=p.face; coneTorch=G.torch;
+  coneX=p.x; coneY=p.y; coneFace=p.face; coneTorch=G.torch;
 
   coneArr.fill(0);
   torchArr.fill(0);
@@ -1162,9 +1176,17 @@ function traceViewCone(force){
      The distance term is skipped for the player's own region (scope 1.0), so
      the room you are standing in is uniformly bright no matter which corner
      you are in. Everywhere else it is what turns a long corridor into a
-     corridor instead of a lit pipe. */
+     corridor instead of a lit pipe.
+
+     Split out of traceViewCone because it also has to run when only the ROOM
+     SCOPE moved (the crossfade), when the cone itself did not change at all. */
+  combineMask();
+  return true;
+}
+
+function combineMask(){
   const px2=G.player.x, py2=G.player.y;
-  for (let i=0; i<maskArr.length; i++){
+  for (let i=0; i<maskTgt.length; i++){
     const sc = visArr[i], cn = coneArr[i];
     let v = 0;
     if (sc > 0 && cn > 0){
@@ -1179,7 +1201,7 @@ function traceViewCone(force){
         v = sc*f*cn;
       }
     }
-    maskArr[i] = Math.min(1, Math.max(v, torchArr[i]));
+    maskTgt[i] = Math.min(1, Math.max(v, torchArr[i]));
   }
   /* Deliberately NOT blurred. There was a 3x3 pass here and it quietly broke
      the centre of vision: an average of the player's own fully-lit tile with
@@ -1188,7 +1210,6 @@ function traceViewCone(force){
      zeros in it eats into the lit side of every edge. The mask canvas is
      drawn with bilinear upscaling from 76x76 to full screen, which already
      softens edges across about a tile, and it does it without leaking. */
-  return true;
 }
 
 /* Recompute the target visibility field for the region the player is in.
@@ -1241,8 +1262,7 @@ function scopeRoomLight(dt, instant){
   }
   if (instant){
     visArr.set(visTgt);
-    traceViewCone(true);   // the mask bakes in the scope, so it follows it
-    packMask();
+    snapMask();
   }
   return true;
 }
@@ -1261,10 +1281,9 @@ function fadeRoomLight(dt){
     visStep = step;
     const k = step/LIGHT_FADE_STEPS;
     for (let i=0; i<visArr.length; i++) visArr[i] = visFrom[i] + (visTgt[i]-visFrom[i])*k;
-    /* The mask bakes in the room scope, so it has to follow the fade — but
-       only on fade steps, not every frame. */
-    traceViewCone(true);
-    packMask();
+    /* The mask bakes in the room scope, so it has to be recombined — but only
+       on fade steps, not every frame. The easing in smoothMask then tracks it. */
+    scopeDirty = true;
   }
 }
 
@@ -1278,6 +1297,38 @@ function packMask(){
     d[k]=b; d[k+1]=b; d[k+2]=b; d[k+3]=255;
   }
   maskCtx.putImageData(maskImg, 0, 0);
+}
+
+/* Ease the drawn mask toward the freshly traced one.
+   The mask is per TILE, so even retraced every frame it is still quantised:
+   as you walk, tiles enter and leave the fan one at a time and the boundary of
+   vision would chatter. Exponentially approaching the target turns that chatter
+   into motion — the edge slides rather than flickers.
+
+   MASK_TAU is deliberately much shorter than LIGHT_FADE. The room crossfade
+   is a deliberate 0.3s and is animated in visArr; this is only here to take
+   the stair-stepping out of a per-frame quantity, so at 55ms it tracks the
+   scope closely instead of lagging behind it by a visible amount.
+
+   Returns whether the mask moved enough to be worth re-uploading. */
+function smoothMask(dt){
+  const k = 1 - Math.exp(-dt/MASK_TAU);
+  let moved = false;
+  for (let i=0; i<maskArr.length; i++){
+    const d = maskTgt[i]-maskArr[i];
+    if (d > 0.0025 || d < -0.0025){ maskArr[i] += d*k; moved = true; }
+    else if (d !== 0){ maskArr[i] = maskTgt[i]; moved = true; }
+  }
+  return moved;
+}
+
+/* Skip the easing entirely — floor start, retry, and every test assertion.
+   Anything that reads the mask needs the settled value, not a value 55ms
+   behind. */
+function snapMask(){
+  traceViewCone(true);
+  maskArr.set(maskTgt);
+  packMask();
 }
 
 /* NOTE: x/y here may be FRACTIONAL world coords (collision), so they MUST be
@@ -1558,7 +1609,11 @@ function update(dt){
      read as the fluorescents chasing you. */
   scopeRoomLight(dt, false);
   fadeRoomLight(dt);
-  if (traceViewCone(false)) packMask();
+  /* Retrace on any movement, then EASE toward it. Both halves matter: the
+     retrace alone still steps a tile at a time, and the easing alone still
+     quantises to when the retrace happens. */
+  if (traceViewCone(false) || scopeDirty){ combineMask(); scopeDirty = false; }
+  if (smoothMask(dt)) packMask();
 
   /* --- torch reveals --- */
   let seenBy = 0, nearest = 99;
