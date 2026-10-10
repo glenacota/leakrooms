@@ -33,6 +33,7 @@ const FLOORS = 5;
 const WALK   = 3.3;               // tiles/sec
 const SPRINT = 6.0;
 const R      = 0.33;              // player collision radius (tiles)
+const RA     = 0.34;              // Lifeform collision radius (bulkier)
 const TORCH_OFF = 0.135;           // how far in front the torch is held, in tiles
 
 const BATT_MAX   = 100;
@@ -693,58 +694,64 @@ function blocked(x,y,r){
 /* Slide out of geometry. `force` skips the "already legal" early-out and is
    used when an entity is legal but immobile (both axes blocked at once), which
    an overlap test alone cannot detect. Local only — never teleports. */
-function unstick(e, force){
-  if (!force && !blocked(e.x, e.y, 0.34)) return false;
+function unstick(e, r){
+  // Test with the entity's OWN radius. A hardcoded 0.34 here made a player
+  // resting flush against a wall (gap 0.335, comfortably clear at R=0.33)
+  // read as overlapping, so every wall contact nudged it ~0.08 tiles sideways.
+  if (!blocked(e.x, e.y, r)) return false;
   let bx=null, by=null, bd=Infinity;
   for (let a=0; a<24; a++){
     const ang = a/24*Math.PI*2;
     const cx = Math.cos(ang), cy = Math.sin(ang);
     for (let d=0.08; d<=0.9; d+=0.08){
       const nx = e.x+cx*d, ny = e.y+cy*d;
-      if (!blocked(nx, ny, 0.34)){ if (d<bd){ bd=d; bx=nx; by=ny; } break; }
+      if (!blocked(nx, ny, r)){ if (d<bd){ bd=d; bx=nx; by=ny; } break; }
     }
   }
   if (bx!==null){ e.x=bx; e.y=by; return true; }
   return false;
 }
 
-/* Move with a BOUNDED corner assist.
-   Sliding left under a wall block is blocked by that block's bottom-left corner
-   even though the lane is wide open, so a nudge perpendicular lets you slip
-   past. The nudge must be proportional to the step, though: at a fixed 0.30
-   tiles it fired every frame while you held into a wall, sliding you 18 tiles
-   a second sideways — which felt like the avatar accelerated on contact. */
+/* Escape a genuine pocket: both requested axes are blocked, so the entity is
+   legal but immobile. Walks a short ring biased toward the direction actually
+   being asked for, and never moves more than 0.45 tiles — this is a nudge out
+   of a wedge, not a teleport. */
+function depenetrate(e, r, dx, dy){
+  const want = Math.atan2(dy, dx);
+  let bx=null, by=null, bd=Infinity;
+  for (let a=-3; a<=3; a++){
+    const ang = want + a*(Math.PI/12);          // try straight on first, then fan out
+    const cx = Math.cos(ang), cy = Math.sin(ang);
+    for (let d=0.08; d<=0.45; d+=0.08){
+      const nx = e.x+cx*d, ny = e.y+cy*d;
+      if (!blocked(nx, ny, r)){ if (d<bd){ bd=d; bx=nx; by=ny; } break; }
+    }
+  }
+  if (bx!==null){ e.x=bx; e.y=by; return true; }
+  return false;
+}
+
+/* Move: try the full step, then slide on each axis, then depenetrate.
+   No perpendicular "corner assist". That used to nudge sideways whenever an
+   axis was blocked, and it tried the perpendicular in a FIXED order (+1 before
+   -1) — so holding up against a wall always picked +x and walked you right
+   until you left the screen. If your circle overlaps a wall corner then
+   stopping is the correct answer; you round the corner by also pressing the
+   other direction, which the axis-only fallback already handles. */
 function moveEnt(e, dx, dy, r){
-  const wantX = dx, wantY = dy;
-  const step  = Math.hypot(dx, dy);
-  const nudge = Math.min(0.10, step);
-  let movedX=false, movedY=false;
+  if (dx===0 && dy===0) return [0,0];
 
-  if (dx!==0){
-    if (!blocked(e.x+dx, e.y, r)){ e.x += dx; movedX=true; }
-    else {
-      for (const s of [1,-1]){
-        const ny = e.y + s*nudge;
-        if (!blocked(e.x+dx, ny, r)){ e.x += dx; e.y += ny; movedX=true; break; }
-      }
-    }
-  }
-  if (dy!==0){
-    if (!blocked(e.x, e.y+dy, r)){ e.y += dy; movedY=true; }
-    else {
-      for (const s of [1,-1]){
-        const nx = e.x + s*nudge;
-        if (!blocked(nx, e.y+dy, r)){ e.x += nx; e.y += dy; movedY=true; break; }
-      }
-    }
-  }
-
-  /* A move was asked for and NOTHING happened: the entity is in a pocket that
-     is technically legal but has no escape (both axes blocked at once).
-     Only an overlap test misses this, so resolve it here. */
-  if ((wantX!==0 || wantY!==0) && !movedX && !movedY) unstick(e, true);
-
-  return [movedX?dx:0, movedY?dy:0];
+  // full step (diagonal input moves on both axes)
+  if (!blocked(e.x+dx, e.y+dy, r)){ e.x+=dx; e.y+=dy; return [dx,dy]; }
+  // slide along the wall
+  if (dx!==0 && !blocked(e.x+dx, e.y, r)){ e.x+=dx; return [dx,0]; }
+  if (dy!==0 && !blocked(e.x, e.y+dy, r)){ e.y+=dy; return [0,dy]; }
+  /* Only a DIAGONAL press into a concave corner counts as wedged. Being
+     unable to move while pressing straight into a wall is the normal resting
+     state, not a trap — depenetrating there just nudged the avatar sideways
+     every frame, which read as drift. */
+  if (dx!==0 && dy!==0) depenetrate(e, r, dx, dy);
+  return [0,0];
 }
 
 /* ============================================================
@@ -873,7 +880,7 @@ function update(dt){
   const spd = sprinting ? SPRINT : WALK;
   let moving=false, bumped=false;
 
-  unstick(p);
+  unstick(p, R);
 
   if (ix||iy){
     const len=Math.hypot(ix,iy); ix/=len; iy/=len;
@@ -980,7 +987,7 @@ function update(dt){
 
 function updateAgent(a, dt, p){
   a.born = Math.max(0, a.born-dt);
-  unstick(a);
+  unstick(a, RA);
 
   if (a.state==='DORMANT'){ a.rise += (0-a.rise)*Math.min(1,dt*3); return; }
 
@@ -1001,7 +1008,7 @@ function updateAgent(a, dt, p){
     const spd = 1.5 + G.floor*0.1;
     const ang = Math.atan2(a.target.y-a.y, a.target.x-a.x);
     a.face = ang;
-    moveEnt(a, Math.cos(ang)*spd*dt, Math.sin(ang)*spd*dt, 0.34);
+    moveEnt(a, Math.cos(ang)*spd*dt, Math.sin(ang)*spd*dt, RA);
     return;
   }
 
@@ -1012,10 +1019,10 @@ function updateAgent(a, dt, p){
     const tgt = a.target || {x:p.x,y:p.y};
     const ang = Math.atan2(tgt.y-a.y, tgt.x-a.x);
     a.face = ang;
-    const [dx,dy] = moveEnt(a, Math.cos(ang)*spd*dt, Math.sin(ang)*spd*dt, 0.34);
+    const [dx,dy] = moveEnt(a, Math.cos(ang)*spd*dt, Math.sin(ang)*spd*dt, RA);
     if (Math.hypot(dx,dy)<0.001){
       // blocked — sidestep along the wall
-      moveEnt(a, Math.cos(ang+1.57)*spd*dt, Math.sin(ang+1.57)*spd*dt, 0.34);
+      moveEnt(a, Math.cos(ang+1.57)*spd*dt, Math.sin(ang+1.57)*spd*dt, RA);
     }
     if (Math.hypot(a.x-p.x,a.y-p.y) < 0.52) brush(a, p);
     if (a.t < -8){ a.state='SEARCH'; a.t=6; a.target=randomFloorNear(a.x,a.y,9); }
@@ -1029,7 +1036,7 @@ function updateAgent(a, dt, p){
     }
     const ang = Math.atan2(a.target.y-a.y, a.target.x-a.x);
     a.face = ang;
-    moveEnt(a, Math.cos(ang)*2.3*dt, Math.sin(ang)*2.3*dt, 0.34);
+    moveEnt(a, Math.cos(ang)*2.3*dt, Math.sin(ang)*2.3*dt, RA);
     if (Math.hypot(a.x-p.x,a.y-p.y) < 0.52) brush(a, p);
     if (a.t<=0){
       a.state = 'DORMANT'; a.rise=0.3; a.target=null;

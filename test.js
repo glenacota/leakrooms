@@ -772,5 +772,78 @@ console.log('[9] wall contact does not accelerate the avatar');
   }
 }
 
+/* ============ TEST 10: pressing into a wall must not slide sideways ====
+   Reported as: "going up facing a wall, the avatar moves faster towards the
+   right, and when the wall is over the avatar it is teleported far right."
+   The perpendicular corner-assist tried its two signs in a FIXED order, so it
+   always picked +x — holding up against a wall walked the avatar right until
+   it left the screen — and the immobile fallback could relocate 0.9 tiles in
+   one frame.                                                                     */
+console.log('[10] pressing into a wall produces no lateral drift and no teleport');
+{
+  const keys = A.keys;
+  const release = ()=>{ keys.w=keys.a=keys.s=keys.d=false; keys.shift=false; };
+
+  // find a floor tile with a wall DIRECTLY above it
+  let spot=null;
+  for (let y=3;y<74 && !spot;y++) for (let x=3;x<74;x++){
+    if (G.grid[y*76+x]===1 && G.grid[(y-1)*76+x]===0) { spot={x:x+0.5,y:y+0.5}; break; }
+  }
+  assert(spot, 'no wall-above tile found');
+
+  if (spot){
+    buildFloor(3, 555);
+    // re-locate on THIS floor
+    spot=null;
+    for (let y=3;y<74 && !spot;y++) for (let x=3;x<74;x++){
+      if (G.grid[y*76+x]===1 && G.grid[(y-1)*76+x]===0){ spot={x:x+0.5,y:y+0.5}; break; }
+    }
+    G.player.x=spot.x; G.player.y=spot.y;
+    release();
+    for(let i=0;i<5;i++) update(1/60);
+    const x0=G.player.x, y0=G.player.y;
+    keys.w=true;                                 // hold UP into the wall
+    let maxJump=0, prevX=G.player.x, prevY=G.player.y;
+    for(let i=0;i<60;i++){
+      update(1/60);
+      maxJump=Math.max(maxJump, Math.hypot(G.player.x-prevX, G.player.y-prevY));
+      prevX=G.player.x; prevY=G.player.y;
+    }
+    release();
+    const dx=G.player.x-x0, dy=G.player.y-y0;
+    console.log(`  1s holding up into a wall: dx=${dx.toFixed(3)} dy=${dy.toFixed(3)}, `+
+                `largest single-frame jump ${maxJump.toFixed(3)} tiles`);
+    assert(Math.abs(dx) < 0.02,
+      `avatar drifted ${dx.toFixed(3)} tiles sideways while pressing straight up into a wall — should be 0`);
+    assert(maxJump < 0.20,
+      `single-frame jump of ${maxJump.toFixed(3)} tiles — that is a teleport, not a nudge`);
+    // it should end up FLUSH with the wall: centre-to-face distance == radius
+    const wallFace = Math.floor(G.player.y);          // boundary below the wall tile
+    const gap = G.player.y - wallFace;
+    console.log(`  final gap to wall face ${gap.toFixed(3)} tiles (collision radius ${A.R})`);
+    assert(gap >= A.R - 0.02 && gap <= A.R + 0.12,
+      `ended ${gap.toFixed(3)} tiles from the wall face; expected flush at ~${A.R} (not sunk in, not short)`);
+  }
+  release();
+
+  // same for a pure horizontal press, and for sprint
+  for (const [k,label] of [['a','left'],['d','right']]){
+    let sp=null;
+    for (let y=3;y<74 && !sp;y++) for (let x=4;x<74;x++){
+      if (G.grid[y*76+x]===1 && G.grid[y*76+x-1]===0 && G.grid[y*76+x-2]===0){ sp={x:x+0.5,y:y+0.5}; break; }
+    }
+    if(!sp) continue;
+    G.player.x=sp.x; G.player.y=sp.y;
+    release(); for(let i=0;i<5;i++) update(1/60);
+    const y0=G.player.y;
+    keys[k]=true;
+    for(let i=0;i<60;i++) update(1/60);
+    release();
+    const drift=Math.abs(G.player.y-y0);
+    assert(drift < 0.05, `pressing ${label} into a wall drifted ${drift.toFixed(3)} tiles vertically`);
+  }
+  console.log('  no lateral drift on any axis, no teleports');
+}
+
 console.log('\n' + (fail? `\n${fail} FAILURE(S)\n` : 'ALL TESTS PASSED\n'));
 process.exit(fail?1:0);

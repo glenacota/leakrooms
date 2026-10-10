@@ -114,10 +114,26 @@ What it actually checks:
    offset by half a tile.
 9. **Wall contact does not accelerate** — pushing into a wall for a simulated
    second must not move the avatar faster along the wall than it walks, and a
-   sprint in the open must still reach full speed. The corner assist uses a
-   fixed 0.30-tile perpendicular nudge applied every frame, which slid the
-   avatar sideways at ~18 tiles/second on contact; the nudge is now bounded by
-   the movement step.
+   sprint in the open must still reach full speed.
+10. **Pressing into a wall produces no lateral drift and no teleport** —
+    holding a direction into a wall must not move the avatar sideways at all,
+    no single frame may jump more than 0.2 tiles, and the avatar must end up
+    flush (centre-to-face distance == collision radius, not sunk in and not
+    short). Checked for up, left and right.
+
+### Movement model
+
+Collision is a circle against tile AABBs. A move tries the full step, then
+slides on each axis in turn, and only treats the position as wedged when a
+*diagonal* press finds every axis blocked.
+
+Two earlier attempts at a "corner assist" were removed rather than tuned. A
+fixed perpendicular nudge slid the avatar sideways at ~18 tiles/second on
+contact, and a step-bounded one still preferred `+x` on every blocked axis, so
+holding up against a wall walked the avatar right until it left the screen.
+If your circle overlaps a wall corner, stopping is correct — you round the
+corner by pressing the other direction too, which the axis-only fallback
+already handles.
 
 ### Verified in a real browser
 
