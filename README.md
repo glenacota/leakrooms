@@ -58,7 +58,8 @@ Three lives for a full descent.
 | `WASD` / arrows | move |
 | `Shift` | sprint — fast, and very loud |
 | `F` | flashlight |
-| `Esc` | pause |
+| `Enter` | start / confirm / resume — closes whichever modal is up |
+| `Esc` | pause (the modal re-shows the controls and your current depth, exits, battery and lives) |
 
 ---
 

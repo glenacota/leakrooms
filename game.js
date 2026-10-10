@@ -935,9 +935,38 @@ function alert(a, x, y, power){
    UPDATE
    ============================================================ */
 const keys = {};
+
+/* ENTER is the confirm key for whichever modal is up: start, resume, rewind,
+   run again. It also fires when a button already has focus, so guard against
+   the click landing twice. */
+const MODAL_ACTION = {
+  title:  ()=>document.getElementById('btn-start').click(),
+  pause:  ()=>document.getElementById('btn-resume').click(),
+  dead:   ()=>document.getElementById('btn-retry').click(),
+  win:    ()=>document.getElementById('btn-again').click(),
+};
+
 window.addEventListener('keydown', e=>{
-  keys[e.key.toLowerCase()] = true;
-  if (e.key.toLowerCase()==='f' && G && STATE==='play') G.torch = !G.torch;
+  const k = e.key.toLowerCase();
+  keys[k] = true;
+
+  if (k==='enter'){
+    const act = STATE==='title' ? MODAL_ACTION.title
+              : STATE==='pause' ? MODAL_ACTION.pause
+              : STATE==='dead'  ? MODAL_ACTION.dead
+              : STATE==='win'   ? MODAL_ACTION.win
+              : null;
+    if (act){
+      const focused = document.activeElement;
+      const onButton = focused && focused.tagName === 'BUTTON';
+      act();                                  // close the modal
+      if (onButton) focused.blur();           // no second activation via Enter
+    }
+    e.preventDefault();
+    return;
+  }
+
+  if (k==='f' && G && STATE==='play') G.torch = !G.torch;
   if (e.key==='Escape' && (STATE==='play'||STATE==='pause')) togglePause();
   if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key)) e.preventDefault();
 });
@@ -1655,7 +1684,18 @@ function hideAll(){ for (const s of ['title','pause','dead','win'])
     document.getElementById('screen-'+s).classList.add('hidden'); }
 
 function togglePause(){
-  if (STATE==='play'){ STATE='pause'; show('pause'); }
+  if (STATE==='play'){
+    STATE='pause';
+    show('pause');
+    // show where you stand, so pausing never costs you your bearings
+    const left = G.exitTiles.filter(e=>!e.found).length;
+    const h = document.getElementById('pause-hint');
+    if (h) h.innerHTML =
+      `Depth <b>${G.floor+1}/${FLOORS}</b> &nbsp; Exits <b>${G.exitsFound}/${G.exitTiles.length}</b>`+
+      (left ? ` &mdash; <b>${left}</b> still to find` : ' &mdash; go to one')+
+      ` &nbsp; Battery <b>${Math.ceil(G.batt)}</b> &nbsp; Lives <b>${lives}</b><br>`+
+      `It has heard you make <b>${G.stat.noises}</b> noise${G.stat.noises===1?'':'s'} so far.`;
+  }
   else if (STATE==='pause'){ STATE='play'; hideAll(); }
 }
 
