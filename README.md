@@ -16,21 +16,27 @@ fandom wiki: six hundred million square miles of randomly segmented empty
 rooms, mono-yellow, no level names, and an entity that is never named on
 screen.
 
-**The torch is information only.** It does not repel the entity, does not
-stun it, and cannot save you. It is a narrow beam — aim it by facing where you
-walk — that reveals exits and scrawled warnings. Battery is a budget you spend
-on *knowing*.
+**The radar is information only.** It does not repel the entity, does not stun
+it, and cannot save you. A sweep lights the entire floor at once — no dark
+spots anywhere, including the 80 degrees behind you — and it reveals exits and
+scrawled warnings as they come on screen. Battery is a budget you spend on
+*knowing*, and the radar spends it fast: **5.6/s, so a full battery is eighteen
+seconds of seeing everything.** The torch it replaced drained 2.4/s and could be
+held indefinitely, which made the budget a formality rather than a decision.
 
 **Only what you can see is lit.** The world is drawn in five colours — the
 mono-yellow of the original — and the lights are per room, so the maze is a
-run of bright rooms separated by black ones. On top of that the character has
-a **200 degree cone of vision** that stops at walls, so there is always 80
-degrees of blindness behind you and turning is how you check behind you. What
-is inside the cone and inside a lit room is the palette at full strength.
-Everything else is black: rooms you are not in, the 80 degrees behind you, and
-anything a partition hides. The room you leave goes dark over about a third of
-a second — long enough to read as the lights being somewhere else, short enough
-not to lag behind your feet.
+run of bright rooms separated by black ones. On top of that the character has a
+**200 degree cone of vision** that stops at walls, so there is always 80 degrees
+of blindness behind you and turning is how you check behind you. What is inside
+the cone and inside a lit room is the palette at full strength. Everything else
+is black: rooms you are not in, the 80 degrees behind you, and anything a
+partition hides.
+
+The radar overrides all of that while it is on. That is the trade, and it is the
+only reason the cone is tolerable: you are blind in the dark, so sweeping is
+how you find the doors, and the doors are loud, and you still have to walk to
+one.
 
 This is a *visibility* rule, not a safety one. A dark room is still there, and
 so is anything standing in it.
@@ -91,7 +97,7 @@ Three lives for a full descent.
 |---|---|
 | `WASD` / arrows | move |
 | `Shift` | sprint — fast, and very loud |
-| `F` | flashlight |
+| `R` | radar — lights the whole floor, burns battery fast |
 | `Enter` | start / confirm / resume — closes whichever modal is up |
 | `Esc` | pause (the modal re-shows the controls and your current depth, exits, battery and lives) |
 
@@ -143,7 +149,7 @@ What it actually checks:
    of travel, that `SCALE` is applied exactly once (10 tiles spans exactly
    10·TILE·SCALE), and that the light bake shares the geometry's origin.
 8. **Avatar fits the collision disc** — every drawn part (shadow, torso, arms,
-   head, torch glow) is asserted to stay inside the 0.33-tile collision radius,
+   head, radar glow) is asserted to stay inside the 0.33-tile collision radius,
    that the beam origin is a forward offset rather than the body centre, and
    that the avatar and agents are drawn at their *true* positions rather than
    offset by half a tile.
@@ -190,6 +196,19 @@ What it actually checks:
     asserts the mask is the function the renderer depends on, and that **no
     visible tile in your own room is ever dimmed** — the distance falloff must
     not touch the room you are standing in.
+14. **The radar** — off by default, total while on, expensive. Asserts it starts
+    off, that a full battery buys under 25 seconds of sweep, that it drains at
+    exactly the stated rate and stops at exactly zero rather than going
+    negative, that **all 5776 tiles** are lit while it is on and none are dark,
+    and that switching it off puts the cone's blindness back. Then the reveal
+    rule itself, which is now the entire exit economy: placed where an exit is
+    off screen it must not be found; placed where it is on screen it must be.
+    That is checked by *placing* the player rather than by walking it there,
+    because driving `G.player` in a straight line fights `unstick()` and the
+    test ends up measuring the collision code instead of the rule. It also has
+    to reset the found flags between cases: a sweep reveals every exit on
+    screen, not just the one under test, so a negative case otherwise inherits
+    a reveal from the previous one.
 
 ### Lighting
 
@@ -211,26 +230,30 @@ once. Three terms:
 
 | term | what it is |
 |---|---|
+| radar on | everything, full brightness — no scope, no cone, no falloff |
 | room scope | a BFS over **regions**, falling off by gates crossed |
 | distance | 1.0 at 13 tiles to 0.0 at 31 — your own room excluded |
 | cone | 200 degrees, stopped by walls |
-| torch | aimed, narrow, and *not* clipped to the cone |
 
-`mask = min(1, max(scope × distance × cone, torch))` — a `max` and not a
-product, and that is the load-bearing detail. It is what keeps the torch
-working at all.
+`mask = radar ? 1 : scope × distance × cone`
 
-**Why the torch had to move into the mask.** It used to be its own additive
-pass drawn after the lighting. That was correct while unlit rooms still had
-geometry under them. Once dark rooms went black it became a bug with no
-visible cause: the multiply had already reduced those rooms to zero, so an
-additive beam was painting a yellow haze onto an empty frame — a glow with no
-room in it, which reads as a rendering fault. With the torch inside the mask,
-it lifts the bake back up on the tiles the beam reaches and leaves everything
-else at zero. It still reveals, still repels nothing, and still reveals at
-0.72 rather than 1.0 — a beam that lit a black room as brightly as the room you
-stand in would let you sweep the whole floor for exits without ever entering
-one.
+There is exactly one place in the program that decides this, and the radar is
+the first thing it checks.
+
+**Why the radar is not a beam.** It replaced the torch, which was a narrow
+aimed cone and its own term in this mask. A tool that lights the whole floor
+does not need to be aimed, so it is not: while it is on the mask is uniformly 1
+and there is nowhere dark left. It is also, notably, *not* clipped to the 200
+degree cone — a sweep goes everywhere or it is not a sweep.
+
+**Why the torch had to move into the mask, and the radar then did not have to
+move at all.** The torch was its own additive pass drawn after the lighting.
+That was correct while unlit rooms still had geometry under them. Once dark
+rooms went black it became a bug with no visible cause: the multiply had
+already reduced those rooms to zero, so an additive beam was painting a yellow
+haze onto an empty frame — a glow with no room in it, which reads as a
+rendering fault. Putting it in the mask fixed that. The radar replaced it, and
+a whole-floor reveal is just `mask = 1`, so there is no beam left to place.
 
 **Why the scope is a falloff, not a cliff.** It started as one: your room 1.0,
 one gate away 0.30, everything beyond hard zero. That is what you want between
@@ -291,8 +314,8 @@ rather than a typo:
   than the floor in front, which is the signature of a hole.
 
 The cone deliberately has **no falloff of its own**. It is a statement about
-angles and occlusion only; brightness falloff is a separate term so the torch
-can have one and your own room cannot.
+angles and occlusion only; brightness falloff is a separate term, so a tool can
+have one and your own room cannot.
 
 The room crossfade is quantised to ten repacks over `LIGHT_FADE`. The lightmap
 is 76x76 tiles at 4 samples per tile; repacking it every frame for a third of a
@@ -360,7 +383,7 @@ slides left on screen, mean luminance 97/255, 0.1% clipped, 2% near-black,
 - **Difficulty is untuned.** A bot cannot tell you whether three lives across a
   ten-minute descent is fun or brutal. That needs a human. Room scoping makes
   this worse before it makes it better: you can no longer see the whole floor,
-  so exits are found with the torch rather than by looking, which is the
+  so exits are found with the radar rather than by looking, which is the
   intended direction — but it is a change to the light budget and the budget
   has never been tuned.
 - Scoping is by region, so it cannot distinguish "the room you are in" from
@@ -369,7 +392,7 @@ slides left on screen, mean luminance 97/255, 0.1% clipped, 2% near-black,
   a coarse instrument rather than a precise one.
 - **The vision cone makes a hunting entity much harder to see.** It is not
   visible at all until it enters the cone or crosses a threshold into your
-  room, which puts it on the same footing as the exits you now have to torch
+  room, which puts it on the same footing as the exits you now have to sweep
   for. The proximity drone and the red `seenBy` vignette are the only warnings
   that something is close. This was a deliberate trade — a dark room with a
   plainly visible silhouette is not a dark room — but it makes the untuned

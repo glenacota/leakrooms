@@ -91,7 +91,6 @@ globalThis.__api = {
   get visTgt(){ return visTgt; },
   get maskArr(){ return maskArr; },
   get coneArr(){ return coneArr; },
-  get torchArr(){ return torchArr; },
   get regionOf(){ return regionOf; },
   get regionAdj(){ return regionAdj; },
   get visRegion(){ return visRegion; },
@@ -101,16 +100,15 @@ globalThis.__api = {
   get VIEW_FADE_FAR(){ return VIEW_FADE_FAR; },
   get VIEW_HALF(){ return VIEW_HALF; },
   get VIEW_RANGE(){ return VIEW_RANGE; },
-  get TORCH_RANGE(){ return TORCH_RANGE; },
-  get TORCH_HALF(){ return TORCH_HALF; },
-  get TORCH_GAIN(){ return TORCH_GAIN; },
+  get RADAR_DRAIN(){ return RADAR_DRAIN; },
   buildFloor, blocked, moveEnt, update, render, emitNoise, setPrompt, drawPlayer,
-  scopeRoomLight, regionAt, traceViewCone, packMask,
+  scopeRoomLight, regionAt, traceViewCone, packMask, snapMask, combineMask,
+  smoothMask, onScreen,
   get STATE(){ return STATE; },
   set STATE(v){ STATE = v; },
   get floorIdx(){ return floorIdx; },
   get keys(){ return keys; },
-  get TORCH_OFF(){ return TORCH_OFF; }, get R(){ return R; }, drawAgent,
+  get HAND_OFF(){ return HAND_OFF; }, get R(){ return R; }, drawAgent,
   get cvs(){ return cvs; }, get TILE(){ return TILE; }
 };
 `, ctxObj);
@@ -409,11 +407,14 @@ console.log('[4] end-to-end — bot drives REAL keys through update()');
       if(!field) field=distField(goal.x,goal.y);
       if(!field){ why='no field'; break; }
 
-      /* --- torch discipline: only lit when the exit is within torch reach.
-             Travel dark. This is the whole point of the light economy. --- */
+      /* --- radar discipline: only sweep when the exit is close enough that the
+             sweep would actually put it on screen. Travel dark; this is the
+             whole point of the battery economy. The radar drains more than
+             twice what the torch it replaced did, so being greedy about it
+             strands the bot rather than just wasting charge. --- */
       const dExit = fe ? distTo(fe,cur) : 9999;
-      G.torch = (dExit<=5) || (G.batt>90 && kind==='exit' && dExit<=8);
-      if(kind==='batt' && G.batt>20) G.torch=false;
+      G.radar = (dExit<=11) || (G.batt>85 && kind==='exit' && dExit<=16);
+      if(kind==='batt' && G.batt>20) G.radar=false;
 
       /* --- steer by FOLLOWING AN EXPLICIT PATH ---
          Descending a distance field with single-axis steps gets trapped in
@@ -700,7 +701,7 @@ console.log('[8] avatar fits inside the collision disc');
     ['arm L',      -0.156, 0.057,  0.054, 0.071],
     ['arm R',       0.156, 0.057,  0.054, 0.071],
     ['head',        0,    -0.017,  0.095, 0.095],
-    ['torch glow',  0,    -0.135,  0.085, 0.085],
+    ['radar glow',  0,    -0.135,  0.082, 0.082],
   ];
   let worst=0, worstPart='';
   for (const [name,ox,oy,rx,ry] of parts){
@@ -712,20 +713,18 @@ console.log('[8] avatar fits inside the collision disc');
   }
   console.log(`  widest avatar part "${worstPart}" at ${worst.toFixed(3)} tiles (limit ${R})`);
 
-  // and the torch origin must sit in front, not at the body centre
-  assert(A.TORCH_OFF > 0.05 && A.TORCH_OFF < R,
-    `TORCH_OFF=${A.TORCH_OFF} is not a plausible forward offset`);
+  /* The radar must be held out in front, not at the body centre, and the cone
+     must originate from the same offset — otherwise the character is looking
+     from somewhere other than where their hand is. The two are asserted
+     separately on purpose: they can drift apart, and they used to be the same
+     constant under two names in two functions. */
+  assert(A.HAND_OFF > 0.05 && A.HAND_OFF < R,
+    `HAND_OFF=${A.HAND_OFF} is not a plausible forward offset`);
   const src = A.drawPlayer.toString();
-  assert(src.includes('TORCH_OFF*TILE'), 'avatar no longer draws the torch offset');
-  /* The beam must originate at the torch, not the body centre. It used to be
-     an additive gradient drawn inside render(); it is now a ray fan in the
-     visibility mask, because once dark rooms are black an additive pass has no
-     geometry left underneath it to reveal. The assertion follows the code
-     rather than the file it used to live in — the invariant is where the beam
-     comes from, not which function draws it. */
+  assert(src.includes('HAND_OFF*TILE'), 'avatar no longer draws the radar at the hand offset');
   const vsrc = A.traceViewCone.toString();
-  assert(vsrc.includes('TORCH_OFF'),
-    'the beam no longer originates at the torch offset');
+  assert(vsrc.includes('HAND_OFF'),
+    'the vision cone no longer originates at the hand offset');
   // the avatar must be drawn at its TRUE position, not the tile centre offset
   const dsrc = A.drawPlayer.toString();
   assert(/const x\s*=\s*p\.x\s*\*\s*TILE/.test(dsrc),
@@ -735,7 +734,7 @@ console.log('[8] avatar fits inside the collision disc');
   const asrc = A.drawAgent.toString();
   assert(/const x\s*=\s*a\.x\s*\*\s*TILE/.test(asrc),
     'agents are drawn with the same half-tile offset');
-  console.log(`  beam origin is ${A.TORCH_OFF} tiles in front of the body centre`);
+  console.log(`  radar held ${A.HAND_OFF} tiles in front of the body centre; cone originates there too`);
 }
 
 /* ============ TEST 9: wall contact must not accelerate ===============
@@ -1150,8 +1149,8 @@ console.log('[12] room-scoped light — your room is lit, the rest is dark');
     assert(best, 'no long open run found to test sight distance with');
     if (best){
       G.player.x=best.x+0.5; G.player.y=best.y+0.5; G.player.face=0;
-      G.torch=false;                                  // isolate the cone + scope
-      A.scopeRoomLight(0,true); A.traceViewCone(true); A.packMask();
+      G.radar=false;                                  // isolate the cone + scope
+      A.snapMask();   // traces + combines + uploads, no easing
       const at=(d)=>{ const i=best.y*W+best.x+d; return {d, mask:A.maskArr[i], scope:A.visArr[i], cone:A.coneArr[i]}; };
       const far = at(Math.min(18, best.run-1));
       const near= at(2);
@@ -1207,8 +1206,9 @@ console.log('[13] cone of vision — 200 degrees, occluded by walls');
 
   const set=(fx,fy,face)=>{
     G.player.x=spot.x; G.player.y=spot.y; G.player.face=face;
+    G.radar=false;
     scopeRoomLight(0,true);
-    A.traceViewCone(true); A.packMask();
+    A.snapMask();
   };
 
   /* Independent occlusion oracle: does the segment from the eye to the tile
@@ -1225,8 +1225,8 @@ console.log('[13] cone of vision — 200 degrees, occluded by walls');
     }
     return false;
   };
-  const eye=()=>[spot.x + Math.cos(G.player.face)*A.TORCH_OFF,
-                 spot.y + Math.sin(G.player.face)*A.TORCH_OFF];
+  const eye=()=>[spot.x + Math.cos(G.player.face)*A.HAND_OFF,
+                 spot.y + Math.sin(G.player.face)*A.HAND_OFF];
 
   /* Can ANY line from the eye reach this tile? Sampled over a disc inside the
      tile rather than to its exact centre, because "the tile is visible" means
@@ -1316,43 +1316,55 @@ console.log('[13] cone of vision — 200 degrees, occluded by walls');
   assert(occludedVisible===0,
     `${occludedVisible} tiles behind a wall are visible — the cone ignores occlusion`);
 
-  /* --- 4. the cone must not reach outside the room scope ---
-     mask = scope x cone, plus torch. With the torch OFF, a tile in a region
-     the player is not in must stay dark even if it is dead ahead, or the
-     room scoping has been undone by the new layer. */
-  G.torch = false;
+  /* --- 4. the radar must lift the WHOLE floor, and only while it is on ---
+     With the radar off the mask is scope x cone and a distant room stays dark
+     even dead ahead. With it on there is nowhere dark left — which is the
+     entire tool, and the reason it costs what it costs. Asserting both halves
+     is the point: a radar that only reveals the next room is not a radar. */
+  G.radar = false;
+  A.snapMask();   // traces + combines + uploads, no easing
   {
-    const adj = new Set(A.regionAdj[A.visRegion]);
     let ahead=0, aheadLit=0;
     for (let d=1; d<=16; d++){
       const x=Math.floor(spot.x)+d, y=Math.floor(spot.y);
       if (x>=W || G.grid[y*W+x]!==1) break;
       if (G.los(spot.x,spot.y,x+0.5,y+0.5)){ ahead++; if (A.maskArr[y*W+x]>0.5) aheadLit++; }
     }
-    if (ahead>0) console.log(`  ${aheadLit}/${ahead} clear tiles ahead are visible with the torch off`);
+    if (ahead>0) console.log(`  ${aheadLit}/${ahead} clear tiles ahead are visible with the radar off`);
   }
-  G.torch = true;
+  G.radar = true;
+  A.snapMask();   // traces + combines + uploads, no easing
+  {
+    let lit=0, wall=0, tiles=0;
+    for (let i=0;i<W*W;i++){
+      if (A.maskArr[i] > 0.999) lit++;
+      tiles++;
+      if (G.grid[i]===0 && A.maskArr[i] > 0.999) wall++;
+    }
+    assert(lit === tiles,
+      `radar on leaves ${tiles-lit} tiles dark — a sweep has no dark spots`);
+    console.log(`  radar on: all ${tiles} tiles lit (${wall} of them walls)`);
+  }
+  G.radar = false;
+  A.snapMask();   // traces + combines + uploads, no easing
 
-  /* --- 5. the mask is the product the renderer depends on ---
-     Every tile the mask lifts must be inside the room scope or inside the
-     torch fan; every tile outside both must be exactly zero. This is the
-     invariant that keeps the torch from becoming a second pair of eyes. */
+  /* --- 5. the mask is the function the renderer depends on ---
+     With the radar off, every visible tile must be explainable by scope x cone
+     (the distance term only makes it smaller, so it can never be a source of
+     light) and a tile with neither must be exactly zero. */
   {
     let outOfScopeLit=0, zeroViolations=0, nan=0;
     for (let i=0;i<W*W;i++){
       const m=A.maskArr[i];
       if (Number.isNaN(m)){ nan++; continue; }
       if (m<0 || m>1+1e-6){ nan++; continue; }
-      const scope=A.visArr[i], cone=A.coneArr[i], tor=A.torchArr[i];
-      /* Every term the mask is built from must be able to explain it. The
-         distance falloff only makes it SMALLER, so it can never be the source
-         of light — scope and cone together are an upper bound. */
-      if (m > scope*cone + 1e-6 && m > tor + 1e-6) outOfScopeLit++;
-      if (scope<=0 && cone<=0 && tor<=0 && m > 1e-6) zeroViolations++;
+      const scope=A.visArr[i], cone=A.coneArr[i];
+      if (m > scope*cone + 1e-6) outOfScopeLit++;
+      if (scope<=0 && cone<=0 && m > 1e-6) zeroViolations++;
     }
     assert(nan===0, `${nan} mask tiles were NaN or out of range`);
-    assert(outOfScopeLit===0, `${outOfScopeLit} tiles are lit by neither the scope nor the torch`);
-    assert(zeroViolations===0, `${zeroViolations} tiles are lit with no scope, no cone and no torch — nothing should be visible`);
+    assert(outOfScopeLit===0, `${outOfScopeLit} tiles are lit by neither the scope nor the cone`);
+    assert(zeroViolations===0, `${zeroViolations} tiles are lit with no scope and no cone — nothing should be visible`);
   }
 
   /* --- 6. your own room does not dim with distance ---
@@ -1391,6 +1403,159 @@ console.log('[13] cone of vision — 200 degrees, occluded by walls');
   }
 
   console.log('  cone rotates, occludes at walls, and never reaches past the room scope');
+}
+
+/* ============ TEST 14: the radar ===============================
+   Off by default. While on, the whole floor is visible — no dark spots. It
+   drains more than twice what the torch it replaced did, and that is the only
+   thing keeping it from being a free win.
+
+   The dangerous failure is not "the radar does too little", it is "the radar
+   does too much for too little": a sweep that were cheap, or that leaked on
+   after hitting zero, would remove the entire battery economy. */
+console.log('[14] the radar — off by default, total while on, expensive');
+{
+  const W=76;
+
+  buildFloor(0, 9090);
+  assert(G.radar===false, 'the radar starts on — it is a tool you pay for, not a light');
+
+  /* --- cost: a full battery must be a decision, not a convenience --- */
+  assert(A.RADAR_DRAIN > 4.0,
+    `the radar drains ${A.RADAR_DRAIN}/s — the torch it replaced cost 2.4 and could be held indefinitely`);
+  const seconds = 100/A.RADAR_DRAIN;
+  assert(seconds < 25,
+    `a full battery buys ${seconds.toFixed(0)}s of sweep — that is long enough to stop thinking about it`);
+  console.log(`  ${A.RADAR_DRAIN}/s — a full battery is ${seconds.toFixed(0)} seconds of seeing everything`);
+
+  /* --- drain, and it switches itself off at zero rather than going negative */
+  {
+    G.radar = true; G.batt = 6;
+    // 6 units at 5.6/s is 1.07s, so run 2s of frames
+    for (let i=0;i<120;i++) update(1/60);
+    assert(G.radar===false, 'the radar stayed on after the battery ran out');
+    assert(G.batt===0, `battery went to ${G.batt}, want exactly 0`);
+    assert(G.batt>=0, 'battery went negative');
+  }
+  /* --- and it drains again from a fresh charge, at the same rate --- */
+  {
+    G.batt = 100; G.radar = true;
+    for (let i=0;i<60;i++) update(1/60);
+    const used = 100 - G.batt;
+    assert(Math.abs(used - A.RADAR_DRAIN) < 0.05,
+      `1 second of sweep cost ${used.toFixed(2)}, want ${A.RADAR_DRAIN}`);
+    assert(G.radar===true, 'the radar switched itself off with a full battery');
+    G.radar = false; G.batt = 100;
+  }
+
+  /* --- while on, NOTHING is dark. Not the room behind you, not the far wall,
+         not solid rock in the middle of a block. --- */
+  G.radar = true;
+  A.snapMask();
+  {
+    let dark=0, behind=0;
+    for (let i=0;i<W*W;i++) if (A.maskArr[i] < 0.999) dark++;
+    // specifically: a tile directly behind the character, which is the one
+    // thing the cone is certain to hide when the radar is off
+    const px=Math.floor(G.player.x), py=Math.floor(G.player.y);
+    for (const [dx,dy] of [[-3,0],[0,3],[3,0],[0,-3],[-6,-6],[7,5]]){
+      const x=px+dx, y=py+dy;
+      if (x<0||y<0||x>=W||y>=W) continue;
+      if (A.maskArr[y*W+x] < 0.999) behind++;
+    }
+    assert(dark===0, `${dark} tiles are still dark with the radar on — it has to have no dark spots`);
+    assert(behind===0, `${behind} tiles around the player are dark with the radar on`);
+    console.log(`  radar on: 0 of ${W*W} tiles dark`);
+  }
+
+  /* --- off again, the cone comes straight back, including BEHIND you --- */
+  G.radar = false;
+  A.snapMask();
+  {
+    /* Find a floor tile genuinely behind the character and out of its cone —
+       the radar-off case has to be a real occlusion, not just "somewhere
+       dark", or the assertion proves nothing. */
+    const px=Math.floor(G.player.x), py=Math.floor(G.player.y);
+    let checked=0;
+    for (let d=2; d<=8; d++){
+      const x=px-d, y=py;
+      if (x<0||y<0||x>=W||y>=W) continue;
+      const i=y*W+x;
+      if (G.grid[i]!==1) continue;
+      if (A.visArr[i] >= 0.999) continue;      // same lit region, not a scope test
+      checked++;
+      if (A.maskArr[i] > 0.02){
+        assert(false, `a tile ${d} tiles behind the character is still lit with the radar off`);
+      }
+    }
+    let dark=0;
+    for (let i=0;i<W*W;i++) if (A.maskArr[i] < 0.02) dark++;
+    assert(checked>0 || dark>200,
+      'with the radar off the cone restores no darkness anywhere');
+    assert(dark>200, `only ${dark} tiles dark with the radar off — the cone is not doing anything`);
+    console.log(`  radar off: ${dark} tiles dark again, including ${checked} tiles behind the player`);
+  }
+
+  /* --- the reveal: an exit is found when the sweep puts it on screen ---
+     This is the whole exit economy now, so it is checked directly rather than
+     left to the playthrough bot: an exit just off screen must NOT be found,
+     and the frame it comes on screen it must be.
+
+     The battery is held at full throughout. The radar dying mid-search is the
+     economy, and test 4 covers that; here we are testing the RULE, and a rule
+     you cannot observe because the tool ran out is not a rule. */
+  {
+    buildFloor(1, 3131);
+    /* The rule is "revealed iff on screen", so it is tested by PLACING the
+       player rather than walking there. Driving the player in a straight line
+       by writing G.player directly fights unstick() — it shoves the player
+       back out of every wall the line passes through — and the test ends up
+       measuring the collision code. Placement tests the rule and nothing else. */
+    const spotWith=(e, want)=>{
+      for (let y=1;y<W-1;y++) for (let x=1;x<W-1;x++){
+        if (G.grid[y*W+x]!==1) continue;
+        G.player.x=x+0.5; G.player.y=y+0.5;
+        if (A.onScreen(e.x+0.5, e.y+0.5) === want) return {x:x+0.5, y:y+0.5};
+      }
+      return null;
+    };
+    let negatives=0, positives=0;
+    /* A sweep reveals EVERY exit on screen, not just the one being tested, so
+       each case has to start from a clean slate or the negative case inherits
+       a reveal that happened during a previous case's placement. */
+    const reset=()=>{ for (const o of G.exitTiles) o.found=false; G.exitsFound=0; G.stat.found=0; };
+    for (const e of G.exitTiles){
+      reset();
+      // off screen: must NOT be revealed
+      const off = spotWith(e, false);
+      if (off){
+        G.player.x=off.x; G.player.y=off.y;
+        G.radar=true; G.batt=100;
+        for (let i=0;i<5;i++){ G.batt=100; update(1/60); }
+        if (!A.onScreen(e.x+0.5, e.y+0.5)){
+          assert(e.found===false,
+            `exit at ${e.x},${e.y} was revealed while off screen — the sweep is seeing too much`);
+          negatives++;
+        }
+      }
+      // on screen: MUST be revealed
+      reset();
+      const on = spotWith(e, true);
+      assert(on, `no floor tile puts exit ${e.x},${e.y} on screen`);
+      if (on){
+        G.player.x=on.x; G.player.y=on.y;
+        G.radar=true; G.batt=100;
+        update(1/60);
+        assert(e.found,
+          `exit at ${e.x},${e.y} was on screen and not revealed by the sweep`);
+        positives++;
+      }
+    }
+    reset();
+    assert(negatives>0 && positives===G.exitTiles.length,
+      `checked ${negatives} off-screen and ${positives} on-screen cases`);
+    console.log(`  reveal rule holds: ${positives} on-screen revealed, ${negatives} off-screen not revealed`);
+  }
 }
 
 console.log('\n' + (fail? `\n${fail} FAILURE(S)\n` : 'ALL TESTS PASSED\n'));

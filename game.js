@@ -3,10 +3,11 @@
    2D top-down puzzle / stealth. JS + canvas only, no assets.
 
    Design contract:
-   - The torch is INFORMATION ONLY. It reveals exits + scrawled
+   - The radar is INFORMATION ONLY. It reveals exits + scrawled
      warnings. It never repels, never lies to the monster.
-   - The maze is lit by humming fluorescents in mono-yellow.
-     Always visible. That visibility is the horror.
+   - You see a 200 degree cone, stopped by walls, and only
+     the room you are standing in is lit. The radar overrides
+     both — for as long as the battery lasts, which is not long.
    - Noise is the entire stealth layer. Sprinting is fast and fatal.
    - The Lifeform: coiled black wire. Dormant = a pile of loops.
      It RISES when it hears you. That 1.4s animation is your window.
@@ -34,10 +35,18 @@ const WALK   = 3.3;               // tiles/sec
 const SPRINT = 6.0;
 const R      = 0.33;              // player collision radius (tiles)
 const RA     = 0.34;              // Lifeform collision radius (bulkier)
-const TORCH_OFF = 0.135;           // how far in front the torch is held, in tiles
+/* How far in front of the body the character holds their gear, in tiles. This
+   is both where the vision cone originates and where the device is drawn on
+   the avatar, so the two can never disagree. */
+const HAND_OFF = 0.135;
 
 const BATT_MAX   = 100;
-const BATT_DRAIN = 2.4;           // per second while lit
+/* The radar is the only tool, and it is expensive. At 5.6/s a full battery is
+   under 18 seconds of sweep — long enough to cross a floor or two, never long
+   enough to leave it running. The torch it replaced drained 2.4/s and could be
+   held indefinitely, which made the budget a formality rather than a decision;
+   this one has to be switched off and thought about. */
+const RADAR_DRAIN = 5.6;          // per second while sweeping
 const EXIT_COUNT = 3;
 
 const WALL = 0, FLOOR = 1;
@@ -48,9 +57,8 @@ const WALL = 0, FLOOR = 1;
    the parts you can actually see are lit. Rooms are separated by walls, so the
    scope falls off with how many gates you must look through — see HOP_FALL.
 
-   The torch is deliberately untouched by this. It is portable, it is aimed,
-   and it reveals exits in rooms you are not standing in — that is the whole
-   reason it is worth spending battery on. */
+   The radar overrides all of it while it is on. That is the trade: everything
+   visible, for eighteen seconds of battery a time. */
 /* DARK_ROOM is what a tile is worth when there is no scope at all — only
    reachable in a degenerate state where the player is off the map. Normal
    darkness is not this number: it is the product of the scope, the distance
@@ -127,19 +135,6 @@ const VIEW_RANGE = 34;                         // hard stop; the distance fade e
    makes vision look eaten away at the walls; at 0.71 a corner sliver counts as
    seeing the tile, which is the leak this exists to stop. */
 const VIEW_MID   = 0.48;
-
-/* The torch, as its own ray fan. Narrower and shorter than the cone, and
-   traced independently of it: a lamp is not a pair of eyes and must not be
-   clipped to the cone's 200 degrees. These match the numbers the renderer has
-   always drawn with, so what the torch reveals and what it looks like agree. */
-const TORCH_HALF  = 1.05;      // radians; matches the drawn beam's arc
-const TORCH_RANGE = 7.6;       // tiles; matches the drawn beam's radius
-const TORCH_RAYS  = 96;
-/* The torch reveals at less than full brightness, and that is the point. A beam
-   that lights a black room as brightly as the room you are standing in stops
-   being a torch and becomes a second pair of eyes, which would let you stand
-   still and sweep the whole floor for exits without ever entering a room. */
-const TORCH_GAIN  = 0.72;
 
 /* ---------- canvas ---------- */
 const cvs = document.getElementById('game');
@@ -578,9 +573,9 @@ let regionOf, regionAdj, regionCount;  // lit spaces and how they connect
 let visArr, visFrom, visTgt;          // per-tile visibility: bake x room scope
 let visScratch;                       // preallocated, so scoping never allocates
 let maskArr, maskTgt;                     // the mask, and where it is heading
-let coneArr, torchArr;                    // per-tile cone and torch fans
+let coneArr;                              // per-tile cone of vision
 let maskCv, maskCtx, maskImg;             // its own 1-sample-per-tile canvas
-let coneX=NaN, coneY=NaN, coneFace=NaN, coneTorch=null;  // last traced pose
+let coneX=NaN, coneY=NaN, coneFace=NaN, coneRadar=null;  // last traced pose
 let scopeDirty = false;       // the room crossfade moved visArr; recombine
 let visRegion = -1;                   // the region the player is lighting
 let visStep = 0, visFadeT = 0;        // quantised crossfade between two regions
@@ -720,7 +715,7 @@ function buildFloor(floorNum, seed){
      One is GUARANTEED inside each exit room. Lighting an exit reveals the
      cell, so the battery needed to reach the NEXT exit is always sitting in
      the room you just lit. Without this the light budget is a coin-flip that
-     can strand the player with a dead torch and unfound exits. */
+     can strand the player with a dead radar and unfound exits. */
   const batteries = [];
   const litRooms = maze.rooms.filter(r=>fixtures.some(f=>f.x>=r.rx&&f.x<=r.rx+r.rw&&f.y>=r.ry&&f.y<=r.ry+r.rh));
   for (const e of exitTiles){
@@ -743,7 +738,7 @@ function buildFloor(floorNum, seed){
     'the lights are always on. always on. always on.',
     'six hundred million square miles. i counted for a while.',
     'don\'t run. running is how it finds you.',
-    'the torch only shows you the door. it can\'t close it.',
+    'the radar only shows you the door. it can\'t close it.',
     'it was a pile of wire when i walked past it',
     'left foot. right foot. left foot. right fo',
     'you are not the first thing here to look for the exits',
@@ -882,12 +877,10 @@ function buildFloor(floorNum, seed){
   regionAdj = regAdj;
   regionCount = nRegions;
 
-  /* Pack the BAKE — pure, unchanged. Every viewer-side term (room scope, cone
-     of vision, torch) is folded into a single mask on a separate canvas, which
-     is what lets the torch still reveal rooms the room scope has zeroed out:
-     a second additive pass over an already-blackened frame would light nothing,
-     because there is no longer any geometry under it to reveal. One multiply,
-     one mask, and the mask can only ever remove light the bake put there. */
+  /* Pack the BAKE — pure, unchanged. Every viewer-side term (room scope, cone of
+     vision, radar) is folded into a single mask on a separate canvas, so there
+     is exactly one multiply and the mask can only ever remove light the bake
+     put there. */
   lightCv = document.createElement('canvas');
   lightCv.width = MAP_W*LS; lightCv.height = MAP_H*LS;
   lightCtx = lightCv.getContext('2d');
@@ -924,7 +917,6 @@ function buildFloor(floorNum, seed){
   maskArr  = new Float32Array(MAP_W*MAP_H);
   maskTgt  = new Float32Array(MAP_W*MAP_H);
   coneArr  = new Float32Array(MAP_W*MAP_H);
-  torchArr = new Float32Array(MAP_W*MAP_H);
   maskCv = document.createElement('canvas');
   maskCv.width = MAP_W; maskCv.height = MAP_H;
   maskCtx = maskCv.getContext('2d');
@@ -968,7 +960,7 @@ function buildFloor(floorNum, seed){
     agents,
     player: { x: spawn.x, y: spawn.y, face:-Math.PI/2, stepT:0 },
     batt: BATT_MAX,
-    torch: true,
+    radar: false,
     noise: 0, noisePeak: 0,
     exitsFound: 0,
     descend: 0,
@@ -1011,6 +1003,23 @@ function regionAt(x,y){
   return regionOf[ty*MAP_W+tx];
 }
 
+/* Is this world point inside the rectangle the renderer is drawing?
+   Derived from the PLAYER, not from render()'s camera object. update() must
+   not read render's mutable state — the headless suite drives update() with no
+   renderer at all, and reading a camera that only moves during render would
+   silently make the reveal depend on whether a frame had been drawn. The clamp
+   is replicated here for exactly that reason: at the edges of the floor the
+   camera stops rather than following, and seeing what is genuinely off-screen
+   would be worse than a one-frame difference from the smoothing. */
+function onScreen(wx, wy){
+  const T = TILE*SCALE;
+  const halfW = cvs.width /(2*T), halfH = cvs.height /(2*T);
+  let cx = G.player.x, cy = G.player.y;
+  if (MAP_W > halfW*2) cx = Math.max(halfW, Math.min(MAP_W-halfW, cx));
+  if (MAP_H > halfH*2) cy = Math.max(halfH, Math.min(MAP_H-halfH, cy));
+  return Math.abs(wx-cx) <= halfW && Math.abs(wy-cy) <= halfH;
+}
+
 /* How visible a fixture is right now: the visibility of the tile it hangs
    over, from the combined mask. Sampled from the CURRENT mask, not from a
    target, so a tube does not pop to full brightness the instant you turn. */
@@ -1022,27 +1031,22 @@ function fixtureVis(f){
 
 /* ============================================================
    WHAT THE CHARACTER CAN SEE
-   Three terms, one mask:
+   One mask, and only one place in the program decides it:
 
-     room scope   which lit space you are standing in (GATE_SPILL for
-                  the space next door, black beyond)
-     cone         200 degrees, stopped by walls
-     torch        aimed, narrow, and NOT occluded by the cone
+     radar on      everything, full brightness, no cone and no scope
+     radar off     room scope x distance x cone
 
-   The torch is a separate term rather than being drawn on top afterwards,
-   and that is the whole reason for the shape of this code. Folding the cone
-   into the light bake and then adding the torch additively does not work once
-   dark rooms are BLACK: the multiply has already reduced those rooms to zero,
-   so there is no geometry left underneath for an additive beam to reveal. It
-   lights the empty frame, not the room. One mask, one multiply, and the torch
-   reveals because the mask never zeroed the tiles it can reach.
+   The radar used to be a torch: a narrow beam that was its own term in this
+   mask, because an additive pass drawn after the multiply revealed nothing once
+   dark rooms were BLACK — there was no geometry left underneath it. A tool that
+   reveals the whole floor does not need to be a beam at all, so it is not one.
    ============================================================ */
 
 /* Fan of rays from (ox,oy) within halfAngle radians of `facing`, stopping at
    the first wall. `gain` scales the result; `fall` is how much brightness is
-   lost at maximum range (0 = none). Shared by the cone and the torch because
-   they are the same computation with different numbers — but the difference in
-   `fall` is not cosmetic, see the call sites.
+   lost at maximum range (0 = none). The cone calls it with `fall` of 0 — the
+   cone is a statement about angles and occlusion only, and brightness falloff
+   is a separate term so the radar can have one and your own room cannot.
 
    Traversal is an exact voxel walk (Amanatides-Woo), one step per tile
    crossed, NOT a fixed-distance sample. Sampling was subtly wrong in a way
@@ -1106,7 +1110,7 @@ function castFan(out, ox, oy, facing, halfAngle, range, rays, gain, fall){
   }
 }
 
-/* Rebuild coneArr and torchArr, then fold everything into maskTarget.
+/* Rebuild coneArr, then fold everything into maskTarget.
    Called only when the pose moved, so standing still costs nothing at all.
 
    The pose test is on the player's POSITION, not their tile. It used to be on
@@ -1118,17 +1122,16 @@ function castFan(out, ox, oy, facing, halfAngle, range, rays, gain, fall){
 function traceViewCone(force){
   const p = G.player;
   const tx=Math.floor(p.x), ty=Math.floor(p.y);
-  /* Torch state is part of the pose: pressing F while standing still must
-     retrace, or the beam only appears once you next move. */
-  if (!force && p.x===coneX && p.y===coneY && p.face===coneFace && G.torch===coneTorch)
+  /* Radar state is part of the pose: pressing R while standing still must
+     retrace, or the sweep only appears once you next move. */
+  if (!force && p.x===coneX && p.y===coneY && p.face===coneFace && G.radar===coneRadar)
     return false;
-  coneX=p.x; coneY=p.y; coneFace=p.face; coneTorch=G.torch;
+  coneX=p.x; coneY=p.y; coneFace=p.face; coneRadar=G.radar;
 
   coneArr.fill(0);
-  torchArr.fill(0);
 
-  const ex = p.x + Math.cos(p.face)*TORCH_OFF;
-  const ey = p.y + Math.sin(p.face)*TORCH_OFF;
+  const ex = p.x + Math.cos(p.face)*HAND_OFF;
+  const ey = p.y + Math.sin(p.face)*HAND_OFF;
 
   /* The cone has NO distance falloff. It is a statement about ANGLES and
      OCCLUSION only: inside 100 degrees of facing, until a wall. It used to
@@ -1137,11 +1140,6 @@ function traceViewCone(force){
      in was a gradient from bright to dim, which is the one thing this feature
      must never do. What you can see is bright; what you cannot is black. */
   castFan(coneArr, ex, ey, p.face, VIEW_HALF, VIEW_RANGE, VIEW_RAYS, 1, 0);
-
-  /* The torch IS a light, so it keeps its falloff. It is traced independently
-     of the cone so it is not clipped to 100 degrees: a lamp is not a pair of
-     eyes. */
-  if (G.torch) castFan(torchArr, ex, ey, p.face, TORCH_HALF, TORCH_RANGE, TORCH_RAYS, TORCH_GAIN, 0.55);
 
   /* One tile of guaranteed visibility under the player. Without it the avatar
      can back into a corner where every ray exits before reaching its own tile
@@ -1161,17 +1159,15 @@ function traceViewCone(force){
     const i=y*MAP_W+x;
     if (G.grid[i]!==WALL) continue;
     let m = 0;
-    if (x+1<MAP_W   && G.grid[i+1]===FLOOR)   m=Math.max(m, coneArr[i+1], torchArr[i+1]);
-    if (x>0        && G.grid[i-1]===FLOOR)   m=Math.max(m, coneArr[i-1], torchArr[i-1]);
-    if (y+1<MAP_H  && G.grid[i+MAP_W]===FLOOR) m=Math.max(m, coneArr[i+MAP_W], torchArr[i+MAP_W]);
-    if (y>0        && G.grid[i-MAP_W]===FLOOR) m=Math.max(m, coneArr[i-MAP_W], torchArr[i-MAP_W]);
+    if (x+1<MAP_W   && G.grid[i+1]===FLOOR)   m=Math.max(m, coneArr[i+1]);
+    if (x>0        && G.grid[i-1]===FLOOR)   m=Math.max(m, coneArr[i-1]);
+    if (y+1<MAP_H  && G.grid[i+MAP_W]===FLOOR) m=Math.max(m, coneArr[i+MAP_W]);
+    if (y>0        && G.grid[i-MAP_W]===FLOOR) m=Math.max(m, coneArr[i-MAP_W]);
     coneArr[i] = Math.max(coneArr[i], m);
-    torchArr[i]= Math.max(torchArr[i], m);
   }
 
-  /* Combine: room scope, then distance, then the cone. `max` with the torch
-     and not a product — the torch has to be able to lift a tile the scope and
-     the cone both zeroed, which is the entire reason it is in here.
+  /* Fold the three terms into the target mask. The radar short-circuits all of
+     them — sweeping lights the whole floor, so there is nowhere left dark.
 
      The distance term is skipped for the player's own region (scope 1.0), so
      the room you are standing in is uniformly bright no matter which corner
@@ -1184,7 +1180,14 @@ function traceViewCone(force){
   return true;
 }
 
+/* Fold scope, distance and cone into the target mask.
+
+   The radar short-circuits all of it: sweeping lights the whole floor, so
+   every tile is visible and there is nowhere left to hide. That is the entire
+   tool. It is handled here rather than at draw time so there is exactly one
+   place in the program where "what can the player see" is decided. */
 function combineMask(){
+  if (G.radar){ maskTgt.fill(1); return; }
   const px2=G.player.x, py2=G.player.y;
   for (let i=0; i<maskTgt.length; i++){
     const sc = visArr[i], cn = coneArr[i];
@@ -1201,7 +1204,7 @@ function combineMask(){
         v = sc*f*cn;
       }
     }
-    maskTgt[i] = Math.min(1, Math.max(v, torchArr[i]));
+    maskTgt[i] = v;
   }
   /* Deliberately NOT blurred. There was a 3x3 pass here and it quietly broke
      the centre of vision: an average of the player's own fully-lit tile with
@@ -1268,8 +1271,7 @@ function scopeRoomLight(dt, instant){
 }
 
 /* The bake is packed ONCE, at floor build. The viewer mask is repacked per
-   pose change; see traceViewCone. Keeping them apart is what makes the torch
-   work at all — see the note on the mask. */
+   pose change; see traceViewCone. */
 
 /* Advance the crossfade. Quantised: LIGHT_FADE_STEPS repacks over LIGHT_FADE
    seconds, so a room change costs 10 repacks and not one per frame forever. */
@@ -1549,7 +1551,11 @@ window.addEventListener('keydown', e=>{
     return;
   }
 
-  if (k==='f' && G && STATE==='play') G.torch = !G.torch;
+  if (k==='r' && G && STATE==='play'){
+    if (G.radar) G.radar = false;
+    else if (G.batt<=0) flash('NO POWER — THE RADAR IS DEAD');
+    else { G.radar = true; Audio_.rattle(0.4); }
+  }
   if (e.key==='Escape' && (STATE==='play'||STATE==='pause')) togglePause();
   if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key)) e.preventDefault();
 });
@@ -1561,9 +1567,9 @@ function update(dt){
   G.noise = Math.max(0, G.noise - dt*1.55);
 
   /* --- battery --- */
-  if (G.torch){
-    G.batt -= BATT_DRAIN*dt;
-    if (G.batt<=0){ G.batt=0; G.torch=false; flash('THE TORCH IS DEAD'); }
+  if (G.radar){
+    G.batt -= RADAR_DRAIN*dt;
+    if (G.batt<=0){ G.batt=0; G.radar=false; flash('NO POWER — THE RADAR IS DEAD'); }
   }
   for (const b of G.batteries){
     if (b.taken) continue;
@@ -1615,7 +1621,7 @@ function update(dt){
   if (traceViewCone(false) || scopeDirty){ combineMask(); scopeDirty = false; }
   if (smoothMask(dt)) packMask();
 
-  /* --- torch reveals --- */
+  /* --- the radar reveals --- */
   let seenBy = 0, nearest = 99;
   for (const a of G.agents){
     updateAgent(a, dt, p);
@@ -1631,7 +1637,7 @@ function update(dt){
            room whose lights are, as far as the screen is concerned, off. */
         const pi = Math.floor(p.y)*MAP_W+Math.floor(p.x);
         const amb = (lightArr[pi] || 0) * (visArr[pi] || 0);
-        if (amb > 0.30 || G.torch && d<3.2){
+        if (amb > 0.30){
           seenBy = Math.max(seenBy, 1);
           if (a.born<=0){ a.state='HUNT'; a.target={x:p.x,y:p.y}; a.t=0; }
         }
@@ -1641,36 +1647,29 @@ function update(dt){
   G.seenBy = Math.max(0, G.seenBy + (seenBy?dt*6:-dt*2.5));
   G.nearest = nearest;
 
-  /* --- torch reveals ---
-     The beam is a CONE, matching what is drawn. Revealing in a full 360
-     radius let you find exits the light was not even pointing at, which made
-     the torch cosmetic. Aim it by facing where you walk. */
-  if (G.torch){
-    const fx=p.x + Math.cos(p.face)*TORCH_OFF;
-    const fy=p.y + Math.sin(p.face)*TORCH_OFF;
-    const ax=Math.cos(p.face), ay=Math.sin(p.face);
-    const inBeam = (tx,ty)=>{
-      const d = Math.hypot(tx-fx, ty-fy);
-      if (d < 0.001) return true;
-      return ((tx-fx)*ax + (ty-fy)*ay)/d > 0.25;   // ~75 degrees
-    };
+  /* --- the radar reveals ---
+     Sweeping lights the whole floor, so "can you see it" stops being a question
+     about angles and walls and becomes exactly what it says: is it on your
+     screen. That is checked against the same rectangle the renderer draws
+     into, so a thing is revealed on the frame it appears, not a frame before.
+
+     This is the whole exit economy now. Finding one is still loud, and the
+     radar is still the only way to find any, so the budget you are spending is
+     on KNOWING where the doors are — not on getting to them. */
+  if (G.radar){
     for (const e of G.exitTiles){
       if (e.found) continue;
-      const d=Math.hypot(e.x+0.5-fx, e.y+0.5-fy);
-      if (d < 6.5 && inBeam(e.x+0.5, e.y+0.5) && G.los(fx,fy,e.x+0.5,e.y+0.5)){
-        e.found = true;
-        G.exitsFound++; G.stat.found++;
-        Audio_.rattle(0.7);
-        flash('EXIT FOUND \u2014 THAT WAS LOUD');
-        emitNoise(1.3, e.x+0.5, e.y+0.5);
-      }
+      if (!onScreen(e.x+0.5, e.y+0.5)) continue;
+      e.found = true;
+      G.exitsFound++; G.stat.found++;
+      Audio_.rattle(0.7);
+      flash('EXIT FOUND \u2014 THAT WAS LOUD');
+      emitNoise(1.3, e.x+0.5, e.y+0.5);
     }
     for (const gr of G.graffiti){
       if (gr.seen) continue;
-      const d=Math.hypot(gr.x+0.5-fx, gr.y+0.5-fy);
-      if (d<4.2 && inBeam(gr.x+0.5, gr.y+0.5) && G.los(fx,fy,gr.x+0.5,gr.y+0.5)){
-        gr.seen=true; flash(gr.text);
-      }
+      if (!onScreen(gr.x+0.5, gr.y+0.5)) continue;
+      gr.seen=true; flash(gr.text);
     }
   }
 
@@ -1983,9 +1982,9 @@ function caught(){
   ctx.imageSmoothingEnabled = true;
   ctx.drawImage(lightCv, dx, dy, MAP_W*TILE*SCALE, MAP_H*TILE*SCALE);
 
-  /* The visibility mask: room scope x cone of vision, with the torch taking the
-     max. One multiply. Multiplicative, not additive, so it can only ever
-     REMOVE light the bake put there — which is the whole point. */
+  /* The visibility mask: room scope x distance x cone, or everything at once
+     while the radar sweeps. One multiply. Multiplicative, not additive, so it
+     can only ever REMOVE light the bake put there — which is the whole point. */
   ctx.drawImage(maskCv, dx, dy, MAP_W*TILE*SCALE, MAP_H*TILE*SCALE);
 
   /* flickering fluorescents (additive, above the bake).
@@ -2026,15 +2025,12 @@ function caught(){
     ctx.restore();
   }
 
-  /* The torch no longer gets an additive pass of its own. It used to, and
-     that was correct while the dark rooms still had geometry under them. It is
-     not correct now: the mask has already multiplied those rooms down to
-     black, so an additive beam paints a yellow haze onto an empty frame — a
-     glow with no room in it, which reads as a rendering fault rather than as
-     light. The torch's reveal now lives in the mask instead (see
-     traceViewCone), where it lifts the bake back up on the tiles the beam
-     actually reaches and leaves everything else at zero. It is still
-     INFORMATION ONLY and it still repels nothing. */
+  /* No additive pass for the radar. It is tempting: sweep a bright wash over the
+     frame to suggest the device firing. But the mask has already multiplied
+     every dark room down to black, so an additive wash paints a yellow haze
+     onto an empty frame — a glow with no room in it, which reads as a
+     rendering fault rather than as light. The radar reveals because the mask
+     never zeroed anything while it was on. */
   ctx.globalCompositeOperation='source-over';
 
   /* ---------- 7. danger / awareness ---------- */
@@ -2147,12 +2143,14 @@ function drawPlayer(p, t){
   ctx.fillStyle='rgba(28,26,16,0.42)';   // back of the head, away from the light
   ctx.beginPath(); ctx.arc(0, -TILE*0.017+TILE*0.024, TILE*0.095, 0.25, 2.89); ctx.fill();
 
-  // the torch, held out in front — the beam originates exactly here
-  const tg = G.torch ? 1 : 0.4;
-  ctx.fillStyle=`rgba(255,250,222,${0.55*tg})`;
-  ctx.beginPath(); ctx.arc(0, -TORCH_OFF*TILE, TILE*0.047, 0, 6.283); ctx.fill();
-  ctx.fillStyle=`rgba(255,244,196,${0.22*tg})`;
-  ctx.beginPath(); ctx.arc(0, -TORCH_OFF*TILE, TILE*0.085, 0, 6.283); ctx.fill();
+  /* The radar, held out in front — the same forward offset the vision cone
+     originates from, so what the character is looking at and what they are
+     holding are the same thing. Dark when off, lit when sweeping. */
+  const rg = G.radar ? 1 : 0.35;
+  ctx.fillStyle=`rgba(255,250,222,${0.5*rg})`;
+  ctx.beginPath(); ctx.arc(0, -HAND_OFF*TILE, TILE*0.044, 0, 6.283); ctx.fill();
+  ctx.fillStyle=`rgba(255,244,196,${0.20*rg})`;
+  ctx.beginPath(); ctx.arc(0, -HAND_OFF*TILE, TILE*0.082, 0, 6.283); ctx.fill();
 
   ctx.restore();
 }
@@ -2311,8 +2309,8 @@ function setPrompt(){
   const all = G.exitsFound>=G.exitTiles.length && G.exitTiles.length>0;
   if (G.descend>0.02) el.textContent = 'cycling door \u2014 do not stop';
   else if (all) el.textContent = 'an exit is open \u2014 get to one';
-  else if (G.torch) el.textContent = 'find all ' + G.exitTiles.length + ' exits';
-  else el.textContent = 'torch off';
+  else if (G.radar) el.textContent = 'radar sweeping \u2014 find all ' + G.exitTiles.length + ' exits';
+  else el.textContent = 'radar off \u2014 press R';
   el.classList.add('on');
 }
 
