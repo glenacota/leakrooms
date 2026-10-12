@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>THE BACKROOMS — Character Concepts</title>
+<style>
+  :root {
+    --bg: #0a0908;
+    --panel: #14120e;
+    --ink: #d8d2c4;
+    --dim: #8a8478;
+    --accent: #c8a84b;
+    --line: #2a2620;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: Georgia, 'Times New Roman', serif;
+    min-height: 100vh;
+    padding: 2rem 1rem;
+  }
+  header {
+    text-align: center;
+    margin-bottom: 2.5rem;
+  }
+  header h1 {
+    font-size: 1.6rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 0.4rem;
+  }
+  header p {
+    color: var(--dim);
+    font-size: 0.85rem;
+    font-style: italic;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+    gap: 1.5rem;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .card:hover { border-color: var(--accent); }
+  .card-header {
+    padding: 1rem 1.2rem 0.8rem;
+    border-bottom: 1px solid var(--line);
+  }
+  .card-header h2 {
+    font-size: 1rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 0.3rem;
+  }
+  .card-header .tag {
+    font-size: 0.72rem;
+    color: var(--dim);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .preview {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 2rem;
+    padding: 1.5rem 1rem;
+    background: #0d0c0a;
+    min-height: 180px;
+  }
+  .preview canvas {
+    image-rendering: pixelated;
+  }
+  .card-body {
+    padding: 1rem 1.2rem 1.2rem;
+  }
+  .card-body p {
+    font-size: 0.82rem;
+    line-height: 1.55;
+    color: var(--ink);
+    margin-bottom: 0.7rem;
+  }
+  .card-body .fit {
+    font-size: 0.75rem;
+    color: var(--dim);
+    border-top: 1px solid var(--line);
+    padding-top: 0.6rem;
+    margin-top: 0.6rem;
+  }
+  .card-body .fit strong {
+    color: var(--accent);
+    font-weight: normal;
+    letter-spacing: 0.04em;
+  }
+  .controls {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+    padding: 0 1rem 1rem;
+    flex-wrap: wrap;
+  }
+  .controls button {
+    background: none;
+    border: 1px solid var(--line);
+    color: var(--dim);
+    font-family: inherit;
+    font-size: 0.7rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 0.35rem 0.7rem;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .controls button:hover,
+  .controls button.active {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  footer {
+    text-align: center;
+    margin-top: 3rem;
+    color: var(--dim);
+    font-size: 0.75rem;
+    font-style: italic;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Character Concepts</h1>
+  <p>Five alternative directions for the plumber and the Lifeform</p>
+</header>
+
+<div class="grid" id="grid"></div>
+
+<footer>Click buttons to preview each variant. All art is procedural canvas — no assets.</footer>
+
+<script>
+const TILE = 40;
+const HAND_OFF = 0.135;
+
+/* ── shared helpers ── */
+function shadow(ctx, x, y, rx, ry) {
+  ctx.fillStyle = 'rgba(8,6,3,0.34)';
+  ctx.beginPath();
+  ctx.ellipse(x + 1.5, y + 3, TILE * rx, TILE * ry, 0, 0, 6.283);
+  ctx.fill();
+}
+
+function drawRadar(ctx, x, y, on) {
+  const rg = on ? 1 : 0.35;
+  ctx.fillStyle = `rgba(255,250,222,${0.5 * rg})`;
+  ctx.beginPath(); ctx.arc(x, y, TILE * 0.044, 0, 6.283); ctx.fill();
+  ctx.fillStyle = `rgba(255,244,196,${0.20 * rg})`;
+  ctx.beginPath(); ctx.arc(x, y, TILE * 0.082, 0, 6.283); ctx.fill();
+}
+
+/* ════════════════════════════════════════════════════════════
+   PLAYER VARIANTS
+   ════════════════════════════════════════════════════════════ */
+
+/* V1 — CLASSIC: red cap, blue overalls, brown boots */
+function drawPlayerV1(ctx, x, y, face, radarOn) {
+  shadow(ctx, x, y, 0.19, 0.11);
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(face + Math.PI / 2);
+
+  // boots
+  ctx.fillStyle = '#4a3520';
+  for (const s of [-1, 1]) {
+    ctx.beginPath();
+    ctx.ellipse(s * TILE * 0.10, TILE * 0.14, TILE * 0.055, TILE * 0.045, 0, 0, 6.283);
+    ctx.fill();
+  }
+  // legs / overalls
+  ctx.fillStyle = '#2a4a8a';
+  ctx.beginPath(); ctx.ellipse(0, TILE * 0.06, TILE * 0.13, TILE * 0.10, 0, 0, 6.283); ctx.fill();
+  // torso / shirt
+  ctx.fillStyle = '#b03030';
+  ctx.beginPath(); ctx.ellipse(0, -TILE * 0.02, TILE * 0.16, TILE * 0.12, 0, 0, 6.283); ctx.fill();
+  // overall straps
+  ctx.strokeStyle = '#2a4a8a';
+  ctx.lineWidth = TILE * 0.045;
+  ctx.beginPath(); ctx.moveTo(-TILE * 0.08, -TILE * 0.10); ctx.lineTo(-TILE * 0.06, TILE * 0.04); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(TILE * 0.08, -TILE * 0.10); ctx.lineTo(TILE * 0.06, TILE * 0.04); ctx.stroke();
+  // arms
+  ctx.fillStyle = '#b03030';
+  for (const s of [-1, 1]) {
+    ctx.beginPath();
+    ctx.ellipse(s * TILE * 0.17, TILE * 0.02, TILE * 0.05, TILE * 0.065, 0, 0, 6.283);
+    ctx.fill();
+  }
+  // hands
+  ctx.fillStyle = '#d4a078';
+  for (const s of [-1, 1]) {
+    ctx.beginPath();
+    ctx.arc(s * TILE * 0.17, TILE * 0.07, TILE * 0.035, 0, 6.283);
+    ctx.fill();
+  }
+  // head
+  ctx.fillStyle = '#d4a078';
+  ctx.beginPath(); ctx.arc(0, -TILE * 0.06, TILE * 0.085, 0, 6.283); ctx.fill();
+  // cap
+  ctx.fillStyle = '#c02020';
+  ctx.beginPath(); ctx.arc(0, -TILE * 0.075, TILE * 0.088, Math.PI, 0); ctx.fill();
+  ctx.fillStyle = '#a01818';
+  ctx.beginPath(); ctx.ellipse(0, -TILE * 0.075, TILE * 0.088, TILE * 0.03, 0, 0, 6.283); ctx.fill();
+  // cap brim
+  ctx.fillStyle = '#c02020';
+  ctx.beginPath(); ctx.ellipse(0, -TILE * 0.14, TILE * 0.06, TILE * 0.02, 0, 0, 6.283); ctx.fill();
+  // moustache
+  ctx.fillStyle = '#3a2818';
+  ctx.beginPath(); ctx.ellipse(0, -TILE * 0.045, TILE * 0.05, TILE * 0.018, 0, 0, 6.283); ctx.fill();
+
+  // radar in right hand
+  drawRadar(ctx, TILE * 0.17, TILE * 0.07 - HAND_OFF * TILE * 0.5, radarOn);
+
+  ctx.restore();
+}
+
+/* V2 — UTILITY: hi-vis vest, tool belt, hard hat */
+function drawPlayerV2(ctx, x, y, face, radarOn) {
+  shadow(ctx, x, y, 0.19, 0.11);
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(face + Math.PI / 2);
+
+  // boots
+  ctx.fillStyle = '#2a2a2a';
+  for (const s of [-1, 1]) {
+    ctx.beginPath();
+    ctx.ellipse(s * TILE * 0.10, TILE * 0.14, TILE * 0.055, TILE * 0.045, 0, 0, 6.283);
+    ctx.fill();
+  }
+  // legs / dark work pants
+  ctx.fillStyle = '#2a2a30';
+  ctx.beginPath(); ctx.ellipse(0, TILE * 0.06, TILE * 0.13, TILE * 0.10, 0, 0, 6.283); ctx.fill();
+  // torso / hi-vis vest
+  ctx.fillStyle = '#c8a020';
+  ctx.beginPath(); ctx.ellipse(0, -TILE * 0.02, TILE * 0.16, TILE * 0.12, 0, 0, 6.283); ctx.fill();
+  // reflective stripes
+  ctx.fillStyle = '#e8e0d0';
+  ctx.fillRect(-TILE * 0.14, -TILE * 0.06, TILE * 0.28, TILE * 0.025);
+  ctx.fillRect(-TILE * 0.14, TILE * 0.01, TILE * 0.28, TILE * 0.025);
+  // arms
+  ctx.fillStyle = '#c8a020';
+  for (const s of [-1, 1]) {
+    ctx.beginPath();
+    ctx.ellipse(s * TILE * 0.17, TILE * 0.02, TILE * 0.05, TILE * 0.065, 0, 0, 6.283);
+    ctx.fill();
+  }
+  // hands
+  ctx.fillStyle = '#c89068';
+  for (const s of [-1, 1]) {
+    ctx.beginPath();
+    ctx.arc(s * TILE * 0.17, TILE * 0.07, TILE * 0.035, 0, 6.283);
+    ctx.fill();
+  }
+  // tool belt
+  ctx.fillStyle = '#3a2818';
+  ctx.fillRect(-TILE * 0.12, TILE * 0.08, TILE * 0.24, TILE * 0.04);
+  ctx.fillStyle = '#888';
+  ctx.fillRect(-TILE * 0.08, TILE * 0.07, TILE * 0.04, TILE * 0.05);
+  ctx.fillRect(TILE * 0.04, TILE * 0.07, TILE * 0.04, TILE * 0.05);
+  // head
+  ctx.fillStyle = '#c89068';
+  ctx.beginPath(); ctx.arc(0, -TILE * 0.06, TILE * 0.085, 0, 6.283); ctx.fill();
+  // hard hat
+  ctx.fillStyle = '#e0c020';
+  ctx.beginPath(); ctx.arc(0, -TILE * 0.07, TILE * 0.09, Math.PI, 0); ctx.fill();
+  ctx.fillStyle = '#c8a020';
+  ctx.beginPath(); ctx.ellipse(0, -TILE * 0.07, TILE * 0.09, TILE * 0.025, 0, 0, 6.283); ctx.fill();
+  // headlamp
+  ctx.fillStyle = '#fff8d0';
+  ctx.beginPath(); ctx.arc(0, -TILE * 0.14, TILE * 0.025, 0, 6.283); ctx.fill();
+
+  drawRadar(ctx, TILE * 0.17, TILE * 0.07 - HAND_OFF * TILE * 0.5, radarOn);
+
+  ctx.restore();
+}
+
+/* V3 — DRAIN: waders, headlamp, pipe wrench on back */
+function drawPlayerV3(ctx, x, y, face, radarOn) {
+  shadow(ctx, x, y, 0.19, 0.11);
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(face + Math.PI / 2);
+
+  // waders (tall rubber boots)
+  ctx.fillStyle = '#3a5a3a';
+  for (const s of [-1, 1]) {
+    ctx.beginPath();
+    ctx.ellipse(s * TILE * 0.10, TILE * 0.12, TILE * 0.06, TILE * 0.07, 0, 0, 6.283);
+    ctx.fill();
+  }
+  // wader top
+  ctx.fillStyle = '#3a5a3a';
+  ctx.beginPath(); ctx.ellipse(0, TILE * 0.04, TILE * 0.14, TILE * 0.08, 0, 0, 6.283); ctx.fill();
+  // torso / dark jacket
+  ctx.fillStyle = '#2a3038';
+  ctx.beginPath(); ctx.ellipse(0, -TILE * 0.02, TILE * 0.16, TILE * 0.12, 0, 0, 6.283); ctx.fill();
+  // jacket zipper
+  ctx.strokeStyle = '#4a5560';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(0, -TILE * 0.12); ctx.lineTo(0, TILE * 0.06); ctx.stroke();
+  // arms
+  ctx.fillStyle = '#2a3038';
+  for (const s of [-1, 1]) {
+    ctx.beginPath();
+    ctx.ellipse(s * TILE * 0.17, TILE * 0.02, TILE * 0.05, TILE * 0.065, 0, 0, 6.283);
+    ctx.fill();
+  }
+  // hands
+  ctx.fillStyle = '#c89068';
+  for (const s of [-1, 1]) {
+    ctx.beginPath();
+    ctx.arc(s * TILE * 0.17, TILE * 0.07, TILE * 0.035, 0, 6.283);
+    ctx.fill();
+  }
+  // pipe wrench on back (diagonal)
+  ctx.save();
+  ctx.rotate(0.6);
+  ctx.fillStyle = '#888';
+  ctx.fillRect(-TILE * 0.02, -TILE * 0.22, TILE * 0.04, TILE * 0.28);
+  ctx.fillStyle = '#666';
+  ctx.beginPath(); ctx.arc(0, -TILE * 0.22, TILE * 0.04, 0, 6.283); ctx.fill();
+  ctx.restore();
+  // head
+  ctx.fillStyle = '#c89068';
+  ctx.beginPath(); ctx.arc(0, -TILE * 0.06, TILE * 0.085, 0, 6.283); ctx.fill();
+  // headlamp strap
+  ctx.strokeStyle = '#222';
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(0, -TILE * 0.06, TILE * 0.088, 0, 6.283); ctx.stroke();
+  // headlamp
+  ctx.fillStyle = '#fff8d0';
+  ctx.beginPath(); ctx.arc(0, -TILE * 0.13, TILE * 0.03, 0, 6.283); ctx.fill();
+  ctx.fillStyle = 'rgba(255,248,200,0.3)';
+  ctx.beginPath(); ctx.arc(0, -TILE * 0.13, TILE * 0.05, 0, 6.283); ctx.fill();
+
+  drawRadar(ctx, TILE * 0.17, TILE * 0.07 - HAND_OFF * TILE * 0.5, radarOn);
+
+  ctx.restore();
+}
+
+/* V4 — RETRO: 8-bit pixel style, chunky silhouette */
+function drawPlayerV4(ctx, x, y, face, radarOn) {
+  shadow(ctx, x, y, 0.19, 0.11);
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(face + Math.PI / 2);
+
+  const u = TILE / 10; // pixel unit
+  function px(cx, cy, w, h, color) {
+    ctx.fillStyle = color;
+    ctx.fillRect(cx * u - w * u / 2, cy * u - h * u / 2, w * u, h * u);
+  }
+
+  // boots
+  px(-3, 7, 3, 2, '#4a3520');
+  px(3, 7, 3, 2, '#4a3520');
+  // legs
+  px(0, 4, 6, 4, '#2a4a8a');
+  // torso
+  px(0, -1, 8, 6, '#b03030');
+  // overalls
+  px(-2, 2, 3, 4, '#2a4a8a');
+  px(2, 2, 3, 4, '#2a4a8a');
+  // arms
+  px(-6, 0, 3, 5, '#b03030');
+  px(6, 0, 3, 5, '#b03030');
+  // hands
+  px(-6, 4, 2, 2, '#d4a078');
+  px(6, 4, 2, 2, '#d4a078');
+  // head
+  px(0, -5, 6, 5, '#d4a078');
+  // cap
+  px(0, -7, 7, 3, '#c02020');
+  px(0, -9, 4, 2, '#c02020');
+  // moustache
+  px(0, -3, 4, 1, '#3a2818');
+
+  drawRadar(ctx, 6 * u, 4 * u - HAND_OFF * TILE * 0.5, radarOn);
+
+  ctx.restore();
+}
+
+/* V5 — NOIR: long coat, fedora, muted palette */
+function drawPlayerV5(ctx, x, y, face, radarOn) {
+  shadow(ctx, x, y, 0.19, 0.11);
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(face + Math.PI / 2);
+
+  // coat tail
+  ctx.fillStyle = '#1a1a1e';
+  ctx.beginPath(); ctx.ellipse(0, TILE * 0.08, TILE * 0.15, TILE * 0.12, 0, 0, 6.283); ctx.fill();
+  // torso / coat
+  ctx.fillStyle = '#2a2a30';
+  ctx.beginPath(); ctx.ellipse(0, -TILE * 0.02, TILE * 0.16, TILE * 0.13, 0, 0, 6.283); ctx.fill();
+  // coat lapels
+  ctx.strokeStyle = '#3a3a40';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(-TILE * 0.06, -TILE * 0.12); ctx.lineTo(0, -TILE * 0.02); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(TILE * 0.06, -TILE * 0.12); ctx.lineTo(0, -TILE * 0.02); ctx.stroke();
+  // arms
+  ctx.fillStyle = '#2a2a30';
+  for (const s of [-1, 1]) {
+    ctx.beginPath();
+    ctx.ellipse(s * TILE * 0.17, TILE * 0.02, TILE * 0.05, TILE * 0.065, 0, 0, 6.283);
+    ctx.fill();
+  }
+  // hands
+  ctx.fillStyle = '#c89068';
+  for (const s of [-1, 1]) {
+    ctx.beginPath();
+    ctx.arc(s * TILE * 0.17, TILE * 0.07, TILE * 0.035, 0, 6.283);
+    ctx.fill();
+  }
+  // head
+  ctx.fillStyle = '#c89068';
+  ctx.beginPath(); ctx.arc(0, -TILE * 0.06, TILE * 0.085, 0, 6.283); ctx.fill();
+  // fedora
+  ctx.fillStyle = '#1a1a1e';
+  ctx.beginPath(); ctx.ellipse(0, -TILE * 0.08, TILE * 0.11, TILE * 0.04, 0, 0, 6.283); ctx.fill();
+  ctx.fillStyle = '#2a2a30';
+  ctx.beginPath(); ctx.ellipse(0, -TILE * 0.10, TILE * 0.07, TILE * 0.05, 0, 0, 6.283); ctx.fill();
+  // fedora band
+  ctx.fillStyle = '#3a2818';
+  ctx.beginPath(); ctx.ellipse(0, -TILE * 0.085, TILE * 0.07, TILE * 0.015, 0, 0, 6.283); ctx.fill();
+
+  drawRadar(ctx, TILE * 0.17, TILE * 0.07 - HAND_OFF * TILE * 0.5, radarOn);
+
+  ctx.restore();
+}
+
+/* ════════════════════════════════════════════════════════════
+   ENEMY VARIANTS
+   ════════════════════════════════════════════════════════════ */
+
+/* E1 — DRAIN CRAWLER: insectoid, pipe-cleaner legs */
+function drawEnemyE1(ctx, x, y, t, rise) {
+  const h = rise;
+  ctx.fillStyle = 'rgba(6,5,3,0.5)';
+  ctx.beginPath();
+  ctx.ellipse(x, y + 4, TILE * (0.36 + 0.16 * h), TILE * (0.14 + 0.05 * h), 0, 0, 6.283);
+  ctx.fill();
+
+  if (h < 0.02) {
+    // dormant: coiled mass
+    for (let i = 7; i > 0; i--) {
+      const rr = TILE * (0.10 + i * 0.048);
+      ctx.strokeStyle = i % 2 ? '#0d0c0a' : '#161412';
+      ctx.lineWidth = Math.max(2.4, TILE * 0.075 - i * 0.6);
+      ctx.beginPath();
+      ctx.ellipse(x, y, rr * 1.25, rr * 0.82, 0.3 + i * 0.16, 0, 6.283);
+      ctx.stroke();
+    }
+    return;
+  }
+
+  const HGT = TILE * 2.55 * h;
+  ctx.save();
+  ctx.translate(x, y);
+
+  // legs (pipe-cleaner style)
+  ctx.strokeStyle = '#0a0908';
+  ctx.lineWidth = 2.5;
+  for (let i = 0; i < 6; i++) {
+    const angle = (i / 6) * Math.PI * 2 + Math.sin(t * 0.003 + i) * 0.2;
+    const legLen = TILE * (0.3 + 0.2 * h);
+    const bx = Math.cos(angle) * TILE * 0.15;
+    const by = Math.sin(angle) * TILE * 0.08;
+    const ex = Math.cos(angle) * legLen;
+    const ey = Math.sin(angle) * legLen * 0.5 - TILE * 0.1;
+    ctx.beginPath();
+    ctx.moveTo(bx, by);
+    ctx.quadraticCurveTo((bx + ex) / 2, (by + ey) / 2 - TILE * 0.1, ex, ey);
+    ctx.stroke();
+  }
+
+  // body: segmented pipe
+  const N = 9;
+  for (let i = 0; i <= N; i++) {
+    const k = i / N;
+    const yy = -k * HGT;
+    const rx = TILE * (0.34 * (1 - k * 0.72) + 0.05);
+    const ry = rx * 0.40;
+    ctx.strokeStyle = (i % 2) ? '#080706' : '#131110';
+    ctx.lineWidth = Math.max(2, TILE * 0.088 * (1 - k * 0.35));
+    ctx.beginPath();
+    ctx.ellipse(0, yy, rx, ry, 0, 0, 6.283);
+    ctx.stroke();
+  }
+
+  // head: pipe opening
+  ctx.fillStyle = '#0a0908';
+  ctx.beginPath(); ctx.ellipse(0, -HGT, TILE * 0.12, TILE * 0.08, 0, 0, 6.283); ctx.fill();
+  ctx.fillStyle = '#1a1815';
+  ctx.beginPath(); ctx.ellipse(0, -HGT, TILE * 0.08, TILE * 0.05, 0, 0, 6.283); ctx.fill();
+
+  // glowing eyes
+  ctx.fillStyle = `rgba(216,80,60,${0.6 * h})`;
+  ctx.beginPath(); ctx.arc(-TILE * 0.04, -HGT - TILE * 0.02, TILE * 0.015, 0, 6.283); ctx.fill();
+  ctx.beginPath(); ctx.arc(TILE * 0.04, -HGT - TILE * 0.02, TILE * 0.015, 0, 6.283); ctx.fill();
+
+  ctx.restore();
+}
+
+/* E2 — PRESSURE WRAITH: water-formed humanoid */
+function drawEnemyE2(ctx, x, y, t, rise) {
+  const h = rise;
+  ctx.fillStyle = 'rgba(6,5,3,0.4)';
+  ctx.beginPath();
+  ctx.ellipse(x, y + 4, TILE * (0.3 + 0.12 * h), TILE * (0.12 + 0.04 * h), 0, 0, 6.283);
+  ctx.fill();
+
+  if (h < 0.02) {
+    // dormant: puddle
+    ctx.fillStyle = 'rgba(40,60,80,0.3)';
+    ctx.beginPath();
+    ctx.ellipse(x, y, TILE * 0.35, TILE * 0.15, 0, 0, 6.283);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(60,90,120,0.2)';
+    ctx.beginPath();
+    ctx.ellipse(x + Math.sin(t * 0.002) * 3, y, TILE * 0.25, TILE * 0.10, 0, 0, 6.283);
+    ctx.fill();
+    return;
+  }
+
+  const HGT = TILE * 2.2 * h;
+  ctx.save();
+  ctx.translate(x, y);
+
+  // watery body: translucent blue-grey
+  const grad = ctx.createLinearGradient(0, 0, 0, -HGT);
+  grad.addColorStop(0, 'rgba(40,60,80,0.5)');
+  grad.addColorStop(1, 'rgba(80,120,160,0.3)');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.ellipse(0, -HGT * 0.5, TILE * 0.25, HGT * 0.5, 0, 0, 6.283);
+  ctx.fill();
+
+  // ripples
+  for (let i = 0; i < 4; i++) {
+    const yy = -HGT * (0.2 + i * 0.2);
+    const rx = TILE * (0.2 + Math.sin(t * 0.004 + i * 1.5) * 0.03);
+    ctx.strokeStyle = `rgba(100,150,200,${0.3 - i * 0.05})`;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.ellipse(0, yy, rx, rx * 0.4, 0, 0, 6.283);
+    ctx.stroke();
+  }
+
+  // head
+  ctx.fillStyle = 'rgba(60,100,140,0.4)';
+  ctx.beginPath(); ctx.arc(0, -HGT, TILE * 0.12, 0, 6.283); ctx.fill();
+
+  // eyes: bright cyan
+  ctx.fillStyle = `rgba(100,220,255,${0.7 * h})`;
+  ctx.beginPath(); ctx.arc(-TILE * 0.04, -HGT - TILE * 0.02, TILE * 0.018, 0, 6.283); ctx.fill();
+  ctx.beginPath(); ctx.arc(TILE * 0.04, -HGT - TILE * 0.02, TILE * 0.018, 0, 6.283); ctx.fill();
+
+  // dripping
+  for (let i = 0; i < 3; i++) {
+    const dx = Math.sin(t * 0.005 + i * 2) * TILE * 0.15;
+    const dy = (t * 0.05 + i * 30) % (HGT * 0.8);
+    ctx.fillStyle = 'rgba(80,140,180,0.4)';
+    ctx.beginPath(); ctx.arc(dx, -dy, 1.5, 0, 6.283); ctx.fill();
+  }
+
+  ctx.restore();
+}
+
+/* E3 — VALVE STALKER: mechanical, gear-driven */
+function drawEnemyE3(ctx, x, y, t, rise) {
+  const h = rise;
+  ctx.fillStyle = 'rgba(6,5,3,0.5)';
+  ctx.beginPath();
+  ctx.ellipse(x, y + 4, TILE * (0.32 + 0.14 * h), TILE * (0.13 + 0.05 * h), 0, 0, 6.283);
+  ctx.fill();
+
+  if (h < 0.02) {
+    // dormant: scattered gears
+    for (let i = 0; i < 5; i++) {
+      const gx = x + Math.sin(i * 1.3) * TILE * 0.15;
+      const gy = y + Math.cos(i * 1.7) * TILE * 0.08;
+      ctx.fillStyle = i % 2 ? '#1a1815' : '#22201c';
+      ctx.beginPath(); ctx.arc(gx, gy, TILE * 0.06, 0, 6.283); ctx.fill();
+      ctx.fillStyle = '#0a0908';
+      ctx.beginPath(); ctx.arc(gx, gy, TILE * 0.025, 0, 6.283); ctx.fill();
+    }
+    return;
+  }
+
+  const HGT = TILE * 2.4 * h;
+  ctx.save();
+  ctx.translate(x, y);
+
+  // piston legs
+  ctx.strokeStyle = '#3a352a';
+  ctx.lineWidth = 4;
+  for (const s of [-1, 1]) {
+    const legH = HGT * 0.4 * (1 + Math.sin(t * 0.006 + s) * 0.1);
+    ctx.beginPath();
+    ctx.moveTo(s * TILE * 0.12, 0);
+    ctx.lineTo(s * TILE * 0.15, -legH);
+    ctx.stroke();
+    // foot
+    ctx.fillStyle = '#2a251a';
+    ctx.beginPath(); ctx.arc(s * TILE * 0.15, -legH, TILE * 0.05, 0, 6.283); ctx.fill();
+  }
+
+  // body: boiler tank
+  ctx.fillStyle = '#2a251a';
+  ctx.beginPath(); ctx.ellipse(0, -HGT * 0.55, TILE * 0.28, HGT * 0.35, 0, 0, 6.283); ctx.fill();
+  ctx.fillStyle = '#3a352a';
+  ctx.beginPath(); ctx.ellipse(0, -HGT * 0.55, TILE * 0.22, HGT * 0.28, 0, 0, 6.283); ctx.fill();
+
+  // rivets
+  ctx.fillStyle = '#4a453a';
+  for (let i = 0; i < 6; i++) {
+    const angle = (i / 6) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.arc(Math.cos(angle) * TILE * 0.24, -HGT * 0.55 + Math.sin(angle) * HGT * 0.3, 1.5, 0, 6.283);
+    ctx.fill();
+  }
+
+  // pressure gauge
+  ctx.fillStyle = '#1a1815';
+  ctx.beginPath(); ctx.arc(0, -HGT * 0.55, TILE * 0.08, 0, 6.283); ctx.fill();
+  ctx.strokeStyle = '#888';
+  ctx.lineWidth = 1;
+  const needleAngle = -Math.PI * 0.75 + Math.sin(t * 0.003) * 0.5;
+  ctx.beginPath();
+  ctx.moveTo(0, -HGT * 0.55);
+  ctx.lineTo(Math.cos(needleAngle) * TILE * 0.06, -HGT * 0.55 + Math.sin(needleAngle) * TILE * 0.06);
+  ctx.stroke();
+
+  // smokestack
+  ctx.fillStyle = '#2a251a';
+  ctx.fillRect(-TILE * 0.04, -HGT - TILE * 0.15, TILE * 0.08, TILE * 0.2);
+  // smoke
+  for (let i = 0; i < 3; i++) {
+    const sy = -HGT - TILE * 0.2 - ((t * 0.03 + i * 20) % 40);
+    const sx = Math.sin(t * 0.004 + i * 2) * 4;
+    ctx.fillStyle = `rgba(80,75,65,${0.3 - i * 0.08})`;
+    ctx.beginPath(); ctx.arc(sx, sy, 3 + i * 2, 0, 6.283); ctx.fill();
+  }
+
+  // head: valve wheel
+  ctx.strokeStyle = '#4a453a';
+  ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(0, -HGT - TILE * 0.05, TILE * 0.10, 0, 6.283); ctx.stroke();
+  for (let i = 0; i < 4; i++) {
+    const a = (i / 4) * Math.PI * 2 + t * 0.002;
+    ctx.beginPath();
+    ctx.moveTo(0, -HGT - TILE * 0.05);
+    ctx.lineTo(Math.cos(a) * TILE * 0.10, -HGT - TILE * 0.05 + Math.sin(a) * TILE * 0.10);
+    ctx.stroke();
+  }
+
+  // eyes: furnace glow
+  ctx.fillStyle = `rgba(255,120,40,${0.5 * h})`;
+  ctx.beginPath(); ctx.arc(-TILE * 0.05, -HGT - TILE * 0.08, TILE * 0.02, 0, 6.283); ctx.fill();
+  ctx.beginPath(); ctx.arc(TILE * 0.05, -HGT - TILE * 0.08, TILE * 0.02, 0, 6.283); ctx.fill();
+
+  ctx.restore();
+}
+
+/* E4 — MOLD HORROR: organic, fungal growth */
+function drawEnemyE4(ctx, x, y, t, rise) {
+  const h = rise;
+  ctx.fillStyle = 'rgba(6,5,3,0.4)';
+  ctx.beginPath();
+  ctx.ellipse(x, y + 4, TILE * (0.34 + 0.15 * h), TILE * (0.13 + 0.05 * h), 0, 0, 6.283);
+  ctx.fill();
+
+  if (h < 0.02) {
+    // dormant: spore cluster
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      const r = TILE * (0.08 + (i % 3) * 0.05);
+      const sx = x + Math.cos(a) * r + Math.sin(t * 0.002 + i) * 2;
+      const sy = y + Math.sin(a) * r * 0.5;
+      ctx.fillStyle = i % 2 ? '#1a2a1a' : '#2a3a2a';
+      ctx.beginPath(); ctx.arc(sx, sy, TILE * 0.04, 0, 6.283); ctx.fill();
+      ctx.fillStyle = 'rgba(80,120,80,0.3)';
+      ctx.beginPath(); ctx.arc(sx, sy, TILE * 0.02, 0, 6.283); ctx.fill();
+    }
+    return;
+  }
+
+  const HGT = TILE * 2.0 * h;
+  ctx.save();
+  ctx.translate(x, y);
+
+  // tendrils
+  ctx.strokeStyle = '#1a2a1a';
+  ctx.lineWidth = 3;
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2;
+    const sway = Math.sin(t * 0.003 + i * 1.3) * TILE * 0.1;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(a) * TILE * 0.1, Math.sin(a) * TILE * 0.05);
+    ctx.quadraticCurveTo(
+      Math.cos(a) * TILE * 0.25 + sway,
+      Math.sin(a) * TILE * 0.15 - HGT * 0.3,
+      Math.cos(a) * TILE * 0.35 + sway * 1.5,
+      Math.sin(a) * TILE * 0.2 - HGT * 0.6
+    );
+    ctx.stroke();
+  }
+
+  // body: fungal mass
+  const grad = ctx.createRadialGradient(0, -HGT * 0.5, 0, 0, -HGT * 0.5, TILE * 0.35);
+  grad.addColorStop(0, '#2a4a2a');
+  grad.addColorStop(1, '#1a2a1a');
+  ctx.fillStyle = grad;
+  ctx.beginPath(); ctx.ellipse(0, -HGT * 0.5, TILE * 0.30, HGT * 0.45, 0, 0, 6.283); ctx.fill();
+
+  // mushroom caps
+  for (let i = 0; i < 4; i++) {
+    const cy = -HGT * (0.3 + i * 0.15);
+    const cx = Math.sin(i * 2.1) * TILE * 0.15;
+    const cr = TILE * (0.08 + (i % 2) * 0.04);
+    ctx.fillStyle = '#3a5a3a';
+    ctx.beginPath(); ctx.ellipse(cx, cy, cr, cr * 0.6, 0, Math.PI, 0); ctx.fill();
+    ctx.fillStyle = '#4a7a4a';
+    ctx.beginPath(); ctx.ellipse(cx, cy - cr * 0.2, cr * 0.6, cr * 0.3, 0, Math.PI, 0); ctx.fill();
+  }
+
+  // head: spore sac
+  ctx.fillStyle = '#2a4a2a';
+  ctx.beginPath(); ctx.arc(0, -HGT, TILE * 0.14, 0, 6.283); ctx.fill();
+  ctx.fillStyle = 'rgba(100,160,100,0.3)';
+  ctx.beginPath(); ctx.arc(0, -HGT, TILE * 0.10, 0, 6.283); ctx.fill();
+
+  // eyes: bioluminescent
+  ctx.fillStyle = `rgba(150,255,150,${0.6 * h})`;
+  ctx.beginPath(); ctx.arc(-TILE * 0.05, -HGT - TILE * 0.03, TILE * 0.02, 0, 6.283); ctx.fill();
+  ctx.beginPath(); ctx.arc(TILE * 0.05, -HGT - TILE * 0.03, TILE * 0.02, 0, 6.283); ctx.fill();
+
+  // spores floating
+  for (let i = 0; i < 5; i++) {
+    const sx = Math.sin(t * 0.003 + i * 1.7) * TILE * 0.3;
+    const sy = -HGT * 0.5 + Math.cos(t * 0.004 + i * 2.3) * TILE * 0.2;
+    ctx.fillStyle = `rgba(120,180,120,${0.4 - i * 0.06})`;
+    ctx.beginPath(); ctx.arc(sx, sy, 1.5, 0, 6.283); ctx.fill();
+  }
+
+  ctx.restore();
+}
+
+/* E5 — STATIC WRAITH: glitchy, TV-static humanoid */
+function drawEnemyE5(ctx, x, y, t, rise) {
+  const h = rise;
+  ctx.fillStyle = 'rgba(6,5,3,0.4)';
+  ctx.beginPath();
+  ctx.ellipse(x, y + 4, TILE * (0.30 + 0.12 * h), TILE * (0.12 + 0.04 * h), 0, 0, 6.283);
+  ctx.fill();
+
+  if (h < 0.02) {
+    // dormant: static burst
+    for (let i = 0; i < 20; i++) {
+      const sx = x + (Math.sin(i * 3.7 + t * 0.01) * TILE * 0.25);
+      const sy = y + (Math.cos(i * 2.3 + t * 0.008) * TILE * 0.1);
+      ctx.fillStyle = `rgba(${100 + Math.sin(i) * 50},${100 + Math.cos(i) * 50},${100},0.3)`;
+      ctx.fillRect(sx, sy, 2, 2);
+    }
+    return;
+  }
+
+  const HGT = TILE * 2.3 * h;
+  ctx.save();
+  ctx.translate(x, y);
+
+  // glitch body: fragmented rectangles
+  for (let i = 0; i < 12; i++) {
+    const k = i / 12;
+    const yy = -k * HGT;
+    const ww = TILE * (0.3 * (1 - k * 0.5) + Math.sin(t * 0.01 + i * 2) * 0.03);
+    const hh = HGT * 0.08;
+    const xx = Math.sin(t * 0.008 + i * 1.5) * TILE * 0.03;
+    const brightness = 40 + Math.sin(t * 0.012 + i * 3) * 30;
+    ctx.fillStyle = `rgba(${brightness},${brightness},${brightness + 10},0.7)`;
+    ctx.fillRect(xx - ww / 2, yy - hh / 2, ww, hh);
+  }
+
+  // scan lines
+  ctx.strokeStyle = 'rgba(200,200,200,0.1)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 6; i++) {
+    const yy = -HGT * (i / 6) - ((t * 0.02) % (HGT / 6));
+    ctx.beginPath(); ctx.moveTo(-TILE * 0.25, yy); ctx.lineTo(TILE * 0.25, yy); ctx.stroke();
+  }
+
+  // head: CRT screen
+  ctx.fillStyle = '#1a1a1a';
+  ctx.fillRect(-TILE * 0.12, -HGT - TILE * 0.15, TILE * 0.24, TILE * 0.18);
+  ctx.fillStyle = `rgba(150,200,255,${0.3 + Math.sin(t * 0.01) * 0.1})`;
+  ctx.fillRect(-TILE * 0.10, -HGT - TILE * 0.13, TILE * 0.20, TILE * 0.14);
+
+  // eyes: bright pixels
+  ctx.fillStyle = `rgba(255,255,255,${0.8 * h})`;
+  ctx.fillRect(-TILE * 0.06, -HGT - TILE * 0.08, 3, 3);
+  ctx.fillRect(TILE * 0.03, -HGT - TILE * 0.08, 3, 3);
+
+  // glitch fragments
+  for (let i = 0; i < 6; i++) {
+    const gx = Math.sin(t * 0.015 + i * 2.7) * TILE * 0.35;
+    const gy = -HGT * 0.5 + Math.cos(t * 0.012 + i * 1.9) * TILE * 0.2;
+    ctx.fillStyle = `rgba(200,200,220,${0.3 + Math.sin(t * 0.02 + i) * 0.2})`;
+    ctx.fillRect(gx, gy, 4, 2);
+  }
+
+  ctx.restore();
+}
+
+/* ════════════════════════════════════════════════════════════
+   CONCEPT DATA
+   ════════════════════════════════════════════════════════════ */
+
+const playerConcepts = [
+  {
+    id: 'p1',
+    name: 'Classic Plumber',
+    tag: 'Iconic / Recognizable',
+    desc: 'Red cap, blue overalls, brown boots, moustache. The most universally readable "plumber" silhouette. Warm colours stand out against the cold backrooms palette.',
+    fit: 'Strong visual identity. High contrast against yellow-wallpaper aesthetic. Instantly communicates "maintenance worker" without a single pixel of text.',
+    draw: drawPlayerV1,
+  },
+  {
+    id: 'p2',
+    name: 'Utility Worker',
+    tag: 'Modern / Industrial',
+    desc: 'Hi-vis vest with reflective stripes, hard hat with headlamp, tool belt. Reads as "sent to fix infrastructure" rather than "cartoon plumber". The headlamp justifies the vision cone.',
+    fit: 'Headlamp = diegetic light source. Reflective stripes catch the radar glow. Tool belt implies competence. Less whimsical, more grounded.',
+    draw: drawPlayerV2,
+  },
+  {
+    id: 'p3',
+    name: 'Drain Specialist',
+    tag: 'Niche / Thematic',
+    desc: 'Chest waders, dark jacket, headlamp, pipe wrench strapped to back. Built for standing in water. The wrench is a visual promise: this character fixes pipes.',
+    fit: 'Waders justify walking through flooded tiles without penalty. Wrench on back = silhouette reads "plumber" even at distance. Headlamp doubles as radar housing.',
+    draw: drawPlayerV3,
+  },
+  {
+    id: 'p4',
+    name: 'Retro Pixel',
+    tag: 'Stylized / Nostalgic',
+    desc: 'Chunky 8-bit pixel art style. Simplified shapes, limited palette, hard edges. Evokes classic platformers while staying readable at small scale.',
+    fit: 'Nostalgic appeal. Pixel grid aligns with tile grid. Easy to animate with simple sprite swaps. Less "real world" charm, more game-y feel.',
+    draw: drawPlayerV4,
+  },
+  {
+    id: 'p5',
+    name: 'Noir Detective',
+    tag: 'Atmospheric / Mature',
+    desc: 'Long trench coat, fedora, muted grey palette. A plumber who looks like he investigates leaks rather than fixes them. Harder to read as "plumber" at glance.',
+    fit: 'Atmospheric fit with backrooms horror. Coat silhouette is distinctive. Fedora brim casts shadow over face = mysterious. Weaker "plumber" signal, stronger "loner" signal.',
+    draw: drawPlayerV5,
+  },
+];
+
+const enemyConcepts = [
+  {
+    id: 'e1',
+    name: 'Drain Crawler',
+    tag: 'Insectoid / Pipe-born',
+    desc: 'Insectoid body made of pipe-cleaner wire, six legs, pipe-opening head with glowing red eyes. Looks like it crawled out of the walls through the ducts.',
+    fit: 'Thematic fit: it is the building\'s plumbing gone wrong. Red eyes read as "danger" instantly. Legs make it feel fast and skittish.',
+    draw: drawEnemyE1,
+  },
+  {
+    id: 'e2',
+    name: 'Pressure Wraith',
+    tag: 'Elemental / Water-formed',
+    desc: 'Humanoid shape made of pressurised water. Translucent blue-grey body with visible ripples, cyan eyes, constant dripping. Forms from puddles when dormant.',
+    fit: 'Water theme ties to leak mechanic. Translucency = eerie. Dripping = audio cue even off-screen. Cyan eyes contrast with warm player palette.',
+    draw: drawEnemyE2,
+  },
+  {
+    id: 'e3',
+    name: 'Valve Stalker',
+    tag: 'Mechanical / Industrial',
+    desc: 'Boiler-tank body on piston legs, pressure gauge chest, smokestack, valve-wheel head with furnace-glow eyes. A maintenance machine gone rogue.',
+    fit: 'Industrial horror. Gauge needle spins faster when hunting = visual tension. Smokestack smoke = tracking cue. Mechanical = unstoppable feel.',
+    draw: drawEnemyE3,
+  },
+  {
+    id: 'e4',
+    name: 'Mold Horror',
+    tag: 'Organic / Fungal',
+    desc: 'Fungal mass with tendrils, mushroom caps growing from body, bioluminescent green eyes, floating spores. Looks like the building is rotting from within.',
+    fit: 'Organic horror contrasts with mechanical player. Spores = area denial visual. Green glow = sickly. Mushroom caps = silhouette reads "wrong" instantly.',
+    draw: drawEnemyE4,
+  },
+  {
+    id: 'e5',
+    name: 'Static Wraith',
+    tag: 'Glitch / Digital',
+    desc: 'Humanoid made of TV static and scan lines. Fragmented body, CRT-screen head, bright pixel eyes, constant glitch artifacts. A signal that should not exist.',
+    fit: 'Uncanny valley. Static = audio visualised. Glitch = unpredictable movement cue. CRT head = retro horror. Least "plumbing" but most "wrong".',
+    draw: drawEnemyE5,
+  },
+];
+
+/* ════════════════════════════════════════════════════════════
+   RENDER
+   ════════════════════════════════════════════════════════════ */
+
+const grid = document.getElementById('grid');
+
+function createCard(concept, type) {
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.innerHTML = `
+    <div class="card-header">
+      <h2>${concept.name}</h2>
+      <div class="tag">${concept.tag}</div>
+    </div>
+    <div class="preview">
+      <canvas width="120" height="120" id="${concept.id}-canvas"></canvas>
+    </div>
+    <div class="card-body">
+      <p>${concept.desc}</p>
+      <div class="fit"><strong>Design fit:</strong> ${concept.fit}</div>
+    </div>
+    <div class="controls">
+      <button data-id="${concept.id}" data-state="dormant">Dormant</button>
+      <button data-id="${concept.id}" data-state="rising" class="active">Rising</button>
+      <button data-id="${concept.id}" data-state="hunting">Hunting</button>
+    </div>
+  `;
+  grid.appendChild(card);
+
+  const canvas = card.querySelector('canvas');
+  const ctx = canvas.getContext('2d');
+  const buttons = card.querySelectorAll('button');
+
+  let rise = 0.5;
+  let targetRise = 0.5;
+  let radarOn = true;
+
+  function animate(timestamp) {
+    ctx.clearRect(0, 0, 120, 120);
+    ctx.save();
+    ctx.translate(60, 70);
+
+    // ease rise toward target
+    rise += (targetRise - rise) * 0.08;
+
+    if (type === 'player') {
+      concept.draw(ctx, 0, 0, 0, radarOn);
+    } else {
+      concept.draw(ctx, 0, 0, timestamp, rise);
+    }
+
+    ctx.restore();
+    requestAnimationFrame(animate);
+  }
+  requestAnimationFrame(animate);
+
+  buttons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      buttons.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const state = btn.dataset.state;
+      if (state === 'dormant') targetRise = 0;
+      else if (state === 'rising') targetRise = 0.5;
+      else targetRise = 1.0;
+    });
+  });
+}
+
+playerConcepts.forEach(c => createCard(c, 'player'));
+enemyConcepts.forEach(c => createCard(c, 'enemy'));
+</script>
+</body>
+</html>

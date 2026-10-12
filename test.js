@@ -132,7 +132,7 @@ globalThis.__api = {
   get RADAR_DRAIN(){ return RADAR_DRAIN; },
   buildFloor, blocked, moveEnt, update, render, emitNoise, setPrompt, drawPlayer,
   scopeRoomLight, regionAt, traceViewCone, packMask, snapMask, combineMask,
-  smoothMask, onScreen,
+  smoothMask, onScreen, setHeadless,
   get STATE(){ return STATE; },
   set STATE(v){ STATE = v; },
   get floorIdx(){ return floorIdx; },
@@ -179,9 +179,61 @@ const buildFloor = A.buildFloor;
 const update = A.update;
 const render = A.render;
 
+/* ---- per-test timing -------------------------------------------------
+   There was no timing output at all, which is why the slowest thing in
+   this suite went unnoticed for as long as it did: test 4 was 87% of the
+   wall clock and nothing said so. Every banner now carries the cumulative
+   time since the suite started, and the five slowest sections are
+   summarised at the end. Cheap, and it makes the next regression visible
+   without reaching for a profiler. */
+const T0 = Date.now();
+const _log = console.log.bind(console);
+const _banner = /^\[\d/;
+let _openBanner = null;  // {name, start} while a test is running
+const timings = [];
+console.log = (...a)=>{
+  const now = Date.now();
+  const isBanner = _banner.test(String(a[0]));
+  if (isBanner){
+    if (_openBanner) timings.push({name:_openBanner.name, ms:now-_openBanner.start});
+    /* Cumulative, not per-line: the number that matters when a suite gets
+       slow is "how long has it been", not "how long did this one print
+       take". The per-section split is in the summary at the end. */
+    _openBanner = {name:String(a[0]), start:now};
+    _log(`[${((now-T0)/1000).toFixed(1)}s]`, ...a);
+  } else {
+    _log(...a);
+  }
+};
+const reportTimings = ()=>{
+  const now = Date.now();
+  if (_openBanner) timings.push({name:_openBanner.name, ms:now-_openBanner.start});
+  timings.sort((x,y)=>y.ms-x.ms);
+  const total = now-T0;
+  /* Note the variance: the suite is not seeded, so identical runs land
+     anywhere in roughly 75-115s. A single run's slowest-section list is
+     indicative, not precise. */
+  console.log(`\nslowest sections (of ${(total/1000).toFixed(1)}s total):`);
+  for (const t of timings.slice(0,5))
+    console.log(`  ${(t.ms/1000).toFixed(1).padStart(7)}s  ${((t.ms/total)*100).toFixed(0).padStart(3)}%  ${t.name}`);
+};
+
 /* ============ TEST 1: maze integrity across 400 seeds ============ */
 let fail = 0;
 const assert = (c,m)=>{ if(!c){ console.log('  FAIL: '+m); fail++; } };
+
+/* ---- HEADLESS GATING --------------------------------------------------
+   packMask + packWet write two 5776-tile images per frame. traceViewCone
+   fires 240 rays and smoothMask eases another 5776 floats. Measured at 48%
+   of this suite's CPU. Tests that assert on neither are switched off here
+   and switched back on by the tests that read pixels or maskArr — tests 12
+   through 19 all need at least the vision half, and test 17 reads the flood
+   image directly.
+
+   This is a change to what the SUITE pays for, not to what the game
+   computes: every assertion below still runs against the real arrays, and
+   the game itself never sets either flag. */
+A.setHeadless(false, false);
 
 /* Independent collision oracle: exact circle-vs-tile-AABB, written from
    scratch rather than calling the game's blocked(), so a bug in the game
@@ -1072,6 +1124,9 @@ console.log('[11] room shape (area cap) and 2-tile gates');
    not follow the player, a scope that punches a black hole through the wall
    you are leaning on, or a scope that quietly mutates the bake. Each of those
    is a separate failure mode, so each gets its own assertion.             */
+/* From here on the tests read the mask, the cone and the packed images, so
+   both halves of the vision pipeline go back on. */
+A.setHeadless(false, true);
 console.log('[12] room-scoped light — your room is lit, the rest is dark');
 {
   const W=76, H=76, DARK=A.DARK_ROOM, HOP=A.HOP_FALL;
@@ -2051,6 +2106,12 @@ console.log('[16] the repair — five seconds, standing still');
     /* put the global back — the remaining tests assume floor 0-ish state */
     vm.runInContext('floorIdx=0;', ctxObj);
   }
+
+  /* Test 17 is the ONLY test that reads a packed image back as pixels, so
+     pixel packing is switched off again from here. Tests 18 and 19 assert on
+     draw CALLS and on the mask array, neither of which needs the images
+     rebuilt every frame. */
+  A.setHeadless(false, true);
 }
 
 /* ============ TEST 17: the water is a usable cue ==============================
@@ -2061,6 +2122,9 @@ console.log('[16] the repair — five seconds, standing still');
 console.log('[17] the water as a cue — legible, free, and it actually leads');
 {
   const W=76;
+  /* This is the one test that reads the packed flood image back as pixels,
+     so pixel packing has to be live again too. */
+  A.setHeadless(true, true);
 
   /* --- it renders as something, not nothing ---
      The flood is packed into an image and drawn. If a wet tile packs to alpha
@@ -2084,6 +2148,12 @@ console.log('[17] the water as a cue — legible, free, and it actually leads');
       `only ${blue} of ${painted} wet tiles read blue — the water is not distinguishable from carpet`);
     console.log(`  ${painted} tiles render wet, ${blue} of them blue-dominant`);
   }
+
+  /* The pixels have been read and asserted on. The rest of this test is about
+     wetArr and waterDist, which are packed into the image but ARE the state —
+     so the image itself can stop being rebuilt. packWet was 19% of the whole
+     suite's CPU, and 3600 frames of it after this point asserted nothing. */
+  A.setHeadless(false, true);
 
   /* --- following the trail is FREE next to sweeping ---
      The radar is 5.6/s of battery for 18 seconds of total knowledge. Following
@@ -2542,5 +2612,6 @@ console.log('[20] settings — persistence, validation, and the difficulty contr
   }
 }
 
+reportTimings();
 console.log('\n' + (fail? `\n${fail} FAILURE(S)\n` : 'ALL TESTS PASSED\n'));
 process.exit(fail?1:0);

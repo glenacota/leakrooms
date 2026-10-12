@@ -284,11 +284,28 @@ reason the game does not start.
 node test.js      # exit 0 = pass
 ```
 
-This takes **ten to twenty minutes**, not the seventy seconds an earlier version
-of this file claimed. That claim was stale before the leak existed — the
-end-to-end bot alone simulates a few hundred thousand frames of real `update()`,
-and sixteen full five-floor runs at up to nine simulated minutes each is most
-of the wall clock. Budget for it; it is not hung.
+This takes **about 80 seconds**. It used to take **fifteen minutes**, and
+nothing said so — every line of output was timestamp-free, so the fact that one
+test was 87% of the wall clock stayed invisible until it was profiled. Every
+banner now prints the time since the previous one, and the five slowest
+sections are summarised at the end.
+
+The fifteen minutes were almost entirely work nobody was asking for.
+`packMask` and `packWet` repack two 5776-tile images every frame, and
+`traceViewCone` fires 240 rays per frame, all to feed a canvas. The headless
+harness has no canvas. Measured, that was 48% of the suite's CPU. `game.js` now
+exposes `setHeadless(pixels, vision)`; the suite switches both off and switches
+back on for the tests that actually read them — tests 12 through 19 need the
+vision half, and test 17 is the only one that reads a packed image back as
+pixels. **This changes what the suite pays for, not what the game computes.**
+Every assertion still runs against the real arrays, and the game itself never
+sets either flag.
+
+What deliberately did *not* get faster: the simulation step is still `1/60`.
+Dropping the bot loops to `1/30` saves 8 seconds and weakens exactly the
+collision fidelity test 4 exists to check, which is a bad trade. `buildFloor`
+is 20% of what remains and is not memoised, because no two call sites use the
+same `(floor, seed)` pair — the seeds are all distinct by construction.
 
 `game.js` is DOM/canvas-coupled, so `test.js` stubs enough of both to load the
 real module and drive its real logic — maze generation, the ambient light bake,

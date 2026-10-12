@@ -843,6 +843,21 @@ let maskArr, maskTgt;                     // the mask, and where it is heading
 let coneArr;                              // per-tile cone of vision
 let maskCv, maskCtx, maskImg;             // its own 1-sample-per-tile canvas
 let coneX=NaN, coneY=NaN, coneFace=NaN, coneRadar=null;  // last traced pose
+
+/* ---- HEADLESS SWITCHES ------------------------------------------------
+   Two subsystems exist only to feed pixels to a canvas: packing the mask
+   and the flood into images, and retracing the view cone frame by frame.
+   Together they were 48% of this suite's CPU, because the headless
+   harness drives update() as fast as it can and the tests that never
+   look at a picture were paying full price for every frame.
+
+   Both default ON. The game never turns them off; only the test harness
+   does, and only for the stretches that assert on neither. A test that
+   reads maskArr or wetCv pixels re-enables them, which is why the flags
+   are settable at runtime rather than baked in at load. */
+let wantPixels = true;      // packMask / packWet write an image nobody will read
+let wantVision = true;      // traceViewCone + smoothMask retrace per frame
+function setHeadless(px, vis){ wantPixels = !!px; wantVision = !!vis; }
 let scopeDirty = false;       // the room crossfade moved visArr; recombine
 let visRegion = -1;                   // the region the player is lighting
 let visStep = 0, visFadeT = 0;        // quantised crossfade between two regions
@@ -1631,6 +1646,7 @@ function tickFlood(dt){
    and one so dark it was indistinguishable from an unlit floor, which defeats
    the mechanic entirely. */
 function packWet(){
+  if (!wantPixels) return;
   const T = WATER_TINTS[SETTINGS.waterHue] || WATER_TINTS.slate;
   const contrast = SETTINGS.waterContrast;
   const d = wetImg.data;
@@ -1964,6 +1980,7 @@ function fadeRoomLight(dt){
 /* Mask -> image. 5776 writes on a turn, nothing at all while standing still.
    Pure luminance: this is a visibility gate, not a colour. */
 function packMask(){
+  if (!wantPixels) return;
   const d = maskImg.data;
   for (let i=0; i<MAP_W*MAP_H; i++){
     const b = Math.min(255, maskArr[i]*255);
@@ -2330,9 +2347,16 @@ function update(dt){
   fadeRoomLight(dt);
   /* Retrace on any movement, then EASE toward it. Both halves matter: the
      retrace alone still steps a tile at a time, and the easing alone still
-     quantises to when the retrace happens. */
-  if (traceViewCone(false) || scopeDirty){ combineMask(); scopeDirty = false; }
-  if (smoothMask(dt)) packMask();
+     quantises to when the retrace happens.
+
+     Skipped wholesale when the harness has switched vision off. scopeDirty is
+     deliberately left alone: it is pending work, not stale state, so the first
+     frame after vision comes back on recombines whatever the room crossfade
+     moved while it was off rather than dropping it. */
+  if (wantVision){
+    if (traceViewCone(false) || scopeDirty){ combineMask(); scopeDirty = false; }
+    if (smoothMask(dt)) packMask();
+  }
 
   /* --- the flood ---
      Runs after movement so the water you are standing in this frame is the
