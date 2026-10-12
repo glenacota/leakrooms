@@ -1359,7 +1359,7 @@ function buildFloor(floorNum, seed){
     fixtures, batteries, graffiti, exitTiles,
     leak,
     agents,
-    player: { x: spawn.x, y: spawn.y, face:-Math.PI/2, stepT:0 },
+    player: { x: spawn.x, y: spawn.y, face:-Math.PI/2, stepT:0, stepDur:0.46, moving:false },
     batt: BATT_MAX,
     radar: false,
     noise: 0, noisePeak: 0,
@@ -2327,8 +2327,10 @@ function update(dt){
     p.stepT -= dt;
     if (p.stepT<=0){
       p.stepT = sprinting ? 0.26 : 0.46;
+      p.stepDur = p.stepT;
       if (inWater) Audio_.splash(sprinting?1:0.5, wet); else Audio_.step(sprinting?1:0.5);
     }
+    p.moving = moving;
     /* Waking pushes a ripple ahead of you. It is a readable trace of where you
        have been, which is a second cue on top of the noise you already made. */
     if (wet > 0.3){
@@ -3105,11 +3107,8 @@ function caught(){
   }   // end vhs
 }
 
-/* The avatar, seen from directly above.
-   Every part of it is drawn INSIDE the collision disc (R = 0.33 tiles).
-   The old art used a body ellipse TILE*0.34 tall — already wider than the
-   collision radius — so the figure visually clipped into walls it was
-   colliding with perfectly well, which read as a collision bug. */
+/* The avatar — Drain Specialist. Waders, dark jacket, headlamp, pipe wrench
+   on back. Every part drawn INSIDE the collision disc (R = 0.33 tiles). */
 function drawPlayer(p, t){
   const x=p.x*TILE, y=p.y*TILE;
 
@@ -3119,32 +3118,76 @@ function drawPlayer(p, t){
 
   ctx.save();
   ctx.translate(x,y);
-  // local -y is forward, so the figure turns to face p.face
   ctx.rotate(p.face + Math.PI/2);
 
-  // torso / shoulders: a slab across the body, seen from above
-  ctx.fillStyle='#1c1a14';
-  ctx.beginPath(); ctx.ellipse(0, TILE*0.024, TILE*0.172, TILE*0.136, 0,0,6.283); ctx.fill();
-  ctx.fillStyle='#33301f';
-  ctx.beginPath(); ctx.ellipse(0, TILE*0.014, TILE*0.147, TILE*0.111, 0,0,6.283); ctx.fill();
+  // head — drawn first so body parts overlap its base.
+  // Local +y is BACKWARD (away from p.face): the boots lead, the head trails.
+  ctx.fillStyle='#c89068';
+  ctx.beginPath(); ctx.arc(0, TILE*0.06, TILE*0.085, 0, 6.283); ctx.fill();
+  // headlamp strap + lamp, glowing on the trailing side
+  ctx.strokeStyle='#222'; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.arc(0, TILE*0.06, TILE*0.088, 0, 6.283); ctx.stroke();
+  ctx.fillStyle='rgba(255,248,200,0.18)';
+  ctx.beginPath(); ctx.arc(0, TILE*0.13, TILE*0.06, 0, 6.283); ctx.fill();
+  ctx.fillStyle='#fff8d0';
+  ctx.beginPath(); ctx.arc(0, TILE*0.13, TILE*0.035, 0, 6.283); ctx.fill();
+  ctx.fillStyle='rgba(255,248,200,0.25)';
+  ctx.beginPath(); ctx.arc(0, TILE*0.13, TILE*0.05, 0, 6.283); ctx.fill();
 
-  // arms, either side of the shoulders
-  ctx.fillStyle='#232019';
-  for (const sgn of [-1,1]){
+  // torso / dark jacket
+  ctx.fillStyle='#2a3038';
+  ctx.beginPath(); ctx.ellipse(0, TILE*0.02, TILE*0.16, TILE*0.12, 0, 0, 6.283); ctx.fill();
+  // jacket zipper
+  ctx.strokeStyle='#4a5560'; ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.moveTo(0,TILE*0.12); ctx.lineTo(0,-TILE*0.06); ctx.stroke();
+
+  // arms
+  ctx.fillStyle='#2a3038';
+  for (const s of [-1,1]){
     ctx.beginPath();
-    ctx.ellipse(sgn*TILE*0.156, TILE*0.057, TILE*0.054, TILE*0.071, 0,0,6.283);
+    ctx.ellipse(s*TILE*0.17, -TILE*0.02, TILE*0.05, TILE*0.065, 0, 0, 6.283);
+    ctx.fill();
+  }
+  // hands
+  ctx.fillStyle='#c89068';
+  for (const s of [-1,1]){
+    ctx.beginPath(); ctx.arc(s*TILE*0.17, -TILE*0.07, TILE*0.035, 0, 6.283); ctx.fill();
+  }
+
+  // wader top
+  ctx.fillStyle='#3a5a3a';
+  ctx.beginPath(); ctx.ellipse(0, -TILE*0.04, TILE*0.14, TILE*0.08, 0, 0, 6.283); ctx.fill();
+
+  /* Tall rubber wader boots — these lead, pointing where you move.
+     While walking they shuffle fore/aft out of phase, driven by the same
+     step timer that paces the footstep audio. Standing still, they settle
+     back to neutral so the idle sprite is symmetrical. */
+  const step = p.moving && p.stepDur ? Math.sin((1 - p.stepT/p.stepDur)*Math.PI*2) : 0;
+  const lift = step * TILE*0.04;
+  for (const s of [-1,1]){
+    // boot shaft
+    ctx.fillStyle='#3a5a3a';
+    ctx.beginPath();
+    ctx.ellipse(s*TILE*0.10, -TILE*0.12 - s*lift, TILE*0.06, TILE*0.075, 0, 0, 6.283);
+    ctx.fill();
+    // boot foot, slightly darker, extends forward
+    ctx.fillStyle='#2e4a2e';
+    ctx.beginPath();
+    ctx.ellipse(s*TILE*0.10, -TILE*0.165 - s*lift, TILE*0.05, TILE*0.04, 0, 0, 6.283);
     ctx.fill();
   }
 
-  // head
-  ctx.fillStyle=PAL.mid;
-  ctx.beginPath(); ctx.arc(0, -TILE*0.017, TILE*0.095, 0, 6.283); ctx.fill();
-  ctx.fillStyle='rgba(28,26,16,0.42)';   // back of the head, away from the light
-  ctx.beginPath(); ctx.arc(0, -TILE*0.017+TILE*0.024, TILE*0.095, 0.25, 2.89); ctx.fill();
+  // pipe wrench strapped across the back
+  ctx.save(); ctx.rotate(0.6);
+  ctx.fillStyle='#888';
+  ctx.fillRect(-TILE*0.02, TILE*0.13, TILE*0.04, TILE*0.17);
+  ctx.fillStyle='#666';
+  ctx.beginPath(); ctx.arc(0, TILE*0.13, TILE*0.04, 0, 6.283); ctx.fill();
+  ctx.fillStyle='#999';
+  ctx.beginPath(); ctx.arc(0, TILE*0.28, TILE*0.03, 0, 6.283); ctx.fill();
+  ctx.restore();
 
-  /* The radar, held out in front — the same forward offset the vision cone
-     originates from, so what the character is looking at and what they are
-     holding are the same thing. Dark when off, lit when sweeping. */
+  /* The radar, held out in front — same forward offset as vision cone. */
   const rg = G.radar ? 1 : 0.35;
   ctx.fillStyle=`rgba(255,250,222,${0.5*rg})`;
   ctx.beginPath(); ctx.arc(0, -HAND_OFF*TILE, TILE*0.044, 0, 6.283); ctx.fill();
@@ -3154,80 +3197,76 @@ function drawPlayer(p, t){
   ctx.restore();
 }
 
+/* The Lifeform — Static Wraith. Glitchy humanoid made of TV static and
+   scan lines. Dormant = static burst on carpet. Rising = fragmented body
+   coalesces. Hunting = full glitch figure with CRT head. */
 function drawAgent(a, t){
   const x=a.x*TILE, y=a.y*TILE;
   const h = a.rise;
-  const wob = Math.sin(t*0.004 + a.x)*0.06;
 
   // shadow
   ctx.fillStyle='rgba(6,5,3,0.5)';
   ctx.beginPath();
-  ctx.ellipse(x, y+4, TILE*(0.36+0.16*h), TILE*(0.14+0.05*h), 0,0,6.283);
+  ctx.ellipse(x, y+4, TILE*(0.30+0.12*h), TILE*(0.12+0.04*h), 0,0,6.283);
   ctx.fill();
 
   if (h < 0.02){
-    /* DORMANT — a large pile of wire on the carpet */
-    const loops = 7;
-    for (let i=loops;i>0;i--){
-      const rr = TILE*(0.10 + i*0.048);
-      ctx.strokeStyle = i%2 ? '#0d0c0a' : '#161412';
-      ctx.lineWidth = Math.max(2.4, TILE*0.075 - i*0.6);
-      ctx.beginPath();
-      ctx.ellipse(x + Math.sin(t*0.0015+i)*2.2*wob*8, y + Math.cos(t*0.0013+i*0.8)*1.8*wob*8,
-                  rr*1.25, rr*0.82, 0.3+i*0.16, 0, 6.283);
-      ctx.stroke();
-      // faint specular on the top-left of each coil
-      ctx.strokeStyle='rgba(120,112,96,0.30)';
-      ctx.lineWidth=1.2;
-      ctx.beginPath();
-      ctx.ellipse(x + Math.sin(t*0.0015+i)*2.2*wob*8, y + Math.cos(t*0.0013+i*0.8)*1.8*wob*8,
-                  rr*1.25, rr*0.82, 0.3+i*0.16, 3.4, 4.5);
-      ctx.stroke();
+    /* DORMANT — a burst of static on the carpet */
+    for (let i=0;i<20;i++){
+      const sx = x + Math.sin(i*3.7 + t*0.01)*TILE*0.25;
+      const sy = y + Math.cos(i*2.3 + t*0.008)*TILE*0.10;
+      const br = 100 + Math.sin(i)*50;
+      ctx.fillStyle=`rgba(${br},${br},${br},0.3)`;
+      ctx.fillRect(sx, sy, 2, 2);
     }
     return;
   }
 
-  /* RISING / HUNTING — it stands up, tall, made of stacked coils */
-  const N = 9;
-  const HGT = TILE*2.55*h;
+  /* RISING / HUNTING — glitch body of fragmented rectangles.
+     Height ramps in over the first third of the rise, then holds, so the
+     hunting silhouette is the same length as the rising one. */
+  const HGT = TILE*2.3*Math.min(1, h*3);
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(-a.face + Math.PI/2 + Math.sin(t*0.0018)*0.05);
 
-  // faint aura
-  const ag=ctx.createRadialGradient(0,0,0,0,0,HGT*0.9);
-  ag.addColorStop(0,'rgba(0,0,0,0.34)');
-  ag.addColorStop(1,'rgba(0,0,0,0)');
-  ctx.fillStyle=ag;
-  ctx.beginPath(); ctx.ellipse(0,0,TILE*0.5, HGT*0.62, 0,0,6.283); ctx.fill();
-
-  for (let i=0;i<=N;i++){
-    const k = i/N;
-    const yy = -k*HGT;
-    const rx = TILE*(0.34*(1-k*0.72) + 0.05) * (1 + Math.sin(k*7+t*0.002)*0.08);
-    const ry = rx*0.40;
-    ctx.strokeStyle = (i%2) ? '#080706' : '#131110';
-    ctx.lineWidth = Math.max(2, TILE*0.088*(1-k*0.35));
-    ctx.beginPath();
-    ctx.ellipse(Math.sin(k*9+t*0.003)*TILE*0.05*k, yy, rx, ry, 0, 0, 6.283);
-    ctx.stroke();
-    ctx.strokeStyle='rgba(126,118,102,0.26)';
-    ctx.lineWidth=1.1;
-    ctx.beginPath();
-    ctx.ellipse(Math.sin(k*9+t*0.003)*TILE*0.05*k, yy, rx, ry, 0, 3.5, 4.7);
-    ctx.stroke();
+  // glitch body: fragmented horizontal slices
+  for (let i=0;i<12;i++){
+    const k=i/12;
+    const yy=-k*HGT;
+    const ww=TILE*(0.30*(1-k*0.5) + Math.sin(t*0.01+i*2)*0.03);
+    const hh=HGT*0.08;
+    const xx=Math.sin(t*0.008+i*1.5)*TILE*0.03;
+    const br=40+Math.sin(t*0.012+i*3)*30;
+    ctx.fillStyle=`rgba(${br},${br},${br+10},0.7)`;
+    ctx.fillRect(xx-ww/2, yy-hh/2, ww, hh);
   }
 
-  // strands flaring loose near the top
-  for (let i=0;i<4;i++){
-    const k=0.55+i*0.12;
-    const yy=-k*HGT;
-    const sway=Math.sin(t*0.0035+i*1.7)*TILE*0.14;
-    ctx.strokeStyle='#0a0908'; ctx.lineWidth=2;
-    ctx.beginPath();
-    ctx.moveTo(0,yy);
-    ctx.quadraticCurveTo(sway, yy-TILE*0.34, sway*1.5, yy-TILE*0.62);
-    ctx.stroke();
+  // scan lines
+  ctx.strokeStyle='rgba(200,200,200,0.1)';
+  ctx.lineWidth=1;
+  for (let i=0;i<6;i++){
+    const yy=-HGT*(i/6)-((t*0.02)%(HGT/6));
+    ctx.beginPath(); ctx.moveTo(-TILE*0.25,yy); ctx.lineTo(TILE*0.25,yy); ctx.stroke();
+  }
+
+  // head: CRT screen
+  ctx.fillStyle='#1a1a1a';
+  ctx.fillRect(-TILE*0.12, -HGT-TILE*0.15, TILE*0.24, TILE*0.18);
+  ctx.fillStyle=`rgba(150,200,255,${0.3+Math.sin(t*0.01)*0.1})`;
+  ctx.fillRect(-TILE*0.10, -HGT-TILE*0.13, TILE*0.20, TILE*0.14);
+
+  // eyes: bright pixels
+  ctx.fillStyle=`rgba(255,255,255,${0.8*h})`;
+  ctx.fillRect(-TILE*0.06, -HGT-TILE*0.08, 3, 3);
+  ctx.fillRect(TILE*0.03, -HGT-TILE*0.08, 3, 3);
+
+  // glitch fragments
+  for (let i=0;i<6;i++){
+    const gx=Math.sin(t*0.015+i*2.7)*TILE*0.35;
+    const gy=-HGT*0.5+Math.cos(t*0.012+i*1.9)*TILE*0.2;
+    ctx.fillStyle=`rgba(200,200,220,${0.3+Math.sin(t*0.02+i)*0.2})`;
+    ctx.fillRect(gx, gy, 4, 2);
   }
 
   ctx.restore();

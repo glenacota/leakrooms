@@ -3,992 +3,1235 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>THE BACKROOMS — Character Concepts</title>
+<title>Backrooms Plumber — HUD & Splash Concepts</title>
 <style>
+  @import url('https://fonts.googleapis.com/css2?family=VT323&family=Share+Tech+Mono&display=swap');
+
   :root {
-    --bg: #0a0908;
-    --panel: #14120e;
-    --ink: #d8d2c4;
-    --dim: #8a8478;
-    --accent: #c8a84b;
-    --line: #2a2620;
+    --yellow-dark: #6b5d1e;
+    --yellow-mid: #a89a2e;
+    --yellow-light: #c4b03a;
+    --yellow-pale: #d4c84a;
+    --carpet: #3d3510;
+    --carpet-dark: #2a2408;
+    --water: #4a6b6b;
+    --water-light: #6b8a8a;
+    --fluorescent: #e8e8d0;
+    --rust: #8b4513;
+    --metal: #5a5a5a;
+    --metal-light: #7a7a7a;
+    --warning: #cc3300;
   }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
   body {
-    background: var(--bg);
-    color: var(--ink);
-    font-family: Georgia, 'Times New Roman', serif;
+    background: var(--carpet-dark);
+    font-family: 'Share Tech Mono', monospace;
+    color: var(--yellow-pale);
     min-height: 100vh;
-    padding: 2rem 1rem;
+    overflow-x: hidden;
   }
-  header {
-    text-align: center;
-    margin-bottom: 2.5rem;
+
+  /* Wallpaper pattern overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background:
+      repeating-linear-gradient(
+        90deg,
+        transparent,
+        transparent 48px,
+        rgba(168, 154, 46, 0.03) 48px,
+        rgba(168, 154, 46, 0.03) 50px
+      ),
+      repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 48px,
+        rgba(168, 154, 46, 0.03) 48px,
+        rgba(168, 154, 46, 0.03) 50px
+      );
+    pointer-events: none;
+    z-index: 0;
   }
-  header h1 {
-    font-size: 1.6rem;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--accent);
-    margin-bottom: 0.4rem;
-  }
-  header p {
-    color: var(--dim);
-    font-size: 0.85rem;
-    font-style: italic;
-  }
-  .grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-    gap: 1.5rem;
+
+  .container {
+    position: relative;
+    z-index: 1;
     max-width: 1400px;
     margin: 0 auto;
+    padding: 20px;
   }
-  .card {
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    overflow: hidden;
-    transition: border-color 0.2s;
-  }
-  .card:hover { border-color: var(--accent); }
-  .card-header {
-    padding: 1rem 1.2rem 0.8rem;
-    border-bottom: 1px solid var(--line);
-  }
-  .card-header h2 {
-    font-size: 1rem;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    margin-bottom: 0.3rem;
-  }
-  .card-header .tag {
-    font-size: 0.72rem;
-    color: var(--dim);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-  .preview {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 2rem;
-    padding: 1.5rem 1rem;
-    background: #0d0c0a;
-    min-height: 180px;
-  }
-  .preview canvas {
-    image-rendering: pixelated;
-  }
-  .card-body {
-    padding: 1rem 1.2rem 1.2rem;
-  }
-  .card-body p {
-    font-size: 0.82rem;
-    line-height: 1.55;
-    color: var(--ink);
-    margin-bottom: 0.7rem;
-  }
-  .card-body .fit {
-    font-size: 0.75rem;
-    color: var(--dim);
-    border-top: 1px solid var(--line);
-    padding-top: 0.6rem;
-    margin-top: 0.6rem;
-  }
-  .card-body .fit strong {
-    color: var(--accent);
-    font-weight: normal;
-    letter-spacing: 0.04em;
-  }
-  .controls {
-    display: flex;
-    gap: 0.5rem;
-    justify-content: center;
-    padding: 0 1rem 1rem;
-    flex-wrap: wrap;
-  }
-  .controls button {
-    background: none;
-    border: 1px solid var(--line);
-    color: var(--dim);
-    font-family: inherit;
-    font-size: 0.7rem;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    padding: 0.35rem 0.7rem;
-    border-radius: 3px;
-    cursor: pointer;
-    transition: all 0.15s;
-  }
-  .controls button:hover,
-  .controls button.active {
-    border-color: var(--accent);
-    color: var(--accent);
-  }
-  footer {
+
+  header {
     text-align: center;
-    margin-top: 3rem;
-    color: var(--dim);
+    padding: 40px 20px;
+    border-bottom: 2px solid var(--yellow-dark);
+    margin-bottom: 30px;
+  }
+
+  header h1 {
+    font-family: 'VT323', monospace;
+    font-size: 3rem;
+    color: var(--yellow-light);
+    text-shadow: 0 0 10px rgba(196, 176, 58, 0.5);
+    letter-spacing: 4px;
+  }
+
+  header p {
+    color: var(--yellow-mid);
+    margin-top: 8px;
+    font-size: 0.9rem;
+  }
+
+  .nav-tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 30px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .nav-tab {
+    background: var(--carpet);
+    border: 1px solid var(--yellow-dark);
+    color: var(--yellow-mid);
+    padding: 10px 20px;
+    cursor: pointer;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+  }
+
+  .nav-tab:hover, .nav-tab.active {
+    background: var(--yellow-dark);
+    color: var(--fluorescent);
+    border-color: var(--yellow-light);
+  }
+
+  .concepts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+    gap: 24px;
+  }
+
+  .concept-card {
+    background: var(--carpet);
+    border: 1px solid var(--yellow-dark);
+    padding: 20px;
+    cursor: pointer;
+    transition: all 0.3s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .concept-card:hover {
+    border-color: var(--yellow-light);
+    box-shadow: 0 0 20px rgba(196, 176, 58, 0.2);
+    transform: translateY(-2px);
+  }
+
+  .concept-card.active {
+    border-color: var(--yellow-light);
+    box-shadow: 0 0 30px rgba(196, 176, 58, 0.3);
+  }
+
+  .concept-card .label {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: var(--yellow-dark);
+    color: var(--fluorescent);
+    padding: 2px 8px;
+    font-size: 0.7rem;
+    letter-spacing: 1px;
+  }
+
+  .concept-card h3 {
+    font-family: 'VT323', monospace;
+    font-size: 1.4rem;
+    color: var(--yellow-light);
+    margin-bottom: 4px;
+  }
+
+  .concept-card .type {
+    font-size: 0.7rem;
+    color: var(--yellow-mid);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 12px;
+  }
+
+  .mockup {
+    background: var(--carpet-dark);
+    border: 1px solid var(--yellow-dark);
+    height: 220px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .concept-card .desc {
+    margin-top: 12px;
+    font-size: 0.8rem;
+    color: var(--yellow-mid);
+    line-height: 1.5;
+  }
+
+  /* ===== CONCEPT 1: Pipe Gauge Cluster HUD ===== */
+  .mockup-pipe-gauge {
+    background: linear-gradient(180deg, #2a2408 0%, #3d3510 100%);
+  }
+  .mockup-pipe-gauge .gauge-row {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    padding-top: 30px;
+  }
+  .mockup-pipe-gauge .gauge {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #1a1a1a 60%, #333 60%);
+    border: 4px solid var(--metal);
+    position: relative;
+    box-shadow: inset 0 0 10px rgba(0,0,0,0.8), 0 2px 4px rgba(0,0,0,0.5);
+  }
+  .mockup-pipe-gauge .gauge::after {
+    content: '';
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 3px;
+    height: 28px;
+    background: var(--warning);
+    transform-origin: bottom center;
+    transform: translateX(-50%) rotate(-45deg);
+    border-radius: 2px;
+  }
+  .mockup-pipe-gauge .gauge-label {
+    text-align: center;
+    font-size: 0.6rem;
+    color: var(--yellow-mid);
+    margin-top: 6px;
+  }
+  .mockup-pipe-gauge .pipe-h {
+    position: absolute;
+    bottom: 40px;
+    left: 20px;
+    right: 20px;
+    height: 12px;
+    background: linear-gradient(180deg, var(--metal-light), var(--metal), #3a3a3a);
+    border-radius: 6px;
+  }
+  .mockup-pipe-gauge .pipe-h::after {
+    content: '';
+    position: absolute;
+    top: -4px;
+    left: 30px;
+    right: 30px;
+    height: 4px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 2px;
+  }
+  .mockup-pipe-gauge .valve {
+    position: absolute;
+    bottom: 52px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--rust);
+    border: 3px solid #6b3010;
+  }
+  .mockup-pipe-gauge .valve::before, .mockup-pipe-gauge .valve::after {
+    content: '';
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 20px;
+    height: 3px;
+    background: #6b3010;
+    transform: translate(-50%, -50%);
+  }
+  .mockup-pipe-gauge .valve::after {
+    transform: translate(-50%, -50%) rotate(90deg);
+  }
+
+  /* ===== CONCEPT 2: Wallpaper Seam HUD ===== */
+  .mockup-wallpaper {
+    background:
+      repeating-linear-gradient(
+        90deg,
+        var(--yellow-mid) 0px,
+        var(--yellow-mid) 2px,
+        var(--yellow-light) 2px,
+        var(--yellow-light) 4px,
+        var(--yellow-mid) 4px,
+        var(--yellow-mid) 20px,
+        var(--yellow-dark) 20px,
+        var(--yellow-dark) 22px,
+        var(--yellow-mid) 22px,
+        var(--yellow-mid) 40px
+      );
+    position: relative;
+  }
+  .mockup-wallpaper .hud-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    color: var(--carpet-dark);
+    font-family: 'VT323', monospace;
+  }
+  .mockup-wallpaper .hud-text .big {
+    font-size: 2rem;
+    letter-spacing: 3px;
+    opacity: 0.7;
+  }
+  .mockup-wallpaper .hud-text .small {
+    font-size: 0.7rem;
+    letter-spacing: 2px;
+    opacity: 0.5;
+  }
+  .mockup-wallpaper .seam {
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 2px;
+    background: var(--carpet-dark);
+    opacity: 0.3;
+  }
+  .mockup-wallpaper .seam.left { left: 30px; }
+  .mockup-wallpaper .seam.right { right: 30px; }
+
+  /* ===== CONCEPT 3: Fluorescent Flicker HUD ===== */
+  .mockup-fluorescent {
+    background: #1a1a0a;
+    position: relative;
+  }
+  .mockup-fluorescent .light-panel {
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 200px;
+    height: 30px;
+    background: var(--fluorescent);
+    border-radius: 4px;
+    animation: flicker 3s infinite;
+    box-shadow: 0 0 40px rgba(232, 232, 208, 0.4);
+  }
+  .mockup-fluorescent .hud-content {
+    position: absolute;
+    top: 70px;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    color: var(--fluorescent);
+    font-family: 'VT323', monospace;
+  }
+  .mockup-fluorescent .hud-content .title {
+    font-size: 1.5rem;
+    letter-spacing: 4px;
+    animation: flicker 3s infinite;
+  }
+  .mockup-fluorescent .hud-content .sub {
+    font-size: 0.7rem;
+    opacity: 0.6;
+    margin-top: 8px;
+  }
+  @keyframes flicker {
+    0%, 100% { opacity: 1; }
+    3% { opacity: 0.4; }
+    6% { opacity: 1; }
+    9% { opacity: 0.7; }
+    12% { opacity: 1; }
+    50% { opacity: 1; }
+    52% { opacity: 0.5; }
+    54% { opacity: 1; }
+  }
+
+  /* ===== CONCEPT 4: Wet Carpet HUD ===== */
+  .mockup-wet-carpet {
+    background:
+      radial-gradient(ellipse at 30% 40%, rgba(74, 107, 107, 0.3) 0%, transparent 50%),
+      radial-gradient(ellipse at 70% 60%, rgba(74, 107, 107, 0.2) 0%, transparent 40%),
+      var(--carpet);
+    position: relative;
+  }
+  .mockup-wet-carpet .stain {
+    position: absolute;
+    border-radius: 50%;
+    background: radial-gradient(ellipse, rgba(74, 107, 107, 0.4) 0%, transparent 70%);
+  }
+  .mockup-wet-carpet .stain.s1 {
+    width: 120px; height: 80px;
+    top: 20px; left: 30px;
+  }
+  .mockup-wet-carpet .stain.s2 {
+    width: 80px; height: 60px;
+    bottom: 30px; right: 40px;
+  }
+  .mockup-wet-carpet .hud-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+  }
+  .mockup-wet-carpet .hud-overlay .water-level {
+    font-family: 'VT323', monospace;
+    font-size: 2rem;
+    color: var(--water-light);
+    text-shadow: 0 0 8px rgba(107, 138, 138, 0.5);
+  }
+  .mockup-wet-carpet .hud-overlay .label {
+    font-size: 0.6rem;
+    color: var(--water);
+    letter-spacing: 2px;
+  }
+  .mockup-wet-carpet .drip {
+    position: absolute;
+    width: 3px;
+    height: 12px;
+    background: var(--water-light);
+    border-radius: 0 0 3px 3px;
+    animation: drip 2s infinite;
+  }
+  .mockup-wet-carpet .drip.d1 { top: 0; left: 40%; animation-delay: 0s; }
+  .mockup-wet-carpet .drip.d2 { top: 0; left: 60%; animation-delay: 0.7s; }
+  .mockup-wet-carpet .drip.d3 { top: 0; left: 75%; animation-delay: 1.3s; }
+  @keyframes drip {
+    0% { transform: translateY(0); opacity: 1; }
+    80% { transform: translateY(180px); opacity: 0.6; }
+    100% { transform: translateY(200px); opacity: 0; }
+  }
+
+  /* ===== CONCEPT 5: Industrial Control Panel HUD ===== */
+  .mockup-control-panel {
+    background: linear-gradient(180deg, #2a2a2a 0%, #1a1a1a 100%);
+    position: relative;
+    border: 2px solid #444;
+  }
+  .mockup-control-panel .panel-header {
+    background: repeating-linear-gradient(
+      45deg,
+      var(--yellow-light),
+      var(--yellow-light) 10px,
+      #1a1a1a 10px,
+      #1a1a1a 20px
+    );
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .mockup-control-panel .panel-header span {
+    background: #1a1a1a;
+    color: var(--yellow-light);
+    font-size: 0.6rem;
+    padding: 2px 12px;
+    letter-spacing: 2px;
+  }
+  .mockup-control-panel .panel-body {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    padding-top: 30px;
+  }
+  .mockup-control-panel .indicator {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 2px solid #555;
+  }
+  .mockup-control-panel .indicator.green { background: #2a5a2a; box-shadow: 0 0 8px rgba(42, 90, 42, 0.6); }
+  .mockup-control-panel .indicator.red { background: var(--warning); box-shadow: 0 0 8px rgba(204, 51, 0, 0.6); animation: pulse-red 1s infinite; }
+  .mockup-control-panel .indicator.amber { background: var(--yellow-light); box-shadow: 0 0 8px rgba(196, 176, 58, 0.6); }
+  @keyframes pulse-red {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+  .mockup-control-panel .readout {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #0a0a0a;
+    border: 1px solid #333;
+    padding: 8px 16px;
+    font-family: 'VT323', monospace;
+    color: #4a4;
+    font-size: 1.1rem;
+    letter-spacing: 2px;
+  }
+
+  /* ===== CONCEPT 6: Flooded Doorway Splash ===== */
+  .mockup-flooded-door {
+    background: linear-gradient(180deg, #3d3510 0%, #2a2408 100%);
+    position: relative;
+  }
+  .mockup-flooded-door .door-frame {
+    position: absolute;
+    top: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100px;
+    height: 160px;
+    border: 4px solid var(--yellow-dark);
+    background: var(--carpet-dark);
+  }
+  .mockup-flooded-door .door-frame::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0; right: 0;
+    height: 40px;
+    background: linear-gradient(180deg, transparent, rgba(74, 107, 107, 0.6));
+  }
+  .mockup-flooded-door .door-title {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'VT323', monospace;
+    font-size: 1.2rem;
+    color: var(--yellow-light);
+    letter-spacing: 3px;
+    white-space: nowrap;
+  }
+  .mockup-flooded-door .water-line {
+    position: absolute;
+    bottom: 30px;
+    left: 20px;
+    right: 20px;
+    height: 3px;
+    background: var(--water);
+    opacity: 0.6;
+  }
+  .mockup-flooded-door .water-line::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 0; right: 0;
+    height: 8px;
+    background: linear-gradient(180deg, rgba(74, 107, 107, 0.3), transparent);
+  }
+
+  /* ===== CONCEPT 7: Buzzing Light Title Splash ===== */
+  .mockup-buzz-title {
+    background: #0a0a05;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .mockup-buzz-title .light-fixture {
+    position: absolute;
+    top: 40px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 160px;
+    height: 16px;
+    background: var(--fluorescent);
+    border-radius: 8px;
+    animation: flicker 4s infinite;
+    box-shadow: 0 0 60px rgba(232, 232, 208, 0.3);
+  }
+  .mockup-buzz-title .title-text {
+    font-family: 'VT323', monospace;
+    font-size: 2.5rem;
+    color: var(--fluorescent);
+    letter-spacing: 8px;
+    text-shadow: 0 0 20px rgba(232, 232, 208, 0.5);
+    animation: flicker 4s infinite;
+    text-align: center;
+  }
+  .mockup-buzz-title .subtitle {
+    position: absolute;
+    bottom: 50px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.7rem;
+    color: var(--yellow-mid);
+    letter-spacing: 3px;
+    animation: flicker 4s infinite;
+  }
+
+  /* ===== CONCEPT 8: Pipe Burst Modal ===== */
+  .mockup-pipe-burst {
+    background: var(--carpet);
+    position: relative;
+  }
+  .mockup-pipe-burst .modal-overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+  }
+  .mockup-pipe-burst .modal-box {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 80%;
+    background: var(--carpet-dark);
+    border: 3px solid var(--rust);
+    padding: 16px;
+    text-align: center;
+  }
+  .mockup-pipe-burst .modal-box .burst-icon {
+    width: 40px;
+    height: 40px;
+    margin: 0 auto 10px;
+    background: var(--rust);
+    border-radius: 50%;
+    position: relative;
+  }
+  .mockup-pipe-burst .modal-box .burst-icon::before {
+    content: '!';
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    color: #fff;
+    font-size: 1.5rem;
+    font-weight: bold;
+  }
+  .mockup-pipe-burst .modal-box .modal-title {
+    font-family: 'VT323', monospace;
+    color: var(--warning);
+    font-size: 1.1rem;
+    letter-spacing: 2px;
+  }
+  .mockup-pipe-burst .modal-box .modal-text {
+    font-size: 0.65rem;
+    color: var(--yellow-mid);
+    margin-top: 6px;
+  }
+  .mockup-pipe-burst .spray {
+    position: absolute;
+    width: 2px;
+    background: var(--water-light);
+    border-radius: 1px;
+    animation: spray 0.5s infinite;
+  }
+  .mockup-pipe-burst .spray.sp1 { top: 30%; left: 45%; height: 20px; transform: rotate(-15deg); }
+  .mockup-pipe-burst .spray.sp2 { top: 28%; left: 50%; height: 25px; transform: rotate(5deg); }
+  .mockup-pipe-burst .spray.sp3 { top: 30%; left: 55%; height: 18px; transform: rotate(20deg); }
+  @keyframes spray {
+    0%, 100% { opacity: 0.8; }
+    50% { opacity: 0.3; }
+  }
+
+  /* ===== CONCEPT 9: Wallpaper Peel Modal ===== */
+  .mockup-wallpaper-peel {
+    background:
+      repeating-linear-gradient(
+        90deg,
+        var(--yellow-mid) 0px,
+        var(--yellow-mid) 2px,
+        var(--yellow-light) 2px,
+        var(--yellow-light) 4px,
+        var(--yellow-mid) 4px,
+        var(--yellow-mid) 20px,
+        var(--yellow-dark) 20px,
+        var(--yellow-dark) 22px,
+        var(--yellow-mid) 22px,
+        var(--yellow-mid) 40px
+      );
+    position: relative;
+  }
+  .mockup-wallpaper-peel .peel-area {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 70%;
+    height: 60%;
+    background: #4a4a4a;
+    border: 2px solid #333;
+    box-shadow: 4px 4px 0 rgba(0,0,0,0.3);
+  }
+  .mockup-wallpaper-peel .peel-area::before {
+    content: '';
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    width: 30px;
+    height: 30px;
+    background: var(--yellow-light);
+    transform: rotate(45deg);
+    box-shadow: 2px 2px 0 rgba(0,0,0,0.2);
+  }
+  .mockup-wallpaper-peel .peel-content {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    color: #ccc;
+    font-family: 'VT323', monospace;
+  }
+  .mockup-wallpaper-peel .peel-content .title {
+    font-size: 1.2rem;
+    letter-spacing: 3px;
+    color: #ddd;
+  }
+  .mockup-wallpaper-peel .peel-content .body {
+    font-size: 0.65rem;
+    color: #999;
+    margin-top: 8px;
+  }
+
+  /* ===== CONCEPT 10: Emergency Broadcast Modal ===== */
+  .mockup-emergency {
+    background: #1a0a0a;
+    position: relative;
+  }
+  .mockup-emergency .broadcast-box {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 85%;
+    background: #2a0a0a;
+    border: 2px solid var(--warning);
+    padding: 16px;
+    text-align: center;
+  }
+  .mockup-emergency .broadcast-box .header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .mockup-emergency .broadcast-box .header .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--warning);
+    animation: pulse-red 0.8s infinite;
+  }
+  .mockup-emergency .broadcast-box .header span {
+    font-size: 0.7rem;
+    color: var(--warning);
+    letter-spacing: 3px;
+  }
+  .mockup-emergency .broadcast-box .message {
+    font-family: 'VT323', monospace;
+    font-size: 1rem;
+    color: #ff6644;
+    letter-spacing: 1px;
+    line-height: 1.4;
+  }
+  .mockup-emergency .broadcast-box .timestamp {
+    font-size: 0.6rem;
+    color: #884444;
+    margin-top: 10px;
+  }
+  .mockup-emergency .scanline {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: rgba(204, 51, 0, 0.1);
+    animation: scan 3s linear infinite;
+  }
+  @keyframes scan {
+    0% { top: 0; }
+    100% { top: 100%; }
+  }
+
+  /* Detail view */
+  .detail-view {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.9);
+    z-index: 100;
+    overflow-y: auto;
+    padding: 40px 20px;
+  }
+  .detail-view.visible { display: block; }
+  .detail-content {
+    max-width: 900px;
+    margin: 0 auto;
+  }
+  .detail-content h2 {
+    font-family: 'VT323', monospace;
+    font-size: 2rem;
+    color: var(--yellow-light);
+    margin-bottom: 8px;
+  }
+  .detail-content .detail-type {
     font-size: 0.75rem;
-    font-style: italic;
+    color: var(--yellow-mid);
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    margin-bottom: 20px;
+  }
+  .detail-content .detail-mockup {
+    background: var(--carpet);
+    border: 1px solid var(--yellow-dark);
+    height: 400px;
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 20px;
+  }
+  .detail-content .detail-desc {
+    color: var(--yellow-pale);
+    line-height: 1.7;
+    font-size: 0.9rem;
+    margin-bottom: 16px;
+  }
+  .detail-content .detail-features {
+    list-style: none;
+    margin-bottom: 20px;
+  }
+  .detail-content .detail-features li {
+    padding: 6px 0;
+    color: var(--yellow-mid);
+    font-size: 0.85rem;
+    border-bottom: 1px solid var(--yellow-dark);
+  }
+  .detail-content .detail-features li::before {
+    content: '> ';
+    color: var(--yellow-light);
+  }
+  .close-btn {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: var(--carpet);
+    border: 1px solid var(--yellow-dark);
+    color: var(--yellow-light);
+    width: 40px;
+    height: 40px;
+    font-size: 1.2rem;
+    cursor: pointer;
+    z-index: 101;
+    font-family: 'Share Tech Mono', monospace;
+  }
+  .close-btn:hover {
+    background: var(--yellow-dark);
+    color: var(--fluorescent);
+  }
+
+  /* Fluorescent ambient light effect */
+  .ambient-light {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, transparent, rgba(232, 232, 208, 0.1), transparent);
+    animation: ambient-flicker 5s infinite;
+    pointer-events: none;
+    z-index: 0;
+  }
+  @keyframes ambient-flicker {
+    0%, 100% { opacity: 0.5; }
+    10% { opacity: 0.2; }
+    20% { opacity: 0.6; }
+    30% { opacity: 0.3; }
+    40% { opacity: 0.5; }
+  }
+
+  @media (max-width: 768px) {
+    .concepts-grid {
+      grid-template-columns: 1fr;
+    }
+    header h1 {
+      font-size: 2rem;
+    }
   }
 </style>
 </head>
 <body>
+<div class="ambient-light"></div>
+<div class="container">
+  <header>
+    <h1>BACKROOMS PLUMBER</h1>
+    <p>HUD & Splashscreen Concept Proposals — 10 Alternatives</p>
+  </header>
 
-<header>
-  <h1>Character Concepts</h1>
-  <p>Five alternative directions for the plumber and the Lifeform</p>
-</header>
+  <div class="nav-tabs">
+    <button class="nav-tab active" data-filter="all">ALL</button>
+    <button class="nav-tab" data-filter="hud">HUD</button>
+    <button class="nav-tab" data-filter="splash">SPLASH / MODAL</button>
+  </div>
 
-<div class="grid" id="grid"></div>
+  <div class="concepts-grid" id="grid">
 
-<footer>Click buttons to preview each variant. All art is procedural canvas — no assets.</footer>
+    <!-- Concept 1 -->
+    <div class="concept-card" data-type="hud" data-concept="1">
+      <span class="label">01</span>
+      <h3>Pipe Gauge Cluster</h3>
+      <div class="type">HUD Concept</div>
+      <div class="mockup mockup-pipe-gauge">
+        <div class="gauge-row">
+          <div>
+            <div class="gauge"></div>
+            <div class="gauge-label">PRESSURE</div>
+          </div>
+          <div>
+            <div class="gauge"></div>
+            <div class="gauge-label">FLOW</div>
+          </div>
+          <div>
+            <div class="gauge"></div>
+            <div class="gauge-label">LEAK</div>
+          </div>
+        </div>
+        <div class="pipe-h"></div>
+        <div class="valve"></div>
+      </div>
+      <p class="desc">Physical pipe gauges with brass fittings. Pressure dials, valve wheels, industrial plumbing aesthetic. Player reads status like real plumber.</p>
+    </div>
+
+    <!-- Concept 2 -->
+    <div class="concept-card" data-type="hud" data-concept="2">
+      <span class="label">02</span>
+      <h3>Wallpaper Seam</h3>
+      <div class="type">HUD Concept</div>
+      <div class="mockup mockup-wallpaper">
+        <div class="seam left"></div>
+        <div class="seam right"></div>
+        <div class="hud-text">
+          <div class="big">LEVEL 7</div>
+          <div class="small">WATER RISING</div>
+        </div>
+      </div>
+      <p class="desc">HUD elements embedded in yellow wallpaper pattern. Text and icons appear printed on wall. Subtle, diegetic, unsettling. Player reads wall like environment.</p>
+    </div>
+
+    <!-- Concept 3 -->
+    <div class="concept-card" data-type="hud" data-concept="3">
+      <span class="label">03</span>
+      <h3>Fluorescent Flicker</h3>
+      <div class="type">HUD Concept</div>
+      <div class="mockup mockup-fluorescent">
+        <div class="light-panel"></div>
+        <div class="hud-content">
+          <div class="title">SECTOR B-7</div>
+          <div class="sub">PIPE INTEGRITY: 67%</div>
+        </div>
+      </div>
+      <p class="desc">HUD rendered as flickering fluorescent light panels. Text glows like dying tube lights. Flicker intensity signals urgency. Darkness between flickers hides info.</p>
+    </div>
+
+    <!-- Concept 4 -->
+    <div class="concept-card" data-type="hud" data-concept="4">
+      <span class="label">04</span>
+      <h3>Water Stain</h3>
+      <div class="type">HUD Concept</div>
+      <div class="mockup mockup-wet-carpet">
+        <div class="stain s1"></div>
+        <div class="stain s2"></div>
+        <div class="drip d1"></div>
+        <div class="drip d2"></div>
+        <div class="drip d3"></div>
+        <div class="hud-overlay">
+          <div class="water-level">2.4m</div>
+          <div class="label">WATER LEVEL</div>
+        </div>
+      </div>
+      <p class="desc">HUD elements appear as water stains spreading on damp carpet. Drips fall from top. Water level rises as stain grows. Diegetic, environmental, tense.</p>
+    </div>
+
+    <!-- Concept 5 -->
+    <div class="concept-card" data-type="hud" data-concept="5">
+      <span class="label">05</span>
+      <h3>Control Panel</h3>
+      <div class="type">HUD Concept</div>
+      <div class="mockup mockup-control-panel">
+        <div class="panel-header"><span>PLUMBING CONTROL</span></div>
+        <div class="panel-body">
+          <div class="indicator green"></div>
+          <div class="indicator red"></div>
+          <div class="indicator amber"></div>
+          <div class="indicator green"></div>
+          <div class="indicator amber"></div>
+        </div>
+        <div class="readout">SYS: NOMINAL</div>
+      </div>
+      <p class="desc">Metal control panel with rivets, warning stripes, indicator lights. Digital readout for system status. Industrial, functional, easy to parse under pressure.</p>
+    </div>
+
+    <!-- Concept 6 -->
+    <div class="concept-card" data-type="splash" data-concept="6">
+      <span class="label">06</span>
+      <h3>Flooded Doorway</h3>
+      <div class="type">Splash Concept</div>
+      <div class="mockup mockup-flooded-door">
+        <div class="door-title">BACKROOMS PLUMBER</div>
+        <div class="door-frame"></div>
+        <div class="water-line"></div>
+      </div>
+      <p class="desc">Title screen shows door with water seeping underneath. Player knows immediately: water is coming, door is way out. Start button submerged in water.</p>
+    </div>
+
+    <!-- Concept 7 -->
+    <div class="concept-card" data-type="splash" data-concept="7">
+      <span class="label">07</span>
+      <h3>Buzzing Light Title</h3>
+      <div class="type">Splash Concept</div>
+      <div class="mockup mockup-buzz-title">
+        <div class="light-fixture"></div>
+        <div class="title-text">THE BACKROOMS</div>
+        <div class="subtitle">PLUMBING DIVISION</div>
+      </div>
+      <p class="desc">Title revealed by buzzing fluorescent light in darkness. Light flickers, title appears and disappears. Player must wait for stable light to read. Atmospheric dread.</p>
+    </div>
+
+    <!-- Concept 8 -->
+    <div class="concept-card" data-type="splash" data-concept="8">
+      <span class="label">08</span>
+      <h3>Pipe Burst Alert</h3>
+      <div class="type">Modal Concept</div>
+      <div class="mockup mockup-pipe-burst">
+        <div class="modal-overlay"></div>
+        <div class="spray sp1"></div>
+        <div class="spray sp2"></div>
+        <div class="spray sp3"></div>
+        <div class="modal-box">
+          <div class="burst-icon"></div>
+          <div class="modal-title">PIPE BURST</div>
+          <div class="modal-text">Section C-4 flooding. Repair immediately.</div>
+        </div>
+      </div>
+      <p class="desc">Modals appear as burst pipe with water spraying. Alert level shown by spray intensity. Player clicks "wrench" button to dismiss and repair. Physical, urgent, tactile.</p>
+    </div>
+
+    <!-- Concept 9 -->
+    <div class="concept-card" data-type="splash" data-concept="9">
+      <span class="label">09</span>
+      <h3>Wallpaper Peel</h3>
+      <div class="type">Modal Concept</div>
+      <div class="mockup mockup-wallpaper-peel">
+        <div class="peel-area">
+          <div class="peel-content">
+            <div class="title">PAUSED</div>
+            <div class="body">Water still rising...</div>
+          </div>
+        </div>
+      </div>
+      <p class="desc">Modals look like peeled wallpaper revealing concrete underneath. Corner peel effect on hover. Info printed on bare wall. Diegetic, simple, effective.</p>
+    </div>
+
+    <!-- Concept 10 -->
+    <div class="concept-card" data-type="splash" data-concept="10">
+      <span class="label">10</span>
+      <h3>Emergency Broadcast</h3>
+      <div class="type">Modal Concept</div>
+      <div class="mockup mockup-emergency">
+        <div class="scanline"></div>
+        <div class="broadcast-box">
+          <div class="header">
+            <div class="dot"></div>
+            <span>EMERGENCY BROADCAST</span>
+          </div>
+          <div class="message">FLOOD WARNING: LEVEL 7<br>EVACUATE VIA PIPE ACCESS</div>
+          <div class="timestamp">--:--:--</div>
+        </div>
+      </div>
+      <p class="desc">Modals styled as emergency PA system announcements. Red alert styling, scanline effect, timestamp. Diegetic fiction: backrooms has intercom system. Urgent, immersive.</p>
+    </div>
+
+  </div>
+</div>
+
+<!-- Detail View -->
+<div class="detail-view" id="detailView">
+  <button class="close-btn" id="closeBtn">X</button>
+  <div class="detail-content" id="detailContent"></div>
+</div>
 
 <script>
-const TILE = 40;
-const HAND_OFF = 0.135;
-
-/* ── shared helpers ── */
-function shadow(ctx, x, y, rx, ry) {
-  ctx.fillStyle = 'rgba(8,6,3,0.34)';
-  ctx.beginPath();
-  ctx.ellipse(x + 1.5, y + 3, TILE * rx, TILE * ry, 0, 0, 6.283);
-  ctx.fill();
-}
-
-function drawRadar(ctx, x, y, on) {
-  const rg = on ? 1 : 0.35;
-  ctx.fillStyle = `rgba(255,250,222,${0.5 * rg})`;
-  ctx.beginPath(); ctx.arc(x, y, TILE * 0.044, 0, 6.283); ctx.fill();
-  ctx.fillStyle = `rgba(255,244,196,${0.20 * rg})`;
-  ctx.beginPath(); ctx.arc(x, y, TILE * 0.082, 0, 6.283); ctx.fill();
-}
-
-/* ════════════════════════════════════════════════════════════
-   PLAYER VARIANTS
-   ════════════════════════════════════════════════════════════ */
-
-/* V1 — CLASSIC: red cap, blue overalls, brown boots */
-function drawPlayerV1(ctx, x, y, face, radarOn) {
-  shadow(ctx, x, y, 0.19, 0.11);
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.rotate(face + Math.PI / 2);
-
-  // boots
-  ctx.fillStyle = '#4a3520';
-  for (const s of [-1, 1]) {
-    ctx.beginPath();
-    ctx.ellipse(s * TILE * 0.10, TILE * 0.14, TILE * 0.055, TILE * 0.045, 0, 0, 6.283);
-    ctx.fill();
-  }
-  // legs / overalls
-  ctx.fillStyle = '#2a4a8a';
-  ctx.beginPath(); ctx.ellipse(0, TILE * 0.06, TILE * 0.13, TILE * 0.10, 0, 0, 6.283); ctx.fill();
-  // torso / shirt
-  ctx.fillStyle = '#b03030';
-  ctx.beginPath(); ctx.ellipse(0, -TILE * 0.02, TILE * 0.16, TILE * 0.12, 0, 0, 6.283); ctx.fill();
-  // overall straps
-  ctx.strokeStyle = '#2a4a8a';
-  ctx.lineWidth = TILE * 0.045;
-  ctx.beginPath(); ctx.moveTo(-TILE * 0.08, -TILE * 0.10); ctx.lineTo(-TILE * 0.06, TILE * 0.04); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(TILE * 0.08, -TILE * 0.10); ctx.lineTo(TILE * 0.06, TILE * 0.04); ctx.stroke();
-  // arms
-  ctx.fillStyle = '#b03030';
-  for (const s of [-1, 1]) {
-    ctx.beginPath();
-    ctx.ellipse(s * TILE * 0.17, TILE * 0.02, TILE * 0.05, TILE * 0.065, 0, 0, 6.283);
-    ctx.fill();
-  }
-  // hands
-  ctx.fillStyle = '#d4a078';
-  for (const s of [-1, 1]) {
-    ctx.beginPath();
-    ctx.arc(s * TILE * 0.17, TILE * 0.07, TILE * 0.035, 0, 6.283);
-    ctx.fill();
-  }
-  // head
-  ctx.fillStyle = '#d4a078';
-  ctx.beginPath(); ctx.arc(0, -TILE * 0.06, TILE * 0.085, 0, 6.283); ctx.fill();
-  // cap
-  ctx.fillStyle = '#c02020';
-  ctx.beginPath(); ctx.arc(0, -TILE * 0.075, TILE * 0.088, Math.PI, 0); ctx.fill();
-  ctx.fillStyle = '#a01818';
-  ctx.beginPath(); ctx.ellipse(0, -TILE * 0.075, TILE * 0.088, TILE * 0.03, 0, 0, 6.283); ctx.fill();
-  // cap brim
-  ctx.fillStyle = '#c02020';
-  ctx.beginPath(); ctx.ellipse(0, -TILE * 0.14, TILE * 0.06, TILE * 0.02, 0, 0, 6.283); ctx.fill();
-  // moustache
-  ctx.fillStyle = '#3a2818';
-  ctx.beginPath(); ctx.ellipse(0, -TILE * 0.045, TILE * 0.05, TILE * 0.018, 0, 0, 6.283); ctx.fill();
-
-  // radar in right hand
-  drawRadar(ctx, TILE * 0.17, TILE * 0.07 - HAND_OFF * TILE * 0.5, radarOn);
-
-  ctx.restore();
-}
-
-/* V2 — UTILITY: hi-vis vest, tool belt, hard hat */
-function drawPlayerV2(ctx, x, y, face, radarOn) {
-  shadow(ctx, x, y, 0.19, 0.11);
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.rotate(face + Math.PI / 2);
-
-  // boots
-  ctx.fillStyle = '#2a2a2a';
-  for (const s of [-1, 1]) {
-    ctx.beginPath();
-    ctx.ellipse(s * TILE * 0.10, TILE * 0.14, TILE * 0.055, TILE * 0.045, 0, 0, 6.283);
-    ctx.fill();
-  }
-  // legs / dark work pants
-  ctx.fillStyle = '#2a2a30';
-  ctx.beginPath(); ctx.ellipse(0, TILE * 0.06, TILE * 0.13, TILE * 0.10, 0, 0, 6.283); ctx.fill();
-  // torso / hi-vis vest
-  ctx.fillStyle = '#c8a020';
-  ctx.beginPath(); ctx.ellipse(0, -TILE * 0.02, TILE * 0.16, TILE * 0.12, 0, 0, 6.283); ctx.fill();
-  // reflective stripes
-  ctx.fillStyle = '#e8e0d0';
-  ctx.fillRect(-TILE * 0.14, -TILE * 0.06, TILE * 0.28, TILE * 0.025);
-  ctx.fillRect(-TILE * 0.14, TILE * 0.01, TILE * 0.28, TILE * 0.025);
-  // arms
-  ctx.fillStyle = '#c8a020';
-  for (const s of [-1, 1]) {
-    ctx.beginPath();
-    ctx.ellipse(s * TILE * 0.17, TILE * 0.02, TILE * 0.05, TILE * 0.065, 0, 0, 6.283);
-    ctx.fill();
-  }
-  // hands
-  ctx.fillStyle = '#c89068';
-  for (const s of [-1, 1]) {
-    ctx.beginPath();
-    ctx.arc(s * TILE * 0.17, TILE * 0.07, TILE * 0.035, 0, 6.283);
-    ctx.fill();
-  }
-  // tool belt
-  ctx.fillStyle = '#3a2818';
-  ctx.fillRect(-TILE * 0.12, TILE * 0.08, TILE * 0.24, TILE * 0.04);
-  ctx.fillStyle = '#888';
-  ctx.fillRect(-TILE * 0.08, TILE * 0.07, TILE * 0.04, TILE * 0.05);
-  ctx.fillRect(TILE * 0.04, TILE * 0.07, TILE * 0.04, TILE * 0.05);
-  // head
-  ctx.fillStyle = '#c89068';
-  ctx.beginPath(); ctx.arc(0, -TILE * 0.06, TILE * 0.085, 0, 6.283); ctx.fill();
-  // hard hat
-  ctx.fillStyle = '#e0c020';
-  ctx.beginPath(); ctx.arc(0, -TILE * 0.07, TILE * 0.09, Math.PI, 0); ctx.fill();
-  ctx.fillStyle = '#c8a020';
-  ctx.beginPath(); ctx.ellipse(0, -TILE * 0.07, TILE * 0.09, TILE * 0.025, 0, 0, 6.283); ctx.fill();
-  // headlamp
-  ctx.fillStyle = '#fff8d0';
-  ctx.beginPath(); ctx.arc(0, -TILE * 0.14, TILE * 0.025, 0, 6.283); ctx.fill();
-
-  drawRadar(ctx, TILE * 0.17, TILE * 0.07 - HAND_OFF * TILE * 0.5, radarOn);
-
-  ctx.restore();
-}
-
-/* V3 — DRAIN: waders, headlamp, pipe wrench on back */
-function drawPlayerV3(ctx, x, y, face, radarOn) {
-  shadow(ctx, x, y, 0.19, 0.11);
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.rotate(face + Math.PI / 2);
-
-  // waders (tall rubber boots)
-  ctx.fillStyle = '#3a5a3a';
-  for (const s of [-1, 1]) {
-    ctx.beginPath();
-    ctx.ellipse(s * TILE * 0.10, TILE * 0.12, TILE * 0.06, TILE * 0.07, 0, 0, 6.283);
-    ctx.fill();
-  }
-  // wader top
-  ctx.fillStyle = '#3a5a3a';
-  ctx.beginPath(); ctx.ellipse(0, TILE * 0.04, TILE * 0.14, TILE * 0.08, 0, 0, 6.283); ctx.fill();
-  // torso / dark jacket
-  ctx.fillStyle = '#2a3038';
-  ctx.beginPath(); ctx.ellipse(0, -TILE * 0.02, TILE * 0.16, TILE * 0.12, 0, 0, 6.283); ctx.fill();
-  // jacket zipper
-  ctx.strokeStyle = '#4a5560';
-  ctx.lineWidth = 1.5;
-  ctx.beginPath(); ctx.moveTo(0, -TILE * 0.12); ctx.lineTo(0, TILE * 0.06); ctx.stroke();
-  // arms
-  ctx.fillStyle = '#2a3038';
-  for (const s of [-1, 1]) {
-    ctx.beginPath();
-    ctx.ellipse(s * TILE * 0.17, TILE * 0.02, TILE * 0.05, TILE * 0.065, 0, 0, 6.283);
-    ctx.fill();
-  }
-  // hands
-  ctx.fillStyle = '#c89068';
-  for (const s of [-1, 1]) {
-    ctx.beginPath();
-    ctx.arc(s * TILE * 0.17, TILE * 0.07, TILE * 0.035, 0, 6.283);
-    ctx.fill();
-  }
-  // pipe wrench on back (diagonal)
-  ctx.save();
-  ctx.rotate(0.6);
-  ctx.fillStyle = '#888';
-  ctx.fillRect(-TILE * 0.02, -TILE * 0.22, TILE * 0.04, TILE * 0.28);
-  ctx.fillStyle = '#666';
-  ctx.beginPath(); ctx.arc(0, -TILE * 0.22, TILE * 0.04, 0, 6.283); ctx.fill();
-  ctx.restore();
-  // head
-  ctx.fillStyle = '#c89068';
-  ctx.beginPath(); ctx.arc(0, -TILE * 0.06, TILE * 0.085, 0, 6.283); ctx.fill();
-  // headlamp strap
-  ctx.strokeStyle = '#222';
-  ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.arc(0, -TILE * 0.06, TILE * 0.088, 0, 6.283); ctx.stroke();
-  // headlamp
-  ctx.fillStyle = '#fff8d0';
-  ctx.beginPath(); ctx.arc(0, -TILE * 0.13, TILE * 0.03, 0, 6.283); ctx.fill();
-  ctx.fillStyle = 'rgba(255,248,200,0.3)';
-  ctx.beginPath(); ctx.arc(0, -TILE * 0.13, TILE * 0.05, 0, 6.283); ctx.fill();
-
-  drawRadar(ctx, TILE * 0.17, TILE * 0.07 - HAND_OFF * TILE * 0.5, radarOn);
-
-  ctx.restore();
-}
-
-/* V4 — RETRO: 8-bit pixel style, chunky silhouette */
-function drawPlayerV4(ctx, x, y, face, radarOn) {
-  shadow(ctx, x, y, 0.19, 0.11);
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.rotate(face + Math.PI / 2);
-
-  const u = TILE / 10; // pixel unit
-  function px(cx, cy, w, h, color) {
-    ctx.fillStyle = color;
-    ctx.fillRect(cx * u - w * u / 2, cy * u - h * u / 2, w * u, h * u);
-  }
-
-  // boots
-  px(-3, 7, 3, 2, '#4a3520');
-  px(3, 7, 3, 2, '#4a3520');
-  // legs
-  px(0, 4, 6, 4, '#2a4a8a');
-  // torso
-  px(0, -1, 8, 6, '#b03030');
-  // overalls
-  px(-2, 2, 3, 4, '#2a4a8a');
-  px(2, 2, 3, 4, '#2a4a8a');
-  // arms
-  px(-6, 0, 3, 5, '#b03030');
-  px(6, 0, 3, 5, '#b03030');
-  // hands
-  px(-6, 4, 2, 2, '#d4a078');
-  px(6, 4, 2, 2, '#d4a078');
-  // head
-  px(0, -5, 6, 5, '#d4a078');
-  // cap
-  px(0, -7, 7, 3, '#c02020');
-  px(0, -9, 4, 2, '#c02020');
-  // moustache
-  px(0, -3, 4, 1, '#3a2818');
-
-  drawRadar(ctx, 6 * u, 4 * u - HAND_OFF * TILE * 0.5, radarOn);
-
-  ctx.restore();
-}
-
-/* V5 — NOIR: long coat, fedora, muted palette */
-function drawPlayerV5(ctx, x, y, face, radarOn) {
-  shadow(ctx, x, y, 0.19, 0.11);
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.rotate(face + Math.PI / 2);
-
-  // coat tail
-  ctx.fillStyle = '#1a1a1e';
-  ctx.beginPath(); ctx.ellipse(0, TILE * 0.08, TILE * 0.15, TILE * 0.12, 0, 0, 6.283); ctx.fill();
-  // torso / coat
-  ctx.fillStyle = '#2a2a30';
-  ctx.beginPath(); ctx.ellipse(0, -TILE * 0.02, TILE * 0.16, TILE * 0.13, 0, 0, 6.283); ctx.fill();
-  // coat lapels
-  ctx.strokeStyle = '#3a3a40';
-  ctx.lineWidth = 1.5;
-  ctx.beginPath(); ctx.moveTo(-TILE * 0.06, -TILE * 0.12); ctx.lineTo(0, -TILE * 0.02); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(TILE * 0.06, -TILE * 0.12); ctx.lineTo(0, -TILE * 0.02); ctx.stroke();
-  // arms
-  ctx.fillStyle = '#2a2a30';
-  for (const s of [-1, 1]) {
-    ctx.beginPath();
-    ctx.ellipse(s * TILE * 0.17, TILE * 0.02, TILE * 0.05, TILE * 0.065, 0, 0, 6.283);
-    ctx.fill();
-  }
-  // hands
-  ctx.fillStyle = '#c89068';
-  for (const s of [-1, 1]) {
-    ctx.beginPath();
-    ctx.arc(s * TILE * 0.17, TILE * 0.07, TILE * 0.035, 0, 6.283);
-    ctx.fill();
-  }
-  // head
-  ctx.fillStyle = '#c89068';
-  ctx.beginPath(); ctx.arc(0, -TILE * 0.06, TILE * 0.085, 0, 6.283); ctx.fill();
-  // fedora
-  ctx.fillStyle = '#1a1a1e';
-  ctx.beginPath(); ctx.ellipse(0, -TILE * 0.08, TILE * 0.11, TILE * 0.04, 0, 0, 6.283); ctx.fill();
-  ctx.fillStyle = '#2a2a30';
-  ctx.beginPath(); ctx.ellipse(0, -TILE * 0.10, TILE * 0.07, TILE * 0.05, 0, 0, 6.283); ctx.fill();
-  // fedora band
-  ctx.fillStyle = '#3a2818';
-  ctx.beginPath(); ctx.ellipse(0, -TILE * 0.085, TILE * 0.07, TILE * 0.015, 0, 0, 6.283); ctx.fill();
-
-  drawRadar(ctx, TILE * 0.17, TILE * 0.07 - HAND_OFF * TILE * 0.5, radarOn);
-
-  ctx.restore();
-}
-
-/* ════════════════════════════════════════════════════════════
-   ENEMY VARIANTS
-   ════════════════════════════════════════════════════════════ */
-
-/* E1 — DRAIN CRAWLER: insectoid, pipe-cleaner legs */
-function drawEnemyE1(ctx, x, y, t, rise) {
-  const h = rise;
-  ctx.fillStyle = 'rgba(6,5,3,0.5)';
-  ctx.beginPath();
-  ctx.ellipse(x, y + 4, TILE * (0.36 + 0.16 * h), TILE * (0.14 + 0.05 * h), 0, 0, 6.283);
-  ctx.fill();
-
-  if (h < 0.02) {
-    // dormant: coiled mass
-    for (let i = 7; i > 0; i--) {
-      const rr = TILE * (0.10 + i * 0.048);
-      ctx.strokeStyle = i % 2 ? '#0d0c0a' : '#161412';
-      ctx.lineWidth = Math.max(2.4, TILE * 0.075 - i * 0.6);
-      ctx.beginPath();
-      ctx.ellipse(x, y, rr * 1.25, rr * 0.82, 0.3 + i * 0.16, 0, 6.283);
-      ctx.stroke();
+  const conceptData = {
+    1: {
+      title: "Pipe Gauge Cluster",
+      type: "HUD Concept",
+      desc: "Physical pipe gauges with brass fittings and valve wheels. Player reads water pressure, flow rate, and leak severity like a real plumber reading analog instruments. Gauges are diegetic — they exist in the world as plumbing infrastructure.",
+      features: [
+        "Analog pressure dials with needle animation",
+        "Valve wheel rotates when player adjusts flow",
+        "Brass/copper material palette matches backrooms plumbing",
+        "Gauge glass reflects fluorescent light",
+        "Critical zones marked with red paint",
+        "Sound: mechanical ticking, pipe groaning"
+      ]
+    },
+    2: {
+      title: "Wallpaper Seam",
+      type: "HUD Concept",
+      desc: "HUD elements are printed directly onto the yellow wallpaper pattern. Text and icons appear as part of the wall itself — subtle, diegetic, and deeply unsettling. Player reads the wall like environment, not UI.",
+      features: [
+        "Text uses wallpaper-appropriate typography",
+        "Icons blend into pattern at low opacity",
+        "Critical alerts 'bleed' through wallpaper",
+        "No hard edges — everything feels part of the wall",
+        "Pattern distortion signals damage",
+        "Sound: wallpaper rustling, faint buzzing"
+      ]
+    },
+    3: {
+      title: "Fluorescent Flicker",
+      type: "HUD Concept",
+      desc: "HUD rendered as flickering fluorescent light panels. Text glows like dying tube lights on ceiling. Flicker intensity signals urgency — calm when stable, erratic when critical. Darkness between flickers hides information.",
+      features: [
+        "Light panels positioned like ceiling fixtures",
+        "Flicker pattern maps to game state",
+        "Text glows with bloom effect",
+        "Darkness between flickers creates tension",
+        "Buzzing sound syncs with flicker",
+        "Color temperature shifts: warm to cold"
+      ]
+    },
+    4: {
+      title: "Water Stain",
+      type: "HUD Concept",
+      desc: "HUD elements appear as water stains spreading on damp carpet. Drips fall from top of screen. Water level rises as stain grows larger. Completely diegetic — player reads the environment, not a UI overlay.",
+      features: [
+        "Stain spreads organically using noise",
+        "Drips fall at random intervals",
+        "Water level number appears in stain center",
+        "Stain color darkens with depth",
+        "Carpet texture visible through stain",
+        "Sound: dripping, water sloshing"
+      ]
+    },
+    5: {
+      title: "Control Panel",
+      type: "HUD Concept",
+      desc: "Metal control panel with rivets, warning stripes, and indicator lights. Digital readout shows system status. Industrial, functional, easy to parse under pressure. Player feels like operator, not just observer.",
+      features: [
+        "Metal texture with rivets and scratches",
+        "Warning stripe header",
+        "LED indicators: green/amber/red",
+        "Digital readout with monospace font",
+        "Physical buttons for interaction",
+        "Sound: button clicks, electric hum"
+      ]
+    },
+    6: {
+      title: "Flooded Doorway",
+      type: "Splash Concept",
+      desc: "Title screen shows a door with water seeping underneath. Player understands immediately: water is coming, door is the way out. Start button is partially submerged. Atmosphere of inevitable flooding.",
+      features: [
+        "Door frame with water line rising",
+        "Title text reflected in water",
+        "Start button half-submerged",
+        "Water animation with subtle waves",
+        "Door handle drips continuously",
+        "Sound: water lapping, distant rumble"
+      ]
+    },
+    7: {
+      title: "Buzzing Light Title",
+      type: "Splash Concept",
+      desc: "Title revealed by buzzing fluorescent light in darkness. Light flickers, title appears and disappears. Player must wait for stable light to read. Atmospheric dread — the backrooms are not fully lit.",
+      features: [
+        "Single overhead light fixture",
+        "Title flickers with light",
+        "Subtitle appears when light stabilizes",
+        "Darkness between flickers is near-total",
+        "Light buzzes audibly",
+        "Sound: electrical buzzing, hum"
+      ]
+    },
+    8: {
+      title: "Pipe Burst Alert",
+      type: "Modal Concept",
+      desc: "Modals appear as burst pipe with water spraying. Alert level shown by spray intensity. Player clicks wrench button to dismiss and repair. Physical, urgent, tactile — feels like emergency.",
+      features: [
+        "Burst pipe graphic with spray animation",
+        "Alert severity = spray intensity",
+        "Wrench icon button to dismiss",
+        "Water pools at bottom of modal",
+        "Rust and corrosion on pipe",
+        "Sound: hissing water, metallic clang"
+      ]
+    },
+    9: {
+      title: "Wallpaper Peel",
+      type: "Modal Concept",
+      desc: "Modals look like peeled wallpaper revealing concrete underneath. Corner peel effect on hover. Info printed on bare wall. Diegetic, simple, effective — the backrooms are decaying.",
+      features: [
+        "Peeled corner reveals concrete",
+        "Peel animation on hover/click",
+        "Text printed on bare wall surface",
+        "Wallpaper texture on modal edges",
+        "Nail holes and damage visible",
+        "Sound: wallpaper tearing, concrete echo"
+      ]
+    },
+    10: {
+      title: "Emergency Broadcast",
+      type: "Modal Concept",
+      desc: "Modals styled as emergency PA system announcements. Red alert styling, scanline effect, timestamp. Diegetic fiction: the backrooms have an intercom system. Urgent, immersive, cinematic.",
+      features: [
+        "Red alert border with pulsing dot",
+        "Scanline animation across modal",
+        "Monospace timestamp",
+        "PA system static between messages",
+        "Red-on-black color scheme",
+        "Sound: PA click, static, alarm tone"
+      ]
     }
-    return;
-  }
+  };
 
-  const HGT = TILE * 2.55 * h;
-  ctx.save();
-  ctx.translate(x, y);
-
-  // legs (pipe-cleaner style)
-  ctx.strokeStyle = '#0a0908';
-  ctx.lineWidth = 2.5;
-  for (let i = 0; i < 6; i++) {
-    const angle = (i / 6) * Math.PI * 2 + Math.sin(t * 0.003 + i) * 0.2;
-    const legLen = TILE * (0.3 + 0.2 * h);
-    const bx = Math.cos(angle) * TILE * 0.15;
-    const by = Math.sin(angle) * TILE * 0.08;
-    const ex = Math.cos(angle) * legLen;
-    const ey = Math.sin(angle) * legLen * 0.5 - TILE * 0.1;
-    ctx.beginPath();
-    ctx.moveTo(bx, by);
-    ctx.quadraticCurveTo((bx + ex) / 2, (by + ey) / 2 - TILE * 0.1, ex, ey);
-    ctx.stroke();
-  }
-
-  // body: segmented pipe
-  const N = 9;
-  for (let i = 0; i <= N; i++) {
-    const k = i / N;
-    const yy = -k * HGT;
-    const rx = TILE * (0.34 * (1 - k * 0.72) + 0.05);
-    const ry = rx * 0.40;
-    ctx.strokeStyle = (i % 2) ? '#080706' : '#131110';
-    ctx.lineWidth = Math.max(2, TILE * 0.088 * (1 - k * 0.35));
-    ctx.beginPath();
-    ctx.ellipse(0, yy, rx, ry, 0, 0, 6.283);
-    ctx.stroke();
-  }
-
-  // head: pipe opening
-  ctx.fillStyle = '#0a0908';
-  ctx.beginPath(); ctx.ellipse(0, -HGT, TILE * 0.12, TILE * 0.08, 0, 0, 6.283); ctx.fill();
-  ctx.fillStyle = '#1a1815';
-  ctx.beginPath(); ctx.ellipse(0, -HGT, TILE * 0.08, TILE * 0.05, 0, 0, 6.283); ctx.fill();
-
-  // glowing eyes
-  ctx.fillStyle = `rgba(216,80,60,${0.6 * h})`;
-  ctx.beginPath(); ctx.arc(-TILE * 0.04, -HGT - TILE * 0.02, TILE * 0.015, 0, 6.283); ctx.fill();
-  ctx.beginPath(); ctx.arc(TILE * 0.04, -HGT - TILE * 0.02, TILE * 0.015, 0, 6.283); ctx.fill();
-
-  ctx.restore();
-}
-
-/* E2 — PRESSURE WRAITH: water-formed humanoid */
-function drawEnemyE2(ctx, x, y, t, rise) {
-  const h = rise;
-  ctx.fillStyle = 'rgba(6,5,3,0.4)';
-  ctx.beginPath();
-  ctx.ellipse(x, y + 4, TILE * (0.3 + 0.12 * h), TILE * (0.12 + 0.04 * h), 0, 0, 6.283);
-  ctx.fill();
-
-  if (h < 0.02) {
-    // dormant: puddle
-    ctx.fillStyle = 'rgba(40,60,80,0.3)';
-    ctx.beginPath();
-    ctx.ellipse(x, y, TILE * 0.35, TILE * 0.15, 0, 0, 6.283);
-    ctx.fill();
-    ctx.fillStyle = 'rgba(60,90,120,0.2)';
-    ctx.beginPath();
-    ctx.ellipse(x + Math.sin(t * 0.002) * 3, y, TILE * 0.25, TILE * 0.10, 0, 0, 6.283);
-    ctx.fill();
-    return;
-  }
-
-  const HGT = TILE * 2.2 * h;
-  ctx.save();
-  ctx.translate(x, y);
-
-  // watery body: translucent blue-grey
-  const grad = ctx.createLinearGradient(0, 0, 0, -HGT);
-  grad.addColorStop(0, 'rgba(40,60,80,0.5)');
-  grad.addColorStop(1, 'rgba(80,120,160,0.3)');
-  ctx.fillStyle = grad;
-  ctx.beginPath();
-  ctx.ellipse(0, -HGT * 0.5, TILE * 0.25, HGT * 0.5, 0, 0, 6.283);
-  ctx.fill();
-
-  // ripples
-  for (let i = 0; i < 4; i++) {
-    const yy = -HGT * (0.2 + i * 0.2);
-    const rx = TILE * (0.2 + Math.sin(t * 0.004 + i * 1.5) * 0.03);
-    ctx.strokeStyle = `rgba(100,150,200,${0.3 - i * 0.05})`;
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.ellipse(0, yy, rx, rx * 0.4, 0, 0, 6.283);
-    ctx.stroke();
-  }
-
-  // head
-  ctx.fillStyle = 'rgba(60,100,140,0.4)';
-  ctx.beginPath(); ctx.arc(0, -HGT, TILE * 0.12, 0, 6.283); ctx.fill();
-
-  // eyes: bright cyan
-  ctx.fillStyle = `rgba(100,220,255,${0.7 * h})`;
-  ctx.beginPath(); ctx.arc(-TILE * 0.04, -HGT - TILE * 0.02, TILE * 0.018, 0, 6.283); ctx.fill();
-  ctx.beginPath(); ctx.arc(TILE * 0.04, -HGT - TILE * 0.02, TILE * 0.018, 0, 6.283); ctx.fill();
-
-  // dripping
-  for (let i = 0; i < 3; i++) {
-    const dx = Math.sin(t * 0.005 + i * 2) * TILE * 0.15;
-    const dy = (t * 0.05 + i * 30) % (HGT * 0.8);
-    ctx.fillStyle = 'rgba(80,140,180,0.4)';
-    ctx.beginPath(); ctx.arc(dx, -dy, 1.5, 0, 6.283); ctx.fill();
-  }
-
-  ctx.restore();
-}
-
-/* E3 — VALVE STALKER: mechanical, gear-driven */
-function drawEnemyE3(ctx, x, y, t, rise) {
-  const h = rise;
-  ctx.fillStyle = 'rgba(6,5,3,0.5)';
-  ctx.beginPath();
-  ctx.ellipse(x, y + 4, TILE * (0.32 + 0.14 * h), TILE * (0.13 + 0.05 * h), 0, 0, 6.283);
-  ctx.fill();
-
-  if (h < 0.02) {
-    // dormant: scattered gears
-    for (let i = 0; i < 5; i++) {
-      const gx = x + Math.sin(i * 1.3) * TILE * 0.15;
-      const gy = y + Math.cos(i * 1.7) * TILE * 0.08;
-      ctx.fillStyle = i % 2 ? '#1a1815' : '#22201c';
-      ctx.beginPath(); ctx.arc(gx, gy, TILE * 0.06, 0, 6.283); ctx.fill();
-      ctx.fillStyle = '#0a0908';
-      ctx.beginPath(); ctx.arc(gx, gy, TILE * 0.025, 0, 6.283); ctx.fill();
-    }
-    return;
-  }
-
-  const HGT = TILE * 2.4 * h;
-  ctx.save();
-  ctx.translate(x, y);
-
-  // piston legs
-  ctx.strokeStyle = '#3a352a';
-  ctx.lineWidth = 4;
-  for (const s of [-1, 1]) {
-    const legH = HGT * 0.4 * (1 + Math.sin(t * 0.006 + s) * 0.1);
-    ctx.beginPath();
-    ctx.moveTo(s * TILE * 0.12, 0);
-    ctx.lineTo(s * TILE * 0.15, -legH);
-    ctx.stroke();
-    // foot
-    ctx.fillStyle = '#2a251a';
-    ctx.beginPath(); ctx.arc(s * TILE * 0.15, -legH, TILE * 0.05, 0, 6.283); ctx.fill();
-  }
-
-  // body: boiler tank
-  ctx.fillStyle = '#2a251a';
-  ctx.beginPath(); ctx.ellipse(0, -HGT * 0.55, TILE * 0.28, HGT * 0.35, 0, 0, 6.283); ctx.fill();
-  ctx.fillStyle = '#3a352a';
-  ctx.beginPath(); ctx.ellipse(0, -HGT * 0.55, TILE * 0.22, HGT * 0.28, 0, 0, 6.283); ctx.fill();
-
-  // rivets
-  ctx.fillStyle = '#4a453a';
-  for (let i = 0; i < 6; i++) {
-    const angle = (i / 6) * Math.PI * 2;
-    ctx.beginPath();
-    ctx.arc(Math.cos(angle) * TILE * 0.24, -HGT * 0.55 + Math.sin(angle) * HGT * 0.3, 1.5, 0, 6.283);
-    ctx.fill();
-  }
-
-  // pressure gauge
-  ctx.fillStyle = '#1a1815';
-  ctx.beginPath(); ctx.arc(0, -HGT * 0.55, TILE * 0.08, 0, 6.283); ctx.fill();
-  ctx.strokeStyle = '#888';
-  ctx.lineWidth = 1;
-  const needleAngle = -Math.PI * 0.75 + Math.sin(t * 0.003) * 0.5;
-  ctx.beginPath();
-  ctx.moveTo(0, -HGT * 0.55);
-  ctx.lineTo(Math.cos(needleAngle) * TILE * 0.06, -HGT * 0.55 + Math.sin(needleAngle) * TILE * 0.06);
-  ctx.stroke();
-
-  // smokestack
-  ctx.fillStyle = '#2a251a';
-  ctx.fillRect(-TILE * 0.04, -HGT - TILE * 0.15, TILE * 0.08, TILE * 0.2);
-  // smoke
-  for (let i = 0; i < 3; i++) {
-    const sy = -HGT - TILE * 0.2 - ((t * 0.03 + i * 20) % 40);
-    const sx = Math.sin(t * 0.004 + i * 2) * 4;
-    ctx.fillStyle = `rgba(80,75,65,${0.3 - i * 0.08})`;
-    ctx.beginPath(); ctx.arc(sx, sy, 3 + i * 2, 0, 6.283); ctx.fill();
-  }
-
-  // head: valve wheel
-  ctx.strokeStyle = '#4a453a';
-  ctx.lineWidth = 3;
-  ctx.beginPath(); ctx.arc(0, -HGT - TILE * 0.05, TILE * 0.10, 0, 6.283); ctx.stroke();
-  for (let i = 0; i < 4; i++) {
-    const a = (i / 4) * Math.PI * 2 + t * 0.002;
-    ctx.beginPath();
-    ctx.moveTo(0, -HGT - TILE * 0.05);
-    ctx.lineTo(Math.cos(a) * TILE * 0.10, -HGT - TILE * 0.05 + Math.sin(a) * TILE * 0.10);
-    ctx.stroke();
-  }
-
-  // eyes: furnace glow
-  ctx.fillStyle = `rgba(255,120,40,${0.5 * h})`;
-  ctx.beginPath(); ctx.arc(-TILE * 0.05, -HGT - TILE * 0.08, TILE * 0.02, 0, 6.283); ctx.fill();
-  ctx.beginPath(); ctx.arc(TILE * 0.05, -HGT - TILE * 0.08, TILE * 0.02, 0, 6.283); ctx.fill();
-
-  ctx.restore();
-}
-
-/* E4 — MOLD HORROR: organic, fungal growth */
-function drawEnemyE4(ctx, x, y, t, rise) {
-  const h = rise;
-  ctx.fillStyle = 'rgba(6,5,3,0.4)';
-  ctx.beginPath();
-  ctx.ellipse(x, y + 4, TILE * (0.34 + 0.15 * h), TILE * (0.13 + 0.05 * h), 0, 0, 6.283);
-  ctx.fill();
-
-  if (h < 0.02) {
-    // dormant: spore cluster
-    for (let i = 0; i < 8; i++) {
-      const a = (i / 8) * Math.PI * 2;
-      const r = TILE * (0.08 + (i % 3) * 0.05);
-      const sx = x + Math.cos(a) * r + Math.sin(t * 0.002 + i) * 2;
-      const sy = y + Math.sin(a) * r * 0.5;
-      ctx.fillStyle = i % 2 ? '#1a2a1a' : '#2a3a2a';
-      ctx.beginPath(); ctx.arc(sx, sy, TILE * 0.04, 0, 6.283); ctx.fill();
-      ctx.fillStyle = 'rgba(80,120,80,0.3)';
-      ctx.beginPath(); ctx.arc(sx, sy, TILE * 0.02, 0, 6.283); ctx.fill();
-    }
-    return;
-  }
-
-  const HGT = TILE * 2.0 * h;
-  ctx.save();
-  ctx.translate(x, y);
-
-  // tendrils
-  ctx.strokeStyle = '#1a2a1a';
-  ctx.lineWidth = 3;
-  for (let i = 0; i < 8; i++) {
-    const a = (i / 8) * Math.PI * 2;
-    const sway = Math.sin(t * 0.003 + i * 1.3) * TILE * 0.1;
-    ctx.beginPath();
-    ctx.moveTo(Math.cos(a) * TILE * 0.1, Math.sin(a) * TILE * 0.05);
-    ctx.quadraticCurveTo(
-      Math.cos(a) * TILE * 0.25 + sway,
-      Math.sin(a) * TILE * 0.15 - HGT * 0.3,
-      Math.cos(a) * TILE * 0.35 + sway * 1.5,
-      Math.sin(a) * TILE * 0.2 - HGT * 0.6
-    );
-    ctx.stroke();
-  }
-
-  // body: fungal mass
-  const grad = ctx.createRadialGradient(0, -HGT * 0.5, 0, 0, -HGT * 0.5, TILE * 0.35);
-  grad.addColorStop(0, '#2a4a2a');
-  grad.addColorStop(1, '#1a2a1a');
-  ctx.fillStyle = grad;
-  ctx.beginPath(); ctx.ellipse(0, -HGT * 0.5, TILE * 0.30, HGT * 0.45, 0, 0, 6.283); ctx.fill();
-
-  // mushroom caps
-  for (let i = 0; i < 4; i++) {
-    const cy = -HGT * (0.3 + i * 0.15);
-    const cx = Math.sin(i * 2.1) * TILE * 0.15;
-    const cr = TILE * (0.08 + (i % 2) * 0.04);
-    ctx.fillStyle = '#3a5a3a';
-    ctx.beginPath(); ctx.ellipse(cx, cy, cr, cr * 0.6, 0, Math.PI, 0); ctx.fill();
-    ctx.fillStyle = '#4a7a4a';
-    ctx.beginPath(); ctx.ellipse(cx, cy - cr * 0.2, cr * 0.6, cr * 0.3, 0, Math.PI, 0); ctx.fill();
-  }
-
-  // head: spore sac
-  ctx.fillStyle = '#2a4a2a';
-  ctx.beginPath(); ctx.arc(0, -HGT, TILE * 0.14, 0, 6.283); ctx.fill();
-  ctx.fillStyle = 'rgba(100,160,100,0.3)';
-  ctx.beginPath(); ctx.arc(0, -HGT, TILE * 0.10, 0, 6.283); ctx.fill();
-
-  // eyes: bioluminescent
-  ctx.fillStyle = `rgba(150,255,150,${0.6 * h})`;
-  ctx.beginPath(); ctx.arc(-TILE * 0.05, -HGT - TILE * 0.03, TILE * 0.02, 0, 6.283); ctx.fill();
-  ctx.beginPath(); ctx.arc(TILE * 0.05, -HGT - TILE * 0.03, TILE * 0.02, 0, 6.283); ctx.fill();
-
-  // spores floating
-  for (let i = 0; i < 5; i++) {
-    const sx = Math.sin(t * 0.003 + i * 1.7) * TILE * 0.3;
-    const sy = -HGT * 0.5 + Math.cos(t * 0.004 + i * 2.3) * TILE * 0.2;
-    ctx.fillStyle = `rgba(120,180,120,${0.4 - i * 0.06})`;
-    ctx.beginPath(); ctx.arc(sx, sy, 1.5, 0, 6.283); ctx.fill();
-  }
-
-  ctx.restore();
-}
-
-/* E5 — STATIC WRAITH: glitchy, TV-static humanoid */
-function drawEnemyE5(ctx, x, y, t, rise) {
-  const h = rise;
-  ctx.fillStyle = 'rgba(6,5,3,0.4)';
-  ctx.beginPath();
-  ctx.ellipse(x, y + 4, TILE * (0.30 + 0.12 * h), TILE * (0.12 + 0.04 * h), 0, 0, 6.283);
-  ctx.fill();
-
-  if (h < 0.02) {
-    // dormant: static burst
-    for (let i = 0; i < 20; i++) {
-      const sx = x + (Math.sin(i * 3.7 + t * 0.01) * TILE * 0.25);
-      const sy = y + (Math.cos(i * 2.3 + t * 0.008) * TILE * 0.1);
-      ctx.fillStyle = `rgba(${100 + Math.sin(i) * 50},${100 + Math.cos(i) * 50},${100},0.3)`;
-      ctx.fillRect(sx, sy, 2, 2);
-    }
-    return;
-  }
-
-  const HGT = TILE * 2.3 * h;
-  ctx.save();
-  ctx.translate(x, y);
-
-  // glitch body: fragmented rectangles
-  for (let i = 0; i < 12; i++) {
-    const k = i / 12;
-    const yy = -k * HGT;
-    const ww = TILE * (0.3 * (1 - k * 0.5) + Math.sin(t * 0.01 + i * 2) * 0.03);
-    const hh = HGT * 0.08;
-    const xx = Math.sin(t * 0.008 + i * 1.5) * TILE * 0.03;
-    const brightness = 40 + Math.sin(t * 0.012 + i * 3) * 30;
-    ctx.fillStyle = `rgba(${brightness},${brightness},${brightness + 10},0.7)`;
-    ctx.fillRect(xx - ww / 2, yy - hh / 2, ww, hh);
-  }
-
-  // scan lines
-  ctx.strokeStyle = 'rgba(200,200,200,0.1)';
-  ctx.lineWidth = 1;
-  for (let i = 0; i < 6; i++) {
-    const yy = -HGT * (i / 6) - ((t * 0.02) % (HGT / 6));
-    ctx.beginPath(); ctx.moveTo(-TILE * 0.25, yy); ctx.lineTo(TILE * 0.25, yy); ctx.stroke();
-  }
-
-  // head: CRT screen
-  ctx.fillStyle = '#1a1a1a';
-  ctx.fillRect(-TILE * 0.12, -HGT - TILE * 0.15, TILE * 0.24, TILE * 0.18);
-  ctx.fillStyle = `rgba(150,200,255,${0.3 + Math.sin(t * 0.01) * 0.1})`;
-  ctx.fillRect(-TILE * 0.10, -HGT - TILE * 0.13, TILE * 0.20, TILE * 0.14);
-
-  // eyes: bright pixels
-  ctx.fillStyle = `rgba(255,255,255,${0.8 * h})`;
-  ctx.fillRect(-TILE * 0.06, -HGT - TILE * 0.08, 3, 3);
-  ctx.fillRect(TILE * 0.03, -HGT - TILE * 0.08, 3, 3);
-
-  // glitch fragments
-  for (let i = 0; i < 6; i++) {
-    const gx = Math.sin(t * 0.015 + i * 2.7) * TILE * 0.35;
-    const gy = -HGT * 0.5 + Math.cos(t * 0.012 + i * 1.9) * TILE * 0.2;
-    ctx.fillStyle = `rgba(200,200,220,${0.3 + Math.sin(t * 0.02 + i) * 0.2})`;
-    ctx.fillRect(gx, gy, 4, 2);
-  }
-
-  ctx.restore();
-}
-
-/* ════════════════════════════════════════════════════════════
-   CONCEPT DATA
-   ════════════════════════════════════════════════════════════ */
-
-const playerConcepts = [
-  {
-    id: 'p1',
-    name: 'Classic Plumber',
-    tag: 'Iconic / Recognizable',
-    desc: 'Red cap, blue overalls, brown boots, moustache. The most universally readable "plumber" silhouette. Warm colours stand out against the cold backrooms palette.',
-    fit: 'Strong visual identity. High contrast against yellow-wallpaper aesthetic. Instantly communicates "maintenance worker" without a single pixel of text.',
-    draw: drawPlayerV1,
-  },
-  {
-    id: 'p2',
-    name: 'Utility Worker',
-    tag: 'Modern / Industrial',
-    desc: 'Hi-vis vest with reflective stripes, hard hat with headlamp, tool belt. Reads as "sent to fix infrastructure" rather than "cartoon plumber". The headlamp justifies the vision cone.',
-    fit: 'Headlamp = diegetic light source. Reflective stripes catch the radar glow. Tool belt implies competence. Less whimsical, more grounded.',
-    draw: drawPlayerV2,
-  },
-  {
-    id: 'p3',
-    name: 'Drain Specialist',
-    tag: 'Niche / Thematic',
-    desc: 'Chest waders, dark jacket, headlamp, pipe wrench strapped to back. Built for standing in water. The wrench is a visual promise: this character fixes pipes.',
-    fit: 'Waders justify walking through flooded tiles without penalty. Wrench on back = silhouette reads "plumber" even at distance. Headlamp doubles as radar housing.',
-    draw: drawPlayerV3,
-  },
-  {
-    id: 'p4',
-    name: 'Retro Pixel',
-    tag: 'Stylized / Nostalgic',
-    desc: 'Chunky 8-bit pixel art style. Simplified shapes, limited palette, hard edges. Evokes classic platformers while staying readable at small scale.',
-    fit: 'Nostalgic appeal. Pixel grid aligns with tile grid. Easy to animate with simple sprite swaps. Less "real world" charm, more game-y feel.',
-    draw: drawPlayerV4,
-  },
-  {
-    id: 'p5',
-    name: 'Noir Detective',
-    tag: 'Atmospheric / Mature',
-    desc: 'Long trench coat, fedora, muted grey palette. A plumber who looks like he investigates leaks rather than fixes them. Harder to read as "plumber" at glance.',
-    fit: 'Atmospheric fit with backrooms horror. Coat silhouette is distinctive. Fedora brim casts shadow over face = mysterious. Weaker "plumber" signal, stronger "loner" signal.',
-    draw: drawPlayerV5,
-  },
-];
-
-const enemyConcepts = [
-  {
-    id: 'e1',
-    name: 'Drain Crawler',
-    tag: 'Insectoid / Pipe-born',
-    desc: 'Insectoid body made of pipe-cleaner wire, six legs, pipe-opening head with glowing red eyes. Looks like it crawled out of the walls through the ducts.',
-    fit: 'Thematic fit: it is the building\'s plumbing gone wrong. Red eyes read as "danger" instantly. Legs make it feel fast and skittish.',
-    draw: drawEnemyE1,
-  },
-  {
-    id: 'e2',
-    name: 'Pressure Wraith',
-    tag: 'Elemental / Water-formed',
-    desc: 'Humanoid shape made of pressurised water. Translucent blue-grey body with visible ripples, cyan eyes, constant dripping. Forms from puddles when dormant.',
-    fit: 'Water theme ties to leak mechanic. Translucency = eerie. Dripping = audio cue even off-screen. Cyan eyes contrast with warm player palette.',
-    draw: drawEnemyE2,
-  },
-  {
-    id: 'e3',
-    name: 'Valve Stalker',
-    tag: 'Mechanical / Industrial',
-    desc: 'Boiler-tank body on piston legs, pressure gauge chest, smokestack, valve-wheel head with furnace-glow eyes. A maintenance machine gone rogue.',
-    fit: 'Industrial horror. Gauge needle spins faster when hunting = visual tension. Smokestack smoke = tracking cue. Mechanical = unstoppable feel.',
-    draw: drawEnemyE3,
-  },
-  {
-    id: 'e4',
-    name: 'Mold Horror',
-    tag: 'Organic / Fungal',
-    desc: 'Fungal mass with tendrils, mushroom caps growing from body, bioluminescent green eyes, floating spores. Looks like the building is rotting from within.',
-    fit: 'Organic horror contrasts with mechanical player. Spores = area denial visual. Green glow = sickly. Mushroom caps = silhouette reads "wrong" instantly.',
-    draw: drawEnemyE4,
-  },
-  {
-    id: 'e5',
-    name: 'Static Wraith',
-    tag: 'Glitch / Digital',
-    desc: 'Humanoid made of TV static and scan lines. Fragmented body, CRT-screen head, bright pixel eyes, constant glitch artifacts. A signal that should not exist.',
-    fit: 'Uncanny valley. Static = audio visualised. Glitch = unpredictable movement cue. CRT head = retro horror. Least "plumbing" but most "wrong".',
-    draw: drawEnemyE5,
-  },
-];
-
-/* ════════════════════════════════════════════════════════════
-   RENDER
-   ════════════════════════════════════════════════════════════ */
-
-const grid = document.getElementById('grid');
-
-function createCard(concept, type) {
-  const card = document.createElement('div');
-  card.className = 'card';
-  card.innerHTML = `
-    <div class="card-header">
-      <h2>${concept.name}</h2>
-      <div class="tag">${concept.tag}</div>
-    </div>
-    <div class="preview">
-      <canvas width="120" height="120" id="${concept.id}-canvas"></canvas>
-    </div>
-    <div class="card-body">
-      <p>${concept.desc}</p>
-      <div class="fit"><strong>Design fit:</strong> ${concept.fit}</div>
-    </div>
-    <div class="controls">
-      <button data-id="${concept.id}" data-state="dormant">Dormant</button>
-      <button data-id="${concept.id}" data-state="rising" class="active">Rising</button>
-      <button data-id="${concept.id}" data-state="hunting">Hunting</button>
-    </div>
-  `;
-  grid.appendChild(card);
-
-  const canvas = card.querySelector('canvas');
-  const ctx = canvas.getContext('2d');
-  const buttons = card.querySelectorAll('button');
-
-  let rise = 0.5;
-  let targetRise = 0.5;
-  let radarOn = true;
-
-  function animate(timestamp) {
-    ctx.clearRect(0, 0, 120, 120);
-    ctx.save();
-    ctx.translate(60, 70);
-
-    // ease rise toward target
-    rise += (targetRise - rise) * 0.08;
-
-    if (type === 'player') {
-      concept.draw(ctx, 0, 0, 0, radarOn);
-    } else {
-      concept.draw(ctx, 0, 0, timestamp, rise);
-    }
-
-    ctx.restore();
-    requestAnimationFrame(animate);
-  }
-  requestAnimationFrame(animate);
-
-  buttons.forEach(btn => {
-    btn.addEventListener('click', () => {
-      buttons.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      const state = btn.dataset.state;
-      if (state === 'dormant') targetRise = 0;
-      else if (state === 'rising') targetRise = 0.5;
-      else targetRise = 1.0;
+  // Filter tabs
+  document.querySelectorAll('.nav-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      const filter = tab.dataset.filter;
+      document.querySelectorAll('.concept-card').forEach(card => {
+        if (filter === 'all' || card.dataset.type === filter) {
+          card.style.display = '';
+        } else {
+          card.style.display = 'none';
+        }
+      });
     });
   });
-}
 
-playerConcepts.forEach(c => createCard(c, 'player'));
-enemyConcepts.forEach(c => createCard(c, 'enemy'));
+  // Card click -> detail view
+  document.querySelectorAll('.concept-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const id = card.dataset.concept;
+      const data = conceptData[id];
+      const mockup = card.querySelector('.mockup').cloneNode(true);
+      mockup.style.height = '400px';
+
+      document.getElementById('detailContent').innerHTML = `
+        <h2>${data.title}</h2>
+        <div class="detail-type">${data.type}</div>
+        <div class="detail-mockup">${mockup.outerHTML}</div>
+        <p class="detail-desc">${data.desc}</p>
+        <ul class="detail-features">
+          ${data.features.map(f => `<li>${f}</li>`).join('')}
+        </ul>
+      `;
+      document.getElementById('detailView').classList.add('visible');
+      document.body.style.overflow = 'hidden';
+    });
+  });
+
+  // Close detail view
+  document.getElementById('closeBtn').addEventListener('click', () => {
+    document.getElementById('detailView').classList.remove('visible');
+    document.body.style.overflow = '';
+  });
+
+  // Close on escape
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      document.getElementById('detailView').classList.remove('visible');
+      document.body.style.overflow = '';
+    }
+  });
 </script>
 </body>
 </html>
