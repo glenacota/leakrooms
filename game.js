@@ -49,6 +49,55 @@ const BATT_MAX   = 100;
 const RADAR_DRAIN = 5.6;          // per second while sweeping
 const EXIT_COUNT = 3;
 
+/* ---------- THE LEAK ----------
+   You are not here to hunt. You are here because a pipe is burst somewhere in
+   the building and the water is telling you where, and the only thing you can
+   do about it is stand still next to it for five seconds while something else
+   in the building walks toward the noise of you doing exactly that.
+
+   THE WATER IS THE CUE. The radar reveals space and nothing else — it has no
+   reason to know about plumbing and it must not be given one, or the mechanic
+   collapses into sweeping. What the radar cannot do is show you which way the
+   floor is wet, and water runs downhill from the leak and nowhere else, so the
+   wet trail is a path to the source that costs no battery and makes no noise.
+   Walking wet carpet is slightly louder and slightly slower than walking dry
+   it, so following your own trail is not free either.
+
+   THE LEAK IS A STANDING NOISE SOURCE. That is the trap. A leak that only
+   flooded the floor would be scenery. One that gurgles pulls the Lifeform to
+   the pipe — which is a shield while you are finding it, because something
+   standing over the leak is not standing over you, and an ambush while you
+   wrench is a decision you get to make rather than one that happens to you.
+
+   And it is deliberately kept BELOW LOUD. A leak that woke the whole floor on
+   sight would be a chase generator with no off switch; this one makes the
+   thing curious and keeps it coming, which is the difference between a
+   pursuer you can predict and one you cannot. The wrench is what is loud. */
+const LEAK_SPREAD  = 1.4;    // s of travel per tile — the water front's speed
+const WET_RISE     = 14.0;   // s for a soaked tile to go 0 -> 1
+const WET_FALL     = 7.0;    // s for it to recede 1 -> 0 once sealed
+const LEAK_NOISE_BASE = 0.16;   // a quiet drip, heard ~6 tiles
+const LEAK_NOISE_GAIN = 0.26;   // added as the floor drowns; still under LOUD
+const LEAK_LURE    = 0.42;   // tiles: a SEARCHING entity drifts this close
+/* How far from the spawn the break may be, in a straight line. See the note at
+   the placement site — a maze makes straight-line distance a poor proxy for how
+   long the walk is, and without this cap the objective becomes a commute. */
+const LEAK_FAR     = 46;
+/* The pipe has been open for a while before you got here. Without this the
+   floor starts bone dry and the first half-minute has no cue in it at all —
+   you would have to wander blindly until water happened to reach you, which
+   is the exact opposite of "follow the wet floor downhill". At LEAK_SPREAD
+   this is roughly a thirty-tile puddle already standing around the break. */
+const LEAK_HEADSTART = 42;   // seconds of flood pre-warmed at floor start
+
+/* The repair itself. Five seconds is long enough that standing there is a
+   commitment, and the commitment is the whole point of the mechanic: you are
+   choosing to be immobile and loud in a building with something in it. */
+const REPAIR_TIME  = 5.0;    // seconds of unbroken contact to seal the pipe
+const REPAIR_REACH = 1.25;   // tiles from the pipe face
+const REPAIR_DECAY = 2.6;    // whole-bars lost per second once you move
+const REPAIR_NOISE = 0.85;   // LOUD. Louder than running. That is the point.
+
 const WALL = 0, FLOOR = 1;
 
 /* Room-scoped light.
@@ -219,6 +268,73 @@ const Audio_ = {
     g.gain.exponentialRampToValueAtTime(0.0001, t+0.17);
     s.connect(f); f.connect(g); g.connect(a.destination);
     s.start(t); s.stop(t+0.2);
+  },
+
+  splash(vol, wet){               // footstep through standing water
+    if (!this.ok) return;
+    const a=this.ctx, t=a.currentTime;
+    const s=a.createBufferSource(); s.buffer=this.noise;
+    s.playbackRate.value = 1.1 + Math.random()*0.5;
+    /* Deeper water is a lower, longer splash. Filtered LOW rather than high:
+       the wet carpet step is already a lowpass, so a wet step has to move the
+       other way to be distinguishable from a dry one at a glance. */
+    const f=a.createBiquadFilter(); f.type='lowpass';
+    f.frequency.value = 900 + wet*700;
+    const g=a.createGain();
+    g.gain.setValueAtTime(0.0001,t);
+    g.gain.exponentialRampToValueAtTime(0.11*vol, t+0.010);
+    g.gain.exponentialRampToValueAtTime(0.0001, t+0.22);
+    s.connect(f); f.connect(g); g.connect(a.destination);
+    s.start(t); s.stop(t+0.25);
+  },
+
+  drip(vol){                      // the leak, at range — a positional cue
+    if (!this.ok) return;
+    const a=this.ctx, t=a.currentTime;
+    const o=a.createOscillator(); o.type='sine';
+    o.frequency.setValueAtTime(900+Math.random()*700, t);
+    o.frequency.exponentialRampToValueAtTime(180, t+0.09);
+    const g=a.createGain();
+    g.gain.setValueAtTime(0.0001,t);
+    g.gain.exponentialRampToValueAtTime(0.035*vol, t+0.006);
+    g.gain.exponentialRampToValueAtTime(0.0001, t+0.13);
+    o.connect(g); g.connect(a.destination);
+    o.start(t); o.stop(t+0.15);
+  },
+
+  wrench(){                        // working the pipe — loud, on purpose
+    if (!this.ok) return;
+    const a=this.ctx, t=a.currentTime;
+    for (let i=0;i<3;i++){
+      const st = t + i*0.16 + Math.random()*0.05;
+      const o=a.createOscillator(); o.type='square';
+      o.frequency.setValueAtTime(240+Math.random()*160, st);
+      o.frequency.exponentialRampToValueAtTime(90, st+0.12);
+      const f=a.createBiquadFilter(); f.type='bandpass';
+      f.frequency.value=1500; f.Q.value=4;
+      const g=a.createGain();
+      g.gain.setValueAtTime(0.0001,st);
+      g.gain.exponentialRampToValueAtTime(0.085, st+0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, st+0.16);
+      o.connect(f); f.connect(g); g.connect(a.destination);
+      o.start(st); o.stop(st+0.18);
+    }
+  },
+
+  seal(){                          // the pipe stops
+    if (!this.ok) return;
+    const a=this.ctx, t=a.currentTime;
+    const o=a.createOscillator(); o.type='sawtooth';
+    o.frequency.setValueAtTime(320,t);
+    o.frequency.exponentialRampToValueAtTime(52,t+0.9);
+    const f=a.createBiquadFilter(); f.type='lowpass';
+    f.frequency.setValueAtTime(3200,t);
+    f.frequency.exponentialRampToValueAtTime(180,t+0.9);
+    const g=a.createGain();
+    g.gain.setValueAtTime(0.14,t);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+1.1);
+    o.connect(f); f.connect(g); g.connect(a.destination);
+    o.start(t); o.stop(t+1.2);
   },
 
   rattle(vol){                     // wire shifting
@@ -580,6 +696,42 @@ let scopeDirty = false;       // the room crossfade moved visArr; recombine
 let visRegion = -1;                   // the region the player is lighting
 let visStep = 0, visFadeT = 0;        // quantised crossfade between two regions
 
+/* ---------- THE FLOOD ----------
+   wetArr is per TILE, 0..1, exactly like maskArr: it is state the simulation
+   reads and the renderer reads, so there is one number and the wet patch you
+   can see is the wet patch that slows your footsteps.
+
+   waterDist is a BFS from the leak over walkable floor, recomputed when the
+   leak is sealed, and it is the ONLY thing that decides how fast water spreads.
+   Derived once per state change rather than simulated per tile per frame:
+   water runs downhill, it does not meander, so distance-from-source is exactly
+   the physics and a diffusion model would only add a parameter to get wrong. */
+let wetArr, waterDist, leakTile;      // leakTile is the WALL tile the pipe bursts from
+let wetCv, wetCtx, wetImg;            // the packed water field, drawn as one image
+/* wetByDist is every reachable tile ORDERED BY DISTANCE FROM THE LEAK, and
+   wetFront is how many of them are currently under water.
+
+   This exists for a measured reason. The first version scanned all 5776 tiles
+   every frame, which is correct and cheap-looking and made the headless suite
+   take well over twenty minutes instead of seventy seconds — the end-to-end
+   bot alone simulates hundreds of thousands of frames.
+
+   But the shape of the problem does not need a scan at all. A tile's target
+   wetness is exactly `dist <= front`, so the ONLY tiles whose target differs
+   from last frame are the ones in the band the front just moved through. Those
+   are contiguous in this ordering, which turns an O(map) pass into an
+   O(perimeter of the waterline) pass — a handful of tiles a frame instead of
+   six thousand. The ordering is stable because the leak does not move. */
+let wetByDist = [], wetFront = 0, wetMaxDist = 0, wetSum = 0;
+/* wetIndexAtDist[d] = the first index in wetByDist whose distance is >= d.
+   Without it, "iterate the tiles inside the waterline" has to guess, and the
+   obvious guess — treating the loop index AS the distance — is wrong because
+   wetByDist is BFS order: a hundred tiles can share distance 17, so index 107
+   is distance 17. That mistake truncated the flood to the first hundred tiles
+   of a 3700-tile floor and left the game looking like it had a very small
+   leak. This is a lookup table so the bound is exact and O(1). */
+let wetIndexAtDist = null;
+
 function buildFloor(floorNum, seed){
   const rng = mulberry32(seed + floorNum*7919);
   const maze = genMaze(rng);
@@ -609,6 +761,9 @@ function buildFloor(floorNum, seed){
   const pool = candidates.length>=6 ? candidates : maze.rooms;
   const exits = [];
   const entryRoom = pool[0];
+  /* The spawn, needed before anything that is placed relative to it — the leak
+     goes as far from here as the geometry allows. */
+  const spawn0 = { x: entryRoom.rx + entryRoom.rw/2, y: entryRoom.ry + entryRoom.rh/2 };
   const first = pool.reduce((b,r)=>{
     const d0 = Math.hypot(r.rx+r.rw/2-entryRoom.rx-entryRoom.rw/2, r.ry+r.rh/2-entryRoom.ry-entryRoom.rh/2);
     return d0 > b.d ? {r,d:d0} : b;
@@ -675,6 +830,81 @@ function buildFloor(floorNum, seed){
     if (exitTiles.some(e=>e.x===bx && e.y===by)) continue;
     exitTiles.push({x:bx, y:by, found:false, open:0, room:r});
   }
+
+  /* --- the leak --------------------------------------------------------
+     A single wall tile, as far from the spawn as the floor allows. It has to
+     be a WALL and it has to touch walkable floor — you cannot wrench a pipe
+     that opens onto solid rock, and you cannot walk to one that opens onto
+     nowhere. If the extreme corner turns out to be unusable the search walks
+     back toward the spawn rather than failing, because a floor with an
+     unreachable leak is unwinnable and the repair is mandatory.
+
+     Preferring the FARTHEST tile and only then falling back means the common
+     case is a genuine trek and the rare case is merely a shorter one. */
+  const faceTiles = [];
+  for (let y=1;y<MAP_H-1;y++) for (let x=1;x<MAP_W-1;x++){
+    if (at(x,y)!==WALL) continue;
+    if (!touchesFloor(x,y)) continue;
+    faceTiles.push({x, y, d: Math.hypot(x+0.5-spawn0.x, y+0.5-spawn0.y)});
+  }
+  faceTiles.sort((a,b)=> b.d - a.d);
+
+  /* LEAK_REACH_TILES caps how far the break is allowed to be, measured
+     STRAIGHT-LINE, and the cap is the whole point.
+
+     Sorting by Euclidean distance and taking the extreme corner looks right on
+     paper and is wrong in a maze: a tile 70 tiles away in a straight line can
+     be 200 tiles of corridor to actually walk, because a BSP floor is a tree
+     and the winding is the point. The first version did exactly that and the
+     repair became a two-minute trudge across half the building — which is not
+     tension, it is a commute, and it made the headless playthrough take longer
+     than the entire rest of the suite put together.
+
+     Capping the straight-line distance keeps it a genuine hunt — enough tiles
+     that you cannot see the pipe when you spawn — without turning the
+     objective into a marathon. Anything within the cap is a candidate and the
+     farthest of those wins; the uncapped list is still the fallback. */
+  let leak = null;
+  const capped = faceTiles.filter(c=>c.d <= LEAK_FAR);
+  for (const c of (capped.length ? capped : faceTiles)){
+    /* the repair spot: floor the player can actually stand on, flush against
+       the pipe. Reachable AND not inside geometry, so the five seconds of the
+       repair are physically possible rather than merely intended. */
+    let spot = null;
+    for (const [nx,ny] of [[c.x+1,c.y],[c.x-1,c.y],[c.x,c.y+1],[c.x,c.y-1]]){
+      if (!inB(nx,ny) || at(nx,ny)!==FLOOR) continue;
+      /* The standing spot is the CENTRE of the floor tile beside the pipe.
+         The first version of this nudged the position flush against the wall
+         face — which is precisely where the player's collision disc already
+         puts them, so every candidate was inside its own radius and every
+         floor fell through to the hardcoded fallback. Standing ON the tile is
+         the only legal place to be; how close that counts as "at the pipe" is
+         REACH's job, not this function's.
+
+         Checked against the LOCAL grid, not blocked(), because G does not exist
+         yet at this point in the floor build and blocked() reads G.grid. */
+      const px = nx + 0.5, py = ny + 0.5;
+      let inside = false;
+      for (let ty=Math.floor(py-R); ty<=Math.floor(py+R) && !inside; ty++)
+        for (let tx=Math.floor(px-R); tx<=Math.floor(px+R); tx++){
+          if (!inB(tx,ty) || at(tx,ty)!==WALL) continue;
+          const cx = px<tx?tx:(px>tx+1?tx+1:px);
+          const cy = py<ty?ty:(py>ty+1?ty+1:py);
+          if ((px-cx)**2 + (py-cy)**2 < R*R){ inside=true; break; }
+        }
+      if (inside) continue;
+      spot = {x:nx, y:ny}; break;
+    }
+    if (!spot) continue;
+    leak = { x:c.x, y:c.y, sx:spot.x, sy:spot.y,
+             fixed:false, repair:0, fixedAt:0 };
+    break;
+  }
+  /* A 76x76 BSP floor always has interior walls, so this is unreachable in
+     practice. It is here because the alternative is a crash on a floor the
+     player cannot finish, and a soft failure is not acceptable for a
+     mandatory objective. */
+  if (!leak) leak = { x:1, y:1, sx:1, sy:1, fixed:false, repair:0, fixedAt:0 };
 
   /* Pick a floor tile inside a room. Rooms now contain partition stubs, so a
      plain random pick can land inside a wall. */
@@ -743,7 +973,14 @@ function buildFloor(floorNum, seed){
     'left foot. right foot. left foot. right fo',
     'you are not the first thing here to look for the exits',
     'if you can hear it, it already knows where you are',
-    'the hum is not coming from the ceiling'
+    'the hum is not coming from the ceiling',
+    /* The leak's own scrawls. They are the only tutorial the mechanic gets,
+       and they are placed like every other note — random rooms, revealed by
+       the radar — so they are found rather than delivered. */
+    'the wet floor runs downhill. it runs AWAY from the break.',
+    'wrench takes five seconds. it is the loudest thing you will do here.',
+    'don\'t stand still anywhere except the pipe',
+    'seal the riser or the door will not cycle for you'
   ];
   const graffiti = [];
   for (let i=0;i<9+floorNum*2;i++){
@@ -923,10 +1160,7 @@ function buildFloor(floorNum, seed){
   maskImg = maskCtx.createImageData(MAP_W, MAP_H);
 
   /* --- entities --- */
-  const spawn = {
-    x: entryRoom.rx + entryRoom.rw/2,
-    y: entryRoom.ry + entryRoom.rh/2
-  };
+  const spawn = spawn0;
   // the hunter spawns as far from you as possible
   let far = null, fd = -1;
   for (const r of maze.rooms){
@@ -957,6 +1191,7 @@ function buildFloor(floorNum, seed){
     grid, at, inB, los,
     rooms: maze.rooms,
     fixtures, batteries, graffiti, exitTiles,
+    leak,
     agents,
     player: { x: spawn.x, y: spawn.y, face:-Math.PI/2, stepT:0 },
     batt: BATT_MAX,
@@ -967,13 +1202,306 @@ function buildFloor(floorNum, seed){
     time: 0,
     seenBy: 0,
     nearest: 99,
-    stat: { noises:0, found:0, deaths:0 }
+    stat: { noises:0, found:0, deaths:0, sealed:0 },
+    /* how many floor tiles the water can ever reach — the denominator for
+       "how flooded is this floor". Counted from the distance field rather than
+       guessed, so it is exactly the set of tiles that can ever go wet. */
+    wetFloor: 0,
+    wet: 0, floodCover: 0, atLeak: false, leakPower: 0, floodDirty: false
   };
   HUD.exitsFound = 0;
   /* Light the room the player spawned in. After this point it follows them:
      G exists, so regionAt(G.player) is meaningful. */
   scopeRoomLight(0, true);
   snapMask();
+
+  initFlood();
+}
+
+/* ============================================================
+   THE FLOOD
+   Water spreads from the leak at a fixed rate along walkable floor. Nothing
+   else: no pressure model, no pooling, no per-tile diffusion. A distance
+   field is the whole physics because water runs downhill, and re-deriving it
+   on every state change (rather than advancing a front every frame) means the
+   spread can never depend on frame timing — two machines at different frame
+   rates flood identically.
+   ============================================================ */
+
+/* BFS distance in tiles from the leak across walkable floor. Recomputed only
+   when the leak is sealed, so during play it is read-only. */
+function floodField(){
+  const d = new Int32Array(MAP_W*MAP_H).fill(-1);
+  if (!G.leak) return d;
+  const s = G.leak.sy*MAP_W + G.leak.sx;
+  const q = [s];
+  d[s] = 0;
+  /* q comes out of a BFS in non-decreasing distance order already — that is
+     what a BFS is — so it IS the wetByDist ordering and there is no reason to
+     sort it. Carrying that out of the traversal instead of rediscovering it
+     later is the whole optimisation. */
+  for (let h=0; h<q.length; h++){
+    const c = q[h], cx = c%MAP_W, cy = (c/MAP_W)|0;
+    for (const [nx,ny] of [[cx+1,cy],[cx-1,cy],[cx,cy+1],[cx,cy-1]]){
+      if (nx<0||ny<0||nx>=MAP_W||ny>=MAP_H) continue;
+      const ni = ny*MAP_W+nx;
+      if (G.grid[ni]!==FLOOR || d[ni]>=0) continue;
+      d[ni] = d[c]+1;
+      q.push(ni);
+    }
+  }
+  return { dist:d, order:q };
+}
+
+function initFlood(){
+  wetArr = new Float32Array(MAP_W*MAP_H);      // 0 dry .. 1 standing water
+  const ff = floodField();
+  waterDist = ff.dist;
+  wetByDist = ff.order;                      // BFS order == sorted by distance
+  wetMaxDist = wetByDist.length ? waterDist[wetByDist[wetByDist.length-1]] : 0;
+  /* Distance -> first index at or past it. BFS order is sorted, so this is one
+     linear pass, and afterwards the waterline bound is an array read. */
+  wetIndexAtDist = new Int32Array(wetMaxDist+2).fill(wetByDist.length);
+  for (let n=wetByDist.length-1; n>=0; n--){
+    const d = waterDist[wetByDist[n]];
+    if (d < wetIndexAtDist.length) wetIndexAtDist[d] = n;
+  }
+  for (let d=wetMaxDist-1; d>=0; d--){
+    if (wetIndexAtDist[d] > wetIndexAtDist[d+1]) wetIndexAtDist[d] = wetIndexAtDist[d+1];
+  }
+  wetFront = 0;
+  wetSum = 0;
+  leakTile = G.leak ? G.leak.y*MAP_W + G.leak.x : -1;
+  G.wetFloor = wetByDist.length;
+  wetCv = document.createElement('canvas');
+  wetCv.width = MAP_W; wetCv.height = MAP_H;
+  wetCtx = wetCv.getContext('2d');
+  wetImg = wetCtx.createImageData(MAP_W, MAP_H);
+  for (let i=0;i<MAP_W*MAP_H;i++) wetImg.data[i*4+3] = 255;
+  /* Start the room the player spawns in already damp. Otherwise the first
+     seconds of a floor are a pristine yellow carpet with no cue at all, and
+     the water reads as a thing that switched on rather than a thing that has
+     been running for as long as you have been here. */
+  seedSplash(G.player.x, G.player.y, 0.30);
+
+  /* Pre-warm the flood so there is a trail to follow from the first second.
+     This is a direct assignment rather than a simulated fast-forward because
+     the alternative is stepping tickFlood thousands of times per floor at
+     floor build, and the end state is exactly "everything inside the front is
+     fully wet", which is what the integration converges to anyway. wetSum is
+     computed from the same pass, so the incremental sum and the array cannot
+     disagree about where they started. */
+  {
+    const front = Math.min(wetMaxDist, LEAK_HEADSTART/LEAK_SPREAD);
+    wetFront = front;
+    let sum = 0;
+    const hiF = Math.ceil(front);
+    const hi  = Math.min(wetByDist.length-1,
+                  wetIndexAtDist[Math.min(hiF, wetIndexAtDist.length-1)] - 1);
+    for (let n=0; n<=hi; n++){
+      const i = wetByDist[n];
+      if (waterDist[i] <= front){ wetArr[i] = 1; sum += 1; }
+    }
+    wetSum = sum;
+  }
+
+  G.floodCover = G.wetFloor ? wetSum/G.wetFloor : 0;
+  G.floodDirty = true;
+}
+
+/* Drop a blob of water. Used to seed the floor at spawn and — the reason this
+   exists as a function — to ripple outward from the player while they wade,
+   so moving through water leaves something behind them. */
+function seedSplash(wx, wy, amount){
+  if (!wetArr) return;
+  const cx = Math.floor(wx), cy = Math.floor(wy);
+  for (let y=cy-1;y<=cy+1;y++) for (let x=cx-1;x<=cx+1;x++){
+    if (x<0||y<0||x>=MAP_W||y>=MAP_H) continue;
+    const i = y*MAP_W+x;
+    if (G.grid[i]!==FLOOR) continue;
+    const dd = Math.hypot(x+0.5-wx, y+0.5-wy);
+    const w = Math.min(1, Math.max(0, amount * (1 - dd/1.8)));
+    if (w > wetArr[i]){ wetSum += w - wetArr[i]; wetArr[i] = w; }
+  }
+}
+
+/* Wetness under a world point, 0..1. Sampled by the movement code and the
+   renderer so "how deep is the water here" is one number, not two. */
+function wetAt(wx, wy){
+  if (!wetArr) return 0;
+  const x=Math.floor(wx), y=Math.floor(wy);
+  if (x<0||y<0||x>=MAP_W||y>=MAP_H) return 0;
+  return wetArr[y*MAP_W+x];
+}
+
+/* How much of the reachable floor is currently wet, 0..1. Divided by a FLOOR
+   count taken once, not by MAP_W*MAP_H: most of the map is solid rock, and
+   dividing by the whole map would report a floor as barely damp when the only
+   room in it was underwater. */
+/* Sum every wet tile. This is the slow, obviously-correct version and the game
+   does NOT call it — tickFlood maintains the same number incrementally as it
+   moves the band and leaves it on G.floodCover. It stays because it is the
+   ORACLE that the incremental sum is checked against in the test suite, which
+   is the only way to know the incremental version has not quietly drifted. */
+function floodCover(){
+  if (!wetArr || !G.wetFloor) return 0;
+  let s=0;
+  for (let i=0;i<wetArr.length;i++) s += wetArr[i];
+  return s/G.wetFloor;
+}
+
+/* Is the player close enough to the pipe to work on it? Measured against the
+   wall face, not the tile the face was picked from, because the whole
+   interaction is "put your hands on the pipe" and a repair you can trigger
+   from a diagonal tile away is not that. */
+function leakReach(x, y){
+  const L = G.leak;
+  if (!L || L.fixed) return false;
+  const d = Math.hypot(L.sx+0.5-x, L.sy+0.5-y);
+  return d < REPAIR_REACH;
+}
+
+/* Seal the pipe. Permanent, once per floor — the flag is checked before the
+   progress bar is ever allowed to advance, so this cannot be double-applied
+   and cannot leave the floor flooded with a full progress bar. */
+function sealLeak(){
+  const L = G.leak;
+  if (!L || L.fixed) return;
+  L.fixed = true;
+  L.fixedAt = G.time;
+  Audio_.seal();
+  Audio_.silence();
+  flash('THE PIPE IS SEALED \u2014 THE WATER IS STOPPING');
+  G.stat.sealed++;
+  /* Recompute the distance field from the seal point so the recession runs
+     outward from where the work happened rather than from the pipe. It is a
+     visual difference, but it is the difference between water receding from
+     the thing you fixed and water receding from somewhere off screen. */
+  /* The recession runs off the EXISTING distance field, not a new one from the
+     seal point. That was the first version and it was wrong: re-deriving the
+     field re-sorts the ordering, which resets the front to "nothing is wet"
+     and the floor would snap from flooded to dry on the frame you fixed the
+     pipe — the single most visible bug available in this feature. The field is
+     already the right answer: water recedes from where it spread. */
+  packWet();
+}
+
+/* Advance the water one frame.
+   The front is at (elapsed / LEAK_SPREAD) tiles from the source, so a tile's
+   target wetness is exactly `dist <= front`. wetByDist is sorted by distance,
+   so "every tile at or inside the front" is a PREFIX of it.
+
+   Wetness is integrated toward the target with a time constant rather than
+   assigned, so the waterline creeps rather than teleporting a tile at a time,
+   and a tile the front has just passed is only part wet. */
+function tickFlood(dt){
+  const L = G.leak;
+  if (!L || !wetArr) return;
+
+  /* RISING while open, FALLING once sealed. The recession is the same
+     mechanism run backwards: the waterline retreats at one tile per WET_FALL
+     second, so the outermost tile takes exactly WET_FALL to dry and the last
+     puddle takes wetMaxDist*WET_FALL to go. Deriving it from the front rather
+     than from a separate "drain everything" pass is what keeps the drain
+     radial — water recedes from the edges inward, away from the pipe, which
+     is what you would see on a real floor and not what a uniform fade would
+     give you. */
+  const prev = wetFront;
+  const front = L.fixed
+    ? Math.max(0, prev - dt/WET_FALL)
+    : Math.min(wetMaxDist, prev + dt/LEAK_SPREAD);
+  wetFront = front;
+  if (front === prev) { G.floodDirty = false; return; }
+
+  /* Every tile at or inside the front still has to integrate toward its
+     target — a tile keeps darkening for WET_RISE seconds AFTER the front has
+     passed it. The first version updated only the band the front swept, on the
+     reasoning that a tile's target only changes there. That reasoning is true
+     and the implementation was still wrong: it left every tile stranded at
+     about 10% wetness forever, and the floor looked permanently damp rather
+     than flooded. The target changes in the band; the approach to it does not.
+
+     What IS worth exploiting is the ordering: tiles beyond the front are all
+     dry already, so the whole settled interior of the puddle is one
+     contiguous PREFIX and nothing past it can change. Iterating the prefix is
+     bounded by how flooded the floor is, and an unflooded floor costs nothing
+     at all. */
+  const hiF = Math.ceil(Math.max(prev, front));
+  const hi = Math.min(wetByDist.length-1,
+                wetIndexAtDist[Math.min(hiF, wetIndexAtDist.length-1)] - 1);
+  const tau = L.fixed ? WET_FALL : WET_RISE;
+  const k = 1 - Math.exp(-dt/tau);
+  let sum = wetSum;
+  let changed = false;
+  for (let n=0; n<=hi; n++){
+    const i = wetByDist[n];
+    const cur = wetArr[i];
+    const target = waterDist[i] <= front ? 1 : 0;
+    if (cur === target) continue;
+    const next = cur + (target-cur)*k;
+    const snapped = Math.abs(target-next) < 0.004 ? target : next;
+    /* wetSum is maintained INCREMENTALLY rather than by re-summing the array
+       every frame. It is the numerator of the flood gauge, which is read by
+       the leak's own noise level and by the HUD, so it is read a lot; summing
+       5776 floats to answer it each time is the same mistake as the scan this
+       function used to do, wearing a different hat. */
+    sum += snapped - cur;
+    wetArr[i] = snapped;
+    changed = true;
+  }
+  if (!changed){ G.floodDirty = false; return; }
+  wetSum = sum;
+  G.floodDirty = true;
+  G.floodCover = G.wetFloor ? sum/G.wetFloor : 0;
+}
+
+/* ============================================================
+   FLOOD FIELD -> IMAGE
+   One RGBA image at one pixel per tile, drawn scaled up with smoothing. The
+   water is a MULTIPLY-STYLE tint rather than an opaque fill, so it reads as
+   the same carpet under water instead of a blue card laid on top of it — the
+   yellow is still there underneath, darkened and shifted, which is what wet
+   carpet actually does.
+   ============================================================ */
+/* One pixel per tile, then upscaled with bilinear smoothing. The smoothing is
+   not cosmetic: at one pixel per tile a hard-edged square waterline crawls
+   along the tile grid as it advances and reads as a rendering fault, the same
+   way the cone boundary used to. Bilinear across the tile grid turns the front
+   into a soft irregular edge for free, and costs nothing per frame.
+
+   Dry tiles are written with alpha 0, NOT with alpha 255 and black RGB. That
+   is the bug this shape of the loop exists to prevent: the image is opaque, so
+   an untouched tile is black and paints black over the carpet it is drawn on. */
+function packWet(){
+  const d = wetImg.data;
+  for (let i=0;i<MAP_W*MAP_H;i++){
+    const a = wetArr[i];
+    const k = i*4;
+    if (a <= 0.015){ d[k+3] = 0; continue; }
+    /* Damp carpet goes DARK. Standing water adds a desaturated slate blue on top.
+       Both halves are load-bearing and both were got wrong once:
+
+       - the FIRST version was a mid-value saturated blue and the flood read as
+         glowing ice rather than as a wet floor;
+       - the second darkened so hard that a flooded tile came out a dark olive
+         you could not tell from an unlit one, which defeats the entire
+         mechanic — if you cannot see the water you cannot follow it.
+
+       So the numbers below are chosen by SOLVING for what the composited tile
+       should look like over the carpet, not by picking a colour that looks
+       like water in isolation. Damp composites to roughly (135,139,81) — the
+       same hue family as dry carpet but about 30% darker, because wet carpet
+       is darker and nobody has to be told. Standing water composites to about
+       (78,105,104), where blue finally beats red by enough to read at a
+       glance in a dark corridor. */
+    const t = Math.min(1, a);
+    const blue = Math.max(0, (t-0.35)/0.65);
+    d[k]   = Math.round(54 - blue*22);
+    d[k+1] = Math.round(50 + blue*26);
+    d[k+2] = Math.round(40 + blue*72);
+    d[k+3] = Math.round(255*Math.min(0.82, 0.34 + t*0.48));
+  }
+  wetCtx.putImageData(wetImg, 0, 0);
 }
 
 /* ============================================================
@@ -1583,8 +2111,16 @@ function update(dt){
   if (keys['w']||keys['arrowup'])    iy--;
   if (keys['s']||keys['arrowdown'])  iy++;
 
+  /* Wading is slower than dry walking. Sampled at the position BEFORE the move,
+     not after: sampling after would use last frame's tile at the boundary,
+     which reads as the speed changing a step after you leave the water rather
+     than as you entering it. */
+  const wet = wetAt(p.x, p.y);
+  G.wet = wet;
+
   const sprinting = (keys['shift']) && (ix||iy);
-  const spd = sprinting ? SPRINT : WALK;
+  const wade = wet > 0.25 ? 0.80 : 1;          // knee-deep costs you a fifth
+  const spd = (sprinting ? SPRINT : WALK) * wade;
   let moving=false, bumped=false;
 
   unstick(p, R);
@@ -1598,12 +2134,23 @@ function update(dt){
     if (!moving && (ix!==0||iy!==0)) bumped=true;   // walked into a partition
   }
 
+  /* Wet walking is also louder than dry walking. It stays under LOUD on purpose
+     — wet boots must not wake anything, or following the water would be
+     strictly worse than sweeping, and the trail has to be the cheap option or
+     nobody follows it at all. */
   if (moving){
-    sustainedNoise(sprinting ? 1.0 : 0.22, p.x, p.y);
+    const inWater = wet > 0.25;
+    sustainedNoise(sprinting ? 1.0 : (inWater ? 0.30 : 0.22), p.x, p.y);
     p.stepT -= dt;
     if (p.stepT<=0){
       p.stepT = sprinting ? 0.26 : 0.46;
-      Audio_.step(sprinting?1:0.5);
+      if (inWater) Audio_.splash(sprinting?1:0.5, wet); else Audio_.step(sprinting?1:0.5);
+    }
+    /* Waking pushes a ripple ahead of you. It is a readable trace of where you
+       have been, which is a second cue on top of the noise you already made. */
+    if (wet > 0.3){
+      p.rippleT = (p.rippleT||0) - dt;
+      if (p.rippleT <= 0){ p.rippleT = 0.22; seedSplash(p.x, p.y, wet*0.55); }
     }
   }
   if (bumped && sprinting) emitNoise(0.55, p.x, p.y);
@@ -1620,6 +2167,85 @@ function update(dt){
      quantises to when the retrace happens. */
   if (traceViewCone(false) || scopeDirty){ combineMask(); scopeDirty = false; }
   if (smoothMask(dt)) packMask();
+
+  /* --- the flood ---
+     Runs after movement so the water you are standing in this frame is the
+     water you walked into this frame. One pass over the tile array, and only
+     over tiles that are within the reachable radius of the leak — the front
+     cannot be further than LEAK_SPREAD seconds of travel from the source, so
+     the outer ring is skipped entirely instead of being tested and rejected. */
+  tickFlood(dt);
+  if (G.floodDirty) { packWet(); G.floodDirty = false; }
+
+  /* --- the leak ---
+     A continuous emitter at the pipe, not a repeating one-shot. sustainedNoise
+     rather than emitNoise: a burst every few frames would inflate the noise
+     stats and fight the meter decay, and what this needs to be is a standing
+     sound the Lifeform can walk toward, not a series of events. */
+  if (!G.leak.fixed){
+    /* Power rises with how much of the floor is under water, so the leak gets
+       louder as the floor drowns — but it is clamped below LOUD no matter how
+       bad it gets. Above LOUD this stops being a lure and becomes a floor-wide
+       hunt trigger, and the repair would have nothing left to be tense
+       against. */
+    /* G.floodCover is the incremental sum maintained by tickFlood, NOT a fresh
+       pass over the tile array. Recomputing it here instead — which the first
+       version did — re-adds a 5776-element loop to every frame of every floor
+       for a number that was already sitting on G, and it is the difference
+       between the suite finishing in seventy seconds and not finishing. */
+    G.leakPower = Math.min(LOUD-0.02, LEAK_NOISE_BASE + LEAK_NOISE_GAIN*G.floodCover);
+    sustainedNoise(G.leakPower, G.leak.x+0.5, G.leak.y+0.5);
+
+    /* Dripping, audible near the pipe. This is the find-confirmation cue and
+       it is deliberately a SOUND and not a marker: the water is the visual
+       cue and the drip is the audio one, so a player who has been squinting
+       at wet carpet for two minutes gets a second channel at the moment the
+       visual channel has already done its job. Rate scales with closeness so
+       "it is over there somewhere" and "it is here" are distinguishable
+       without looking up. */
+    const ld = Math.hypot(p.x-(G.leak.x+0.5), p.y-(G.leak.y+0.5));
+    if (ld < 14){
+      p.dripT = (p.dripT||0) - dt;
+      if (p.dripT <= 0){
+        p.dripT = 0.10 + Math.min(1, ld/14)*1.5;
+        Audio_.drip(1 - Math.min(1, ld/14));
+      }
+    }
+  } else {
+    G.leakPower = 0;
+  }
+
+  /* --- the repair ---
+     Hold still next to the pipe for five seconds. Moving decays the bar rather
+     than freezing it, so a panic step costs real progress instead of just
+     costing you the second — the failure has to cost something or the five
+     seconds are free and the whole mechanic is a formality.
+
+     The wrench is LOUD, which is the deal. You are choosing to stand immobile
+     and announce yourself, next to the noisiest thing on the floor, with
+     something already on its way. */
+  const lr = leakReach(p.x, p.y);
+  G.atLeak = lr;
+  if (!G.leak.fixed && lr){
+    if (!moving && !bumped){
+      if (G.leak.repair === 0) Audio_.wrench();
+      G.leak.repair = Math.min(REPAIR_TIME, G.leak.repair + dt);
+      sustainedNoise(REPAIR_NOISE, G.leak.x+0.5, G.leak.y+0.5);
+      if (G.leak.repair >= REPAIR_TIME){
+        sealLeak();
+      }
+    } else {
+      /* Decays at REPAIR_DECAY whole bars per second: leaving after four
+         seconds throws away the lot, because 2.6/s means you are gone in under
+         half a second. That is deliberate. Hesitating at the pipe is not a
+         strategy, it is a mistake you have to pay for. */
+      G.leak.repair = Math.max(0, G.leak.repair - dt*REPAIR_DECAY*REPAIR_TIME);
+      if (G.leak.repair > 0 && G.leak.repair <= 0.001) G.leak.repair = 0;
+    }
+    if (G.leak.repair > 0) p.stepT = Math.min(p.stepT, dt);
+  } else if (G.leak.repair > 0){
+    G.leak.repair = Math.max(0, G.leak.repair - dt*REPAIR_DECAY*REPAIR_TIME);
+  }
 
   /* --- the radar reveals --- */
   let seenBy = 0, nearest = 99;
@@ -1679,7 +2305,20 @@ function update(dt){
      Hold at a found exit for 1.5s and it cycles open. Step away and the
      progress drains fast, so committing to a door is a real decision. */
   const allFound = G.exitsFound >= G.exitTiles.length && G.exitTiles.length>0;
-  if (allFound){
+  /* THE DOOR IS SEALED UNTIL THE PIPE IS. You are not an entity that wants out;
+     you are a plumber who was sent down here because a riser burst, and you do
+     not leave a floor you have left flooding. So descending now requires BOTH
+     the original three exits AND the leak sealed.
+
+     This does not replace the exit rule — it adds to it, and the exit rule is
+     untouched: still three, still radar-only, still loud. What it changes is
+     the shape of a floor. The three exits are a search you do in the dark and
+     the leak is a commitment you make in one place, and the two pull in
+     opposite directions: the radar finds the doors and costs battery, the
+     water finds the pipe and costs nothing but the walk. You cannot do both at
+     once, and that is the floor. */
+  const leakDone = G.leak.fixed;
+  if (allFound && leakDone){
     let onExit=false;
     for (const e of G.exitTiles){
       // 1.25 tiles: an exit in a 1-wide alcove is still reachable with the
@@ -1694,6 +2333,11 @@ function update(dt){
     } else {
       G.descend = Math.max(0, G.descend - dt*2.5);
     }
+  } else if (G.descend > 0){
+    /* Backing off: if the door was open and the pipe is not sealed, the cycle
+       drains rather than holding. You cannot sit in a doorway with the
+       progress bar frozen waiting for something that has not happened. */
+    G.descend = Math.max(0, G.descend - dt*2.5);
   }
 
   /* --- proximity drone --- */
@@ -1747,6 +2391,24 @@ function updateAgent(a, dt, p){
 
   if (a.state==='SEARCH'){
     a.t -= dt;
+
+    /* THE LURE. The leak is a standing noise source, and something already
+       searching will go and stand next to it. This is what makes the leak a
+       shield as well as a hazard: while it is open, anything curious in the
+       building is being pulled to the pipe rather than to you, so the five
+       seconds at the leak are not spent with a hunter closing from wherever it
+       happened to be — they are spent with one closing from a known place.
+
+       It only applies to SEARCH, never to HUNT. If a hunting Lifeform were
+       also diverted it would abandon a chase you caused by sprinting, which
+       would delete the sprint decision the entire noise layer exists for. */
+    const L = G.leak;
+    if (L && !L.fixed){
+      const ld = Math.hypot(a.x-(L.sx+0.5), a.y-(L.sy+0.5));
+      if (ld < LEAK_LURE && (!a.target || Math.hypot(a.x-a.target.x,a.y-a.target.y)<0.6)){
+        a.target = {x:L.sx+0.5, y:L.sy+0.5};
+      }
+    }
     if (!a.target || Math.hypot(a.x-a.target.x,a.y-a.target.y)<0.5){
       a.target = randomFloorNear(a.x,a.y,7);
     }
@@ -1780,7 +2442,7 @@ let lives = 3, floorIdx = 0, runTime = 0;
 function nextFloor(){
   floorIdx++;
   if (floorIdx >= FLOORS){ STATE='win'; show('win'); document.getElementById('win-stats').innerHTML =
-      `You crossed <b>${FLOORS}</b> floors.<br>Deaths: <b>${G.stat.deaths}</b> &nbsp; Exits found: <b>${G.stat.found}</b><br>Time: <b>${Math.floor(runTime/60)}:${String(Math.floor(runTime%60)).padStart(2,'0')}</b>`;
+      `You crossed <b>${FLOORS}</b> floors.<br>Deaths: <b>${G.stat.deaths}</b> &nbsp; Exits found: <b>${G.stat.found}</b> &nbsp; Pipes sealed: <b>${G.stat.sealed}</b><br>Time: <b>${Math.floor(runTime/60)}:${String(Math.floor(runTime%60)).padStart(2,'0')}</b>`;
     document.getElementById('hud').classList.remove('on');
     return;
   }
@@ -1879,7 +2541,44 @@ function caught(){
     }
   }
 
-  /* ---------- 2. wall faces + contact shadow ---------- */
+  /* ---------- 1b. the flood ----------
+     Drawn AFTER the carpet and BEFORE the walls, which is what makes it read as
+     the floor being wet rather than a blue card floating over the room: the
+     wall faces and tops are painted on top of it, so a partition standing in a
+     flooded room stays dry and above the waterline.
+
+     One drawImage of a 76x76 image upscaled with smoothing. Per-tile fills were
+     the obvious alternative and would have been both slower (5776 draw calls)
+     and worse — hard tile-aligned water edges, the same quantised boundary the
+     vision cone has, on a feature whose entire job is a legible front. */
+  if (wetArr){
+    packWet();
+    ctx.globalAlpha = 1;
+    ctx.drawImage(wetCv, 0, 0, MAP_W*TILE, MAP_H*TILE);
+
+    /* Specular sheen on the deep water. Without it a flooded room is a flat
+       tinted region and reads as "a blue filter is on" rather than as water;
+       the highlight is what makes it look like a surface you could sink
+       into. Drawn only on the deepest tiles and only where the mask can see
+       them, so a dark flooded room is still dark. */
+    ctx.globalCompositeOperation = 'lighter';
+    const shx0=Math.max(0,x0), shy0=Math.max(0,y0);
+    for (let y=shy0;y<=y1;y++) for (let x=shx0;x<=x1;x++){
+      const i=y*MAP_W+x;
+      const w = wetArr[i];
+      if (w < 0.55) continue;
+      if (maskArr[i] < 0.05) continue;
+      const n = hash2(x*7+3, y*11+5);
+      const ph = (t*0.0011 + n*6.28);
+      const a = (w-0.55)/0.45 * 0.05 * (0.5+0.5*Math.sin(ph));
+      if (a <= 0.003) continue;
+      ctx.fillStyle = `rgba(150,196,206,${a})`;
+      ctx.fillRect(x*TILE, y*TILE, TILE, TILE);
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
+/* ---------- 2. wall faces + contact shadow ---------- */
   // The face is the vertical side of a partition, drawn into the floor tile
   // below it. A soft shadow on the carpet under it sells the height, which is
   // what makes a top-down maze read as a photographed room instead of a
@@ -1940,6 +2639,10 @@ function caught(){
     ctx.strokeStyle='rgba(232,217,138,0.5)'; ctx.lineWidth=1;
     ctx.strokeRect(bx-7.5, by-9.5, 15, 19);
   }
+
+  /* The leak itself is drawn AFTER the lighting multiply — see section 6b.
+     It is the one object in the world that is not gated by the cone, and the
+     reason is written where it is drawn. */
 
   for (const e of G.exitTiles){
     const ex=(e.x+0.5)*TILE, ey=(e.y+0.5)*TILE;
@@ -2032,6 +2735,86 @@ function caught(){
      rendering fault rather than as light. The radar reveals because the mask
      never zeroed anything while it was on. */
   ctx.globalCompositeOperation='source-over';
+
+  /* ---------- 6b. the leak ----------
+     The one thing in the world that is not gated by the cone, and deliberately
+     so. Drawn as part of the scene it would be multiplied by the mask along
+     with everything else, which is correct from the next room and wrong from
+     the doorway: the mechanic is that the WATER tells you where the leak is,
+     and a cue that stops working the moment you arrive has taken the mechanic
+     away at the only point it matters.
+
+     It is still not the radar. It reveals one tile you are already standing
+     next to, it costs no battery, and it does nothing at all while you are two
+     rooms away — the maskArr lookup is a plain tile read and the radar's
+     contract ("everything, full brightness, while the battery lasts") is not
+     touched anywhere near this code. */
+  if (wetArr && G.leak && maskArr[leakTile] > 0.02){
+    const L = G.leak;
+    /* DEVICE space, not world. This pass runs after ctx.restore(), so the
+       context is back to identity and a world coordinate is just a raw pixel.
+       The first version filled at L.x*TILE and drew the entire leak at
+       (1360, 1360) — off screen, every frame, while every logic test passed
+       and the leak was plainly absent from the screenshot. It is converted
+       with the same w2s helpers the fixture pass uses, and sized in device
+       pixels, which is why the flood (drawn earlier, inside the world
+       transform) does not need this and the leak does. */
+    const U  = TILE*SCALE;                 // one tile, in device pixels
+    const fx = w2sx(L.x+0.5), fy = w2sy(L.y+0.5);
+    const vis = maskArr[leakTile];
+    ctx.save();
+    ctx.globalAlpha = vis;
+
+    if (!L.fixed){
+      /* the split: a dark stain that runs DOWN the face and pools at the base,
+         widening as it goes. The widening is what makes it read as liquid
+         rather than as a stain-coloured rectangle. */
+      const g1 = ctx.createLinearGradient(fx, fy-U/2, fx, fy+U/2);
+      g1.addColorStop(0,   'rgba(28,44,48,0.95)');
+      g1.addColorStop(0.35,'rgba(44,70,74,0.80)');
+      g1.addColorStop(1,   'rgba(70,104,108,0.45)');
+      ctx.fillStyle = g1;
+      ctx.fillRect(fx-U*0.34, fy-U*0.40, U*0.68, U*0.90);
+      /* wet halo on the carpet at the foot of the wall */
+      const g2 = ctx.createRadialGradient(fx, fy+U*0.5, 1, fx, fy+U*0.5, U*0.95);
+      g2.addColorStop(0,  'rgba(96,140,148,0.50)');
+      g2.addColorStop(1,  'rgba(70,104,108,0)');
+      ctx.fillStyle = g2;
+      ctx.fillRect(fx-U, fy-U*0.5, U*2, U*2);
+      /* the jet — a thin bright line that pulses */
+      const pulse = 0.5 + 0.5*Math.sin(t*0.006);
+      ctx.fillStyle = `rgba(168,214,222,${0.30+0.30*pulse})`;
+      ctx.fillRect(fx-U*0.06, fy-U*0.38, U*0.12, U*0.66);
+    } else {
+      /* sealed: a collar and a dry face. No halo, no jet. The absence is the
+         feedback — you can tell from across the room that it is done. */
+      ctx.fillStyle='rgba(120,132,74,0.92)';
+      ctx.fillRect(fx-U*0.28, fy-U*0.16, U*0.56, U*0.24);
+      ctx.fillStyle='rgba(228,230,168,0.55)';
+      ctx.fillRect(fx-U*0.28, fy-U*0.16, U*0.56, U*0.05);
+      ctx.fillStyle='rgba(28,44,48,0.55)';
+      ctx.fillRect(fx-U*0.30, fy-U*0.36, U*0.60, U*0.22);
+    }
+    ctx.restore();
+
+    /* The wrench ring is drawn UNMASKED but only while the player is physically
+       at the pipe, which is a fact about where they are standing rather than
+       an act of revealing. Losing it to a nearby partition would read as the
+       repair stalling for no reason, and the ring is the only feedback the
+       mechanic gives moment to moment. */
+    if (L.repair > 0 && !L.fixed){
+      const rx = w2sx(L.sx+0.5), ry = w2sy(L.sy+0.5), rr = U*0.62;
+      const prog = L.repair/REPAIR_TIME;
+      ctx.strokeStyle = 'rgba(20,24,18,0.75)';
+      ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.arc(rx, ry, rr, 0, 6.283); ctx.stroke();
+      ctx.strokeStyle = 'rgba(158,214,224,0.95)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(rx, ry, rr, -Math.PI/2, -Math.PI/2 + prog*6.283);
+      ctx.stroke();
+    }
+  }
 
   /* ---------- 7. danger / awareness ---------- */
   const seen = Math.min(1,G.seenBy);
@@ -2251,6 +3034,9 @@ const HUD = {
   vBatt: document.getElementById('val-batt'),
   vNoise: document.getElementById('val-noise'),
   vExits: document.getElementById('val-exits'),
+  vLeak: document.getElementById('val-leak'),
+  vFlood: document.getElementById('val-flood'),
+  barFlood: document.getElementById('bar-flood'),
   vDepth: document.getElementById('val-depth'),
   vLives: document.getElementById('val-lives'),
   hud: document.getElementById('hud'),
@@ -2284,7 +3070,11 @@ function togglePause(){
       `Depth <b>${G.floor+1}/${FLOORS}</b> &nbsp; Exits <b>${G.exitsFound}/${G.exitTiles.length}</b>`+
       (left ? ` &mdash; <b>${left}</b> still to find` : ' &mdash; go to one')+
       ` &nbsp; Battery <b>${Math.ceil(G.batt)}</b> &nbsp; Lives <b>${lives}</b><br>`+
-      `It has heard you make <b>${G.stat.noises}</b> noise${G.stat.noises===1?'':'s'} so far.`;
+      (G.leak.fixed
+        ? `The riser is <b>SEALED</b>. The floor is still draining &mdash; <b>${Math.round(G.floodCover*100)}%</b> under water.`
+        : `The riser is <b>OPEN</b>. <b>${Math.round(G.floodCover*100)}%</b> of the floor is under water and still rising.<br>`+
+          `Follow the wet floor downhill to the wall, then hold still for <b>${REPAIR_TIME} seconds</b>. It is loud.`)+
+      `<br>It has heard you make <b>${G.stat.noises}</b> noise${G.stat.noises===1?'':'s'} so far.`;
   }
   else if (STATE==='pause'){ STATE='play'; hideAll(); }
 }
@@ -2299,6 +3089,17 @@ function updateHUD(){
   HUD.noiseWrap.classList.toggle('hot', G.noise>0.45);
   G.noisePeak = Math.max(G.noise, G.noisePeak - 0.004);
   HUD.vExits.textContent = `${G.exitsFound} / ${G.exitTiles.length}`;
+  /* Two leak readouts, because they answer different questions. SEALED tells
+     you whether the door will open. FLOOD is a gauge of how much of the floor
+     is under water — which is the pressure clock: a high number means you have
+     been away from this pipe a long time, and it keeps moving after you seal
+     it while the water drains, so it is also feedback that the repair worked. */
+  if (HUD.vLeak) HUD.vLeak.innerHTML = G.leak.fixed
+    ? '<span class="ok">SEALED</span>'
+    : `<span class="bad2">OPEN</span>${G.leak.repair>0.02
+        ? ` <b>${(G.leak.repair/REPAIR_TIME*100)|0}%</b>` : ''}`;
+  if (HUD.vFlood) HUD.vFlood.textContent = String(Math.round(G.floodCover*100)).padStart(2,'0');
+  if (HUD.barFlood) HUD.barFlood.style.width = (G.floodCover*100)+'%';
   HUD.vDepth.textContent = `${G.floor+1} / ${FLOORS}`;
   HUD.vLives.innerHTML = [0,1,2].map(i=>`<span class="${i<lives?'':'gone'}">&#9679;</span>`).join('');
 }
@@ -2307,9 +3108,17 @@ function setPrompt(){
   const el=document.getElementById('prompt');
   if (!G){ el.classList.remove('on'); return; }
   const all = G.exitsFound>=G.exitTiles.length && G.exitTiles.length>0;
-  if (G.descend>0.02) el.textContent = 'cycling door \u2014 do not stop';
+  const leak = G.leak;
+  /* The repair prompt is first because it is the only state in the game where
+     the player must NOT press a key, and the prompt line is where they look to
+     find out what the game wants. Everything else is a movement instruction. */
+  if (leak.repair>0.02)   el.textContent = 'wrenching \u2014 DO NOT MOVE';
+  else if (!leak.fixed && G.atLeak) el.textContent = 'hold still \u2014 5 seconds at the pipe';
+  else if (G.descend>0.02) el.textContent = 'cycling door \u2014 do not stop';
+  else if (all && !leak.fixed) el.textContent = 'the door will not open \u2014 seal the leak first';
   else if (all) el.textContent = 'an exit is open \u2014 get to one';
   else if (G.radar) el.textContent = 'radar sweeping \u2014 find all ' + G.exitTiles.length + ' exits';
+  else if (G.wet>0.3) el.textContent = 'wet floor \u2014 the water runs downhill from the leak';
   else el.textContent = 'radar off \u2014 press R';
   el.classList.add('on');
 }
@@ -2333,6 +3142,11 @@ document.getElementById('btn-retry').onclick = ()=>{
   }
   buildFloor(floorIdx, RUN_SEED);
   G.batt = Math.max(G.batt, 55);
+  /* The retry keeps the same seed, so the pipe is where you left it and the
+     flood restarts. Dying costs you a life and the work you did on the leak,
+     but not the knowledge — which is the split that matters, because the leak
+     position is the thing you spent the floor learning and a re-roll would
+     erase it. */
   for (const a of G.agents){ a.born=3.0; }
   hideAll(); STATE='play';
   document.getElementById('hud').classList.add('on');

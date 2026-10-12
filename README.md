@@ -16,6 +16,13 @@ fandom wiki: six hundred million square miles of randomly segmented empty
 rooms, mono-yellow, no level names, and an entity that is never named on
 screen.
 
+**You are a plumber.** A riser has burst somewhere on every floor and the water
+is climbing. You do not know where. The radar cannot help with that — it
+reveals exits and nothing else, and it is not going to start knowing about
+plumbing. The water will tell you. Finding the break is the first half of the
+job; standing still next to it for five seconds while something walks toward
+the noise of you doing exactly that is the second.
+
 **The radar is information only.** It does not repel the entity, does not stun
 it, and cannot save you. A sweep lights the entire floor at once — no dark
 spots anywhere, including the 80 degrees behind you — and it reveals exits and
@@ -61,13 +68,24 @@ dark edge strokes along every wall/carpet boundary. The canvas and `style.css`
 share these five values, so the shell and the game are one palette rather than
 two that happen to be yellowish.
 
+**The water is the one deliberate exception.** It has to be: it is the mechanic,
+and a flood you cannot see is a flood you cannot follow. It is applied as an
+alpha tint over the carpet rather than as a replacement for it, so a wet tile
+is still that carpet — darkened, and only eventually cool enough to read as
+water. Nothing else in the world is allowed a second hue, and the one blue in
+the HUD (`#8fc4cc`, the flood gauge) is the water's own colour, borrowed for
+the one meter that describes it.
+
 **Noise is the entire stealth layer.**
 
 | action | power | heard within |
 |---|---|---|
 | walk | 0.22 | ~6.6 tiles |
+| walk through standing water | 0.30 | ~7.6 tiles |
 | walk into a partition | 0.30 | ~7.6 tiles |
+| the leak, dripping (rising as the floor drowns) | 0.16 → 0.42 | ~6 → ~9 tiles |
 | **sprint** | 1.00 | ~16 tiles |
+| **wrench the pipe** | 0.85 | ~14 tiles |
 | reveal an exit | 1.30 | ~20 tiles |
 | cycle a door | 1.80 | ~26 tiles |
 
@@ -75,9 +93,94 @@ Walls muffle sound by 3 tiles each. **Quiet noise only makes it curious; only
 loud noise — or being seen — commits it to a hunt.** So you can walk right past
 a sleeping coil pile, but sprint near one and it stands up.
 
-**The rule that makes it a game:** all three exits must be found before you can
-descend, and finding each one is loud. You spend light and noise to locate
-them, then have to walk back to one without running.
+**The rule that makes it a game:** all three exits must be found *and* the riser
+sealed before you can descend. Finding each exit is loud. Sealing the riser is
+louder than running. The two halves pull in opposite directions — the radar
+finds the doors and costs battery, the water finds the pipe and costs nothing
+but the walk — and you cannot do both at the same time.
+
+---
+
+## The leak
+
+One wall tile per floor, as far from where you spawn as the geometry allows
+(capped at 46 tiles straight-line — see below). It is the only object in the
+game that is not gated by the cone, and it is still not the radar: it reveals
+one tile you are already standing next to, costs no battery, and does nothing
+at all from two rooms away.
+
+**The water is the cue, and it costs nothing.** Water runs downhill *away* from
+the break and nowhere else, so the wet trail is a path to the source that
+spends no battery and makes walk-level noise. Walking it is slightly slower
+(20%) and slightly louder than dry carpet — and still under `LOUD`, because if
+following the water were strictly worse than sweeping, nobody would ever follow
+it. The radar is the expensive way to learn where the doors are; the water is
+the free way to learn where the pipe is. They are deliberately not comparable.
+
+**The leak is a standing noise source, and that is the trap.** A leak that only
+flooded the floor would be scenery. One that gurgles pulls the Lifeform to the
+pipe — a shield while you are finding it, because something standing over the
+break is not standing over you — and a fixed ambush for the repair, because you
+know where it is coming from. Its power rises with how much of the floor is
+underwater, but it is clamped below `LOUD` no matter how bad it gets: above
+that it stops being a lure and becomes a floor-wide hunt trigger, and the
+repair would have nothing left to be tense against. It only ever diverts an
+entity that is already `SEARCH`ing. A hunting one ignores it entirely — if it
+did not, sprinting would no longer be a decision, and the noise layer would be
+gone.
+
+**The repair is five seconds of standing still.** Move and the bar decays at
+2.6 whole-bars per second, so leaving after four seconds throws away the lot
+and hesitating at the pipe is a mistake you have to pay for. Wrenching is
+0.85 — louder than sprinting, the loudest thing you will do on a floor other
+than cycle a door — and it wakes a Lifeform that is standing on the pipe with
+you. You are choosing to be immobile and loud, next to the noisiest thing in
+the building, with something already on its way.
+
+**Dripping is the audio half of the cue**, and it is separate from the visual
+one on purpose: the water tells you where to go, the drip tells you that you
+have arrived, and a player who has been squinting at wet carpet for two
+minutes gets a second channel at the moment the first one has done its job.
+
+### How the water spreads
+
+`waterDist` is a BFS from the pipe over walkable floor, and a tile's target
+wetness is exactly `distance <= front` where the front advances at
+`LEAK_SPREAD`. That is the whole physics: water runs downhill, so a distance
+field *is* the simulation, and a diffusion model would only add a parameter to
+get wrong. It also means the flood cannot depend on frame timing — two machines
+at different frame rates flood identically.
+
+Wetness integrates toward that target with a time constant rather than snapping
+to it, so the waterline creeps instead of teleporting a tile at a time. Sealing
+the pipe runs the same mechanism backwards: the front retreats at one tile per
+`WET_FALL` second, so the water recedes from the edges inward, away from the
+pipe, rather than fading uniformly.
+
+Three bugs in here were each invisible to the suite and obvious on screen:
+
+- Only the band the front swept was being integrated, on the reasoning that a
+  tile's *target* only changes there. True, and wrong: a tile keeps darkening
+  for `WET_RISE` seconds *after* the front passes it. The floor sat at 10%
+  wetness forever and read as permanently damp.
+- The band's end was computed as `ceil(front)`, treating the BFS array index
+  as a distance. They are not the same thing — a hundred tiles can share
+  distance 17 — so the flood was truncated to the first hundred tiles of a
+  3700-tile floor. There is now a distance→index table.
+- The colour was chosen by picking something that looks like water *in
+  isolation*. It has to be chosen by solving for what the tile looks like
+  **over the carpet**: damp composites to roughly (135,139,81), about 30%
+  darker than dry, and standing water to about (78,105,104), where blue beats
+  red by enough to read in a dark corridor. An earlier pass darkened it further
+  and a flooded tile became indistinguishable from an unlit one, which defeats
+  the entire mechanic.
+
+The leak is placed by straight-line distance with a **46-tile cap**, and the cap
+is load-bearing. Sorting by Euclidean distance and taking the extreme corner
+looks correct on paper and is wrong in a maze: a tile 70 tiles away in a
+straight line can be 200 tiles of corridor to actually walk, because a BSP
+floor is a tree and the winding is the point. Uncapped, the repair became a
+two-minute trudge — not tension, a commute.
 
 ### The Lifeform
 
@@ -98,8 +201,9 @@ Three lives for a full descent.
 | `WASD` / arrows | move |
 | `Shift` | sprint — fast, and very loud |
 | `R` | radar — lights the whole floor, burns battery fast |
+| *(nothing)* | **the repair has no button. Stand at the pipe and do not press anything.** |
 | `Enter` | start / confirm / resume — closes whichever modal is up |
-| `Esc` | pause (the modal re-shows the controls and your current depth, exits, battery and lives) |
+| `Esc` | pause (the modal re-shows the controls and your current depth, exits, battery, riser state and flood level) |
 
 ---
 
@@ -117,8 +221,14 @@ Three lives for a full descent.
 ## Tests
 
 ```
-node test.js      # exit 0 = pass, ~70s
+node test.js      # exit 0 = pass
 ```
+
+This takes **ten to twenty minutes**, not the seventy seconds an earlier version
+of this file claimed. That claim was stale before the leak existed — the
+end-to-end bot alone simulates a few hundred thousand frames of real `update()`,
+and sixteen full five-floor runs at up to nine simulated minutes each is most
+of the wall clock. Budget for it; it is not hung.
 
 `game.js` is DOM/canvas-coupled, so `test.js` stubs enough of both to load the
 real module and drive its real logic — maze generation, the ambient light bake,
@@ -209,6 +319,43 @@ What it actually checks:
     to reset the found flags between cases: a sweep reveals every exit on
     screen, not just the one under test, so a negative case otherwise inherits
     a reveal from the previous one.
+15. **The leak** — over 200 floors, every leak is on a wall and every repair
+    spot is floor the player can physically stand on. Then the water field: no
+    wall tile is inside it, no floor tile is outside it, and no pair of
+    neighbouring tiles violates `|d(n) − d(i)| <= 1` (a BFS that skipped a tile
+    produces a front that jumps, and the symptom is water arriving in a distant
+    room before a nearer one). Then that the flood rises, stays inside 0..1,
+    never wets a wall, and that **the incremental flood gauge matches a full
+    re-sum to 1e-6** — it is read every frame by the leak's noise level and the
+    HUD and the game no longer recomputes it, so a drifting incremental sum is
+    invisible everywhere else: the tiles would be exactly right and the number
+    would be wrong. Finally, that **the leak never reaches `LOUD`**, over 1200
+    frames of a floor drowning. That is the whole lure contract.
+16. **The repair** — it takes exactly `REPAIR_TIME` seconds to within a frame,
+    a sealed pipe cannot be re-wrenched and cannot make noise, leaving decays
+    the bar and a full bar is gone within two seconds, a Lifeform lying on the
+    pipe wakes to the wrench, the door **stays shut** with all three exits found
+    and the pipe open, and opens once it is sealed. The last pair is the one
+    that matters: without the negative case, "the door opened" would pass even
+    if the gate were not the leak at all.
+17. **The water as a cue** — it is asserted on the *packed pixels*, not on the
+    simulation, because a wet tile that packs to alpha 0 leaves every other
+    assertion in the suite passing while rendering a clean dry floor. That this
+    is exactly the bug class test 5 cannot catch, which is why the flood
+    canvas's `putImageData`/`getImageData` now round-trip in the stub. Then
+    that following the trail is free next to sweeping, that wetness strictly
+    decreases with distance from the pipe, and that wading really is slower.
+18. **End-to-end with the repair** — a second bot drives real keys to the pipe,
+    holds still, and descends. The first bot only chases exits and can now never
+    finish, which would have turned test 4 into a permanent 0/8 and quietly
+    stopped testing whether the game is winnable at all.
+19. **The leak is drawn where it is.** The leak visual was absent from every
+    frame of test 5's 400 renders. It was filled with *world* coordinates in
+    the one pass that runs after `ctx.restore()`, so it landed at raw pixel
+    1360 on a 1218px canvas — right size, right colour, correct mask, and
+    completely off screen. Nothing about that arithmetic looks wrong, and no
+    exception is thrown. This asserts the pipe's projected device position is
+    on the canvas and that something is actually painted there.
 
 ### Lighting
 
@@ -380,12 +527,36 @@ slides left on screen, mean luminance 97/255, 0.1% clipped, 2% near-black,
 
 ### Known gaps
 
-- **Difficulty is untuned.** A bot cannot tell you whether three lives across a
-  ten-minute descent is fun or brutal. That needs a human. Room scoping makes
-  this worse before it makes it better: you can no longer see the whole floor,
-  so exits are found with the radar rather than by looking, which is the
-  intended direction — but it is a change to the light budget and the budget
-  has never been tuned.
+- **Difficulty is untuned, and the leak makes that worse before it makes it
+  better.** A bot cannot tell you whether three lives across a ten-minute
+  descent is fun or brutal. That needs a human. Room scoping already made this
+  worse before it made it better: you can no longer see the whole floor, so
+  exits are found with the radar rather than by looking. The leak adds a second
+  untuned cost to the same floor — a five-second immobile commitment next to a
+  noise source — and it was tuned before anything else in the game had been.
+  The numbers that matter and have never been played by a human are
+  `REPAIR_TIME` (5.0s), `REPAIR_DECAY` (2.6 bars/s), `LEAK_SPREAD` (1.4s per
+  tile, so a floor drowns in about three and a half minutes) and `LEAK_FAR`
+  (46 tiles).
+- **The repair is a death trap, and the bot walks straight into it.** With the
+  monster present, test 4b now clears **0 of 6** runs and never gets past the
+  first floor. The bot walks to the pipe and holds still for five seconds at
+  0.85 noise without ever checking whether something is coming, which is
+  precisely the mistake the mechanic is designed to punish. A human who scouts
+  the pipe first and repairs during a lull is playing the intended game; the
+  bot is not. But this is the one number here that should be read as a
+  difficulty *warning* rather than dismissed as bot incompetence — the
+  mechanic's whole risk budget is one immobile, loud commitment, and it has
+  never been played by anyone.
+- **The flood has no gameplay consequence for the entity.** Water slows you by
+  20% and makes your footsteps louder; it does nothing to the Lifeform. Making
+  deep water slow *it* would make a flooded room a place you can briefly hold
+  ground in, which is the obvious next idea and was left out because it
+  interacts with `LOUD` thresholds in ways that need playtesting first.
+- **The leak is not re-rolled on death**, deliberately: the retry keeps the
+  seed, so the pipe is where you left it. That means dying does not cost you
+  the flood either, which is generous, and is the opposite of the ratchet the
+  mechanic was sketched with.
 - Scoping is by region, so it cannot distinguish "the room you are in" from
   "the two rooms joined by a band you happen to be standing in". In practice
   the bands are two to six tiles of corridor, so this reads correctly, but it is

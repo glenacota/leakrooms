@@ -24,12 +24,21 @@
         <div class="bar noise"><i id="bar-noise"></i></div>
         <span id="val-noise">00</span>
       </div>
+      <div class="stat">
+        <span class="lbl">FLOOD</span>
+        <div class="bar flood"><i id="bar-flood"></i></div>
+        <span id="val-flood">00</span>
+      </div>
     </div>
 
     <div class="hud-right">
       <div class="stat">
         <span class="lbl">EXITS</span>
         <span id="val-exits">0 / 3</span>
+      </div>
+      <div class="stat">
+        <span class="lbl">RISER</span>
+        <span id="val-leak">OPEN</span>
       </div>
       <div class="stat">
         <span class="lbl">DEPTH</span>
@@ -71,9 +80,11 @@
       </div>
 
       <p class="hint">
-        The radar will not save you. It only lets you <i>see</i>.<br>
-        A sweep lights the whole floor at once, and the battery buys you under twenty seconds of it.<br>
-        Find all three exits. Finding one is loud. Then get back to one without running.
+        A riser has burst somewhere on this floor and the water is climbing.<br>
+        The radar will not save you. It only lets you <i>see</i>, and it does not know a thing about plumbing.<br>
+        The <b>wet floor does</b>. Water runs downhill away from the break &mdash; follow it back to the wall.<br><br>
+        Then stand at the pipe and <b>hold still for five seconds</b>. It is the loudest thing you will do.<br>
+        Seal it before the door will open.
       </p>
 
       <button id="btn-start">NO-CLIP</button>

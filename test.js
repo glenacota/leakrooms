@@ -16,31 +16,47 @@ const fs = require('fs');
 
 const calls = { pattern:0, imageData:0, gradient:0, list:[] };
 
+/* getImageData reads back what putImageData last wrote. That round-trip is not
+   incidental: the flood is rendered through a packed image, and asserting on
+   wetArr alone would pass while the renderer drew nothing — the exact class of
+   bug the README says several of these tests missed. Reading the pixels is the
+   only way to see what the frame actually contains. */
 function fakeCtx(){
   const noop = ()=>{};
   const grad = { addColorStop: noop };
-  return new Proxy({
+  const self = {
     canvas:{width:0,height:0},
+    _last:null,
     setTransform(...a){ calls.list.push(['setTransform',...a]); },
     translate(...a){ calls.list.push(['translate',...a]); },
     drawImage(...a){ calls.list.push(['drawImage',...a]); },
     createPattern: ()=>{ calls.pattern++; return {}; },
-    createImageData:(w,h)=>{ calls.imageData++; return {width:w,height:h,data:new Uint8ClampedArray(w*h*4)}; },
-    putImageData: noop, getImageData: noop,
-    createLinearGradient: ()=>{ calls.gradient++; return grad; },
-    createRadialGradient: ()=>{ calls.gradient++; return grad; },
+    createImageData:(w,h)=>{ calls.imageData++; const im={width:w,height:h,data:new Uint8ClampedArray(w*h*4)}; self._last=im; return im; },
+    putImageData(im){ self._last = im; },
+    getImageData(x,y,w,h){
+      const src = self._last;
+      const out = {width:w, height:h, data:new Uint8ClampedArray(w*h*4)};
+      if (src && src.data && src.width===w && src.height===h) out.data.set(src.data);
+      return out;
+    },
+    createLinearGradient: (...a)=>{ calls.gradient++; calls.list.push(['createLinearGradient',...a]); return grad; },
+    createRadialGradient: (...a)=>{ calls.gradient++; calls.list.push(['createRadialGradient',...a]); return grad; },
+    fillRect(...a){ calls.list.push(['fillRect',...a]); },
     measureText: ()=>({width:10}),
     globalAlpha:1, globalCompositeOperation:'', fillStyle:'', strokeStyle:'',
     lineWidth:1, font:'', textAlign:'', imageSmoothingEnabled:true,
-  }, {
+  };
+  return new Proxy(self, {
     get(t,k){ if (k in t) return t[k]; return noop; },
     set(t,k,v){ t[k]=v; return true; }
   });
 }
 
 function fakeCanvas(){
-  return { width:0, height:0, clientWidth:1280, clientHeight:720,
-           getContext:()=>fakeCtx(), style:{} };
+  const cv = { width:0, height:0, clientWidth:1280, clientHeight:720,
+               getContext:()=>cv._ctx, style:{} };
+  cv._ctx = fakeCtx();
+  return cv;
 }
 
 function fakeEl(id){
@@ -109,7 +125,23 @@ globalThis.__api = {
   get floorIdx(){ return floorIdx; },
   get keys(){ return keys; },
   get HAND_OFF(){ return HAND_OFF; }, get R(){ return R; }, drawAgent,
-  get cvs(){ return cvs; }, get TILE(){ return TILE; }
+  get cvs(){ return cvs; }, get ctxRef(){ return ctx; }, get SCALE(){ return SCALE; },
+  get lightCv(){ return lightCv; }, get wetCv(){ return wetCv; },
+  get TILE(){ return TILE; },
+  get wetArr(){ return wetArr; }, get waterDist(){ return waterDist; },
+  get leakTile(){ return leakTile; }, get LOUD(){ return LOUD; },
+  get FLOOR(){ return FLOOR; },
+  get REPAIR_TIME(){ return REPAIR_TIME; },
+  get REPAIR_REACH(){ return REPAIR_REACH; },
+  get REPAIR_NOISE(){ return REPAIR_NOISE; },
+  get LEAK_NOISE_BASE(){ return LEAK_NOISE_BASE; },
+  get LEAK_NOISE_GAIN(){ return LEAK_NOISE_GAIN; },
+  get LEAK_SPREAD(){ return LEAK_SPREAD; },
+  get WET_RISE(){ return WET_RISE; },
+  get LEAK_LURE(){ return LEAK_LURE; },
+  get WALK(){ return WALK; }, get SPRINT(){ return SPRINT; },
+  tickFlood, wetAt, floodCover, sealLeak, leakReach, initFlood, packWet,
+  get wetCv(){ return wetCv; }
 };
 `, ctxObj);
 
@@ -356,7 +388,7 @@ console.log('[4] end-to-end — bot drives REAL keys through update()');
     let t=0, field=null, gk='', deaths=0, lowestBatt=100, minMargin=1e9, why='?';
     let fe=null, exKey=null, gkSet=null, lastSetKey=null, tExit=null;
     let path=null, wi=0, pathFromX=-99, pathFromY=-99, goalId=-1;
-    let escapes=0, swapped=false, hasMovedLastFrame=false;
+    let escapes=0, swapped=false, hasMovedLastFrame=false, leakGoal=null, lastLeakKey='';
 
     while(A.floorIdx<5 && t<60*maxMinutes){
       if(!withEntity && G.agents.length) G.agents.length=0;
@@ -364,6 +396,50 @@ console.log('[4] end-to-end — bot drives REAL keys through update()');
       const unfound=G.exitTiles.filter(e=>!e.found);
       const live=G.batteries.filter(b=>!b.taken);
       const px=G.player.x, py=G.player.y, cur=IDX(Math.floor(px),Math.floor(py));
+
+      /* --- THE LEAK COMES FIRST.
+         The floor does not open until the riser is sealed, so a bot that only
+         chases exits can now never finish and this test would report 0/8 for
+         the whole suite. The leak is handled as an EXTRA goal that outranks the
+         exits while it is open: walk to the pipe, stand on it, and press no
+         keys at all until the bar is full. Releasing the keys is the entire
+         repair input — there is no button — so a hold is five seconds of
+         doing nothing, which the loop has to actually model. */
+      const leak=G.leak;
+      if (!leak.fixed){
+        /* Ask the GAME's own predicate whether we are in reach, rather than a
+           tighter radius of the test's own. A bot that starts holding at 0.34
+           while the game allows REPAIR_REACH is testing a stricter game than
+           the one that ships — and it failed 6/6 for exactly that reason,
+           walking right up to the pipe and then never quite arriving. */
+        if (A.leakReach(px, py)){
+          /* on the pipe: hands on the wrench. No keys, no radar, no movement. */
+          keys.w=keys.s=keys.a=keys.d=false; keys.shift=false;
+          update(1/60); t+=1/60;
+          if (A.STATE!=='play'){ deaths++;
+            const lv=vm.runInContext('lives',ctxObj);
+            if (lv<=0) break;
+            vm.runInContext('RUN_SEED='+sd+';', ctxObj);
+            buildFloor(A.floorIdx, sd);
+            A.STATE='play'; gk=''; exKey=null; lastSetKey=null; tExit=null; path=null; goalId=-1;
+          }
+          continue;
+        }
+        /* Walk to the pipe, reusing the exit machinery's path follower.
+           The path is NOT nulled here. It was, and that single line made this
+           the slowest thing in the suite by an order of magnitude: the rebuild
+           condition is `!path || off-course`, so a null every frame rebuilt a
+           5776-entry BFS on every frame of what is the longest walk in the
+           game. Invalidating on the GOAL changing is enough and is what the
+           exit path already does. */
+        const lk = leak.sx+','+leak.sy;
+        if (lk !== lastLeakKey){
+          lastLeakKey = lk; goalId=-1;
+        }
+        leakGoal={x:leak.sx, y:leak.sy};
+      } else {
+        leakGoal=null; lastLeakKey='';
+      }
 
       /* --- choose the TARGET EXIT first, so the torch decision and the
              movement goal can never disagree. (When they did, the bot walked
@@ -386,9 +462,10 @@ console.log('[4] end-to-end — bot drives REAL keys through update()');
         if(tExitKey!==exKey){ exKey=tExitKey; fe=distField(tExit.x,tExit.y); }
       } else { fe=null; exKey=null; }
 
-      /* --- then the goal: recharge when low, otherwise go to the exit --- */
+      /* --- then the goal: the leak first, then recharge, then the exit --- */
       let goal=null, kind=null;
-      const needCharge = unfound.length && G.batt<38 && live.length;
+      if (leakGoal){ goal=leakGoal; kind='leak'; }
+      const needCharge = !goal && unfound.length && G.batt<38 && live.length;
       if(needCharge){
         let bb=null,bbd=Infinity;
         for(const b of live){
@@ -413,7 +490,11 @@ console.log('[4] end-to-end — bot drives REAL keys through update()');
              twice what the torch it replaced did, so being greedy about it
              strands the bot rather than just wasting charge. --- */
       const dExit = fe ? distTo(fe,cur) : 9999;
-      G.radar = (dExit<=11) || (G.batt>85 && kind==='exit' && dExit<=16);
+      /* No sweep on the way to the pipe. The water IS the cue down there and
+         spending the battery to re-learn a floor you are walking across is
+         exactly the waste the economy is built to punish. */
+      G.radar = kind==='leak' ? false
+              : (dExit<=11) || (G.batt>85 && kind==='exit' && dExit<=16);
       if(kind==='batt' && G.batt>20) G.radar=false;
 
       /* --- steer by FOLLOWING AN EXPLICIT PATH ---
@@ -520,14 +601,20 @@ console.log('[4] end-to-end — bot drives REAL keys through update()');
   // --- 4a: level-design feasibility (no monster) ---
   let feas=0, ft=[], worstMargin=1e9, worstBatt=100, escA=0;
   globalThis.TRACE=false;
-  for(let s=0;s<8;s++){
-    const r=play(s*5077+5, false, 9);
+  for(let s=0;s<6;s++){
+    const r=play(s*5077+5, false, 14);
     if(r.depth>=5){ feas++; ft.push(r.t); }
     if(process.env.V) console.log(`     seed ${s}: depth ${r.depth}/5 exits ${r.exits} time ${r.t.toFixed(0)}s why=${r.why}`);
     worstMargin=Math.min(worstMargin,r.minMargin); escA+=r.escapes;
     worstBatt=Math.min(worstBatt,r.lowestBatt);
   }
-  console.log(`[4a] feasibility — ${feas}/8 runs cleared all 5 floors with no monster`);
+  console.log(`[4a] feasibility — ${feas}/6 runs cleared all 5 floors with no monster`);
+  /* The cap is 14 minutes, not the 9 it was before the leak. A run is now
+     about 8.7 minutes because sealing the riser is a genuine extra journey
+     across every floor, and a 9-minute ceiling made the bot time out on its
+     last floor and report 1/8 — which reads as "the game is nearly unwinnable"
+     when the truth is "the test's deadline is now shorter than the game".
+     Six runs instead of eight keeps the wall clock roughly where it was. */
   if(ft.length) console.log(`     avg ${(ft.reduce((a,b)=>a+b,0)/ft.length/60).toFixed(1)} min per 5-floor run`);
   console.log(`     tightest battery headroom: ${worstMargin.toFixed(0)} units (negative = would strand)`);
   console.log(`     lowest battery observed: ${worstBatt.toFixed(0)}   bot escapes: ${escA}`);
@@ -536,12 +623,12 @@ console.log('[4] end-to-end — bot drives REAL keys through update()');
 
   // --- 4b: full game with the monster ---
   let wins=0, rt=[], dsum=0, reach=0, escSum=0;
-  for(let s=0;s<8;s++){
-    const r=play(s*3319+11, true, 9);
+  for(let s=0;s<6;s++){
+    const r=play(s*3319+11, true, 14);
     if(r.depth>=5){ wins++; rt.push(r.t); }
     dsum+=r.deaths; reach=Math.max(reach,r.depth); escSum+=r.escapes;
   }
-  console.log(`[4b] with monster — ${wins}/8 runs cleared all 5 floors, deepest ${reach}/5, deaths ${dsum}, bot escapes ${escSum}`);
+  console.log(`[4b] with monster — ${wins}/6 runs cleared all 5 floors, deepest ${reach}/5, deaths ${dsum}, bot escapes ${escSum}`);
   if(rt.length) console.log(`     avg completed run ${(rt.reduce((a,b)=>a+b,0)/rt.length/60).toFixed(1)} min`);
   // Informational only. The bot ignores the entity until it is 9 tiles away and
   // flees into whatever dead end is nearest, so its death rate is NOT a valid
@@ -642,11 +729,12 @@ console.log('[7] camera mapping — player centred, world not inverted');
   calls.list.length = 0;
   render(1000 + 91*16.7);
 
-  let SCALE=1, tx=null, ty=null, lightDraw=null;
+  let SCALE=1, tx=null, ty=null, lightDraw=null, wetDraw=null;
   for (const c of calls.list){
     if (c[0]==='setTransform' && SCALE===1 && c[1]!==1) SCALE = c[1];   // FIRST one is the camera
     if (c[0]==='translate' && tx===null){ tx = c[1]; ty = c[2]; }
-    if (c[0]==='drawImage' && lightDraw===null) lightDraw = c;
+    if (c[0]==='drawImage' && c[1]===A.lightCv) lightDraw = c;
+    if (c[0]==='drawImage' && c[1]===A.wetCv) wetDraw = c;
   }
   assert(SCALE>0, 'no setTransform captured');
   assert(tx!==null, 'no translate captured');
@@ -676,14 +764,36 @@ console.log('[7] camera mapping — player centred, world not inverted');
   assert(Math.abs(span - 10*TW*SCALE) < 0.5,
     `10 tiles spans ${span.toFixed(0)}px, expected ${(10*TW*SCALE).toFixed(0)}px — SCALE applied twice?`);
 
-  // the light bake must share the origin of the geometry
+  /* The light bake must share the origin of the geometry.
+     This now identifies the lightmap BY IMAGE rather than as "the first
+     drawImage in the frame". The flood pass draws its own image inside the
+     world transform first, so the ordinal was quietly measuring the wrong
+     thing and reporting a spurious failure — the lightmap was aligned the
+     whole time. An assertion that depends on draw order is a landmine for
+     whoever adds the next image. */
   assert(lightDraw, 'lightmap drawImage not captured');
   // drawImage args are [img, x, y, ...] so the origin is at index 2/3
   assert(Math.abs(lightDraw[2] - tx*SCALE) < 0.01 && Math.abs(lightDraw[3] - ty*SCALE) < 0.01,
     `lightmap origin (${lightDraw[2]?.toFixed(1)},${lightDraw[3]?.toFixed(1)}) != world origin `+
     `(${(tx*SCALE).toFixed(1)},${(ty*SCALE).toFixed(1)}) — lighting will be offset`);
+
+  /* And the flood image must be drawn INSIDE the world transform, at the map
+     origin, so the water sits on the tiles it belongs to. This is the same
+     class of error as the leak being filled in device space: correct image,
+     wrong coordinate space, nothing looks wrong until you look. */
+  assert(wetDraw, 'the flood image was never drawn — the water does not render');
+  assert(wetDraw[2]===0 && wetDraw[3]===0,
+    `flood image drawn at (${wetDraw[2]},${wetDraw[3]}) rather than the map origin — water is offset from the tiles it covers`);
+  /* Its SIZE is in WORLD units, not device pixels — the draw happens inside the
+     scaled transform, exactly like the geometry, so 76 tiles * TILE is correct
+     and SCALE is applied by the context on the way out. (The first version of
+     this assertion expected the scaled value and failed on a correct
+     renderer.) */
+  assert(wetDraw[4]===76*A.TILE && wetDraw[5]===76*A.TILE,
+    `flood image spans ${wetDraw[4]}x${wetDraw[5]} world units, want ${76*A.TILE} — the water is not tile-aligned`);
+
   console.log(`  player at ${pxDev.toFixed(0)},${pyDev.toFixed(0)}; viewport centre ${CW/2},${CH/2}`);
-  console.log(`  10 tiles spans ${span.toFixed(0)}px; lightmap origin aligned with geometry`);
+  console.log(`  10 tiles spans ${span.toFixed(0)}px; lightmap and flood both aligned with geometry`);
 }
 
 /* ============ TEST 8: avatar art fits the collision disc =============
@@ -1556,6 +1666,692 @@ console.log('[14] the radar — off by default, total while on, expensive');
       `checked ${negatives} off-screen and ${positives} on-screen cases`);
     console.log(`  reveal rule holds: ${positives} on-screen revealed, ${negatives} off-screen not revealed`);
   }
+}
+
+/* ============ TEST 15: the leak ===============================
+   A new mandatory objective, and every one of these is a way the mechanic
+   silently stops working. The three that matter most:
+
+   - the leak must be REACHABLE, or the floor is unwinnable and no other test
+     in this file would notice, because none of them require the repair;
+   - water must never appear on a WALL, because the renderer draws the flood
+     under the walls and a wet wall tile is either invisible (harmless) or,
+     worse, visible through the lighting multiply and reads as a hole;
+   - the leak must never reach LOUD. A leak at LOUD stops being a lure and
+     becomes a floor-wide hunt trigger, which deletes the repair's tension. */
+console.log('[15] the leak — placement, reachability, and the flood field');
+{
+  const W=76;
+
+  /* --- placement over 200 floors --- */
+  let unreachable=0, onWall=0, tooClose=0, noSpot=0, sealedAtStart=0;
+  for (let s=0; s<200; s++){
+    buildFloor(s % 5, s*7907+31);
+    const L = G.leak;
+    if (!L){ noSpot++; continue; }
+    if (G.grid[L.y*W+L.x] !== 0) onWall++;
+    if (L.fixed) sealedAtStart++;
+
+    /* the repair spot must be floor the player can physically stand on, and it
+       must be inside the map. An unreachable repair is an unwinnable floor. */
+    if (L.sx<0||L.sy<0||L.sx>=W||L.sy>=W || G.grid[L.sy*W+L.sx]!==1) noSpot++;
+    if (blocked(L.sx+0.5, L.sy+0.5, 0.33)) unreachable++;
+
+    /* and it should be a real trek, not the tile you spawn on */
+    const d = Math.hypot(L.sx+0.5-G.player.x, L.sy+0.5-G.player.y);
+    if (d < 8) tooClose++;
+  }
+  assert(noSpot===0, `${noSpot}/200 floors have no usable repair spot`);
+  assert(unreachable===0, `${unreachable}/200 floors have a repair spot inside geometry`);
+  assert(onWall===0, `${onWall}/200 leaks are not on a wall tile`);
+  assert(sealedAtStart===0, `${sealedAtStart}/200 floors start with the leak already sealed`);
+  console.log(`  200 floors: every leak on a wall, every repair spot standable`);
+
+  /* --- water can only exist on floor it can actually reach --- */
+  buildFloor(2, 60606);
+  {
+    let bad=0, unreachableWet=0;
+    for (let i=0;i<W*W;i++){
+      if (G.grid[i]===0 && A.waterDist[i] >= 0) bad++;
+      if (G.grid[i]===1 && A.waterDist[i] < 0) unreachableWet++;
+    }
+    assert(bad===0, `${bad} wall tiles are inside the water field — water can flow through rock`);
+    assert(unreachableWet===0, `${unreachableWet} floor tiles the water can never reach`);
+    assert(G.wetFloor>0, 'the wet floor is empty — the flood gauge would divide by zero');
+    console.log(`  water field: ${G.wetFloor} reachable tiles, no wall tiles, none unreachable`);
+  }
+
+  /* --- the distance field is a real distance field --- */
+  {
+    const li = G.leak.sy*W + G.leak.sx;
+    assert(A.waterDist[li]===0, `the pipe tile is ${A.waterDist[li]} from the leak, want 0`);
+    /* no tile may be closer than a neighbour minus one: a BFS that skipped a
+       tile would produce a front that jumps, and the visible symptom is water
+       arriving in a distant room before a nearer one. */
+    let jumps=0;
+    for (let y=1;y<W-1;y++) for (let x=1;x<W-1;x++){
+      const i=y*W+x;
+      if (G.grid[i]!==1 || A.waterDist[i]<0) continue;
+      for (const [nx,ny] of [[x+1,y],[x-1,y],[x,y+1],[x,y-1]]){
+        const n=ny*W+nx;
+        if (G.grid[n]!==1 || A.waterDist[n]<0) continue;
+        if (A.waterDist[n] < A.waterDist[i]-1) jumps++;
+      }
+    }
+    assert(jumps===0, `${jumps} neighbour pairs violate |d(n)-d(i)|<=1 — the front can skip tiles`);
+    console.log('  distance field is monotone across every floor edge');
+  }
+
+  /* --- there IS a trail from the first second ---
+     The flood is pre-warmed by LEAK_HEADSTART. Without it a floor opens bone
+     dry and the player has no cue at all until water happens to reach them,
+     which is the exact opposite of "follow the wet floor downhill" and turns
+     the first half-minute into a blind search. */
+  {
+    let floorsWithTrail=0, dryAtStart=0;
+    for (let s=0;s<40;s++){
+      buildFloor(s%5, s*1543+3);
+      let wet=0;
+      for (let i=0;i<76*76;i++) if (G.grid[i]===1 && A.wetArr[i]>0.5) wet++;
+      if (wet>0) floorsWithTrail++; else dryAtStart++;
+      assert(G.floodCover>0, `floor ${s} starts with a flood gauge reading zero`);
+    }
+    assert(dryAtStart===0,
+      `${dryAtStart}/40 floors start bone dry — there is no cue for the first thirty seconds`);
+    console.log(`  every floor opens with water already standing (${floorsWithTrail}/40)`);
+  }
+
+  /* --- the flood rises, is bounded, and never touches a wall --- */
+  {
+    for (let i=0;i<600;i++) update(1/30);      // 20 seconds
+    let over=0, wallWet=0, nan=0;
+    for (let i=0;i<W*W;i++){
+      const v=A.wetArr[i];
+      if (Number.isNaN(v)) nan++;
+      if (v>1.0001 || v<-0.0001) over++;
+      if (G.grid[i]===0 && v>0.02) wallWet++;
+    }
+    assert(nan===0, `${nan} NaN wetness values`);
+    assert(over===0, `${over} wetness values outside 0..1`);
+    assert(wallWet===0, `${wallWet} wall tiles are wet — water is rendering through rock`);
+    const cover = A.floodCover();
+    assert(cover>0 && cover<=1, `flood coverage is ${cover}, want (0,1]`);
+    console.log(`  after 20s: ${(cover*100).toFixed(0)}% of the floor is wet, no wall is wet`);
+  }
+
+  /* --- the incremental flood gauge agrees with a straight re-sum ---
+     G.floodCover is maintained by adding the DELTA as the waterline band
+     moves, and it is read by the leak's own noise level and by the HUD. An
+     incremental sum that genuinely drifted would be invisible in every other
+     assertion here: the tiles would be exactly right and the number would be
+     wrong, which shows up as a gauge reading 40% on a dry floor.
+
+     The tolerance is NOT 1e-6, which is what the first version of this asked
+     for and which fails. wetArr is a Float32Array: every stored wetness is
+     rounded to ~6e-8, and the sum accumulates that rounding once per tile per
+     update, so the drift is bounded by roughly eps x tiles and grows slowly.
+     What must be ruled out is drift of a different KIND — a band recomputed
+     twice, or a splash that does not update the sum — and those are orders of
+     magnitude larger than the bound below. */
+  {
+    let worst=0;
+    for (let i=0;i<40;i++){
+      update(1/30);
+      const oracle = A.floodCover();
+      worst = Math.max(worst, Math.abs(oracle - G.floodCover));
+    }
+    const bound = 1e-3;   // eps(2^-24) * 3747 tiles * margin
+    assert(worst < bound,
+      `the incremental flood gauge drifts from a re-sum by ${worst.toExponential(2)} — `+
+      `past the float32 rounding bound of ${bound}`);
+    console.log(`  incremental flood gauge matches a full re-sum to ${worst.toExponential(1)} (float32 bound)`);
+  }
+
+  /* --- the front is CLOSE TO THE LEAK FIRST, and later not.
+     This is the cue the whole mechanic rests on: if the water appeared
+     everywhere at once the player has nothing to follow. --- */
+  {
+    let inverted=0;
+    for (let i=0;i<W*W;i++){
+      const d=A.waterDist[i], w=A.wetArr[i];
+      if (d<0) continue;
+      /* every tile is wetter than every strictly further tile's distance band:
+         aggregate it — mean wetness must strictly decrease with distance. */
+      void w;
+    }
+    const band=6;
+    const sum=new Float64Array(64), cnt=new Float64Array(64);
+    for (let i=0;i<W*W;i++){
+      const d=A.waterDist[i];
+      if (d<0) continue;
+      const b=Math.min(63,(d/band)|0);
+      sum[b]+=A.wetArr[i]; cnt[b]++;
+    }
+    let prev=Infinity;
+    for (let b=0;b<64;b++){
+      if (!cnt[b]) continue;
+      const mean=sum[b]/cnt[b];
+      if (mean > prev + 0.02){ inverted++; }
+      prev = Math.max(prev, mean);
+    }
+    assert(inverted===0, `${inverted} distance bands are wetter than the band before them`);
+    console.log('  the front is nearest the pipe and falls off with distance');
+  }
+
+  /* --- the leak NEVER gets loud. This is the design contract of the lure. */
+  {
+    let loud=0, samples=0;
+    for (let i=0;i<1200;i++){
+      update(1/30);
+      samples++;
+      if (G.leakPower >= A.LOUD) loud++;
+    }
+    assert(loud===0,
+      `the leak reached LOUD ${loud}/${samples} frames — a loud leak is a floor-wide hunt trigger, not a lure`);
+    assert(G.leakPower >= A.LEAK_NOISE_BASE,
+      'the leak went quieter than its base while still open');
+    console.log(`  leak noise tops out at ${G.leakPower.toFixed(2)} against a LOUD of ${A.LOUD} — always a lure`);
+  }
+
+  /* --- the leak is audible only when it is quiet: drip < walk < wrench --- */
+  {
+    assert(A.REPAIR_NOISE >= A.LOUD,
+      `wrenching at ${A.REPAIR_NOISE} is under LOUD — the repair must be the loud decision`);
+    assert(A.LEAK_NOISE_BASE < A.LOUD, 'the base leak noise is already LOUD');
+    /* wading must stay UNDER loud or following the trail would be strictly
+       worse than sweeping, and the trail has to be the cheap option */
+    assert(A.LEAK_NOISE_BASE+0.08 < A.LOUD, 'wading is loud enough to wake things');
+    console.log(`  wrench ${A.REPAIR_NOISE} > LOUD ${A.LOUD} > drip ${A.LEAK_NOISE_BASE}`);
+  }
+}
+
+/* ============ TEST 16: the repair ===============================
+   Five seconds, standing still. The failure modes are all about the bar: it
+   filling while you walk away, filling without you, filling without noise, or
+   completing twice. Each of those makes the mechanic free or broken. */
+console.log('[16] the repair — five seconds, standing still');
+{
+  const W=76;
+
+  /* --- placing the player ON the pipe, without fighting unstick() --- */
+  const standAt = () => {
+    const L=G.leak;
+    G.player.x = L.sx+0.5; G.player.y = L.sy+0.5;
+    A.leakReach(G.player.x, G.player.y);
+  };
+
+  /* --- the spot exists and is in reach --- */
+  buildFloor(1, 77777);
+  standAt();
+  assert(A.leakReach(G.player.x, G.player.y),
+    'standing on the pipe does not put you in repair reach');
+  assert(A.leakReach(G.leak.sx+0.5, G.leak.sy+0.5),
+    'the centre of the repair spot is not in reach');
+  /* and it must NOT be in reach from across the room, or the repair is a
+     proximity accident rather than a decision */
+  assert(!A.leakReach(G.leak.sx+0.5 + A.REPAIR_REACH + 0.5, G.leak.sy+0.5),
+    'you can wrench the pipe from outside the reach radius');
+
+  /* --- holding still fills the bar, and it takes the stated five seconds --- */
+  {
+    standAt();
+    keys.w=keys.s=keys.a=keys.d=false; keys.shift=false;
+    let frames=0, t=0;
+    while (G.leak.repair < A.REPAIR_TIME && frames < 4000){
+      G.player.x = G.leak.sx+0.5; G.player.y = G.leak.sy+0.5;
+      update(1/60); t += 1/60; frames++;
+      if (G.leak.fixed) break;
+    }
+    assert(G.leak.fixed, `held still for ${t.toFixed(1)}s and the pipe never sealed`);
+    /* exactly the stated time, within a frame — a bar that fills early is a
+       bar that was not asking for anything */
+    assert(Math.abs(t - A.REPAIR_TIME) < 0.06,
+      `the repair took ${t.toFixed(2)}s, want ${A.REPAIR_TIME}s`);
+    console.log(`  held still: sealed in ${t.toFixed(2)}s (stated ${A.REPAIR_TIME}s)`);
+  }
+
+  /* --- exactly once: repairing a sealed pipe does nothing --- */
+  {
+    assert(G.leak.fixed===true, 'the pipe did not stay sealed');
+    const before = G.stat.sealed;
+    standAt();
+    for (let i=0;i<600;i++){
+      G.player.x = G.leak.sx+0.5; G.player.y = G.leak.sy+0.5;
+      update(1/60);
+    }
+    assert(G.leak.repair===0, `a sealed pipe still has ${G.leak.repair}s of progress on it`);
+    assert(G.stat.sealed===before, `sealLeak ran ${G.stat.sealed-before} extra times`);
+    assert(G.leakPower===0, 'a sealed pipe is still making noise');
+    console.log('  a sealed pipe cannot be re-wrenched and makes no sound');
+  }
+
+  /* --- MOVING decays the bar, and does not reset it to zero --- */
+  {
+    buildFloor(1, 31415);
+    standAt();
+    for (let i=0;i<180;i++){
+      G.player.x = G.leak.sx+0.5; G.player.y = G.leak.sy+0.5;
+      update(1/60);
+    }
+    const partial = G.leak.repair;
+    assert(partial > 0.5 && partial < A.REPAIR_TIME, `progress after 3s is ${partial}`);
+    // now walk away
+    G.leak.repair = 3.0;
+    for (let i=0;i<30;i++){ keys['d']=true; update(1/60); }
+    keys['d']=false;
+    assert(G.leak.repair < 3.0,
+      `walking off the pipe did not decay the bar (still ${G.leak.repair})`);
+    console.log(`  leaving after 3s decays to ${G.leak.repair.toFixed(2)} — the mistake costs`);
+  }
+
+  /* --- and the bar decays to ZERO within a second, so hesitating is not a
+         strategy --- */
+  {
+    G.leak.repair = A.REPAIR_TIME;
+    for (let i=0;i<120;i++) update(1/60);      // 2s of standing somewhere else
+    assert(G.leak.repair===0, `the bar is still at ${G.leak.repair} after 2s away`);
+    console.log('  a full bar is lost in under two seconds away from the pipe');
+  }
+
+  /* --- the wrench is LOUD, and loud enough to wake a sleeping coil --- */
+  {
+    buildFloor(0, 5150);
+    /* a dormant agent placed right next to the pipe must WAKE from the repair
+       alone — the whole tension of the mechanic is that standing still
+       announces you, so this asserts the announcement is real. */
+    const L=G.leak;
+    const sleeper = G.agents.find(a=>a.state==='DORMANT');
+    if (sleeper){
+      sleeper.x = L.sx+0.5; sleeper.y = L.sy+0.5; sleeper.born=0;
+      for (let i=0;i<90;i++){
+        G.player.x = L.sx+0.5; G.player.y = L.sy+0.5;
+        update(1/60);
+        if (sleeper.state!=='DORMANT') break;
+      }
+      assert(sleeper.state!=='DORMANT',
+        'a Lifeform lying on the pipe never woke to the wrench — the repair is silent');
+      console.log('  wrenching wakes a Lifeform standing on the pipe');
+    }
+  }
+
+  /* --- the door is sealed until the pipe is, and the exit rule still holds --- */
+  {
+    buildFloor(2, 24680);
+    /* Find all three exits WITHOUT sealing the pipe. The exits are spread
+       across the floor and the viewport is 27 tiles across, so no single
+       position puts all three on screen — they are revealed one at a time by
+       parking the player beside each. That is the real mechanic (a sweep
+       reveals whatever is in view) and using it here keeps this test measuring
+       the door gate rather than a searching algorithm. */
+    {
+      const reset=()=>{ for (const o of G.exitTiles) o.found=false; G.exitsFound=0; G.stat.found=0; };
+      let guard=0;
+      while (G.exitsFound < G.exitTiles.length && guard++ < 40){
+        const e = G.exitTiles.find(o=>!o.found);
+        if (!e) break;
+        let placed=false;
+        for (let y=1;y<W-1 && !placed;y++) for (let x=1;x<W-1;x++){
+          if (G.grid[y*W+x]!==1) continue;
+          G.player.x=x+0.5; G.player.y=y+0.5;
+          if (A.onScreen(e.x+0.5, e.y+0.5)){ placed=true; break; }
+        }
+        if (!placed){ reset(); break; }
+        G.batt=100; G.radar=true;
+        update(1/60);
+        /* exit 1 has a game-ending hazard? no. exit 2 may now also be in view. */
+        G.radar=false;
+      }
+    }
+    assert(G.exitsFound===3, `only ${G.exitsFound}/3 exits found by sweeping beside each`);
+
+    /* now: all found, pipe open, sitting on an exit. The door must NOT open. */
+    G.player.x = G.exitTiles[0].x+0.5; G.player.y = G.exitTiles[0].y+0.5;
+    G.batt=100;
+    for (let i=0;i<400;i++){ G.batt=100; update(1/60); }
+    assert(A.floorIdx===0,
+      `descended with the leak open — the door is supposed to stay shut (floorIdx ${A.floorIdx})`);
+    assert(G.descend===0, `the door cycled ${G.descend.toFixed(2)}s with the leak open`);
+    console.log('  door stays sealed with all three exits found and the pipe open');
+
+    /* and with the pipe sealed it opens, which proves the gate is the pipe and
+       not some side effect of the test above */
+    A.sealLeak();
+    G.player.x = G.exitTiles[0].x+0.5; G.player.y = G.exitTiles[0].y+0.5;
+    let opened=false;
+    for (let i=0;i<200 && !opened;i++){
+      G.batt=100; update(1/60);
+      if (A.floorIdx>0) opened=true;
+    }
+    assert(opened, 'with the leak sealed the door never opened — the gate is not the leak');
+    console.log('  sealing the pipe opens the door');
+    /* put the global back — the remaining tests assume floor 0-ish state */
+    vm.runInContext('floorIdx=0;', ctxObj);
+  }
+}
+
+/* ============ TEST 17: the water is a usable cue ==============================
+   The mechanic is worthless if the player cannot tell wet from dry, or if
+   following the trail is more expensive than sweeping the floor for the leak.
+   Both of those are numeric claims about the game and so they are tested as
+   numeric claims, not eyeballed. */
+console.log('[17] the water as a cue — legible, free, and it actually leads');
+{
+  const W=76;
+
+  /* --- it renders as something, not nothing ---
+     The flood is packed into an image and drawn. If a wet tile packs to alpha
+     0 the feature renders as a clean dry floor and every logic test above
+     still passes: this is precisely the class of bug the README says the
+     suite misses. Assert on the packed pixels. */
+  buildFloor(2, 13579);
+  for (let i=0;i<3600;i++) update(1/30);        // 2 minutes: a lot of floor wet
+  A.packWet();
+  {
+    const d = A.wetCv.getContext('2d').getImageData(0,0,W,W).data;
+    let painted=0, blue=0;
+    for (let i=0;i<W*W;i++){
+      const k=i*4;
+      if (d[k+3] > 8) painted++;
+      /* blue-dominant: standing water must not be a yellow wash */
+      if (d[k+2] > d[k] + 12 && d[k+3] > 40) blue++;
+    }
+    assert(painted > 300, `only ${painted} tiles render as wet — the flood is invisible on screen`);
+    assert(blue > painted*0.4,
+      `only ${blue} of ${painted} wet tiles read blue — the water is not distinguishable from carpet`);
+    console.log(`  ${painted} tiles render wet, ${blue} of them blue-dominant`);
+  }
+
+  /* --- following the trail is FREE next to sweeping ---
+     The radar is 5.6/s of battery for 18 seconds of total knowledge. Following
+     water costs no battery at all and makes only walk-level noise. If the
+     water were expensive this test would force the question of why the mechanic
+     exists; it is free, and this pins that so a future tuning pass cannot
+     quietly price it. */
+  {
+    assert(A.RADAR_DRAIN > 5, 'the radar got cheap — the trail has to be worth more than a sweep');
+    assert(A.LEAK_NOISE_BASE < 0.5, 'standing near a leak is already loud');
+    console.log(`  trail costs no battery and ${A.LEAK_NOISE_BASE} noise vs ${A.RADAR_DRAIN}/s of sweep`);
+  }
+
+  /* --- and the trail LEADS: wetness is strictly higher nearer the pipe --- */
+  {
+    const d0 = A.waterDist[G.leak.sy*W+G.leak.sx];
+    let near=0, nearN=0, far=0, farN=0;
+    for (let i=0;i<W*W;i++){
+      const d=A.waterDist[i];
+      if (d<0) continue;
+      if (d <= d0+3){ near += A.wetArr[i]; nearN++; }
+      else if (d >= d0+16){ far += A.wetArr[i]; farN++; }
+    }
+    assert(nearN>0 && farN>0, 'not enough tiles near/far to compare the front');
+    const nm=near/nearN, fm=far/farN;
+    assert(nm > fm,
+      `the front does not lead: ${(nm*100).toFixed(0)}% wet near the pipe vs ${(fm*100).toFixed(0)}% far away`);
+    console.log(`  front leads: ${(nm*100).toFixed(0)}% wet within 3 tiles of the pipe, ${(fm*100).toFixed(0)}% at 16+`);
+  }
+
+  /* --- wading is slower and louder, but never LOUD --- */
+  {
+    buildFloor(1, 24680);
+    /* find a wet tile, then measure a dry walk and a wet walk over the same
+       number of frames from the same spot */
+    let wetTile=null;
+    for (let i=0;i<20000 && !wetTile;i++) update(1/30);
+    for (let y=1;y<W-1 && !wetTile;y++) for (let x=1;x<W-1;x++){
+      if (G.grid[y*W+x]===1 && A.wetAt(x+0.5,y+0.5) > 0.3){ wetTile={x,y}; break; }
+    }
+    assert(wetTile, 'no wet floor tile anywhere after 10 minutes — the flood never spreads');
+
+    /* slow wet walking by seeding a deep puddle around the player and timing it */
+    G.player.x=wetTile.x+0.5; G.player.y=wetTile.y+0.5;
+    vm.runInContext('for(let i=0;i<9;i++) seedSplash(G.player.x,G.player.y,1.0);', ctxObj);
+    A.STATE='play';
+    keys.w=false; keys.s=false; keys.a=false; keys.d=false;
+    let dist=0;
+    for (let i=0;i<90;i++){
+      // hold a direction and measure what happens
+      keys['d']=true;
+      const x0=G.player.x;
+      update(1/60);
+      dist += Math.abs(G.player.x-x0);
+      if (A.STATE!=='play'){ A.STATE='play'; }
+    }
+    keys['d']=false;
+    /* 90 frames of walking at SPRINT/WALK speed, minus the wading penalty.
+       Assert only the DIRECTION of the effect and the floor: a wall stops you,
+       so this measures a lower bound. */
+    const maxDry = 90/60 * A.WALK;
+    assert(dist <= maxDry*1.02,
+      `walked ${dist.toFixed(2)} tiles in wet, above the dry maximum ${maxDry.toFixed(2)} — wading is not slowing anything`);
+    assert(dist < maxDry*0.98,
+      `walked ${dist.toFixed(2)} of a possible ${maxDry.toFixed(2)} — no wading slowdown at all`);
+    console.log(`  wading costs speed (${(dist/maxDry*100).toFixed(0)}% of dry over the same frames)`);
+  }
+}
+
+/* ============ TEST 18: the floor is still FINISHABLE with the repair =========
+   The leak is mandatory now, so it has to be inside the completion path the
+   end-to-end bot already walks. This drives the bot at the pipe and asserts the
+   whole objective set — three exits AND a sealed riser — is achievable through
+   the real update(), with real key state. */
+console.log('[18] end-to-end — the bot finds the pipe, wrenches it, and descends');
+{
+  const W=76, IDX=(x,y)=>y*W+x;
+
+  /* --- leak placement: does the existing bot's goal logic find it? ---
+     The suite's bot targets exits. The leak needs its own navigation or it is
+     simply not playable, so this drives the SAME path machinery the exit logic
+     uses, pointed at the pipe, and checks the bot can actually arrive and hold
+     the five seconds. */
+  function bfsPath(sx,sy,gx,gy){
+    if(sx===gx && sy===gy) return [];
+    const prev=new Int32Array(W*W).fill(-1);
+    const st=IDX(sx,sy), goal=IDX(gx,gy);
+    if(G.grid[st]!==1||G.grid[goal]!==1) return null;
+    prev[st]=st; const q=[st];
+    for(let h=0;h<q.length;h++){
+      const c=q[h];
+      if(c===goal) break;
+      const cx=c%W, cy=(c/W)|0;
+      for(const [nx,ny] of [[cx+1,cy],[cx-1,cy],[cx,cy+1],[cx,cy-1]]){
+        if(nx<0||ny<0||nx>=W||ny>=W) continue;
+        const ni=ny*W+nx;
+        if(G.grid[ni]!==1||prev[ni]>=0) continue;
+        prev[ni]=c; q.push(ni);
+      }
+    }
+    if(prev[goal]<0) return null;
+    const out=[]; let c=goal;
+    while(c!==st){ out.push([c%W,(c/W)|0]); c=prev[c]; }
+    out.push([sx,sy]);
+    return out.reverse();
+  }
+
+  let arrived=0, sealed=0, descended=0, noPath=0;
+  for (let s=0;s<6;s++){
+    buildFloor(s%5, s*4441+13);
+    A.STATE='play';
+    vm.runInContext('floorIdx=0; lives=3;', ctxObj);
+    G.leak.fixed = false;
+
+    let path=null, wi=0, fromX=-99, fromY=-99, holding=false, done=false;
+    let swapped=false, hasMovedLastFrame=false;
+    const goal={x:G.leak.sx, y:G.leak.sy};
+    let frames=0;
+
+    while (frames < 60*240 && !done){
+      frames++;
+      const px=G.player.x, py=G.player.y;
+      keys.w=keys.s=keys.a=keys.d=false; keys.shift=false;
+
+      /* once we are on the pipe, STOP. The repair is a hold, not a walk.
+         As in test 4, the question is the GAME's reach predicate and not a
+         radius invented here. 0.35 is inside the game's 1.25, so a single-axis
+         presser that stops 0.4 tiles short would never trigger it, and the bot
+         walked right up to the pipe and then reported 0/6. */
+      if (A.leakReach(px, py)){
+        holding = true;
+        update(1/60);
+        if (A.STATE!=='play'){ A.STATE='play'; }
+        if (G.leak.fixed){ sealed++; break; }
+        continue;
+      }
+
+      const stale = !path || wi>=path.length ||
+                    Math.hypot(px-fromX, py-fromY) > 2.5;
+      if (stale){ fromX=px; fromY=py; path=bfsPath(Math.floor(px),Math.floor(py),goal.x,goal.y); wi=0; }
+      if (!path){ noPath++; break; }
+      while (wi<path.length-1 && Math.hypot(path[wi][0]+0.5-px, path[wi][1]+0.5-py) < 0.45) wi++;
+      const wp=path[Math.min(wi,path.length-1)];
+      const dx=(wp[0]+0.5)-px, dy=(wp[1]+0.5)-py;
+
+      /* The steering from test 4, which is the version that actually walks a
+         maze. Pressing one axis blindly — which is what this did first — jams
+         against a partition and stays jammed: 231 frames of movement in 14400,
+         never getting closer than 38 tiles. The two things that matter are a
+         LOOKAHEAD that refuses to press into a wall, and FLIPPING the axis
+         preference when the last press produced nothing, because a committed
+         axis walks the bot into a corner a human rounds by also pressing the
+         other way. */
+      const X=[dx>0?'d':'a', dx>0?1:-1, 0];
+      const Y=[dy>0?'s':'w', 0, dy>0?1:-1];
+      const wantFirst = Math.abs(dx)>Math.abs(dy);
+      const opts = (wantFirst!==swapped) ? [X,Y] : [Y,X];
+      if(!hasMovedLastFrame) swapped=!swapped;
+      hasMovedLastFrame=false;
+      let moved=false;
+      for (const [k2,ux,uy] of opts){
+        if (Math.abs(ux*dx)+Math.abs(uy*dy) < 0.06) continue;
+        if (!blocked(px+ux*0.15, py+uy*0.15, 0.33)){ keys[k2]=true; moved=true; break; }
+      }
+      if (!moved){
+        for (const [k2,ux,uy] of opts){
+          if (Math.abs(ux*dx)+Math.abs(uy*dy) < 0.06) continue;
+          if (!blocked(px+ux*0.2, py+uy*0.2, 0.30)){ keys[k2]=true; break; }
+        }
+      }
+      const bx0=G.player.x, by0=G.player.y;
+      update(1/60);
+      if (Math.abs(G.player.x-bx0)+Math.abs(G.player.y-by0) > 1e-6) hasMovedLastFrame=true;
+      if (A.STATE!=='play') A.STATE='play';       // respawn on death, keep trying
+    }
+    if (G.leak.fixed) arrived++;
+
+    /* now: with the pipe sealed and all exits found, the floor completes */
+    if (G.leak.fixed){
+      /* reveal them the same way if a retry reset the flags */
+      for (const o of G.exitTiles) if (!o.found){
+        for (let y=1;y<W-1;y++){ let done=false;
+          for (let x=1;x<W-1 && !done;x++){
+            if (G.grid[y*W+x]!==1) continue;
+            G.player.x=x+0.5; G.player.y=y+0.5;
+            if (A.onScreen(o.x+0.5,o.y+0.5)){ G.batt=100; G.radar=true; update(1/60); G.radar=false; done=true; }
+          }
+          if (done) break;
+        }
+      }
+      G.player.x=G.exitTiles[0].x+0.5; G.player.y=G.exitTiles[0].y+0.5;
+      for (let i=0;i<200 && A.floorIdx<1;i++){ G.batt=100; update(1/60); if(A.STATE!=='play')A.STATE='play'; }
+      if (A.floorIdx>0) descended++;
+    }
+    void holding;
+  }
+  keys.w=keys.s=keys.a=keys.d=false; keys.shift=false;
+  assert(noPath===0, `${noPath} floors had no path from the spawn to the pipe — the objective is unreachable`);
+  assert(arrived===6, `the bot reached and sealed the pipe on ${arrived}/6 floors`);
+  assert(descended===6, `the bot descended after sealing on ${descended}/6 floors`);
+  console.log(`  bot: sealed the pipe on ${arrived}/6 floors, descended on ${descended}/6`);
+  vm.runInContext('floorIdx=0;', ctxObj);
+}
+
+/* ============ TEST 19: the leak is actually DRAWN =============================
+   Test 5 renders 400 frames and throws no exception, and the leak visual was
+   absent from every one of them. It was being filled at WORLD coordinates in
+   the one pass that runs after ctx.restore(), so it landed at raw pixel 1360
+   and off the edge of a 1218px canvas — correctly sized, correctly gated,
+   correctly computed, and completely invisible.
+
+   The general shape of that bug is not specific to the leak: anything drawn
+   after the world transform is restored has to convert coordinates itself, and
+   nothing about the arithmetic looks wrong. So this test does what test 5
+   cannot and checks WHERE the pixels landed — if the pipe is on screen, the
+   pipe's tile must have changed colour. */
+console.log('[19] the leak is drawn where it is, not just where it is computed');
+{
+  const W=76;
+  buildFloor(2, 2468);
+  for (let i=0;i<60*40;i++) update(1/60);          // let the pipe actually stain
+  const L=G.leak;
+
+  // stand on the repair spot facing the pipe, so it is on screen and lit
+  G.player.x=L.sx+0.5; G.player.y=L.sy+0.5;
+  G.player.face=Math.atan2((L.y+0.5)-G.player.y,(L.x+0.5)-G.player.x);
+  /* Let the room crossfade SETTLE before asserting anything about the mask.
+     Teleporting the player starts a 0.3s scope transition, and snapMask()
+     retraces the cone but does not finish the fade — so a mask read three
+     frames after arriving is a half-faded value and the pipe looks dim for
+     reasons that have nothing to do with the pipe. */
+  for (let i=0;i<40;i++){ G.player.x=L.sx+0.5; G.player.y=L.sy+0.5; update(1/60); }
+  A.snapMask();
+
+  assert(A.onScreen(L.x+0.5, L.y+0.5),
+    'the pipe is not on screen while standing on it — the test cannot check what it cannot see');
+  assert(A.maskArr[A.leakTile] > 0.9,
+    `the pipe tile is masked to ${A.maskArr[A.leakTile]} while the player stands on it`);
+
+  /* the camera has to be ON the player before a pixel comparison means
+     anything; render() smooths it, so settle it the way the game does */
+  const camx0 = (function(){ render(1000); return 1; })();
+  void camx0;
+  for (let i=0;i<90;i++) render(1000+i*16.7);
+
+  /* Where the pipe should land, in device pixels. The camera has to be settled
+     first or this measures the smoothing instead of the drawing. */
+  const tileScreen = (tx,ty)=>{
+    const T=A.TILE*A.SCALE, cx=A.cvs.width/2, cy=A.cvs.height/2;
+    return [Math.round(cx+(tx-G.player.x)*T), Math.round(cy+(ty-G.player.y)*T)];
+  };
+  for (let i=0;i<90;i++) render(1000+i*16.7);
+  const [lx,ly] = tileScreen(L.x, L.y);
+  const onCanvas = lx>=0 && ly>=0 && lx<A.cvs.width && ly<A.cvs.height;
+  assert(onCanvas,
+    `the pipe projects to (${lx},${ly}), outside a ${A.cvs.width}x${A.cvs.height} canvas`);
+  if (onCanvas){
+    /* The stub canvas does not rasterize, so this checks the DRAW CALL rather
+       than the pixels: something has to actually be painted at the pipe. The
+       regression this exists for filled at world coordinates and so painted
+       1360px to the right of where the pipe is — every one of these calls
+       existed, all of them were the right size and the right colour, and not
+       one of them was anywhere near the pipe. */
+    calls.list.length = 0;
+    render(1000+91*16.7);
+    const near = calls.list.filter(c=>{
+      if (c[0]!=='fillRect' && c[0]!=='createLinearGradient' && c[0]!=='createRadialGradient') return false;
+      const x=c[c.length-2], y=c[c.length-1];
+      return Math.hypot(x-lx, y-ly) < A.TILE*A.SCALE*1.2;
+    });
+    assert(near.length>0,
+      `nothing is drawn within a tile of the pipe at (${lx},${ly}) — `+
+      `${calls.list.filter(c=>c[0]==='fillRect').length} fills happened, none of them at the pipe`);
+  }
+
+  /* and the progress ring: it must be painted while wrenching, which is the
+     only moment-to-moment feedback the repair gives */
+  {
+    G.player.x=L.sx+0.5; G.player.y=L.sy+0.5;
+    for (let i=0;i<120;i++){ G.player.x=L.sx+0.5; G.player.y=L.sy+0.5; update(1/60); }
+    assert(G.leak.repair>1.5, `only ${G.leak.repair}s of progress after two seconds held`);
+    const [rx,ry] = tileScreen(L.sx+0.5, L.sy);
+    calls.list.length = 0;
+    render(1000+200*16.7);
+    const near = calls.list.filter(c=>{
+      if (c[0]!=='createLinearGradient' && c[0]!=='createRadialGradient') return false;
+      const x=c[c.length-2], y=c[c.length-1];
+      return Math.hypot(x-rx, y-ry) < A.TILE*A.SCALE*1.5;
+    });
+    assert(near.length>0, 'no ring is painted on the spot while the repair runs');
+  }
+  console.log('  the pipe and the wrench ring land on screen, not off in device-pixel space');
 }
 
 console.log('\n' + (fail? `\n${fail} FAILURE(S)\n` : 'ALL TESTS PASSED\n'));

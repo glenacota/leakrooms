@@ -94,8 +94,17 @@ body{ display:flex; align-items:center; justify-content:center; }
 }
 .bar.noise i{ background:linear-gradient(90deg,var(--yellow-dim),#e4e6a8); }
 .bar.noise.hot i{ background:linear-gradient(90deg,var(--danger),#ff8f6b); }
+/* The flood gauge is the ONE place in the shell that is allowed to be blue.
+   The world stays mono-yellow except for the water itself, and the water is
+   the mechanic — a gauge in the game's own palette would read as an unrelated
+   meter, so this one takes the water's colour and nothing else does. */
+.bar.flood i{ background:linear-gradient(90deg,#3c5a60,#8fc4cc); }
 
 #val-batt,#val-noise,#val-exits,#val-depth{ min-width:34px; font-variant-numeric:tabular-nums; }
+#val-flood{ min-width:34px; font-variant-numeric:tabular-nums; color:#8fc4cc; }
+#val-leak{ letter-spacing:.12em; }
+#val-leak .ok{ color:#8fc4cc; }
+#val-leak .bad2{ color:var(--danger); }
 .lives{ color:var(--danger); font-size:14px; letter-spacing:.3em; }
 .lives span.gone{ opacity:.18; }
 
