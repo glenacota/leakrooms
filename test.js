@@ -101,15 +101,29 @@ global.document = {
   body: { appendChild(){} },
 };
 global.__audioNodes = [];
+/* An AudioParam that remembers what it was last TOLD to do. The real one does
+   not write `.value` back when you schedule a ramp — setTargetAtTime is a
+   schedule, not an assignment — so a test that reads `.value` to find out where
+   a gain is going is reading the wrong number in the browser and in here. */
 function fakeParam(v){
-  return { value:v,
-    setValueAtTime(){}, setTargetAtTime(){}, linearRampToValueAtTime(){},
-    exponentialRampToValueAtTime(){}, cancelScheduledValues(){}, setValueCurveAtTime(){} };
+  return { value:v, _scheduled:null,
+    setValueAtTime(x){ this._scheduled=x; },
+    setTargetAtTime(x){ this._scheduled=x; },
+    linearRampToValueAtTime(x){ this._scheduled=x; },
+    exponentialRampToValueAtTime(x){ this._scheduled=x; },
+    cancelScheduledValues(){ this._scheduled=null; }, setValueCurveAtTime(){} };
 }
 function fakeAudioNode(kind){
   const n = {
-    kind, _out: [], _starts: 0, _stops: 0,
-    connect(x){ n._out.push(x); return x; },
+    kind, _out: [], _starts: 0, _stops: 0, _mod: false,
+    connect(x){
+      /* A node connected to something that is not a node is a MODULATOR: an
+         LFO feeding filter.frequency, or a gain feeding a panner. It has no
+         node-path to the destination by design and is not an orphan. */
+      if (!x || x.kind===undefined) n._mod = true;
+      else n._out.push(x);
+      return x;
+    },
     disconnect(){ n._out.length = 0; },
     start(){ n._starts++; }, stop(){ n._stops++; },
     gain: fakeParam(1), frequency: fakeParam(440), detune: fakeParam(0),
@@ -3066,12 +3080,14 @@ console.log('[23] audio — the graph reaches the destination');
   assert(A.Audio_.ok===true, 'Audio_.init did not come up with a context available');
   assert(A.Audio_.ctx===ctx, 'Audio_.init did not keep the context it created');
 
-  /* reachability: follow the wires from the master to the speakers */
+  /* reachability: follow the wires from the master to the speakers. A node
+     that feeds an AudioParam counts as connected — an LFO driving a filter
+     cutoff has no node-path to the speakers and is not supposed to have one. */
   const reaches = (start, dest)=>{
     const seen = new Set(), q = [start];
     while (q.length){
       const n = q.pop();
-      if (n===dest) return true;
+      if (n===dest || (n && n._mod)) return true;
       if (!n || seen.has(n)) continue;
       seen.add(n);
       for (const o of (n._out||[])) q.push(o);
@@ -3095,25 +3111,84 @@ console.log('[23] audio — the graph reaches the destination');
   assert(started>=5, `only ${started} nodes were started — the hum, the hiss and the drone are silent`);
 
   /* every one-shot voice: build it and check it lands */
-  /* Every voice, driven with plausible arguments — enumerated from the object
-     itself rather than from a hand-written list, because a list is a list that
-     goes stale the moment somebody adds a sound and forgets the test. The
-     argument count comes from fn.length and the values are all in range for
-     every voice here. */
+  /* Every VOICE, driven with plausible arguments. Enumerated from the object
+     itself so a new sound cannot skip the test — with the shell's own methods
+     named out, because those move gains and start timers rather than making a
+     sound, and "built no nodes" is the correct answer for all of them. */
+  const SHELL = ['init','setMaster','setMuted','unlock','ambience',
+                 '_ambStart','_ambTick','_ambStop','_ambNote'];
   const oneShots = Object.keys(A.Audio_).filter(k=>typeof A.Audio_[k]==='function'
-                                               && !['init','setMaster'].includes(k));
-  assert(oneShots.length>=10, `only found ${oneShots.length} voices on Audio_`);
+                                               && !SHELL.includes(k));
+  assert(oneShots.length>=9, `only found ${oneShots.length} voices on Audio_`);
   for (const name of oneShots){
     const args = new Array(A.Audio_[name].length).fill(0.5);
     const n0 = global.__audioNodes.length;
     A.Audio_[name](...args);
     const made = global.__audioNodes.length - n0;
-    /* silence/setMaster are continuous, not one-shots: they move an existing
-       gain rather than building a voice, so they legitimately build nothing. */
-    const continuous = (name==='silence'||name==='drone'||name==='setMaster');
+    /* silence/drone/setMaster are continuous, not one-shots: they move an
+       existing gain rather than building a voice, so they legitimately build
+       nothing. */
+    const continuous = (name==='silence'||name==='drone');
     assert(continuous || made>0, `Audio_.${name} built no nodes — it is inaudible`);
     const dead = global.__audioNodes.slice(n0).filter(n=>!reaches(n, ctx.destination));
     assert(dead.length===0, `Audio_.${name} built ${dead.length} nodes that reach nothing`);
+  }
+
+  /* ---------- the splash bed ----------
+     The title screen is the only place this plays, so "it is on while you are
+     looking at the title" and "it stops when the run starts" are the two claims
+     worth making, and neither is visible from the graph alone. */
+  {
+    const n0 = global.__audioNodes.length;
+    A.Audio_.ambience(true);
+    assert(A.Audio_.ambOn===true, 'ambience(true) did not turn the bed on');
+    assert(global.__audioNodes.length > n0, 'the bed built no nodes — the title screen is silent');
+    assert(A.Audio_._ambTimer, 'the bed has no scheduler — no note will ever be played');
+    const dead = global.__audioNodes.slice(n0).filter(n=>!reaches(n, ctx.destination));
+    assert(dead.length===0, `${dead.length} ambience nodes reach nothing — the bed is inaudible`);
+
+    /* the scheduler actually schedules: push the clock forward and tick it */
+    const before = global.__audioNodes.length;
+    ctx.currentTime = 400;
+    A.Audio_._ambTick();
+    assert(global.__audioNodes.length > before,
+      'the note scheduler built nothing after half a minute — the "music" is three drones');
+
+    /* and it is quiet by construction: a bed that can out-loud the wrench is
+       not a bed. Every voice it owns must start well under LOUD. */
+    A.Audio_.ambience(false);
+    assert(A.Audio_.ambOn===false, 'ambience(false) did not turn the bed off');
+    assert(A.Audio_._ambTimer===null, 'the note scheduler survived the bed — it will keep firing forever');
+    assert(A.Audio_.amb===null, 'the ambience graph was left attached after stopping');
+    A.Audio_.ambience(true); A.Audio_.ambience(false);   // idempotent either way
+  }
+
+  /* M is a separate node from the volume slider, so the two cannot undo each
+     other: dragging the volume while muted must not unmute. Read the SCHEDULED
+     gain, which is what setTargetAtTime is told, not `.value`, which a real
+     AudioParam does not write back when you schedule a ramp. */
+  {
+    A.Audio_.setMuted(true);
+    assert(A.Audio_.mute.gain._scheduled===0, 'muting did not close the mute gain');
+    A.Audio_.setMaster(1);
+    assert(A.Audio_.mute.gain._scheduled===0, 'raising the volume unmuted the game — the two settings are the same node');
+    assert(A.Audio_.master.gain._scheduled===1, 'the volume slider stopped working while muted');
+    A.Audio_.setMuted(false);
+    assert(A.Audio_.mute.gain._scheduled===1, 'unmuting did not reopen the mute gain');
+    assert(reaches(A.Audio_.mute, ctx.destination), 'the mute node does not reach the speakers');
+
+    /* ...and going through the SETTINGS STORE, not the audio method directly,
+       has to move the same node. This is the exact shape of the bug where
+       applySettings pushed the volume slider and forgot the mute: the flag
+       saved, survived a reload, toasted "AUDIO MUTED", and left the speakers
+       exactly as they were. A setting that appears to work is worse than one
+       that visibly does not. */
+    A.setOption('muted', true);
+    assert(A.Audio_.mute.gain._scheduled===0,
+      'the stored mute flag is set and the audio node is still open — the setting does nothing');
+    A.setOption('muted', false);
+    assert(A.Audio_.mute.gain._scheduled===1, 'unmuting through the store did not reopen the node');
+    A.setOption('muted', false);
   }
 
   /* the volume slider is the one thing in front of all of them */
@@ -3124,8 +3199,12 @@ console.log('[23] audio — the graph reaches the destination');
 
   /* and it all has to survive being called with no context, which is what a
      browser that refuses to start one does */
+  let threw='';
   A.Audio_.ctx = null; A.Audio_.ok = false;
   for (const name of oneShots) A.Audio_[name](...new Array(A.Audio_[name].length).fill(0.5));
+  for (const name of SHELL) { try { A.Audio_[name](false); } catch(e){ threw=String(e && e.message); } }
+  assert(!threw, 'a shell method threw with no audio context: '+threw);
+  A.Audio_.silence(); A.Audio_.setMaster(0.5);
   console.log(`  ${global.__audioNodes.length} nodes built, all reaching the destination; `+
     `${oneShots.length} one-shots wired; muted to ${A.Audio_.masterVol}, no-context path is a no-op`);
   global.window.AudioContext = undefined;
@@ -3210,7 +3289,48 @@ console.log('[21] the splash chain — 03 riser, 04 work order, then the run');
   assert(A.STATE==='order', 'an auto-repeating ENTER skipped the work order and started the run');
   press('Enter');
   assert(A.STATE==='play', `two ENTER presses on the chain did not reach the run (STATE=${A.STATE})`);
+
+  /* --- M, on the real key handler, in every state ---
+     It is the one control with no button, so the key path IS the feature: a
+     hotkey that is wired to the wrong state, or that fires on auto-repeat, or
+     that also advances the splash, is a hotkey that does not work. */
+  const mutedAt = ()=> vm.runInContext('SETTINGS.muted', ctxObj);
+  const storeAt = ()=> JSON.parse(global.__store.get(A.SETTINGS_KEY) || '{}');
+  const stored = ()=> {
+    A.saveSettings();
+    const s = storeAt();
+    A.loadSettings();
+    return s;
+  };
+  for (const st of ['splash','order','pause','dead','win','settings']){
+    A.STATE = st;
+    assert(mutedAt()===false || typeof mutedAt()==='boolean',
+      `could not read the muted flag in state ${st}`);
+    press('m');
+    assert(mutedAt()===true, `M did not mute from the ${st} screen`);
+    press('m');
+    assert(mutedAt()===false, `M did not unmute from the ${st} screen`);
+  }
+  /* auto-repeat must not toggle twenty times while the key is held */
+  A.STATE='play';
+  press('m', {repeat:true});
+  assert(mutedAt()===false, 'a held M toggled the mute anyway');
+  press('m');
+  assert(mutedAt()===true, 'M stopped working after an auto-repeat');
+
+  /* and it is the muted one that persists */
+  assert(stored().muted===true, 'the mute did not survive a save/load round trip');
+  A.setOption('muted', false);
+  assert(stored().muted===false, 'unmuting did not persist');
+
+  /* M must NOT be a splash advance: pressing it on the title leaves you on the
+     title. A mute key that doubles as "skip intro" is a bug report. */
+  A.hideAll(); A.STATE='splash'; A.show('splash');
+  press('m');
+  assert(A.STATE==='splash', 'M advanced the splash chain');
+  A.setOption('muted', false);
   console.log('  ENTER / any key / click advance, ESC steps back, one screen at a time');
+  console.log('  M toggles mute from every screen, survives a reload, and never advances the splash');
 }
 
 reportTimings();

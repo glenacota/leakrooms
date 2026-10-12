@@ -308,6 +308,11 @@ const DIFFICULTIES = {
 const SETTINGS_DEFAULTS = {
   difficulty: 'normal',
   master: 0.7,
+  /* M is a toggle, not a slider position, so it is stored as a bool and has no
+     control in the modal — it is a hotkey, and the only place it is visible is
+     the toast it raises when you press it. Persisted like everything else: a
+     player who muted the game once is a player who has muted it five times. */
+  muted: false,
   flicker: 'full',        // off | reduced | full
   vhs: 0.7,               // grain, scanlines, chroma ghost, dropouts
   shake: 1.0,             // 0 .. 1
@@ -325,6 +330,7 @@ const SETTINGS_DEFAULTS = {
 const SETTINGS_SCHEMA = {
   difficulty:     { type:'enum', values:Object.keys(DIFFICULTIES) },
   master:         { type:'range', min:0, max:1 },
+  muted:          { type:'bool' },
   flicker:        { type:'enum', values:['off','reduced','full'] },
   vhs:            { type:'range', min:0, max:1 },
   shake:          { type:'range', min:0, max:1 },
@@ -395,6 +401,12 @@ function applySettings(){
   HUNT_BASE    = d.huntBase;
   HUNT_STEP    = d.huntStep;
   Audio_.setMaster(SETTINGS.master);
+  /* Both of them, or the settings modal becomes a lie. M flips the stored flag
+     through setOption, which lands here — and this used to push only the volume,
+     so the mute persisted perfectly and changed nothing at all. A setting that
+     saves, survives a reload, and has no effect is the worst kind of setting,
+     because the reload appears to prove it worked. */
+  Audio_.setMuted(SETTINGS.muted);
 }
 
 /* ============================================================
@@ -406,6 +418,8 @@ const Audio_ = {
   hum:null, humGain:null,
   hiss:null, hissGain:null,
   drone:null, droneGain:null, droneFilter:null,
+  master:null, mute:null, masterVol:0.7, muted:false,
+  amb:null, ambOn:false, _ambTimer:null, _ambNext:0,
 
   init(){
     if (this.ctx) return;
@@ -441,7 +455,16 @@ const Audio_ = {
        that too. */
     this.master = a.createGain();
     this.master.gain.value = SETTINGS.master;
-    this.master.connect(a.destination);
+    /* MUTE IS ITS OWN NODE, downstream of the volume slider. It used to be
+       folded into the master by pushing the slider to zero, which reads as a
+       game with no sound rather than a game you have turned the sound off, and
+       — worse — makes the two settings fight: raise the volume while muted and
+       the sound comes back by surprise. A separate gain means M is M, the slider
+       is the slider, and unmuting restores exactly the volume you had. */
+    this.mute = a.createGain();
+    this.mute.gain.value = SETTINGS.muted ? 0 : 1;
+    this.master.connect(this.mute);
+    this.mute.connect(a.destination);
 
     // --- 60Hz fluorescent hum + its 2nd/3rd harmonics ---
     this.humGain = a.createGain();
@@ -473,7 +496,13 @@ const Audio_ = {
     o1.connect(this.droneGain); o2.connect(g2); g2.connect(this.droneGain);
     o1.start(); o2.start();
 
+    /* The store is applied AFTER the graph exists rather than before, because
+       applySettings() runs at boot and could not reach a node that had not been
+       built yet — which is how a restored "muted" used to be silently ignored
+       for the whole session. `ok` goes true first: both setters guard on it. */
     this.ok = true;
+    this.setMaster(SETTINGS.master);
+    this.setMuted(SETTINGS.muted);
   },
 
   step(vol){                       // wet carpet footstep
@@ -620,6 +649,141 @@ const Audio_ = {
   setMaster(v){
     this.masterVol = Math.max(0.02, Math.min(1, v));
     if (this.ok && this.master) this.master.gain.setTargetAtTime(this.masterVol, this.ctx.currentTime, 0.05);
+  },
+
+  /* M. Separate from the slider by design — see the note where the node is
+     built. Ramps rather than jumps, so toggling it mid-chord does not click. */
+  setMuted(v){
+    this.muted = !!v;
+    if (this.ok && this.mute) this.mute.gain.setTargetAtTime(this.muted?0:1, this.ctx.currentTime, 0.04);
+  },
+
+  /* Browsers will not let an AudioContext start without a user gesture, so the
+     context exists from boot and stays silent until the first key or click.
+     Every interaction that can start the game already runs through one of the
+     two entry points that call this, so there is nothing to add to the wiring. */
+  unlock(){
+    if (this.ctx && this.ctx.state==='suspended' && this.ctx.resume) this.ctx.resume();
+  },
+
+  /* A soft confirmation tone, so pressing M is never a guess. Deliberately not
+     one of the game's own sounds: this is the shell talking, not the building,
+     and reusing a footstep for a UI acknowledgement is how a control ends up
+     sounding like it broke something. */
+  blip(up){
+    if (!this.ok) return;
+    const a=this.ctx, t=a.currentTime;
+    const o=a.createOscillator(); o.type='sine'; o.frequency.value = up?520:390;
+    const g=a.createGain(); g.gain.value=0.0001;
+    g.gain.exponentialRampToValueAtTime(0.05, t+0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t+0.22);
+    o.connect(g); g.connect(this.master);
+    o.start(t); o.stop(t+0.25);
+  },
+
+  /* ---------- THE SPLASH BED ----------
+     A title screen with a noise floor and a held chord under it, so the first
+     thing you hear is the building rather than a menu. Three layers, all
+     synthesised, all very slow:
+
+       ROOM   filtered noise, the band drifting under 0.04Hz. Air handling in an
+              empty corridor. This is the "noise" half of the brief and it does
+              most of the work — it is the layer you stop hearing, which is the
+              point of putting it in.
+       PAD    three detuned saws (A1, A1 a third of a semitone up, E2) through
+              a lowpass whose cutoff is itself drifting at 0.02Hz. Low key,
+              literally: nothing here is above 165Hz.
+       NOTES  one triangle note every 7-14 seconds out of A minor pentatonic,
+              two seconds of attack and six of release. "Very slow" here is a
+              scheduling decision, not a tempo — there is no tempo.
+
+     Notes are scheduled a second ahead from an interval rather than fired by a
+     timeout at the moment they are due: setTimeout drifts by tens of
+     milliseconds and an LFO with a twenty second period cares about that. */
+  ambience(on){
+    if (!this.ok || on===this.ambOn) return;
+    this.ambOn = on;
+    if (on) this._ambStart(); else this._ambStop();
+  },
+  _ambStart(){
+    /* Guarded on the context as well as on `ok`: ambience() checks both, but a
+       half-built bed is the kind of thing that leaves a setInterval running
+       against a null context if anything ever reaches this directly. */
+    if (!this.ok || !this.ctx) return;
+    const a=this.ctx, t=a.currentTime;
+    const out=a.createGain(); out.gain.value=0; out.connect(this.master);
+    const live=[];
+    /* up over about four seconds, so the bed is already there when the title is */
+    out.gain.setTargetAtTime(0.85, t, 1.6);
+
+    const n=a.createBufferSource(); n.buffer=this.noise; n.loop=true;
+    const bp=a.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value=420; bp.Q.value=0.7;
+    const ng=a.createGain(); ng.gain.value=0.055;
+    const lfo=a.createOscillator(); lfo.frequency.value=0.035;
+    const lfoG=a.createGain(); lfoG.gain.value=170;
+    lfo.connect(lfoG); lfoG.connect(bp.frequency);
+    n.connect(bp); bp.connect(ng); ng.connect(out);
+    n.start(t); lfo.start(t); live.push(n, lfo);
+
+    const pad=a.createGain(); pad.gain.value=0.5;
+    const lp=a.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=300; lp.Q.value=3;
+    pad.connect(lp); lp.connect(out);
+    const plfo=a.createOscillator(); plfo.frequency.value=0.021;
+    const plfoG=a.createGain(); plfoG.gain.value=150;
+    plfo.connect(plfoG); plfoG.connect(lp.frequency);
+    plfo.start(t); live.push(plfo);
+    for (const f of [55, 55.35, 82.4]){
+      const o=a.createOscillator(); o.type='sawtooth'; o.frequency.value=f;
+      const g=a.createGain(); g.gain.value=0.10;
+      o.connect(g); g.connect(pad); o.start(t); live.push(o);
+    }
+
+    this.amb={ out, live };
+    this._ambNext = t + 2;
+    this._ambTimer = setInterval(()=>this._ambTick(), 120);
+  },
+  _ambTick(){
+    if (!this.amb || !this.ok || !this.ctx) return;
+    const now=this.ctx.currentTime;
+    while (this._ambNext < now + 1.2){
+      this._ambNote(this._ambNext);
+      /* The gap runs from the NOTE, not from the tick. The tick fires up to a
+         second and a bit before the note is due, so measuring from it shaves
+         that lookahead off every single interval — which turned a 7-14 second
+         spacing into a 6-13 second one without anything looking wrong. Advance
+         from the note, and re-sync only if the tab was suspended long enough
+         for the schedule to fall behind the wall clock. */
+      this._ambNext += 7 + Math.random()*7;
+      if (this._ambNext < now + 2) this._ambNext = now + 7 + Math.random()*7;
+    }
+  },
+  _ambNote(t){
+    if (!this.amb || !this.ok || !this.ctx) return;
+    const a=this.ctx;
+    const SCALE=[0,3,5,7,10,12,15];            // A minor pentatonic, plus the octave
+    const deg=SCALE[(Math.random()*SCALE.length)|0];
+    const oct=Math.random()<0.35 ? -12 : 0;   // now and then, the note below
+    const f=110 * Math.pow(2, deg/12) * Math.pow(2, oct/12);
+    const o=a.createOscillator(); o.type='triangle'; o.frequency.value=f;
+    const lp=a.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=850;
+    const g=a.createGain(); g.gain.value=0.0001;
+    o.connect(lp); lp.connect(g); g.connect(this.amb.out);
+    const dur=6 + Math.random()*4;
+    g.gain.exponentialRampToValueAtTime(0.075, t+2.2);
+    g.gain.exponentialRampToValueAtTime(0.0001, t+dur);
+    o.start(t); o.stop(t+dur+0.2);
+  },
+  _ambStop(){
+    if (!this.amb) return;
+    const t=this.ctx ? this.ctx.currentTime : 0;
+    /* out over about a second and THEN stop the sources — not disconnected, not
+       cut to zero, because a hard stop on a pad is an audible click and these
+       nodes are cheaper than the click. */
+    this.amb.out.gain.cancelScheduledValues(t);
+    this.amb.out.gain.setTargetAtTime(0, t, 0.35);
+    for (const n of this.amb.live){ try { n.stop(t+2.5); } catch(e){} }
+    clearInterval(this._ambTimer);
+    this._ambTimer=null; this._ambNext=0; this.amb=null;
   }
 };
 
@@ -2503,6 +2667,29 @@ window.addEventListener('keydown', e=>{
   const k = e.key.toLowerCase();
   keys[k] = true;
 
+  /* Every key is a user gesture, and the AudioContext cannot start without
+     one. This is the single place the game hears about input, so it is the one
+     place the unlock has to live. */
+  Audio_.unlock();
+
+  /* M, anywhere, at any time. Not just during play: a player who wants the
+     sound off usually wants it off BEFORE the title screen finishes its four
+     second fade-in, and a hotkey that only works once you are in a level is a
+     hotkey that arrives too late to be useful.
+
+     It RETURNS rather than falling through, which is load-bearing. On the
+     splash chain any unmodified key advances, so without this the mute key
+     doubles as "skip intro" — the title vanishes under the finger of someone
+     who is trying to turn the music off. It also drops the key state for the
+     same reason ENTER does: a held M would otherwise still be down when the run
+     starts, and M is not a movement key but the discipline is the same. */
+  if (k==='m'){
+    if (!e.repeat) toggleMute();
+    delete keys[k];
+    e.preventDefault();
+    return;
+  }
+
   /* ESC walks the splash chain backwards: from the work order to the riser.
      It does nothing on splash 03, which is the first frame — there is nothing
      behind it, and a key that silently does nothing is worse than no key. */
@@ -2960,7 +3147,17 @@ function randomFloorNear(x,y,rad){
    One advance function drives both, so ENTER, any key, and a click
    all land in the same place and cannot disagree with each other.
    ============================================================ */
+
+/* The bed follows STATE, not the individual screens. It is keyed off the two
+   names rather than off `show()` because `show()` is also how the pause and
+   settings screens come up, and a title drone leaking into a pause menu is the
+   sort of thing nobody reports and everybody notices. */
+function syncAmbience(){
+  Audio_.ambience(STATE==='splash' || STATE==='order');
+}
+
 function advanceSplash(){
+  Audio_.unlock();
   if (STATE==='splash'){
     STATE='order';
     /* The seed goes on the stub so each run's ticket reads as authored
@@ -2972,9 +3169,11 @@ function advanceSplash(){
   } else if (STATE==='order'){
     document.getElementById('btn-start').click();
   }
+  syncAmbience();
 }
 function backSplash(){
-  if (STATE==='order'){ STATE='splash'; show('splash'); return true; }
+  Audio_.unlock();
+  if (STATE==='order'){ STATE='splash'; show('splash'); syncAmbience(); return true; }
   return false;                       // nothing behind splash 03: it is the first frame
 }
 
@@ -3700,6 +3899,18 @@ function show(which){
 function hideAll(){ for (const s of SCREENS)
     document.getElementById('screen-'+s).classList.add('hidden'); }
 
+/* M. Goes through setOption rather than poking Audio_ directly, so the store is
+   written and the UI re-synced on the same path as every other setting — a mute
+   that only lives in a variable is a mute that forgets itself on reload. The
+   blip is fired AFTER, and only on unmute, because a confirmation you cannot
+   hear is not a confirmation. */
+function toggleMute(){
+  const next = !SETTINGS.muted;
+  setOption('muted', next);
+  flash(next ? 'AUDIO MUTED' : 'AUDIO ON');
+  if (!next) Audio_.blip(true);
+}
+
 /* ============================================================
    THE SETTINGS SCREEN
    Every control writes straight into SETTINGS, then calls applySettings() and
@@ -3887,7 +4098,7 @@ function setPrompt(){
 /* ---------- buttons ---------- */
 document.getElementById('btn-start').onclick = ()=>{
   Audio_.init();
-  if (Audio_.ctx && Audio_.ctx.state==='suspended') Audio_.ctx.resume();
+  Audio_.unlock();
   RUN_SEED = (Math.random()*1e9)|0;
   runLives = (DIFFICULTIES[SETTINGS.difficulty] || DIFFICULTIES.normal).lives;
   lives = runLives; floorIdx=0; runTime=0;
@@ -3896,6 +4107,7 @@ document.getElementById('btn-start').onclick = ()=>{
   hideAll();
   STATE='play';
   document.getElementById('hud').classList.add('on');
+  syncAmbience();        // the title bed has no business following you downstairs
 };
 document.getElementById('btn-resume').onclick = togglePause;
 document.getElementById('btn-retry').onclick = ()=>{
@@ -3912,6 +4124,7 @@ document.getElementById('btn-retry').onclick = ()=>{
   for (const a of G.agents){ a.born=3.0; }
   hideAll(); STATE='play';
   document.getElementById('hud').classList.add('on');
+  syncAmbience();
 };
 document.getElementById('btn-again').onclick = ()=>{
   document.getElementById('btn-start').click();
@@ -3954,6 +4167,15 @@ loadSettings();
 applySettings();
 buildSettingsUI();
 syncSettingsUI();
+/* The audio graph is built HERE, at boot, and not on the first click of the
+   run. Two reasons, and the second is the one that matters: the title screen is
+   the only place the splash bed can play at all, and a context created inside
+   the CLOCK IN click is already too late to have been the thing that made the
+   title sound like a place. The browser will hold it suspended until a gesture
+   arrives — Audio_.unlock(), called from the keydown handler and from
+   advanceSplash — and everything is built and wired in the meantime. */
+Audio_.init();
+syncAmbience();
 const fpsEl = document.createElement('div');
 fpsEl.id = 'fps';
 /* Guarded: a decorative readout is not worth a boot failure in any embed that
