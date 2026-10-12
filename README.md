@@ -1,4 +1,4 @@
-# THE BACKROOMS
+# LEAKROOMS
 
 A 2D top-down puzzle / stealth prototype. Plain HTML, CSS and JavaScript — no
 build step, no dependencies, no image or audio assets. Every texture is drawn

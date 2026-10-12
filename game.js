@@ -1,5 +1,5 @@
 /* ============================================================
-   THE BACKROOMS
+   LEAKROOMS
    2D top-down puzzle / stealth. JS + canvas only, no assets.
 
    Design contract:
@@ -269,7 +269,7 @@ const SETTINGS_SCHEMA = {
   showFps:        { type:'bool' },
 };
 
-const SETTINGS_KEY = 'backrooms.settings.v1';
+const SETTINGS_KEY = 'leakrooms.settings.v1';
 let SETTINGS = Object.assign({}, SETTINGS_DEFAULTS);
 
 function settingsValid(key, v){
