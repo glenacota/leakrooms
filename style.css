@@ -209,6 +209,7 @@ button.ghost:hover{ background:rgba(228,230,168,.10); color:var(--yellow); }
   background:rgba(6,5,3,.86);
   backdrop-filter:blur(2px);
   z-index:5;
+  cursor:default;
 }
 .screen.hidden{ display:none; }
 
