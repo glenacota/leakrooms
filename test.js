@@ -42,6 +42,13 @@ function fakeCtx(){
     createLinearGradient: (...a)=>{ calls.gradient++; calls.list.push(['createLinearGradient',...a]); return grad; },
     createRadialGradient: (...a)=>{ calls.gradient++; calls.list.push(['createRadialGradient',...a]); return grad; },
     fillRect(...a){ calls.list.push(['fillRect',...a]); },
+    /* arc and stroke are recorded because the repair ring is drawn with them
+       and nothing else. It used to be asserted through the leak's gradients
+       instead, which is measuring a different object two inches away and lands
+       exactly on the tolerance boundary for any pipe north or south of the
+       spot — a test that passes or fails on the seed. */
+    arc(...a){ calls.list.push(['arc',...a]); },
+    stroke(...a){ calls.list.push(['stroke',...a]); },
     measureText: ()=>({width:10}),
     globalAlpha:1, globalCompositeOperation:'', fillStyle:'', strokeStyle:'',
     lineWidth:1, font:'', textAlign:'', imageSmoothingEnabled:true,
@@ -84,6 +91,12 @@ global.document = {
   getElementById(id){ return els[id] || (els[id]=fakeEl(id)); },
   querySelector(sel){ return els[sel] || (els[sel]=fakeEl(sel)); },
   querySelectorAll(){ return []; },
+  /* The game builds its own canvases (the light bake, the mask, the packed
+     flood field, the procedural textures) rather than declaring them in markup,
+     so the harness has to hand out elements too. Without this the module fails
+     to LOAD, which is worth stating plainly: a stub gap here does not fail one
+     assertion, it kills the entire suite before a single test runs. */
+  createElement(tag){ return tag==='canvas' ? fakeCanvas() : fakeEl(tag); },
   addEventListener(){},
   body: { appendChild(){} },
 };
@@ -137,7 +150,19 @@ globalThis.__api = {
   get VIEW_HALF(){ return VIEW_HALF; },
   get VIEW_RANGE(){ return VIEW_RANGE; },
   get RADAR_DRAIN(){ return RADAR_DRAIN; },
-  buildFloor, blocked, moveEnt, update, render, emitNoise, setPrompt, drawPlayer,
+  buildFloor, blocked, moveEnt, render, emitNoise, setPrompt, drawPlayer,
+  frame,
+  updateReal: update,
+  /* Every test that is not ABOUT the clock holds it open.
+     The game now ends a level when the clock runs out, and update() returns
+     immediately once it has — so a test that drives twenty thousand frames
+     spends its whole run dead on arrival and reports it as "the AI stopped
+     working" or "the battery stopped draining". The failure is indistinguishable
+     from a real bug unless it is impossible by construction, so it is: the
+     default harness entry point pushes the deadline out of the way, and the two
+     tests that genuinely care about it (the playthrough's clock headroom, and
+     the clock test itself) call updateReal. */
+  update(dt){ if (G) G.clock = 1e6; return update(dt); },
   scopeRoomLight, regionAt, traceViewCone, packMask, snapMask, combineMask,
   smoothMask, onScreen, setHeadless,
   get STATE(){ return STATE; },
@@ -149,7 +174,11 @@ globalThis.__api = {
   get lightCv(){ return lightCv; }, get wetCv(){ return wetCv; },
   get TILE(){ return TILE; },
   get wetArr(){ return wetArr; }, get waterDist(){ return waterDist; },
-  get leakTile(){ return leakTile; }, get LOUD(){ return LOUD; },
+  get LOUD(){ return LOUD; },
+  LEVELS, LEVELS_N, get FLOOR_CLOCK(){ return FLOOR_CLOCK; },
+  get WET_FALL(){ return WET_FALL; },
+  get LEAK_HEADSTART(){ return LEAK_HEADSTART; },
+  get RISER_GAP(){ return RISER_GAP; },
   get FLOOR(){ return FLOOR; },
   get REPAIR_TIME(){ return REPAIR_TIME; },
   get REPAIR_REACH(){ return REPAIR_REACH; },
@@ -160,7 +189,7 @@ globalThis.__api = {
   get WET_RISE(){ return WET_RISE; },
   get LEAK_LURE(){ return LEAK_LURE; },
   get WALK(){ return WALK; }, get SPRINT(){ return SPRINT; },
-  tickFlood, wetAt, floodCover, sealLeak, leakReach, initFlood, packWet,
+  tickFlood, wetAt, floodCover, sealLeak, leakReach, leakAt, initFlood, packWet,
   get wetCv(){ return wetCv; },
   get SETTINGS(){ return SETTINGS; },
   get SETTINGS_DEFAULTS(){ return SETTINGS_DEFAULTS; },
@@ -291,17 +320,47 @@ console.log('\n[1] maze generation — 400 floors');
     totalTiles += comps[0];
     minOpen=Math.min(minOpen,comps[0]); maxOpen=Math.max(maxOpen,comps[0]);
 
-    // exits: exactly 3, each must touch a reachable floor tile
-    assert(G.exitTiles.length===3, `seed ${s}: got ${G.exitTiles.length} exits`);
-    for (const e of G.exitTiles){
-      const tx=e.x, ty=e.y;
-      const touch=[[tx+1,ty],[tx-1,ty],[tx,ty+1],[tx,ty-1]]
-        .some(([x,y])=> x>=0&&y>=0&&x<W&&y<H && g[y*W+x]===1);
-      assert(touch, `seed ${s}: exit at ${tx},${ty} touches no floor`);
-      // must be reachable FROM THE PLAYER SPAWN
-      const p=G.player;
-      assert(true, '');
+    /* THE DOOR: exactly one, on a wall tile, touching walkable floor, and it
+       is where the player came in — i.e. in the room they spawn in. A door the
+       player has to search for is a different game, and a door they cannot
+       walk back to inside three minutes is an unwinnable level. */
+    assert(G.exitTiles.length===1, `seed ${s}: got ${G.exitTiles.length} exits, want 1`);
+    const door = G.exitTiles[0];
+    assert(g[door.y*W+door.x]===0, `seed ${s}: the door at ${door.x},${door.y} is not a wall tile`);
+    const doorTouch=[[door.x+1,door.y],[door.x-1,door.y],[door.x,door.y+1],[door.x,door.y-1]]
+      .some(([x,y])=> x>=0&&y>=0&&x<W&&y<H && g[y*W+x]===1);
+    assert(doorTouch, `seed ${s}: door at ${door.x},${door.y} touches no floor`);
+    assert(door.found===undefined && door.open===0,
+      `seed ${s}: the door carries discovery state — there is nothing left to find`);
+
+    /* THE RISERS: exactly what this level says it has, every one on a wall tile
+       with a standable spot beside it. */
+    const spec = A.LEVELS[Math.min(s%A.LEVELS.length, A.LEVELS_N-1)];
+    assert(G.leaks.length===spec.leaks,
+      `seed ${s}: level ${s%A.LEVELS.length} has ${G.leaks.length} risers, want ${spec.leaks}`);
+    assert(G.leaksOpen===spec.leaks, `seed ${s}: leaksOpen is ${G.leaksOpen}, want ${spec.leaks}`);
+    assert(G.risers===spec.leaks, `seed ${s}: risers tally is ${G.risers}, want ${spec.leaks}`);
+    for (const L of G.leaks){
+      assert(g[L.y*W+L.x]===0, `seed ${s}: a riser is not on a wall tile`);
+      assert(g[L.sy*W+L.sx]===1, `seed ${s}: a riser's repair spot is not floor`);
+      assert(L.fixed===false && L.repair===0, `seed ${s}: a riser starts already worked`);
     }
+    /* The risers must not be stacked on one wall: four bursts four tiles apart
+       are four repairs in the same breath, which is a counting exercise and not
+       a level. Measured on the STANDING SPOTS, because that is what decides
+       whether one five-second hold can reach two pipes. */
+    for (let a=0;a<G.leaks.length;a++) for (let b=a+1;b<G.leaks.length;b++){
+      const d = Math.hypot(G.leaks[a].sx-G.leaks[b].sx, G.leaks[a].sy-G.leaks[b].sy);
+      assert(d > A.REPAIR_REACH,
+        `seed ${s}: two risers can be sealed by one hold (spots ${d.toFixed(2)} apart)`);
+      const dw = Math.hypot(G.leaks[a].x-G.leaks[b].x, G.leaks[a].y-G.leaks[b].y);
+      assert(dw>=3, `seed ${s}: two risers are ${dw.toFixed(1)} tiles apart`);
+    }
+
+    /* THE LIFEFORMS: exactly what this level says it has, and never standing in
+       the room the player walks into. */
+    assert(G.agents.length===spec.forms,
+      `seed ${s}: level ${s%A.LEVELS.length} has ${G.agents.length} lifeforms, want ${spec.forms}`);
     // player spawn must be on floor and not stuck
     {
       let ins=false;
@@ -372,11 +431,15 @@ console.log('[2] collision — 20000 random walks must not enter walls');
 /* ============ TEST 3: entities stay on floor, stay finite ============ */
 console.log('[3] entity AI — 20000 frames');
 {
+  /* Level 5, deliberately. The count of things in the building is a property of
+     the level now and level 1 has exactly one, so a test that wanted both a
+     dormant coil and a woken hunter has to ask a level that has both. */
+  buildFloor(A.LEVELS_N-1, 999);
   let bad=0, hunted=0, dormant=0;
   for (let i=0;i<20000;i++){
     if (i%11===0){
       emitNoise(1.0, G.player.x, G.player.y);
-      for (const a of G.agents) if (a.state==='DORMANT') emitNoise(1.0, a.x, a.y);
+      for (const a of G.agents) emitNoise(1.0, a.x, a.y);
     }
     update(0.016);
     if (A.STATE!=='play'){ A.STATE='play'; }
@@ -394,11 +457,12 @@ console.log('[3] entity AI — 20000 frames');
 }
 
 /* ============ TEST 4: end-to-end playthroughs =========================
-   A bot drives real key state through the real update(). It travels dark,
-   lights up only near an exit, recharges when low, and sprints to break away.
-   This proves the game is FINISHABLE and that the light budget is survivable.
-   Note it is a weak player: it ignores the Lifeform until it is 9 tiles away,
-   so its death rate is reported but is NOT a difficulty signal.            */
+   A bot drives real key state through the real update(). It walks to the
+   nearest open riser, holds still to seal it, then walks back to the door it
+   came in through — which is the entire level. This proves the game is
+   FINISHABLE, and that three minutes is enough of a budget to do five levels of
+   it in. Note it is a weak player: it ignores the Lifeform until it is 9 tiles
+   away, so its death rate is reported but is NOT a difficulty signal.        */
 console.log('[4] end-to-end — bot drives REAL keys through update()');
 {
   const W=76,H=76, IDX=(x,y)=>y*W+x;
@@ -470,86 +534,77 @@ console.log('[4] end-to-end — bot drives REAL keys through update()');
     A.STATE='play';
     vm.runInContext(`lives=3; floorIdx=${SF}; runTime=0;`, ctxObj);
     let t=0, field=null, gk='', deaths=0, lowestBatt=100, minMargin=1e9, why='?';
-    let fe=null, exKey=null, gkSet=null, lastSetKey=null, tExit=null;
     let path=null, wi=0, pathFromX=-99, pathFromY=-99, goalId=-1;
-    let escapes=0, swapped=false, hasMovedLastFrame=false, leakGoal=null, lastLeakKey='';
+    let escapes=0, swapped=false, hasMovedLastFrame=false, riserGoal=null, lastRiserKey='';
+    let fromHere=null, fromX0=-99, fromY0=-99;
 
     while(A.floorIdx<5 && t<60*maxMinutes){
       if(!withEntity && G.agents.length) G.agents.length=0;
 
-      const unfound=G.exitTiles.filter(e=>!e.found);
       const live=G.batteries.filter(b=>!b.taken);
       const px=G.player.x, py=G.player.y, cur=IDX(Math.floor(px),Math.floor(py));
 
-      /* --- THE LEAK COMES FIRST.
-         The floor does not open until the riser is sealed, so a bot that only
-         chases exits can now never finish and this test would report 0/8 for
-         the whole suite. The leak is handled as an EXTRA goal that outranks the
-         exits while it is open: walk to the pipe, stand on it, and press no
-         keys at all until the bar is full. Releasing the keys is the entire
-         repair input — there is no button — so a hold is five seconds of
-         doing nothing, which the loop has to actually model. */
-      const leak=G.leak;
-      if (!leak.fixed){
+      /* --- THE LEVEL, IN ORDER.
+         Seal every riser, then get back to the door. There is no third thing to
+         find any more, so the bot's whole objective is a work list and a
+         journey home, and the journey home only starts when the list is empty.
+
+         The repair is modelled exactly: no keys, no radar, no movement, for as
+         many frames as the bar takes. Releasing the keys IS the repair input —
+         there is no button — so a hold is five seconds of doing nothing, which
+         the loop has to actually run. */
+      const open = G.leaks.filter(L=>!L.fixed);
+      if (open.length){
+        /* Nearest open riser by WALKING distance, from one BFS out from the
+           player's own tile. Straight-line distance is the trap here: on a BSP
+           floor the pipe nearest as the crow flies is regularly the furthest
+           one to walk to, so a Euclidean bot spends most of its three minutes
+           crossing the building twice and reports that the clock is impossible
+           when what it actually measured is its own routing. One field per leg,
+           rebuilt when the player has left the neighbourhood it describes. */
+        if (!fromHere || Math.hypot(px-fromX0, py-fromY0) > 4){
+          fromHere = distField(Math.floor(px), Math.floor(py));
+          fromX0 = px; fromY0 = py;
+        }
+        let best=null, bd=Infinity;
+        for(const L of open){
+          const d = distTo(fromHere, IDX(L.sx, L.sy));
+          if (d<bd){ bd=d; best=L; }
+        }
         /* Ask the GAME's own predicate whether we are in reach, rather than a
            tighter radius of the test's own. A bot that starts holding at 0.34
            while the game allows REPAIR_REACH is testing a stricter game than
-           the one that ships — and it failed 6/6 for exactly that reason,
-           walking right up to the pipe and then never quite arriving. */
+           the one that ships. */
         if (A.leakReach(px, py)){
-          /* on the pipe: hands on the wrench. No keys, no radar, no movement. */
           keys.w=keys.s=keys.a=keys.d=false; keys.shift=false;
-          update(1/60); t+=1/60;
+          A.updateReal(1/60); t+=1/60;
           if (A.STATE!=='play'){ deaths++;
             const lv=vm.runInContext('lives',ctxObj);
             if (lv<=0) break;
             vm.runInContext('RUN_SEED='+sd+';', ctxObj);
             buildFloor(A.floorIdx, sd);
-            A.STATE='play'; gk=''; exKey=null; lastSetKey=null; tExit=null; path=null; goalId=-1;
+            A.STATE='play'; gk=''; path=null; goalId=-1;
           }
           continue;
         }
-        /* Walk to the pipe, reusing the exit machinery's path follower.
-           The path is NOT nulled here. It was, and that single line made this
-           the slowest thing in the suite by an order of magnitude: the rebuild
-           condition is `!path || off-course`, so a null every frame rebuilt a
-           5776-entry BFS on every frame of what is the longest walk in the
-           game. Invalidating on the GOAL changing is enough and is what the
-           exit path already does. */
-        const lk = leak.sx+','+leak.sy;
-        if (lk !== lastLeakKey){
-          lastLeakKey = lk; goalId=-1;
-        }
-        leakGoal={x:leak.sx, y:leak.sy};
+        /* The path is NOT nulled on a goal change. It was, and that single line
+           made this the slowest thing in the suite by an order of magnitude:
+           the rebuild condition is `!path || off-course`, so a null every frame
+           rebuilt a 5776-entry BFS on every frame of what is the longest walk in
+           the game. Invalidating when the player leaves the corridor they were
+           given is enough. */
+        const rk = best.sx+','+best.sy;
+        if (rk !== lastRiserKey){ lastRiserKey = rk; goalId=-1; }
+        riserGoal={x:best.sx, y:best.sy};
       } else {
-        leakGoal=null; lastLeakKey='';
+        riserGoal=null; lastRiserKey='';
       }
 
-      /* --- choose the TARGET EXIT first, so the torch decision and the
-             movement goal can never disagree. (When they did, the bot walked
-             toward exit B while measuring distance to exit A, so the torch
-             stayed off and B was never revealed.) --- */
-      const setKey=unfound.map(e=>e.x+','+e.y).join('|');
-      if(setKey!==lastSetKey){
-        lastSetKey=setKey;
-        const pool2 = unfound.length ? unfound : G.exitTiles;
-        let best=null,bd=Infinity;
-        for(const e of pool2){
-          const g=exitGoal(e); if(!g) continue;
-          const d=Math.abs(g.x-px)+Math.abs(g.y-py);
-          if(d<bd){ bd=d; best=g; }
-        }
-        tExit=best;
-      }
-      if(tExit){
-        tExitKey=`${tExit.x},${tExit.y}`;
-        if(tExitKey!==exKey){ exKey=tExitKey; fe=distField(tExit.x,tExit.y); }
-      } else { fe=null; exKey=null; }
-
-      /* --- then the goal: the leak first, then recharge, then the exit --- */
+      /* --- the goal: riser, then recharge, then the door --- */
+      const doorGoal = exitGoal(G.exitTiles[0]);
       let goal=null, kind=null;
-      if (leakGoal){ goal=leakGoal; kind='leak'; }
-      const needCharge = !goal && unfound.length && G.batt<38 && live.length;
+      if (riserGoal){ goal=riserGoal; kind='riser'; }
+      const needCharge = !goal && G.batt<30 && live.length;
       if(needCharge){
         let bb=null,bbd=Infinity;
         for(const b of live){
@@ -560,26 +615,22 @@ console.log('[4] end-to-end — bot drives REAL keys through update()');
         }
         if(bb){ goal=bb; kind='batt'; }
       }
-      if(!goal && tExit){ goal=tExit; kind='exit'; }
+      if(!goal && doorGoal){ goal=doorGoal; kind='door'; }
       if(!goal){ why='no goal tile'; break; }
 
-      const key=`${A.floorIdx},${kind},${goal.x},${goal.y},${unfound.length},${needCharge?1:0}`;
+      const key=`${A.floorIdx},${kind},${goal.x},${goal.y}`;
       if(key!==gk){ gk=key; field=distField(goal.x,goal.y); }
       if(!field) field=distField(goal.x,goal.y);
       if(!field){ why='no field'; break; }
 
-      /* --- radar discipline: only sweep when the exit is close enough that the
-             sweep would actually put it on screen. Travel dark; this is the
-             whole point of the battery economy. The radar drains more than
-             twice what the torch it replaced did, so being greedy about it
-             strands the bot rather than just wasting charge. --- */
-      const dExit = fe ? distTo(fe,cur) : 9999;
-      /* No sweep on the way to the pipe. The water IS the cue down there and
-         spending the battery to re-learn a floor you are walking across is
-         exactly the waste the economy is built to punish. */
-      G.radar = kind==='leak' ? false
-              : (dExit<=11) || (G.batt>85 && kind==='exit' && dExit<=16);
-      if(kind==='batt' && G.batt>20) G.radar=false;
+      /* --- no sweeping.
+         The radar used to be an exit-finder and there is nothing left in the
+         world that needs finding: the door is where you came in and the risers
+         announce themselves in water. So a sweep is pure waste against a
+         three-minute budget, and the bot travelling dark is exactly the play the
+         clock is asking for. It still has to SURVIVE the budget, so a dead radar
+         must not be a soft-lock — hence the battery-margin assertion below. */
+      G.radar = false;
 
       /* --- steer by FOLLOWING AN EXPLICIT PATH ---
          Descending a distance field with single-axis steps gets trapped in
@@ -660,11 +711,13 @@ console.log('[4] end-to-end — bot drives REAL keys through update()');
       }
 
       const bx0=G.player.x, by0=G.player.y;
-      update(1/60); t+=1/60;
+      A.updateReal(1/60); t+=1/60;
       if(Math.abs(G.player.x-bx0)+Math.abs(G.player.y-by0) > 1e-6) hasMovedLastFrame=true;
       lowestBatt=Math.min(lowestBatt,G.batt);
-      const left=G.exitTiles.filter(e=>!e.found).length;
-      minMargin=Math.min(minMargin, G.batt + (live.length>0?50:0) - left*14);
+      /* Clock headroom, not battery headroom: the number that can end a level
+         is now seconds left, and the tightest moment is the last frame of the
+         walk home with the work already done. */
+      minMargin=Math.min(minMargin, G.clock);
 
       if(A.STATE!=='play'){
         deaths++;
@@ -672,14 +725,14 @@ console.log('[4] end-to-end — bot drives REAL keys through update()');
         if(lv<=0) break;
         vm.runInContext('RUN_SEED='+sd+';', ctxObj);
         buildFloor(A.floorIdx, sd);
-        A.STATE='play'; gk=''; exKey=null; lastSetKey=null; tExit=null; path=null; goalId=-1;
+        A.STATE='play'; gk=''; path=null; goalId=-1;
       }
     }
     keys.w=keys.s=keys.a=keys.d=false; keys.shift=false;
     if(A.floorIdx>=5) why='completed';
-    else if(vm.runInContext('lives',ctxObj)<=0) why='lost all 3 lives on floor '+A.floorIdx;
-    else why='timeout on floor '+A.floorIdx;
-    return { depth:A.floorIdx, t, deaths, lowestBatt, minMargin, why, exits:G.exitsFound, escapes };
+    else if(vm.runInContext('lives',ctxObj)<=0) why='lost all 3 lives on level '+A.floorIdx;
+    else why='timeout on level '+A.floorIdx;
+    return { depth:A.floorIdx, t, deaths, lowestBatt, minMargin, why, escapes };
   }
 
   // --- 4a: level-design feasibility (no monster) ---
@@ -688,22 +741,21 @@ console.log('[4] end-to-end — bot drives REAL keys through update()');
   for(let s=0;s<6;s++){
     const r=play(s*5077+5, false, 14);
     if(r.depth>=5){ feas++; ft.push(r.t); }
-    if(process.env.V) console.log(`     seed ${s}: depth ${r.depth}/5 exits ${r.exits} time ${r.t.toFixed(0)}s why=${r.why}`);
+    if(process.env.V) console.log(`     seed ${s}: depth ${r.depth}/5 time ${r.t.toFixed(0)}s why=${r.why}`);
     worstMargin=Math.min(worstMargin,r.minMargin); escA+=r.escapes;
     worstBatt=Math.min(worstBatt,r.lowestBatt);
   }
-  console.log(`[4a] feasibility — ${feas}/6 runs cleared all 5 floors with no monster`);
-  /* The cap is 14 minutes, not the 9 it was before the leak. A run is now
-     about 8.7 minutes because sealing the riser is a genuine extra journey
-     across every floor, and a 9-minute ceiling made the bot time out on its
-     last floor and report 1/8 — which reads as "the game is nearly unwinnable"
-     when the truth is "the test's deadline is now shorter than the game".
-     Six runs instead of eight keeps the wall clock roughly where it was. */
-  if(ft.length) console.log(`     avg ${(ft.reduce((a,b)=>a+b,0)/ft.length/60).toFixed(1)} min per 5-floor run`);
-  console.log(`     tightest battery headroom: ${worstMargin.toFixed(0)} units (negative = would strand)`);
+  console.log(`[4a] feasibility — ${feas}/6 runs cleared all 5 levels with no monster`);
+  /* The bot's own deadline is deliberately far longer than the game's. What is
+     being measured here is the game's clock: if a bot that walks in straight
+     lines, ignores the lifeforms entirely and never sweeps cannot get five
+     levels done inside three minutes a level, then neither can a player, and
+     the clock is the thing that is wrong rather than the bot. */
+  if(ft.length) console.log(`     avg ${(ft.reduce((a,b)=>a+b,0)/ft.length/60).toFixed(1)} min per 5-level run`);
+  console.log(`     tightest clock headroom: ${worstMargin.toFixed(0)}s (negative = ran out)`);
   console.log(`     lowest battery observed: ${worstBatt.toFixed(0)}   bot escapes: ${escA}`);
 
-  assert(worstMargin>0, 'battery headroom goes negative — a careful player could be stranded');
+  assert(worstMargin>0, 'clock headroom goes negative — a careful player would run out of time');
 
   // --- 4b: full game with the monster ---
   let wins=0, rt=[], dsum=0, reach=0, escSum=0;
@@ -712,7 +764,7 @@ console.log('[4] end-to-end — bot drives REAL keys through update()');
     if(r.depth>=5){ wins++; rt.push(r.t); }
     dsum+=r.deaths; reach=Math.max(reach,r.depth); escSum+=r.escapes;
   }
-  console.log(`[4b] with monster — ${wins}/6 runs cleared all 5 floors, deepest ${reach}/5, deaths ${dsum}, bot escapes ${escSum}`);
+  console.log(`[4b] with monster — ${wins}/6 runs cleared all 5 levels, deepest ${reach}/5, deaths ${dsum}, bot escapes ${escSum}`);
   if(rt.length) console.log(`     avg completed run ${(rt.reduce((a,b)=>a+b,0)/rt.length/60).toFixed(1)} min`);
   // Informational only. The bot ignores the entity until it is 9 tiles away and
   // flees into whatever dead end is nearest, so its death rate is NOT a valid
@@ -1699,20 +1751,23 @@ console.log('[14] the radar — off by default, total while on, expensive');
     console.log(`  radar off: ${dark} tiles dark again, including ${checked} tiles behind the player`);
   }
 
-  /* --- the reveal: an exit is found when the sweep puts it on screen ---
-     This is the whole exit economy now, so it is checked directly rather than
-     left to the playthrough bot: an exit just off screen must NOT be found,
-     and the frame it comes on screen it must be.
+  /* --- the reveal: a scrawl is read when the sweep puts it on screen ---
+     There is nothing left in the world that NEEDS finding — the door is where
+     you came in and the risers announce themselves in water — so the radar is
+     down to reading the carpet. That makes the on-screen rule the whole of
+     what it does, and it is checked directly rather than left to the playthrough
+     bot: a scrawl just off screen must NOT be read, and the frame it comes on
+     screen it must be.
 
      The battery is held at full throughout. The radar dying mid-search is the
      economy, and test 4 covers that; here we are testing the RULE, and a rule
      you cannot observe because the tool ran out is not a rule. */
   {
     buildFloor(1, 3131);
-    /* The rule is "revealed iff on screen", so it is tested by PLACING the
-       player rather than walking there. Driving the player in a straight line
-       by writing G.player directly fights unstick() — it shoves the player
-       back out of every wall the line passes through — and the test ends up
+    /* The rule is "read iff on screen", so it is tested by PLACING the player
+       rather than walking there. Driving the player in a straight line by
+       writing G.player directly fights unstick() — it shoves the player back
+       out of every wall the line passes through — and the test ends up
        measuring the collision code. Placement tests the rule and nothing else. */
     const spotWith=(e, want)=>{
       for (let y=1;y<W-1;y++) for (let x=1;x<W-1;x++){
@@ -1723,41 +1778,36 @@ console.log('[14] the radar — off by default, total while on, expensive');
       return null;
     };
     let negatives=0, positives=0;
-    /* A sweep reveals EVERY exit on screen, not just the one being tested, so
-       each case has to start from a clean slate or the negative case inherits
-       a reveal that happened during a previous case's placement. */
-    const reset=()=>{ for (const o of G.exitTiles) o.found=false; G.exitsFound=0; G.stat.found=0; };
-    for (const e of G.exitTiles){
+    const reset=()=>{ for (const o of G.graffiti) o.seen=false; };
+    for (const gr of G.graffiti){
       reset();
-      // off screen: must NOT be revealed
-      const off = spotWith(e, false);
+      // off screen: must NOT be read
+      const off = spotWith(gr, false);
       if (off){
         G.player.x=off.x; G.player.y=off.y;
-        G.radar=true; G.batt=100;
+        G.radar=true;
         for (let i=0;i<5;i++){ G.batt=100; update(1/60); }
-        if (!A.onScreen(e.x+0.5, e.y+0.5)){
-          assert(e.found===false,
-            `exit at ${e.x},${e.y} was revealed while off screen — the sweep is seeing too much`);
+        if (!A.onScreen(gr.x+0.5, gr.y+0.5)){
+          assert(gr.seen===false,
+            `a scrawl was read while off screen — the sweep is seeing too much`);
           negatives++;
         }
       }
-      // on screen: MUST be revealed
+      // on screen: MUST be read
       reset();
-      const on = spotWith(e, true);
-      assert(on, `no floor tile puts exit ${e.x},${e.y} on screen`);
+      const on = spotWith(gr, true);
       if (on){
         G.player.x=on.x; G.player.y=on.y;
         G.radar=true; G.batt=100;
         update(1/60);
-        assert(e.found,
-          `exit at ${e.x},${e.y} was on screen and not revealed by the sweep`);
+        assert(gr.seen, 'a scrawl was on screen and not read by the sweep');
         positives++;
       }
     }
     reset();
-    assert(negatives>0 && positives===G.exitTiles.length,
-      `checked ${negatives} off-screen and ${positives} on-screen cases`);
-    console.log(`  reveal rule holds: ${positives} on-screen revealed, ${negatives} off-screen not revealed`);
+    assert(positives===G.graffiti.length && negatives>0,
+      `checked ${negatives} off-screen and ${positives}/${G.graffiti.length} on-screen cases`);
+    console.log(`  reveal rule holds: ${positives} on-screen read, ${negatives} off-screen not read`);
   }
 }
 
@@ -1772,33 +1822,42 @@ console.log('[14] the radar — off by default, total while on, expensive');
      worse, visible through the lighting multiply and reads as a hole;
    - the leak must never reach LOUD. A leak at LOUD stops being a lure and
      becomes a floor-wide hunt trigger, which deletes the repair's tension. */
-console.log('[15] the leak — placement, reachability, and the flood field');
+console.log('[15] the risers — placement, reachability, and the flood field');
 {
   const W=76;
 
-  /* --- placement over 200 floors --- */
-  let unreachable=0, onWall=0, tooClose=0, noSpot=0, sealedAtStart=0;
+  /* --- placement over 200 levels, and every riser on every level --- */
+  let unreachable=0, onWall=0, tooClose=0, noSpot=0, sealedAtStart=0, wrongCount=0, risers=0;
   for (let s=0; s<200; s++){
-    buildFloor(s % 5, s*7907+31);
-    const L = G.leak;
-    if (!L){ noSpot++; continue; }
-    if (G.grid[L.y*W+L.x] !== 0) onWall++;
-    if (L.fixed) sealedAtStart++;
+    buildFloor(s % A.LEVELS_N, s*7907+31);
+    const spec = A.LEVELS[s % A.LEVELS_N];
+    if (G.leaks.length !== spec.leaks){
+      wrongCount++;
+      continue;
+    }
+    for (const L of G.leaks){
+      risers++;
+      if (!L){ noSpot++; continue; }
+      if (G.grid[L.y*W+L.x] !== 0) onWall++;
+      if (L.fixed) sealedAtStart++;
 
-    /* the repair spot must be floor the player can physically stand on, and it
-       must be inside the map. An unreachable repair is an unwinnable floor. */
-    if (L.sx<0||L.sy<0||L.sx>=W||L.sy>=W || G.grid[L.sy*W+L.sx]!==1) noSpot++;
-    if (blocked(L.sx+0.5, L.sy+0.5, 0.33)) unreachable++;
+      /* the repair spot must be floor the player can physically stand on, and it
+         must be inside the map. An unreachable repair is an unwinnable level —
+         and with a clock on the level, an unwinnable one is a dead one. */
+      if (L.sx<0||L.sy<0||L.sx>=W||L.sy>=W || G.grid[L.sy*W+L.sx]!==1) noSpot++;
+      if (blocked(L.sx+0.5, L.sy+0.5, 0.33)) unreachable++;
 
-    /* and it should be a real trek, not the tile you spawn on */
-    const d = Math.hypot(L.sx+0.5-G.player.x, L.sy+0.5-G.player.y);
-    if (d < 8) tooClose++;
+      /* and it should be a real trek, not the tile you spawn on */
+      const d = Math.hypot(L.sx+0.5-G.player.x, L.sy+0.5-G.player.y);
+      if (d < 8) tooClose++;
+    }
   }
-  assert(noSpot===0, `${noSpot}/200 floors have no usable repair spot`);
-  assert(unreachable===0, `${unreachable}/200 floors have a repair spot inside geometry`);
-  assert(onWall===0, `${onWall}/200 leaks are not on a wall tile`);
-  assert(sealedAtStart===0, `${sealedAtStart}/200 floors start with the leak already sealed`);
-  console.log(`  200 floors: every leak on a wall, every repair spot standable`);
+  assert(wrongCount===0, `${wrongCount}/200 levels built the wrong number of risers`);
+  assert(noSpot===0, `${noSpot}/${risers} risers have no usable repair spot`);
+  assert(unreachable===0, `${unreachable}/${risers} risers have a repair spot inside geometry`);
+  assert(onWall===0, `${onWall}/${risers} risers are not on a wall tile`);
+  assert(sealedAtStart===0, `${sealedAtStart} risers start already sealed`);
+  console.log(`  200 levels, ${risers} risers: every one on a wall, every repair spot standable`);
 
   /* --- water can only exist on floor it can actually reach --- */
   buildFloor(2, 60606);
@@ -1814,14 +1873,23 @@ console.log('[15] the leak — placement, reachability, and the flood field');
     console.log(`  water field: ${G.wetFloor} reachable tiles, no wall tiles, none unreachable`);
   }
 
-  /* --- the distance field is a real distance field --- */
+  /* --- the distance field is a real distance field ---
+     MULTI-SOURCE: distance to the NEAREST riser. Every riser's own standing
+     spot must therefore sit at zero, and the field must still be monotone — a
+     multi-source BFS that seeded the second riser without checking whether the
+     first had already reached it would produce a field with two zero basins and
+     water arriving in the wrong order between them. */
   {
-    const li = G.leak.sy*W + G.leak.sx;
-    assert(A.waterDist[li]===0, `the pipe tile is ${A.waterDist[li]} from the leak, want 0`);
+    let missing=0, jumps=0;
+    for (const L of G.leaks){
+      const li = L.sy*W + L.sx;
+      if (A.waterDist[li]!==0) missing++;
+    }
+    assert(missing===0,
+      `${missing}/${G.leaks.length} risers do not sit at distance 0 — the field is not seeded from all of them`);
     /* no tile may be closer than a neighbour minus one: a BFS that skipped a
        tile would produce a front that jumps, and the visible symptom is water
        arriving in a distant room before a nearer one. */
-    let jumps=0;
     for (let y=1;y<W-1;y++) for (let x=1;x<W-1;x++){
       const i=y*W+x;
       if (G.grid[i]!==1 || A.waterDist[i]<0) continue;
@@ -1832,26 +1900,26 @@ console.log('[15] the leak — placement, reachability, and the flood field');
       }
     }
     assert(jumps===0, `${jumps} neighbour pairs violate |d(n)-d(i)|<=1 — the front can skip tiles`);
-    console.log('  distance field is monotone across every floor edge');
+    console.log(`  distance field seeded from all ${G.leaks.length} risers and monotone across every floor edge`);
   }
 
   /* --- there IS a trail from the first second ---
-     The flood is pre-warmed by LEAK_HEADSTART. Without it a floor opens bone
+     The flood is pre-warmed by LEAK_HEADSTART. Without it a level opens bone
      dry and the player has no cue at all until water happens to reach them,
      which is the exact opposite of "follow the wet floor downhill" and turns
      the first half-minute into a blind search. */
   {
     let floorsWithTrail=0, dryAtStart=0;
     for (let s=0;s<40;s++){
-      buildFloor(s%5, s*1543+3);
+      buildFloor(s%A.LEVELS_N, s*1543+3);
       let wet=0;
       for (let i=0;i<76*76;i++) if (G.grid[i]===1 && A.wetArr[i]>0.5) wet++;
       if (wet>0) floorsWithTrail++; else dryAtStart++;
-      assert(G.floodCover>0, `floor ${s} starts with a flood gauge reading zero`);
+      assert(G.floodCover>0, `level ${s} starts with a flood gauge reading zero`);
     }
     assert(dryAtStart===0,
-      `${dryAtStart}/40 floors start bone dry — there is no cue for the first thirty seconds`);
-    console.log(`  every floor opens with water already standing (${floorsWithTrail}/40)`);
+      `${dryAtStart}/40 levels start bone dry — there is no cue for the first thirty seconds`);
+    console.log(`  every level opens with water already standing (${floorsWithTrail}/40)`);
   }
 
   /* --- the flood rises, is bounded, and never touches a wall --- */
@@ -1931,19 +1999,26 @@ console.log('[15] the leak — placement, reachability, and the flood field');
     console.log('  the front is nearest the pipe and falls off with distance');
   }
 
-  /* --- the leak NEVER gets loud. This is the design contract of the lure. */
+  /* --- the leak NEVER gets loud. This is the design contract of the lure —
+         and with several risers open at once it is a contract about the TOTAL,
+         not about each one. Four standing sources that are individually quiet
+         are collectively the loudest thing in the building if each is allowed
+         its own full share, which would turn every late level into a hunt with
+         no off switch. --- */
   {
     let loud=0, samples=0;
     for (let i=0;i<1200;i++){
       update(1/30);
       samples++;
       if (G.leakPower >= A.LOUD) loud++;
+      if (G.leakPower*G.leaksOpen >= A.LOUD) loud++;
     }
     assert(loud===0,
-      `the leak reached LOUD ${loud}/${samples} frames — a loud leak is a floor-wide hunt trigger, not a lure`);
-    assert(G.leakPower >= A.LEAK_NOISE_BASE,
-      'the leak went quieter than its base while still open');
-    console.log(`  leak noise tops out at ${G.leakPower.toFixed(2)} against a LOUD of ${A.LOUD} — always a lure`);
+      `the open risers reached LOUD ${loud}/${samples} samples — a loud leak is a level-wide hunt trigger, not a lure`);
+    assert(G.leakPower > 0,
+      'the open risers went silent');
+    console.log(`  ${G.leaksOpen} open risers at ${G.leakPower.toFixed(2)} each = `+
+      `${(G.leakPower*G.leaksOpen).toFixed(2)} total, against a LOUD of ${A.LOUD} — always a lure`);
   }
 
   /* --- the leak is audible only when it is quiet: drip < walk < wrench --- */
@@ -1961,99 +2036,119 @@ console.log('[15] the leak — placement, reachability, and the flood field');
 /* ============ TEST 16: the repair ===============================
    Five seconds, standing still. The failure modes are all about the bar: it
    filling while you walk away, filling without you, filling without noise, or
-   completing twice. Each of those makes the mechanic free or broken. */
+   completing twice. Each of those makes the mechanic free or broken. With
+   several risers on a level there are two more: sealing the one you are at
+   while another is still open, and double-counting the tallies. */
 console.log('[16] the repair — five seconds, standing still');
 {
   const W=76;
 
-  /* --- placing the player ON the pipe, without fighting unstick() --- */
-  const standAt = () => {
-    const L=G.leak;
-    G.player.x = L.sx+0.5; G.player.y = L.sy+0.5;
-    A.leakReach(G.player.x, G.player.y);
+  /* --- placing the player ON a pipe, without fighting unstick() ---
+     WHICH pipe is the argument: every assertion below is about a single riser,
+     and on a four-riser level the interesting question is whether the game seals
+     the one you are standing at and leaves the rest alone. */
+  const firstOpen = () => G.leaks.find(L=>!L.fixed);
+  const standAt = (L) => {
+    const r = L || firstOpen();
+    G.player.x = r.sx+0.5; G.player.y = r.sy+0.5;
+    return r;
   };
 
   /* --- the spot exists and is in reach --- */
   buildFloor(1, 77777);
-  standAt();
+  const L0 = standAt();
   assert(A.leakReach(G.player.x, G.player.y),
     'standing on the pipe does not put you in repair reach');
-  assert(A.leakReach(G.leak.sx+0.5, G.leak.sy+0.5),
+  assert(A.leakReach(L0.sx+0.5, L0.sy+0.5),
     'the centre of the repair spot is not in reach');
   /* and it must NOT be in reach from across the room, or the repair is a
      proximity accident rather than a decision */
-  assert(!A.leakReach(G.leak.sx+0.5 + A.REPAIR_REACH + 0.5, G.leak.sy+0.5),
+  assert(!A.leakReach(L0.sx+0.5 + A.REPAIR_REACH + 0.5, L0.sy+0.5),
     'you can wrench the pipe from outside the reach radius');
 
   /* --- holding still fills the bar, and it takes the stated five seconds --- */
   {
-    standAt();
+    /* Pinned to ONE riser. The loop deliberately does not hop to the next open
+       pipe when this one seals — that is a different test (below), and a loop
+       that retargets mid-hold silently measures the whole level's work and
+       calls it one repair. */
+    standAt(L0);
     keys.w=keys.s=keys.a=keys.d=false; keys.shift=false;
     let frames=0, t=0;
-    while (G.leak.repair < A.REPAIR_TIME && frames < 4000){
-      G.player.x = G.leak.sx+0.5; G.player.y = G.leak.sy+0.5;
+    while (L0.repair < A.REPAIR_TIME && !L0.fixed && frames < 4000){
+      G.player.x = L0.sx+0.5; G.player.y = L0.sy+0.5;
       update(1/60); t += 1/60; frames++;
-      if (G.leak.fixed) break;
     }
-    assert(G.leak.fixed, `held still for ${t.toFixed(1)}s and the pipe never sealed`);
+    const sealed = G.leaks.filter(l=>l.fixed);
+    assert(L0.fixed, `held still for ${t.toFixed(1)}s and the pipe never sealed`);
+    assert(sealed.length===1, `${sealed.length} risers sealed from one hold — it took the lot at once`);
+    assert(sealed[0]===L0, 'the riser that sealed was not the one the player was standing at');
     /* exactly the stated time, within a frame — a bar that fills early is a
        bar that was not asking for anything */
     assert(Math.abs(t - A.REPAIR_TIME) < 0.06,
       `the repair took ${t.toFixed(2)}s, want ${A.REPAIR_TIME}s`);
-    console.log(`  held still: sealed in ${t.toFixed(2)}s (stated ${A.REPAIR_TIME}s)`);
+    console.log(`  held still: one riser sealed in ${t.toFixed(2)}s (stated ${A.REPAIR_TIME}s), `+
+      `${G.leaksOpen} still open`);
   }
 
   /* --- exactly once: repairing a sealed pipe does nothing --- */
   {
-    assert(G.leak.fixed===true, 'the pipe did not stay sealed');
+    assert(L0.fixed===true, 'the pipe did not stay sealed');
     const before = G.stat.sealed;
-    standAt();
+    const openBefore = G.leaksOpen;
+    standAt(L0);
     for (let i=0;i<600;i++){
-      G.player.x = G.leak.sx+0.5; G.player.y = G.leak.sy+0.5;
+      G.player.x = L0.sx+0.5; G.player.y = L0.sy+0.5;
       update(1/60);
     }
-    assert(G.leak.repair===0, `a sealed pipe still has ${G.leak.repair}s of progress on it`);
+    assert(L0.repair===0, `a sealed pipe still has ${L0.repair}s of progress on it`);
     assert(G.stat.sealed===before, `sealLeak ran ${G.stat.sealed-before} extra times`);
-    assert(G.leakPower===0, 'a sealed pipe is still making noise');
-    console.log('  a sealed pipe cannot be re-wrenched and makes no sound');
+    assert(G.leaksOpen===openBefore, 'standing on a sealed riser changed the open count');
+    /* the others are still going, so the floor is still making noise */
+    assert(G.leakPower>0, 'every riser went quiet while some were still open');
+    console.log('  a sealed riser cannot be re-wrenched; the open ones keep dripping');
   }
 
   /* --- MOVING decays the bar, and does not reset it to zero --- */
   {
     buildFloor(1, 31415);
-    standAt();
+    const L = standAt();
     for (let i=0;i<180;i++){
-      G.player.x = G.leak.sx+0.5; G.player.y = G.leak.sy+0.5;
+      G.player.x = L.sx+0.5; G.player.y = L.sy+0.5;
       update(1/60);
     }
-    const partial = G.leak.repair;
+    const partial = L.repair;
     assert(partial > 0.5 && partial < A.REPAIR_TIME, `progress after 3s is ${partial}`);
     // now walk away
-    G.leak.repair = 3.0;
+    L.repair = 3.0;
     for (let i=0;i<30;i++){ keys['d']=true; update(1/60); }
     keys['d']=false;
-    assert(G.leak.repair < 3.0,
-      `walking off the pipe did not decay the bar (still ${G.leak.repair})`);
-    console.log(`  leaving after 3s decays to ${G.leak.repair.toFixed(2)} — the mistake costs`);
+    assert(L.repair < 3.0,
+      `walking off the pipe did not decay the bar (still ${L.repair})`);
+    console.log(`  leaving after 3s decays to ${L.repair.toFixed(2)} — the mistake costs`);
   }
 
   /* --- and the bar decays to ZERO within a second, so hesitating is not a
          strategy --- */
   {
-    G.leak.repair = A.REPAIR_TIME;
+    const L = firstOpen();
+    L.repair = A.REPAIR_TIME;
     for (let i=0;i<120;i++) update(1/60);      // 2s of standing somewhere else
-    assert(G.leak.repair===0, `the bar is still at ${G.leak.repair} after 2s away`);
+    assert(L.repair===0, `the bar is still at ${L.repair} after 2s away`);
     console.log('  a full bar is lost in under two seconds away from the pipe');
   }
 
   /* --- the wrench is LOUD, and loud enough to wake a sleeping coil --- */
   {
-    buildFloor(0, 5150);
+    /* Level 5, because that is the level with four things in it — the assertion
+       below needs a dormant one, and level 1 has a single walker. */
+    buildFloor(A.LEVELS_N-1, 5150);
+    const L = standAt();
     /* a dormant agent placed right next to the pipe must WAKE from the repair
        alone — the whole tension of the mechanic is that standing still
        announces you, so this asserts the announcement is real. */
-    const L=G.leak;
     const sleeper = G.agents.find(a=>a.state==='DORMANT');
+    assert(sleeper, 'level 5 has no dormant Lifeform to wake — the tension cannot exist');
     if (sleeper){
       sleeper.x = L.sx+0.5; sleeper.y = L.sy+0.5; sleeper.born=0;
       for (let i=0;i<90;i++){
@@ -2067,56 +2162,55 @@ console.log('[16] the repair — five seconds, standing still');
     }
   }
 
-  /* --- the door is sealed until the pipe is, and the exit rule still holds --- */
+  /* --- the door is sealed until EVERY riser is ---
+     With four bursts on a level this is the rule that matters most and the one
+     most easily half-implemented: "the door is shut" can mean "no riser is
+     sealed" (wrong), "the riser you last touched is sealed" (wrong), or "all of
+     them are" (right). The middle one is the bug that lets a player walk out
+     on a level they have left three-quarters flooded, and it is invisible until
+     you test it deliberately. */
   {
-    buildFloor(2, 24680);
-    /* Find all three exits WITHOUT sealing the pipe. The exits are spread
-       across the floor and the viewport is 27 tiles across, so no single
-       position puts all three on screen — they are revealed one at a time by
-       parking the player beside each. That is the real mechanic (a sweep
-       reveals whatever is in view) and using it here keeps this test measuring
-       the door gate rather than a searching algorithm. */
-    {
-      const reset=()=>{ for (const o of G.exitTiles) o.found=false; G.exitsFound=0; G.stat.found=0; };
-      let guard=0;
-      while (G.exitsFound < G.exitTiles.length && guard++ < 40){
-        const e = G.exitTiles.find(o=>!o.found);
-        if (!e) break;
-        let placed=false;
-        for (let y=1;y<W-1 && !placed;y++) for (let x=1;x<W-1;x++){
-          if (G.grid[y*W+x]!==1) continue;
-          G.player.x=x+0.5; G.player.y=y+0.5;
-          if (A.onScreen(e.x+0.5, e.y+0.5)){ placed=true; break; }
-        }
-        if (!placed){ reset(); break; }
-        G.batt=100; G.radar=true;
-        update(1/60);
-        /* exit 1 has a game-ending hazard? no. exit 2 may now also be in view. */
-        G.radar=false;
-      }
-    }
-    assert(G.exitsFound===3, `only ${G.exitsFound}/3 exits found by sweeping beside each`);
+    buildFloor(3, 24680);          // level 4: four risers
+    assert(G.leaks.length===4, `expected 4 risers on level 4, got ${G.leaks.length}`);
+    /* nextFloor() increments a global, and this file is not at floor 0 by now.
+       The question is "did the level end", so the baseline is where it started. */
+    const f0 = A.floorIdx;
+    const door = G.exitTiles[0];
+    const atDoor = ()=>{ G.player.x = door.x+0.5; G.player.y = door.y+0.5; };
+    const others = G.leaks.slice(0, G.leaks.length-1);
 
-    /* now: all found, pipe open, sitting on an exit. The door must NOT open. */
-    G.player.x = G.exitTiles[0].x+0.5; G.player.y = G.exitTiles[0].y+0.5;
-    G.batt=100;
+    /* Sitting on the door with the work undone: nothing happens, however long
+       the player is willing to stand there. */
+    atDoor();
     for (let i=0;i<400;i++){ G.batt=100; update(1/60); }
-    assert(A.floorIdx===0,
-      `descended with the leak open — the door is supposed to stay shut (floorIdx ${A.floorIdx})`);
-    assert(G.descend===0, `the door cycled ${G.descend.toFixed(2)}s with the leak open`);
-    console.log('  door stays sealed with all three exits found and the pipe open');
+    assert(A.floorIdx===f0,
+      `descended with risers open — the door is supposed to stay shut (floorIdx ${A.floorIdx})`);
+    assert(G.descend===0, `the door cycled ${G.descend.toFixed(2)}s with risers open`);
 
-    /* and with the pipe sealed it opens, which proves the gate is the pipe and
-       not some side effect of the test above */
-    A.sealLeak();
-    G.player.x = G.exitTiles[0].x+0.5; G.player.y = G.exitTiles[0].y+0.5;
+    /* Seal all but the last, one at a time, and try the door after EACH. This is
+       the case the old three-exit rule could not even express. */
+    for (const L of others){
+      A.sealLeak(L);
+      atDoor();
+      for (let i=0;i<200;i++){ G.batt=100; update(1/60); }
+      assert(A.floorIdx===f0,
+        `descended with ${G.leaksOpen} riser(s) still open — the gate is not "all of them"`);
+      assert(G.descend===0, `the door cycled ${G.descend.toFixed(2)}s with ${G.leaksOpen} open`);
+    }
+    console.log(`  door stays sealed through all ${others.length} partial repairs`);
+
+    /* and only the last one opens it, which proves the gate is the risers and
+       not some side effect of the loop above */
+    const last = G.leaks[G.leaks.length-1];
+    A.sealLeak(last);
+    atDoor();
     let opened=false;
     for (let i=0;i<200 && !opened;i++){
       G.batt=100; update(1/60);
-      if (A.floorIdx>0) opened=true;
+      if (A.floorIdx>f0) opened=true;
     }
-    assert(opened, 'with the leak sealed the door never opened — the gate is not the leak');
-    console.log('  sealing the pipe opens the door');
+    assert(opened, 'with every riser sealed the door never opened — the gate is not the risers');
+    console.log('  sealing the LAST riser opens the door');
     /* put the global back — the remaining tests assume floor 0-ish state */
     vm.runInContext('floorIdx=0;', ctxObj);
   }
@@ -2181,9 +2275,9 @@ console.log('[17] the water as a cue — legible, free, and it actually leads');
     console.log(`  trail costs no battery and ${A.LEAK_NOISE_BASE} noise vs ${A.RADAR_DRAIN}/s of sweep`);
   }
 
-  /* --- and the trail LEADS: wetness is strictly higher nearer the pipe --- */
+  /* --- and the trail LEADS: wetness is strictly higher nearer the pipes --- */
   {
-    const d0 = A.waterDist[G.leak.sy*W+G.leak.sx];
+    const d0 = A.waterDist[G.leaks[0].sy*W+G.leaks[0].sx];
     let near=0, nearN=0, far=0, farN=0;
     for (let i=0;i<W*W;i++){
       const d=A.waterDist[i];
@@ -2237,20 +2331,18 @@ console.log('[17] the water as a cue — legible, free, and it actually leads');
   }
 }
 
-/* ============ TEST 18: the floor is still FINISHABLE with the repair =========
-   The leak is mandatory now, so it has to be inside the completion path the
-   end-to-end bot already walks. This drives the bot at the pipe and asserts the
-   whole objective set — three exits AND a sealed riser — is achievable through
-   the real update(), with real key state. */
-console.log('[18] end-to-end — the bot finds the pipe, wrenches it, and descends');
+/* ============ TEST 18: a level is FINISHABLE, risers and all =========
+   The whole level is one objective set — every riser, then the door — so it
+   has to be inside the completion path the end-to-end bot already walks. This
+   drives the bot at one riser, then the next, then the door it came in by, and
+   asserts the level actually completes through the real update() with real key
+   state. Level 5 is the one that matters: four risers is where a placement bug
+   or a tally bug shows up, because with one there is nothing to get wrong. */
+console.log('[18] end-to-end — the bot seals every riser, then walks back out');
 {
   const W=76, IDX=(x,y)=>y*W+x;
 
-  /* --- leak placement: does the existing bot's goal logic find it? ---
-     The suite's bot targets exits. The leak needs its own navigation or it is
-     simply not playable, so this drives the SAME path machinery the exit logic
-     uses, pointed at the pipe, and checks the bot can actually arrive and hold
-     the five seconds. */
+  /* --- navigation: the SAME path machinery test 4 uses, pointed at a pipe --- */
   function bfsPath(sx,sy,gx,gy){
     if(sx===gx && sy===gy) return [];
     const prev=new Int32Array(W*W).fill(-1);
@@ -2275,33 +2367,74 @@ console.log('[18] end-to-end — the bot finds the pipe, wrenches it, and descen
     return out.reverse();
   }
 
-  let arrived=0, sealed=0, descended=0, noPath=0;
-  for (let s=0;s<6;s++){
-    buildFloor(s%5, s*4441+13);
+  /* The door is a WALL tile, so the bot cannot path TO it — it has to path to
+     the floor tile beside it, which is the same thing the game itself does when
+     it checks whether you are close enough to cycle the door. */
+  function doorGoal(door){
+    const cand=[[door.x+1,door.y],[door.x-1,door.y],[door.x,door.y+1],[door.x,door.y-1]]
+      .filter(([x,y])=>x>=0&&y>=0&&x<W&&y<W&&G.grid[IDX(x,y)]===1);
+    return cand.length ? {x:cand[0][0], y:cand[0][1]} : null;
+  }
+
+  /* Every level, because the level table is the thing under test: if level 3
+     is unreachable where level 2 is fine, only walking all five finds it. */
+  let arrived=0, descended=0, noPath=0, risersSealed=0, risersWanted=0;
+  for (let s=0; s<A.LEVELS_N; s++){
+    buildFloor(s, s*4441+13);
     A.STATE='play';
     vm.runInContext('floorIdx=0; lives=3;', ctxObj);
-    G.leak.fixed = false;
+    risersWanted += G.leaks.length;
 
-    let path=null, wi=0, fromX=-99, fromY=-99, holding=false, done=false;
+    let path=null, wi=0, fromX=-99, fromY=-99, done=false;
     let swapped=false, hasMovedLastFrame=false;
-    const goal={x:G.leak.sx, y:G.leak.sy};
+    let goal=null, goalId=-1;
     let frames=0;
+    let sealedThisLevel=0, allSealed=false;
+    const f0 = A.floorIdx;
+    const door=G.exitTiles[0];
 
-    while (frames < 60*240 && !done){
+    while (frames < 60*240*2 && !done){
       frames++;
       const px=G.player.x, py=G.player.y;
       keys.w=keys.s=keys.a=keys.d=false; keys.shift=false;
 
+      /* ONE goal at a time: the nearest open riser, or the door once the work
+         is done. Recomputed from scratch every frame so that a riser sealing
+         mid-walk hands the level straight over to the next one — which is the
+         behaviour a player gets, and the one a stale cached goal would break. */
+      let best=null, bd=Infinity;
+      for(const L of G.leaks){
+        if (L.fixed) continue;
+        const d=Math.hypot(L.sx-px, L.sy-py);
+        if (d<bd){ bd=d; best={x:L.sx, y:L.sy}; }
+      }
+      goal = best || doorGoal(door);
+      if (!goal){ noPath++; break; }
+      if (IDX(goal.x,goal.y)!==goalId){ goalId=IDX(goal.x,goal.y); path=null; }
+
       /* once we are on the pipe, STOP. The repair is a hold, not a walk.
          As in test 4, the question is the GAME's reach predicate and not a
          radius invented here. 0.35 is inside the game's 1.25, so a single-axis
-         presser that stops 0.4 tiles short would never trigger it, and the bot
-         walked right up to the pipe and then reported 0/6. */
-      if (A.leakReach(px, py)){
-        holding = true;
+         presser that stops 0.4 tiles short would never trigger it. */
+      if (!best && Math.hypot(door.x+0.5-px, door.y+0.5-py) < 1.25){
+        /* Snapshotted BEFORE the update, and that ordering is the whole reason
+           this works: the frame the door cycles, nextFloor() rebuilds G for the
+           NEXT level, so anything read after it belongs to a level this bot has
+           never played. */
+        sealedThisLevel = G.leaks.filter(l=>l.fixed).length;
+        allSealed = sealedThisLevel===G.leaks.length;
         update(1/60);
-        if (A.STATE!=='play'){ A.STATE='play'; }
-        if (G.leak.fixed){ sealed++; break; }
+        if (A.STATE!=='play') A.STATE='play';
+        if (A.floorIdx>f0){
+          done=true; descended++;
+          risersSealed += sealedThisLevel;
+          if (allSealed) arrived++;
+        }
+        continue;
+      }
+      if (best && A.leakReach(px, py)){
+        update(1/60);
+        if (A.STATE!=='play') A.STATE='play';
         continue;
       }
 
@@ -2315,12 +2448,9 @@ console.log('[18] end-to-end — the bot finds the pipe, wrenches it, and descen
 
       /* The steering from test 4, which is the version that actually walks a
          maze. Pressing one axis blindly — which is what this did first — jams
-         against a partition and stays jammed: 231 frames of movement in 14400,
-         never getting closer than 38 tiles. The two things that matter are a
+         against a partition and stays jammed. The two things that matter are a
          LOOKAHEAD that refuses to press into a wall, and FLIPPING the axis
-         preference when the last press produced nothing, because a committed
-         axis walks the bot into a corner a human rounds by also pressing the
-         other way. */
+         preference when the last press produced nothing. */
       const X=[dx>0?'d':'a', dx>0?1:-1, 0];
       const Y=[dy>0?'s':'w', 0, dy>0?1:-1];
       const wantFirst = Math.abs(dx)>Math.abs(dy);
@@ -2343,32 +2473,15 @@ console.log('[18] end-to-end — the bot finds the pipe, wrenches it, and descen
       if (Math.abs(G.player.x-bx0)+Math.abs(G.player.y-by0) > 1e-6) hasMovedLastFrame=true;
       if (A.STATE!=='play') A.STATE='play';       // respawn on death, keep trying
     }
-    if (G.leak.fixed) arrived++;
-
-    /* now: with the pipe sealed and all exits found, the floor completes */
-    if (G.leak.fixed){
-      /* reveal them the same way if a retry reset the flags */
-      for (const o of G.exitTiles) if (!o.found){
-        for (let y=1;y<W-1;y++){ let done=false;
-          for (let x=1;x<W-1 && !done;x++){
-            if (G.grid[y*W+x]!==1) continue;
-            G.player.x=x+0.5; G.player.y=y+0.5;
-            if (A.onScreen(o.x+0.5,o.y+0.5)){ G.batt=100; G.radar=true; update(1/60); G.radar=false; done=true; }
-          }
-          if (done) break;
-        }
-      }
-      G.player.x=G.exitTiles[0].x+0.5; G.player.y=G.exitTiles[0].y+0.5;
-      for (let i=0;i<200 && A.floorIdx<1;i++){ G.batt=100; update(1/60); if(A.STATE!=='play')A.STATE='play'; }
-      if (A.floorIdx>0) descended++;
-    }
-    void holding;
+    if (process.env.V) console.log(`     level ${s}: ${frames} frames, ${sealedThisLevel} risers, ${allSealed?'all sealed':'LEFT OPEN'}`);
   }
   keys.w=keys.s=keys.a=keys.d=false; keys.shift=false;
-  assert(noPath===0, `${noPath} floors had no path from the spawn to the pipe — the objective is unreachable`);
-  assert(arrived===6, `the bot reached and sealed the pipe on ${arrived}/6 floors`);
-  assert(descended===6, `the bot descended after sealing on ${descended}/6 floors`);
-  console.log(`  bot: sealed the pipe on ${arrived}/6 floors, descended on ${descended}/6`);
+  assert(noPath===0, `${noPath} legs had no path — the objective is unreachable`);
+  assert(arrived===A.LEVELS_N, `the bot sealed every riser on ${arrived}/${A.LEVELS_N} levels`);
+  assert(risersSealed===risersWanted,
+    `${risersSealed}/${risersWanted} risers were sealed — the tallies do not agree`);
+  assert(descended===A.LEVELS_N, `the bot walked back out on ${descended}/${A.LEVELS_N} levels`);
+  console.log(`  bot: ${risersSealed} risers sealed, ${descended}/${A.LEVELS_N} levels walked back out`);
   vm.runInContext('floorIdx=0;', ctxObj);
 }
 
@@ -2388,8 +2501,8 @@ console.log('[19] the leak is drawn where it is, not just where it is computed')
 {
   const W=76;
   buildFloor(2, 2468);
-  for (let i=0;i<60*40;i++) update(1/60);          // let the pipe actually stain
-  const L=G.leak;
+  for (let i=0;i<60*40;i++) update(1/60);          // let the pipes actually stain
+  const L=G.leaks.find(l=>!l.fixed) || G.leaks[0];
 
   // stand on the repair spot facing the pipe, so it is on screen and lit
   G.player.x=L.sx+0.5; G.player.y=L.sy+0.5;
@@ -2404,8 +2517,8 @@ console.log('[19] the leak is drawn where it is, not just where it is computed')
 
   assert(A.onScreen(L.x+0.5, L.y+0.5),
     'the pipe is not on screen while standing on it — the test cannot check what it cannot see');
-  assert(A.maskArr[A.leakTile] > 0.9,
-    `the pipe tile is masked to ${A.maskArr[A.leakTile]} while the player stands on it`);
+  assert(A.maskArr[L.y*W+L.x] > 0.9,
+    `the pipe tile is masked to ${A.maskArr[L.y*W+L.x]} while the player stands on it`);
 
   /* the camera has to be ON the player before a pixel comparison means
      anything; render() smooths it, so settle it the way the game does */
@@ -2448,16 +2561,25 @@ console.log('[19] the leak is drawn where it is, not just where it is computed')
   {
     G.player.x=L.sx+0.5; G.player.y=L.sy+0.5;
     for (let i=0;i<120;i++){ G.player.x=L.sx+0.5; G.player.y=L.sy+0.5; update(1/60); }
-    assert(G.leak.repair>1.5, `only ${G.leak.repair}s of progress after two seconds held`);
-    const [rx,ry] = tileScreen(L.sx+0.5, L.sy);
+    assert(L.repair>1.5, `only ${L.repair}s of progress after two seconds held`);
+    /* The ring is drawn at the CENTRE of the repair tile, and it is drawn with an
+       arc and a stroke — so it is asserted on those. Looking for the leak's
+       gradients instead measured the stain on the wall one tile away, which is
+       a different object and, for a pipe north or south of the spot, exactly
+       the 1.5-tile tolerance boundary: a test that passes or fails on the seed. */
+    const [rx,ry] = tileScreen(L.sx+0.5, L.sy+0.5);
     calls.list.length = 0;
     render(1000+200*16.7);
-    const near = calls.list.filter(c=>{
-      if (c[0]!=='createLinearGradient' && c[0]!=='createRadialGradient') return false;
-      const x=c[c.length-2], y=c[c.length-1];
-      return Math.hypot(x-rx, y-ry) < A.TILE*A.SCALE*1.5;
-    });
-    assert(near.length>0, 'no ring is painted on the spot while the repair runs');
+    const arcs = calls.list.filter(c=>
+      c[0]==='arc' && Math.hypot(c[1]-rx, c[2]-ry) < A.TILE*A.SCALE*0.75);
+    assert(arcs.length>=2,
+      `no ring is painted on the spot while the repair runs `+
+      `(repair ${L.repair.toFixed(2)}s, ${arcs.length} arcs at the spot, `+
+      `${calls.list.filter(c=>c[0]==='arc').length} arcs drawn in total)`);
+    /* two arcs and a stroke: the dark track and the filled portion. One arc
+       alone would be the outline of something. */
+    assert(calls.list.some(c=>c[0]==='stroke'),
+      'the ring was traced but never stroked — it is a circle nobody can see');
   }
   console.log('  the pipe and the wrench ring land on screen, not off in device-pixel space');
 }
@@ -2596,12 +2718,17 @@ console.log('[20] settings — persistence, validation, and the difficulty contr
     const seen = [];
     for (const k of Object.keys(A.DIFFICULTIES)){
       A.setOption('difficulty', k);
-      seen.push({ k, floors:A.FLOORS, lives:A.DIFFICULTIES[k].lives,
+      seen.push({ k, levels:A.FLOORS, clock:A.FLOOR_CLOCK, lives:A.DIFFICULTIES[k].lives,
                   repair:A.REPAIR_TIME, hunt:A.HUNT_BASE, step:A.HUNT_STEP });
       assert(A.LOUD===noiseBefore.LOUD, `preset ${k} changed LOUD`);
       assert(A.REPAIR_NOISE===noiseBefore.repair, `preset ${k} changed the wrench noise`);
       assert(A.LEAK_NOISE_BASE===noiseBefore.base, `preset ${k} changed the leak's base noise`);
       assert(A.LEAK_NOISE_GAIN===noiseBefore.gain, `preset ${k} changed the leak's noise gain`);
+      /* The five levels are the run. A preset that trimmed one made the game
+         have a different number of endings depending on the menu, so every
+         preset plays all five and only the pressure around them moves. */
+      assert(A.FLOORS===A.LEVELS_N,
+        `preset ${k} plays ${A.FLOORS} levels — the five-level run is not a setting`);
     }
     /* and the ordering that makes the stealth layer work still holds */
     assert(A.LEAK_NOISE_BASE + A.LEAK_NOISE_GAIN < A.LOUD,
@@ -2609,20 +2736,153 @@ console.log('[20] settings — persistence, validation, and the difficulty contr
     assert(A.LEAK_NOISE_BASE < 0.30, 'wading is no longer quieter than a wet step');
     assert(A.REPAIR_NOISE >= A.LOUD, 'the repair is no longer the loud decision');
     assert(seen.length===3, `expected 3 difficulty presets, saw ${seen.length}`);
-    for (const p of seen) assert(p.floors>=1 && p.lives>=1, `preset ${p.k} is degenerate`);
-    console.log(`  3 presets move depth/lives/repair/chase only — noise table untouched`);
-    console.log(`    ${seen.map(p=>`${p.k}: ${p.lives} lives, ${p.floors} floors, ${p.repair}s, chase ${p.hunt}+${p.step}/floor`).join('\n    ')}`);
+    for (const p of seen) assert(p.levels>=1 && p.lives>=1 && p.clock>0, `preset ${p.k} is degenerate`);
+    console.log(`  3 presets move lives/clock/repair/chase only — noise table and level count untouched`);
+    console.log(`    ${seen.map(p=>`${p.k}: ${p.lives} lives, ${p.levels} levels, ${p.clock}s clock, ${p.repair}s at the pipe, chase ${p.hunt}+${p.step}/level`).join('\n    ')}`);
     A.setOption('difficulty','normal');
   }
 
   /* --- difficulty reaches the game, not just the store --- */
   {
     A.setOption('difficulty','brutal');
-    assert(A.FLOORS===A.DIFFICULTIES.brutal.floors, `FLOORS is ${A.FLOORS}, want ${A.DIFFICULTIES.brutal.floors}`);
+    assert(A.FLOOR_CLOCK===A.DIFFICULTIES.brutal.clock, `the clock is ${A.FLOOR_CLOCK}s, want ${A.DIFFICULTIES.brutal.clock}s`);
     assert(A.REPAIR_TIME===A.DIFFICULTIES.brutal.repairTime, 'REPAIR_TIME did not follow the preset');
     A.setOption('difficulty','normal');
-    assert(A.FLOORS===5 && A.REPAIR_TIME===5, 'normal did not restore the documented tuning');
-    console.log('  the preset actually reaches FLOORS and REPAIR_TIME');
+    assert(A.FLOORS===A.LEVELS_N && A.REPAIR_TIME===5 && A.FLOOR_CLOCK===180,
+      'normal did not restore the documented tuning');
+    console.log('  the preset actually reaches FLOOR_CLOCK and REPAIR_TIME');
+  }
+}
+
+/* ============ TEST 22: the shape of the run — the five levels and the clock ===
+   These are RULES, not tuning: the level table is a promise about what each
+   level contains and the clock is a promise about how long you get. Neither is
+   observable anywhere else in the suite — test 1 checks the built levels are
+   internally consistent, and test 4 checks a bot can survive, but neither pins
+   the numbers, so a well-behaved refactor could quietly turn a five-level run
+   into a six-riser one or a three-minute clock into a five-minute one and the
+   whole file would still go green. */
+console.log('[22] the run — five levels, three minutes, one door');
+{
+  /* --- the level table is exactly the design --- */
+  assert(A.LEVELS_N===5, `the run has ${A.LEVELS_N} levels, want 5`);
+  const want = [[1,1],[2,1],[3,2],[4,3],[4,4]];
+  assert(A.LEVELS.length===want.length, `the level table has ${A.LEVELS.length} entries`);
+  for (let i=0;i<want.length;i++){
+    assert(A.LEVELS[i].leaks===want[i][0],
+      `level ${i+1} has ${A.LEVELS[i].leaks} leaks, want ${want[i][0]}`);
+    assert(A.LEVELS[i].forms===want[i][1],
+      `level ${i+1} has ${A.LEVELS[i].forms} lifeforms, want ${want[i][1]}`);
+  }
+  console.log(`  level table: ${A.LEVELS.map((l,i)=>`${i+1}:${l.leaks}L/${l.forms}F`).join(' ')}`);
+
+  /* --- and the BUILT levels match the table, on every level --- */
+  for (let f=0; f<A.LEVELS_N; f++){
+    buildFloor(f, 90210+f*131);
+    assert(G.leaks.length===A.LEVELS[f].leaks, `built level ${f+1} has ${G.leaks.length} risers`);
+    assert(G.agents.length===A.LEVELS[f].forms, `built level ${f+1} has ${G.agents.length} lifeforms`);
+    assert(G.exitTiles.length===1, `built level ${f+1} has ${G.exitTiles.length} doors`);
+    assert(G.clock===180, `level ${f+1} opens with ${G.clock}s, want 180`);
+  }
+  console.log('  every built level matches its row and opens on 3:00');
+
+  /* --- the clock counts down, and only down --- */
+  {
+    buildFloor(0, 4242);
+    A.STATE='play';
+    vm.runInContext('lives=3;', ctxObj);
+    assert(G.clock===180, 'the clock does not open on 3:00');
+    A.updateReal(30);
+    const t1 = G.clock;
+    assert(Math.abs(t1-150) < 0.02, `30 seconds of play left ${t1}s on the clock, want 150`);
+    A.updateReal(10);
+    assert(G.clock < t1, 'the clock stopped');
+    assert(Math.abs(G.clock-140) < 0.05, `the clock is running at the wrong rate: ${G.clock}`);
+    console.log(`  the clock runs at wall speed (30s of play = ${t1}s)`);
+  }
+
+  /* --- it is fatal. A deadline that only scolds you is advice, and three
+         minutes of advice is not a rule. It costs a life, exactly like being
+         caught, and rewinds the level. --- */
+  {
+    buildFloor(0, 4242);
+    A.STATE='play';
+    vm.runInContext('lives=3; floorIdx=0;', ctxObj);
+    G.clock = 0.5;
+    A.updateReal(1);
+    assert(A.STATE!=='play', 'the clock ran out and nothing happened');
+    const sub = els['dead-sub'].textContent;
+    assert(/CLOCK/.test(sub), `running out of time said "${sub}"`);
+    assert(vm.runInContext('lives',ctxObj)===2, 'running out of time cost no life');
+    /* and it is announced before it is fatal, so the last thirty seconds are
+       the player's to spend rather than a surprise */
+    buildFloor(0, 4242);
+    A.STATE='play';
+    vm.runInContext('lives=3;', ctxObj);
+    G.clock = 30.2;
+    A.updateReal(0.5);
+    assert(els['flashnote'].textContent.indexOf('THIRTY')>=0,
+      `the last thirty seconds were silent (flash said "${els['flashnote'].textContent}")`);
+    console.log('  the clock costs a life at zero and warns at thirty');
+  }
+
+  /* --- and it does NOT run while the game is paused ---
+     A deadline that keeps draining behind a menu is the one version of this
+     that would make players stop opening the pause screen at all.
+
+     Tested through the REAL loop, not through update(): update() is not
+     responsible for the pause, the frame is, and calling update() directly
+     while paused would be testing a rule the game does not have. */
+  {
+    buildFloor(0, 4242);
+    A.STATE='pause';
+    const before = G.clock;
+    let now = Date.now();
+    const realPerf = global.performance;
+    global.performance = { now: ()=> now };
+    try {
+      now += 1000; A.frame(now);
+      assert(G.clock===before, 'the clock ran down while the game was paused');
+      A.STATE='play';
+      now += 1000; A.frame(now);
+      assert(G.clock < before, 'the clock did not run once the game was live again');
+    } finally {
+      global.performance = realPerf;
+      /* the loop leaves its own bookkeeping advanced; restore the world */
+      buildFloor(0, 4242);
+    }
+    console.log('  the clock is frozen while paused');
+  }
+
+  /* --- the water is slow. The front is the clock's excuse and the player's
+         only map of the level, so it has to be readable: at 1.4s a tile the
+         floor was a lake inside half a minute and following it downhill stopped
+         being something a player does. --- */
+  assert(A.LEAK_SPREAD >= 3, `the water front is ${A.LEAK_SPREAD}s per tile — that is the old, unreadable speed`);
+  {
+    /* measured, not asserted from the constant: 20 seconds of play must not
+       move the waterline more than a few tiles. */
+    buildFloor(0, 6161);
+    const wet0 = A.wetArr.reduce((a,b)=>a+(b>0.5?1:0),0);
+    A.updateReal(20);
+    const wet1 = A.wetArr.reduce((a,b)=>a+(b>0.5?1:0),0);
+    const tiles = (wet1-wet0)/3700;
+    assert(tiles < 0.10, `20 seconds grew the flood by ${(tiles*100).toFixed(1)}% of the floor — too fast to read`);
+    console.log(`  20s of play spreads the water ${(tiles*100).toFixed(1)}% of the floor`);
+  }
+
+  /* --- the door is where you came in, and you never have to find it --- */
+  {
+    buildFloor(0, 8080);
+    const door = G.exitTiles[0];
+    assert(G.exitTiles.length===1, `level 1 has ${G.exitTiles.length} doors`);
+    const d = Math.hypot(door.x+0.5-G.player.x, door.y+0.5-G.player.y);
+    assert(d < 14, `the door is ${d.toFixed(1)} tiles from the spawn — you did not come in through it`);
+    /* and nothing in the game is looking for it: there is no discovery flag to
+       flip and no search to run, which is the whole difference from the three
+       exits this rule replaced. */
+    assert(!('found' in door), 'the door still carries a found flag — something is looking for it');
+    console.log(`  the door opens ${d.toFixed(1)} tiles from the spawn, with nothing to find`);
   }
 }
 

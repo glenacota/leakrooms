@@ -14,6 +14,10 @@
   <!-- ============ HUD ============ -->
   <div id="hud">
     <div class="hud-left">
+      <div class="stat clock" id="clock">
+        <span class="lbl">CLOCK</span>
+        <span id="val-clock">3:00</span>
+      </div>
       <div class="stat">
         <span class="lbl">BATTERY</span>
         <div class="bar"><i id="bar-batt"></i></div>
@@ -33,16 +37,16 @@
 
     <div class="hud-right">
       <div class="stat">
-        <span class="lbl">EXITS</span>
-        <span id="val-exits">0 / 3</span>
+        <span class="lbl">RISERS</span>
+        <span id="val-risers">0/1</span>
       </div>
       <div class="stat">
-        <span class="lbl">RISER</span>
-        <span id="val-leak">OPEN</span>
+        <span class="lbl">DOOR</span>
+        <span id="val-leak">SEALED</span>
       </div>
       <div class="stat">
-        <span class="lbl">DEPTH</span>
-        <span id="val-depth">1</span>
+        <span class="lbl">LEVEL</span>
+        <span id="val-depth">1/5</span>
       </div>
       <div class="stat lives">
         <span class="lbl">LIVES</span>
@@ -81,12 +85,14 @@
           </div>
 
           <div class="field"><span>LOCATION</span><b>Sub-Level Maintenance &mdash; Threshold, Sector 4 (non-Euclidean)</b></div>
-          <div class="field"><span>SCOPE OF WORK</span><b>Locate the leak. Seal the pipe. Get back alive.</b></div>
+          <div class="field"><span>SCOPE OF WORK</span><b>Seal every riser on the level. Get back through the door you came in by. You have three minutes.</b></div>
 
           <div class="field"><span>NOTES FROM THE LAST MAN WHO WENT IN</span></div>
           <ul class="notes">
             <li>The radar does not know plumbing. <b>The wet floor does</b> &mdash; water runs downhill away from the break.</li>
+            <li>There is more than one break up there. <b>Seal all of them</b> &mdash; the door does not cycle for a wet floor.</li>
             <li>Follow it back to the wall, then <b>stand still at the pipe for five seconds to bang it back to normal</b>. It is the loudest thing you will do.</li>
+            <li>The door is <b>behind you</b>. It will still be behind you when you come back for it.</li>
             <li>Copper carries sound. Do not sprint near the lifeforms.</li>
             <li>If you hear breathing, run first and ask later.</li>
           </ul>
@@ -207,7 +213,9 @@
 
   <div id="screen-dead" class="screen hidden">
     <div class="tape">
-      <h1 class="bad">IT HEARD YOU</h1>
+      <!-- The cause is in dead-sub: it heard you, or the clock ran out. One
+           screen for both, because they cost the same thing. -->
+      <h1 class="bad">SHIFT OVER</h1>
       <p class="sub" id="dead-sub">SIGNAL LOST</p>
       <button id="btn-retry">REWIND</button>
     </div>
@@ -216,7 +224,7 @@
   <div id="screen-win" class="screen hidden">
     <div class="tape">
       <h1>NOCLIP</h1>
-      <p class="sub">YOU FOUND THE EDGE</p>
+      <p class="sub">ALL FIVE LEVELS SEALED AND WALKED BACK</p>
       <p class="hint" id="win-stats"></p>
       <button id="btn-again">RUN IT AGAIN</button>
     </div>
