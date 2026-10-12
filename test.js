@@ -174,6 +174,8 @@ globalThis.__api = {
   get lightCv(){ return lightCv; }, get wetCv(){ return wetCv; },
   get TILE(){ return TILE; },
   get wetArr(){ return wetArr; }, get waterDist(){ return waterDist; },
+  get wetFront(){ return wetFront; },
+  get WET_DRAW(){ return WET_DRAW; },
   get LOUD(){ return LOUD; },
   LEVELS, LEVELS_N, get FLOOR_CLOCK(){ return FLOOR_CLOCK; },
   get WET_FALL(){ return WET_FALL; },
@@ -1999,6 +2001,100 @@ console.log('[15] the risers — placement, reachability, and the flood field');
     console.log('  the front is nearest the pipe and falls off with distance');
   }
 
+  /* --- THE WATER GOES AWAY ---
+     The recession is the half of this feature that was silently broken for its
+     entire life, so this asserts on the WATER and not on the front.
+
+     It passed before, with the floor never changing by a pixel, because it
+     measured `wetFront` — the scalar that was edited to make it pass, and which
+     moves correctly whatever the tiles do. A front that retreats to zero over a
+     carpet that stays soaked is a perfectly consistent system and a completely
+     broken feature, and nothing short of looking at wetArr and the packed
+     image can tell the two apart.
+
+     Three claims, weakest assumption first:
+       1. the waterline goes back at the pace it came in (the front),
+       2. a tile the line abandons keeps drying (no stranded ring),
+       3. the floor ends up dry — in the array AND in the pixels. */
+  {
+    A.setHeadless(true, false);
+    buildFloor(0, 20250812);
+    const N = 76*76;
+    const wetCount = ()=>{ let n=0; for(let i=0;i<N;i++) if (A.wetArr[i] > A.WET_DRAW) n++; return n; };
+    const drawnTiles = ()=>{
+      A.packWet();
+      const d = A.wetCv.getContext('2d').getImageData(0,0,76,76).data;
+      let n=0; for(let i=0;i<N;i++) if (d[i*4+3] > 8) n++;
+      return n;
+    };
+    /* tickFlood directly: this is about the water, and driving 500 simulated
+       seconds through the whole update() to watch a number fall is 10x the cost
+       for nothing. The wiring is proved separately, below. */
+    const run = (secs)=>{ for (let i=0;i<secs*4;i++) A.tickFlood(0.25); };
+
+    const adv0 = A.wetFront;
+    run(60);
+    const adv = A.wetFront - adv0;
+    const cover0 = G.floodCover, wet0 = wetCount(), px0 = drawnTiles();
+    assert(wet0 > 200 && px0 > 200 && cover0 > 0.05,
+      `the level never actually flooded (${wet0} tiles, ${px0} drawn) — there is nothing to recede`);
+
+    for (const L of G.leaks) A.sealLeak(L);
+    assert(G.leaksOpen===0, 'the level still has open risers — nothing to recede from');
+
+    /* 1. the waterline is symmetric */
+    const f0 = A.wetFront;
+    run(60);
+    const rec = f0 - A.wetFront;
+    assert(Math.abs(adv - 60/A.LEAK_SPREAD) < 0.5,
+      `the flood advanced ${adv.toFixed(2)} tiles in 60s, want ${(60/A.LEAK_SPREAD).toFixed(2)}`);
+    assert(Math.abs(rec - adv) < 0.5,
+      `the flood receded ${rec.toFixed(2)} tiles in 60s but advanced ${adv.toFixed(2)} — `+
+      'the waterline is not symmetric');
+    assert(Math.abs(rec - 60/A.WET_FALL) > 1,
+      'the recession is still running at the old WET_FALL pace');
+
+    /* 2. and the water is actually going with it — checked on the array AND on
+       the packed image, because "the flood recedes" and "the flood is visible
+       receding" are different claims and only one of them is the game. */
+    const cover1 = G.floodCover, wet1 = wetCount(), px1 = drawnTiles();
+    assert(cover1 < cover0*0.7, `coverage only fell ${(cover0*100).toFixed(0)}% -> ${(cover1*100).toFixed(0)}%`);
+    assert(wet1 < wet0*0.7, `${wet0} wet tiles became ${wet1} — the water is not going anywhere`);
+    assert(px1 < px0*0.8, `${px0} wet tiles still draw as ${px1} — the image is not drying`);
+
+    /* 3. no stranded ring. The tile the waterline abandons FIRST is the one the
+       old bound dropped on the frame it was passed, and it is the single tile
+       whose behaviour distinguishes "receding" from "the front moved". */
+    let outer=-1;
+    for (let i=0;i<N;i++) if (A.waterDist[i] > 0 && A.waterDist[i] <= f0-3 && A.wetArr[i] > 0.5){ outer=i; break; }
+    assert(outer>=0, 'no wet tile outside the front to watch — the test cannot see the bug');
+    const wOuter = A.wetArr[outer];
+    run(20);
+    assert(A.wetArr[outer] < wOuter*0.7,
+      `a tile the waterline abandoned is still at ${A.wetArr[outer].toFixed(2)} — `+
+      'it was dropped from the pass and never dried');
+
+    /* 4. and it ends up dry */
+    run(600);
+    assert(A.wetFront===0, `the front stopped at ${A.wetFront} instead of returning to the pipes`);
+    const wetEnd = wetCount(), pxEnd = drawnTiles();
+    assert(wetEnd < Math.max(4, wet0*0.02),
+      `${wetEnd} of ${wet0} tiles are still wet long after the water should be gone`);
+    assert(pxEnd < Math.max(4, px0*0.02),
+      `${pxEnd} of ${px0} tiles still draw as wet long after the water should be gone`);
+    assert(G.floodCover < 0.01, `the flood gauge is still reading ${(G.floodCover*100).toFixed(1)}%`);
+
+    /* the whole thing is reachable through the real update(), not only by
+       calling the flood directly */
+    A.STATE='play'; vm.runInContext('lives=3;', ctxObj);
+    const before = A.wetFront;
+    update(1/30);
+    assert(A.wetFront < before || A.wetFront===0, 'update() no longer drives the flood');
+    A.setHeadless(false, false);
+    console.log(`  waterline +${adv.toFixed(1)}/-${rec.toFixed(1)} tiles per 60s; `+
+      `${wet0} wet tiles -> ${wet1} -> ${wetEnd}, ${px0} drawn -> ${px1} -> ${pxEnd}`);
+  }
+
   /* --- the leak NEVER gets loud. This is the design contract of the lure —
          and with several risers open at once it is a contract about the TOTAL,
          not about each one. Four standing sources that are individually quiet
@@ -2006,6 +2102,11 @@ console.log('[15] the risers — placement, reachability, and the flood field');
          its own full share, which would turn every late level into a hunt with
          no off switch. --- */
   {
+    /* Builds its own level, and level 5, because the claim is about several
+       risers being open at once — and because a block that inherits whatever
+       level the block above happened to leave behind is a block whose result
+       depends on the order of the file. */
+    buildFloor(A.LEVELS_N-1, 60606);
     let loud=0, samples=0;
     for (let i=0;i<1200;i++){
       update(1/30);

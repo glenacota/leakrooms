@@ -120,8 +120,18 @@ const RISER_GAP = 9;
    head for the length of a journey. The flood is a cue and a clock, not an
    event. */
 const LEAK_SPREAD  = 3.2;    // s of travel per tile — the water front's speed
+/* The two SOAK constants, not the front. They answer "how long does one tile
+   take to darken once the waterline reaches it, and how long to fade once the
+   waterline has left it" — which is a different question from how fast the
+   waterline itself moves, and it was conflated with it until the recession was
+   tied to the arrival pace.
+
+   WET_FALL being half of WET_RISE is what makes the shoreline read as a shore:
+   the waterline pulls away at LEAK_SPREAD and the tiles it uncovers take longer
+   to fade than it took to reach them, so there is always a wet band between dry
+   carpet and open flood. Reverse the two and the edge goes hard. */
 const WET_RISE     = 14.0;   // s for a soaked tile to go 0 -> 1
-const WET_FALL     = 7.0;    // s for it to recede 1 -> 0 once sealed
+const WET_FALL     = 7.0;    // s for an abandoned tile to go 1 -> 0
 const LEAK_NOISE_BASE = 0.16;   // a quiet drip, heard ~6 tiles
 const LEAK_NOISE_GAIN = 0.26;   // added as the floor drowns; still under LOUD
 const LEAK_LURE    = 0.42;   // tiles: a SEARCHING entity drifts this close
@@ -945,6 +955,32 @@ let wetCv, wetCtx, wetImg;            // the packed water field, drawn as one im
    O(perimeter of the waterline) pass — a handful of tiles a frame instead of
    six thousand. The ordering is stable because the leak does not move. */
 let wetByDist = [], wetFront = 0, wetMaxDist = 0, wetSum = 0;
+/* wetEdgeD is the furthest distance from the nearest riser at which ANY tile is
+   still visibly wet — and it is the bound the per-frame pass actually uses.
+
+   It is not `wetFront`, and the difference is the whole recession. `wetFront` is
+   where the waterline is; the moment the line starts coming back in, every ring
+   it has already vacated is still soaking and drying, and those rings are OUTSIDE
+   the front. Iterating to the front leaves them stranded at full wetness —
+   permanently, because the bound only ever shrinks from there, so a tile dropped
+   once is never revisited. The front would walk back to zero on schedule and the
+   carpet would not change by a pixel.
+
+   It is also what keeps the pass cheap. A tile at or inside the front is wet, so
+   the front is a lower bound on this, and the extra distance it covers is exactly
+   the still-drying band — a handful of rings. An unflooded level costs one
+   iteration.
+
+   WET_EDGE has to sit BELOW the cut at which a tile stops being drawn (WET_DRAW
+   in packWet), or the last few percent of wetness is left on the carpet
+   forever: the tile falls out of the pass, stops integrating, and freezes just
+   above the threshold where it is still a visible damp patch. It cannot be zero
+   either — a tile approaching zero asymptotically would hold the bound open for
+   ever — so it is the draw cut times a margin, and the two are written together
+   so they cannot drift apart. */
+const WET_DRAW = 0.015;          // packWet: below this a tile is fully transparent
+const WET_EDGE = WET_DRAW*0.8;    // ...so below THIS the simulation may stop caring
+let wetEdgeD = -1;
 /* wetIndexAtDist[d] = the first index in wetByDist whose distance is >= d.
    Without it, "iterate the tiles inside the waterline" has to guess, and the
    obvious guess — treating the loop index AS the distance — is wrong because
@@ -1599,6 +1635,7 @@ function initFlood(){
   }
   wetFront = 0;
   wetSum = 0;
+  wetEdgeD = -1;
   G.wetFloor = wetByDist.length;
   wetCv = document.createElement('canvas');
   wetCv.width = MAP_W; wetCv.height = MAP_H;
@@ -1622,14 +1659,18 @@ function initFlood(){
     const front = Math.min(wetMaxDist, LEAK_HEADSTART/LEAK_SPREAD);
     wetFront = front;
     let sum = 0;
-    const hiF = Math.ceil(front);
+    /* Every wet tile is at distance <= front, so the edge is known exactly here
+       rather than by scanning: this pass is walking them anyway. */
     const hi  = Math.min(wetByDist.length-1,
-                  wetIndexAtDist[Math.min(hiF, wetIndexAtDist.length-1)] - 1);
+                  wetIndexAtDist[Math.min(Math.ceil(front), wetIndexAtDist.length-1)]);
     for (let n=0; n<=hi; n++){
       const i = wetByDist[n];
       if (waterDist[i] <= front){ wetArr[i] = 1; sum += 1; }
     }
     wetSum = sum;
+    /* seedSplash already ran, so the spawn puddle may reach past the pre-warmed
+       front — take whichever reaches further. */
+    wetEdgeD = Math.max(wetEdgeD, Math.floor(front));
   }
 
   G.floodCover = G.wetFloor ? wetSum/G.wetFloor : 0;
@@ -1648,7 +1689,15 @@ function seedSplash(wx, wy, amount){
     if (G.grid[i]!==FLOOR) continue;
     const dd = Math.hypot(x+0.5-wx, y+0.5-wy);
     const w = Math.min(1, Math.max(0, amount * (1 - dd/1.8)));
-    if (w > wetArr[i]){ wetSum += w - wetArr[i]; wetArr[i] = w; }
+    if (w > wetArr[i]){
+      wetSum += w - wetArr[i]; wetArr[i] = w;
+      /* A splash can wet a tile further out than the flood has reached — the
+         player wading a puddle throws it a tile or two past the waterline. The
+         pass is bounded by the wet edge, so a tile raised without moving the
+         edge would be one the next tickFlood never looks at: a permanent wet
+         spot the player made and cannot dry. */
+      if (w > WET_EDGE && waterDist[i] > wetEdgeD) wetEdgeD = waterDist[i];
+    }
   }
 }
 
@@ -1739,20 +1788,36 @@ function sealLeak(L){
 function tickFlood(dt){
   if (!G.leaks.length || !wetArr) return;
 
-  /* RISING while any riser is open, FALLING once all are sealed. The recession
-     is the same mechanism run backwards: the waterline retreats at one tile per
-     WET_FALL second, so the outermost tile takes exactly WET_FALL to dry and
-     the last puddle takes wetMaxDist*WET_FALL to go. Deriving it from the front
-     rather than from a separate "drain everything" pass is what keeps the drain
-     radial — water recedes from the edges inward, away from the pipes, which
-     is what you would see on a real level and not what a uniform fade would
-     give you. */
+  /* RISING while any riser is open, FALLING once all are sealed — AT THE SAME
+     PACE. The waterline goes back out at exactly one tile per LEAK_SPREAD
+     second, the rate it came in at, and that symmetry is the point: the floor
+     un-floods in the time it took to flood, so the tide you watched arrive is
+     the tide you watch leave, and the recession is legible as a recession.
+
+     It used to run at one tile per WET_FALL (7s against an arrival of 3.2), so
+     the water went out at less than half the speed it came in and the two halves
+     of the same event looked like different events. Deriving the retreat from
+     the front rather than from a separate "drain everything" pass is also what
+     keeps it radial — water recedes from the edges inward, away from the pipes,
+     which is what you would see on a real level and not what a uniform fade
+     would give you. */
   const prev = wetFront;
   const front = G.leaksOpen > 0
     ? Math.min(wetMaxDist, prev + dt/LEAK_SPREAD)
-    : Math.max(0, prev - dt/WET_FALL);
+    : Math.max(0, prev - dt/LEAK_SPREAD);
   wetFront = front;
-  if (front === prev) { G.floodDirty = false; return; }
+  /* A STILL FRONT IS NOT SETTLED WATER. The fade is a time constant, so it
+     approaches zero without ever arriving, and the only true "nothing to do" is
+     an empty edge. Gating the pass on the front alone ended the simulation the
+     instant the recession reached the pipes, leaving the last ring or two of
+     tiles parked at a few percent wet for the rest of the level — and because
+     the front had stopped, nothing would ever come back for them.
+
+     It cost nothing while the water was RISING: the front only stands still
+     once it has hit wetMaxDist, and by then the whole floor is under water
+     anyway. It costs one pass over a shrinking prefix while the floor drains,
+     and then the edge empties and this is a single comparison again. */
+  if (front === prev && wetEdgeD < 0){ G.floodDirty = false; return; }
 
   /* Every tile at or inside the front still has to integrate toward its
      target — a tile keeps darkening for WET_RISE seconds AFTER the front has
@@ -1762,38 +1827,60 @@ function tickFlood(dt){
      about 10% wetness forever, and the floor looked permanently damp rather
      than flooded. The target changes in the band; the approach to it does not.
 
-     What IS worth exploiting is the ordering: tiles beyond the front are all
-     dry already, so the whole settled interior of the puddle is one
-     contiguous PREFIX and nothing past it can change. Iterating the prefix is
-     bounded by how flooded the floor is, and an unflooded floor costs nothing
-     at all. */
-  const hiF = Math.ceil(Math.max(prev, front));
-  const hi = Math.min(wetByDist.length-1,
-                wetIndexAtDist[Math.min(hiF, wetIndexAtDist.length-1)] - 1);
+     What IS worth exploiting is the ordering: everything wet is a contiguous
+     PREFIX of wetByDist, and nothing past its edge can change. Iterating the
+     prefix is bounded by how flooded the level is, and an unflooded one costs
+     one iteration. The edge is `wetEdgeD` — see the note there for why it is
+     not the front, and what it cost to get that wrong. */
+  const boundD = Math.max(wetEdgeD, Math.ceil(Math.max(prev, front)));
+  const hi = wetIndexAtDist[Math.min(boundD+1, wetIndexAtDist.length-1)] - 1;
+  if (hi < 0){ G.floodDirty = false; return; }
   const tau = G.leaksOpen>0 ? WET_RISE : WET_FALL;
   const k = 1 - Math.exp(-dt/tau);
+  /* A front sitting at zero is no water at all — including on the riser's own
+     standing spot. `dist <= front` says otherwise for distance 0, which pinned
+     one tile at full wetness for the rest of the level: a permanent damp patch
+     under the pipe you just fixed, in the one place on the floor where the
+     player has spent five seconds looking at it. */
+  const anyWater = front > 0;
   let sum = wetSum;
   let changed = false;
+  /* The new edge, computed in the pass that is already walking the tiles rather
+     than by a second scan. This is the only place the edge moves, and it moves
+     DOWN monotonically once the water starts going out, which is what lets the
+     next frame's prefix be smaller than this one's. */
+  let edge = -1;
   for (let n=0; n<=hi; n++){
     const i = wetByDist[n];
     const cur = wetArr[i];
-    const target = waterDist[i] <= front ? 1 : 0;
-    if (cur === target) continue;
-    const next = cur + (target-cur)*k;
-    const snapped = Math.abs(target-next) < 0.004 ? target : next;
-    /* wetSum is maintained INCREMENTALLY rather than by re-summing the array
-       every frame. It is the numerator of the flood gauge, which is read by
-       the leak's own noise level and by the HUD, so it is read a lot; summing
-       5776 floats to answer it each time is the same mistake as the scan this
-       function used to do, wearing a different hat. */
-    sum += snapped - cur;
-    wetArr[i] = snapped;
-    changed = true;
+    const target = (anyWater && waterDist[i] <= front) ? 1 : 0;
+    /* Deliberately not `continue`d on an unchanged tile: the edge has to be
+       re-derived from every tile in the prefix, not only from the ones that
+       moved this frame. */
+    if (cur !== target){
+      const next = cur + (target-cur)*k;
+      /* A tile that has faded below the edge goes to EXACTLY zero rather than
+         parking just under it. It is invisible either way, but a thousand tiles
+         left at 1.2% are a thousand tiles the flood gauge never stops counting,
+         and a floor that has finished draining would sit at "01" for ever. */
+      const snapped = target===0 ? (next <= WET_EDGE ? 0 : next)
+                                 : ((1-next) < 0.004 ? 1 : next);
+      /* wetSum is maintained INCREMENTALLY rather than by re-summing the array
+         every frame. It is the numerator of the flood gauge, which is read by
+         the leak's own noise level and by the HUD, so it is read a lot; summing
+         5776 floats to answer it each time is the same mistake as the scan this
+         function used to do, wearing a different hat. */
+      sum += snapped - cur;
+      wetArr[i] = snapped;
+      changed = true;
+    }
+    if (wetArr[i] > WET_EDGE) edge = waterDist[i];
   }
+  wetEdgeD = edge;
   if (!changed){ G.floodDirty = false; return; }
   wetSum = sum;
   G.floodDirty = true;
-  G.floodCover = G.wetFloor ? sum/G.wetFloor : 0;
+  G.floodCover = G.wetFloor ? Math.max(0, sum/G.wetFloor) : 0;
 }
 
 /* ============================================================
@@ -1828,7 +1915,7 @@ function packWet(){
   for (let i=0;i<MAP_W*MAP_H;i++){
     const a = wetArr[i];
     const k = i*4;
-    if (a <= 0.015){ d[k+3] = 0; continue; }
+    if (a <= WET_DRAW){ d[k+3] = 0; continue; }
     const t = Math.min(1, a);
     const blue = Math.max(0, (t-0.35)/0.65);
     d[k]   = Math.round(T.damp[0] + (T.deep[0]-T.damp[0])*blue);
