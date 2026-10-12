@@ -55,40 +55,67 @@
   <div id="flashnote"></div>
 
   <!-- ============ SCREENS ============ -->
-  <div id="screen-title" class="screen">
-    <div class="tape">
+
+  <!-- ---- SPLASH 03 — RISER ----------------------------------------
+       Opaque on purpose: the world behind is a floor the player has not
+       entered yet, and the frame is meant to read as a title, not a pause. -->
+  <div id="screen-splash" class="screen splash">
+    <div class="splash-drip"></div>
+    <div class="splash-water"></div>
+    <div class="splash-plate">
       <h1>LEAKROOMS</h1>
-      <p class="sub">RECOVERED TAPE&nbsp;&mdash;&nbsp;NO TIMESTAMP</p>
+      <p class="go">PRESS <b>ENTER</b> TO NOCLIP</p>
+    </div>
+  </div>
 
-      <blockquote>
-        &ldquo;If you&rsquo;re not careful and you noclip out of reality in the wrong
-        areas, you&rsquo;ll end up in the Backrooms, where it&rsquo;s nothing but the
-        stink of old moist carpet, the madness of mono-yellow, the endless
-        background noise of fluorescent lights at maximum hum-buzz, and
-        approximately six hundred million square miles of randomly segmented
-        empty rooms to be trapped in.<br><br>
-        God save you if you hear something wandering around nearby, because it
-        sure as hell has heard you.&rdquo;
-      </blockquote>
+  <!-- ---- SPLASH 04 — WORK ORDER 88-D ------------------------------
+       Type here is sized to be read from a chair, not scanned: the old
+       title screen was a 12px wall of lore that everyone skipped. -->
+  <div id="screen-order" class="screen hidden">
+    <div class="order-wrap">
+      <div class="order perf">
+        <div class="order-body">
+          <div class="order-head">
+            <h2>WORK ORDER 88-D</h2>
+            <p class="meta">ISSUE 03-14-26 &nbsp;&middot;&nbsp; PRIORITY <b>FLOODING</b> &nbsp;&middot;&nbsp; SHIFT NIGHT</p>
+          </div>
 
-      <div class="controls">
-        <div><b>WASD</b> / <b>ARROWS</b><span>move</span></div>
-        <div><b>SHIFT</b><span>sprint &mdash; loud</span></div>
-        <div><b>R</b><span>radar &mdash; costs battery</span></div>
-        <div><b>ENTER</b><span>start / confirm</span></div>
-        <div><b>ESC</b><span>pause</span></div>
+          <div class="field"><span>LOCATION</span><b>Sub-Level Maintenance &mdash; Threshold, Sector 4 (non-Euclidean)</b></div>
+          <div class="field"><span>SCOPE OF WORK</span><b>Locate the leak. Seal the pipe. Get back alive.</b></div>
+
+          <div class="field"><span>NOTES FROM THE LAST MAN WHO WENT IN</span></div>
+          <ul class="notes">
+            <li>The radar does not know plumbing. <b>The wet floor does</b> &mdash; water runs downhill away from the break.</li>
+            <li>Follow it back to the wall, then <b>stand still at the pipe for five seconds to bang it back to normal</b>. It is the loudest thing you will do.</li>
+            <li>Copper carries sound. Do not sprint near the lifeforms.</li>
+            <li>If you hear breathing, run first and ask later.</li>
+          </ul>
+
+          <div class="controls controls-big">
+            <div><b>WASD</b> <b>ARROWS</b><span>move</span></div>
+            <div><b>SHIFT</b><span>sprint &mdash; loud</span></div>
+            <div><b>R</b><span>radar &mdash; costs battery</span></div>
+            <div><b>ENTER</b><span>start / confirm</span></div>
+            <div><b>ESC</b><span>pause &mdash; settings</span></div>
+          </div>
+        </div>
+
+        <div class="order-side">
+          <small>HAZARD PAY</small>
+          <div class="big">&times;2</div>
+          <small>BADGE</small>
+          <div class="badge">404</div>
+          <small>RUN SEED</small>
+          <div class="seed" id="order-seed">#88D-0000</div>
+          <small>CLAIM VOID IF WET</small>
+          <p class="stub-note">DO NOT ENTER ALONE.<br>DO NOT TRUST THE RADAR.</p>
+        </div>
       </div>
 
-      <p class="hint">
-        A riser has burst somewhere on this floor and the water is climbing.<br>
-        The radar will not save you. It only lets you <i>see</i>, and it does not know a thing about plumbing.<br>
-        The <b>wet floor does</b>. Water runs downhill away from the break &mdash; follow it back to the wall.<br><br>
-        Then stand at the pipe and <b>hold still for five seconds</b>. It is the loudest thing you will do.<br>
-        Seal it before the door will open.
-      </p>
-
-      <button id="btn-start">NO-CLIP</button>
-      <button id="btn-settings-title" class="ghost">SETTINGS</button>
+      <div class="order-cta">
+        <button id="btn-start">CLOCK IN</button>
+        <span class="cta-hint">OR PRESS <b>ENTER</b> &nbsp;&middot;&nbsp; ESC GOES BACK</span>
+      </div>
     </div>
   </div>
 

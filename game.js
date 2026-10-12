@@ -2214,7 +2214,8 @@ const keys = {};
    run again. It also fires when a button already has focus, so guard against
    the click landing twice. */
 const MODAL_ACTION = {
-  title:  ()=>document.getElementById('btn-start').click(),
+  splash: ()=>advanceSplash(),
+  order:  ()=>advanceSplash(),
   pause:  ()=>document.getElementById('btn-resume').click(),
   dead:   ()=>document.getElementById('btn-retry').click(),
   win:    ()=>document.getElementById('btn-again').click(),
@@ -2229,19 +2230,46 @@ window.addEventListener('keydown', e=>{
   const k = e.key.toLowerCase();
   keys[k] = true;
 
+  /* ESC walks the splash chain backwards: from the work order to the riser.
+     It does nothing on splash 03, which is the first frame — there is nothing
+     behind it, and a key that silently does nothing is worse than no key. */
+  if (e.key==='Escape'){
+    if (backSplash()){ delete keys[k]; return; }
+  }
+
   if (k==='enter'){
-    const act = STATE==='title' ? MODAL_ACTION.title
-              : STATE==='pause' ? MODAL_ACTION.pause
-              : STATE==='dead'  ? MODAL_ACTION.dead
-              : STATE==='win'   ? MODAL_ACTION.win
+    const act = STATE==='splash' ? MODAL_ACTION.splash
+              : STATE==='order'  ? MODAL_ACTION.order
+              : STATE==='pause'  ? MODAL_ACTION.pause
+              : STATE==='dead'   ? MODAL_ACTION.dead
+              : STATE==='win'    ? MODAL_ACTION.win
               : null;
-    if (act){
+    /* Auto-repeat is blocked, same as below: holding ENTER down would blow
+       through the splash and start a second run behind the first. */
+    if (act && !e.repeat){
       const focused = document.activeElement;
       const onButton = focused && focused.tagName === 'BUTTON';
       act();                                  // close the modal
       if (onButton) focused.blur();           // no second activation via Enter
+      /* The key that dismissed the splash must not carry into the run: the
+         same keydown set keys[k] above, and a held W would otherwise walk the
+         player out of the door they just came through. */
+      delete keys[k];
     }
     e.preventDefault();
+    return;
+  }
+
+  /* On the splash chain, any unmodified key advances. Sprint and the arrow
+     keys are movement, so holding one through the splash should move the
+     player the instant the run starts — advance once per press, not per
+     repeat, and drop the key state with it. Escape is excluded: it walks
+     backwards, and on splash 03 it means "stay here". */
+  if ((STATE==='splash'||STATE==='order') && e.key!=='Escape'
+      && !e.metaKey && !e.ctrlKey && !e.altKey && !e.repeat){
+    advanceSplash();
+    delete keys[k];
+    if (STATE==='play') e.preventDefault();
     return;
   }
 
@@ -2625,9 +2653,38 @@ function randomFloorNear(x,y,rad){
 }
 
 /* ============================================================
+   THE SPLASH SCREENS
+   Two frames before the run: 03 RISER (title, rising water) then
+   04 WORK ORDER 88-D (the ticket, which is also the controls list).
+   One advance function drives both, so ENTER, any key, and a click
+   all land in the same place and cannot disagree with each other.
+   ============================================================ */
+function advanceSplash(){
+  if (STATE==='splash'){
+    STATE='order';
+    /* The seed goes on the stub so each run's ticket reads as authored
+       rather than generated. It is RUN_SEED — the same number that builds
+       the floor when the player clocks in — so it is not decoration. */
+    const seedEl = document.getElementById('order-seed');
+    if (seedEl) seedEl.textContent = '#88D-' + (RUN_SEED>>>0).toString(16).toUpperCase().slice(-4);
+    show('order');
+  } else if (STATE==='order'){
+    document.getElementById('btn-start').click();
+  }
+}
+function backSplash(){
+  if (STATE==='order'){ STATE='splash'; show('splash'); return true; }
+  return false;                       // nothing behind splash 03: it is the first frame
+}
+
+/* ============================================================
    FLOW
    ============================================================ */
-let STATE='title';       // title | play | pause | dead | win
+let STATE='splash';      // splash | order | play | pause | dead | win | settings
+/* Every screen the shell can show, in one list, because show()/hideAll() and
+   the settings return path all enumerate them and they used to drift apart
+   the moment a screen was added. */
+const SCREENS = ['splash','order','pause','dead','win','settings'];
 let RUN_SEED = (Math.random()*1e9)|0;
 let lives = 3, floorIdx = 0, runTime = 0;
 /* The life pips are drawn from this, not from a hardcoded three. The naive
@@ -3308,10 +3365,10 @@ function flash(text){
 }
 
 function show(which){
-  for (const s of ['title','pause','dead','win','settings'])
+  for (const s of SCREENS)
     document.getElementById('screen-'+s).classList.toggle('hidden', s!==which);
 }
-function hideAll(){ for (const s of ['title','pause','dead','win','settings'])
+function hideAll(){ for (const s of SCREENS)
     document.getElementById('screen-'+s).classList.add('hidden'); }
 
 /* ============================================================
@@ -3321,11 +3378,11 @@ function hideAll(){ for (const s of ['title','pause','dead','win','settings'])
    that only commits on OK makes people wonder whether it saved, and these
    values are all cheap and reversible.
    ============================================================ */
-let settingsReturn = 'title';    // where BACK goes
-let settingsPrevState = 'title';
+let settingsReturn = 'pause';    // where BACK goes
+let settingsPrevState = 'pause';
 
 function openSettings(from){
-  settingsReturn = from || (STATE === 'pause' ? 'pause' : 'title');
+  settingsReturn = from || STATE;
   /* STATE has to actually become 'settings' or the keydown dispatcher — which
      keys MODAL_ACTION off STATE — never sees this screen, and Enter does
      nothing. It also stops the game updating behind the menu, which is what we
@@ -3338,7 +3395,10 @@ function openSettings(from){
 
 function closeSettings(){
   STATE = settingsPrevState;
-  show(settingsReturn === 'pause' ? 'pause' : 'title');
+  /* 'play' has no screen, and the splash states are named differently from
+     the settings screen, so the return path is mapped rather than guessed. */
+  if (STATE==='play'){ hideAll(); return; }
+  show(STATE);
 }
 
 function setOption(key, value){
@@ -3382,9 +3442,11 @@ const SEGMENTS = {
 const DIFFICULTY_KEYS = {};
 
 function buildSettingsUI(){
-  /* openSettings() does not change STATE, so returning from the pause menu is
-     just "show the pause screen again" — no state juggling, and Escape out of
-     a submenu cannot strand the player in a state with no way back. */
+  /* Settings are only reachable from the pause screen now, so BACK always has
+     somewhere real to go: the pause screen itself. openSettings() does not
+     change STATE, so returning from the pause menu is just "show the pause
+     screen again" — no state juggling, and Escape out of a submenu cannot
+     strand the player in a state with no way back. */
   for (const row of document.querySelectorAll('.seg[data-opt]')){
     const key = row.dataset.opt;
     const opts = (SEGMENTS[key] || (()=>[]))();
@@ -3405,10 +3467,17 @@ function buildSettingsUI(){
   if (back) back.onclick = closeSettings;
   const reset = document.getElementById('btn-settings-reset');
   if (reset) reset.onclick = ()=>{ resetSettings(); syncSettingsUI(); };
-  const t = document.getElementById('btn-settings-title');
-  if (t) t.onclick = ()=> openSettings('title');
   const p = document.getElementById('btn-settings-pause');
   if (p) p.onclick = ()=> openSettings('pause');
+}
+
+/* Click anywhere on either splash advances it, so a player who never reads
+   the keyboard prompt is not stuck. The advance function keys off STATE, so
+   the click that lands on CLOCK IN and then bubbles up to the screen a second
+   time finds STATE already 'play' and does nothing. */
+for (const id of ['screen-splash','screen-order']){
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('click', advanceSplash);
 }
 
 function togglePause(){

@@ -71,6 +71,10 @@ function fakeEl(id){
     addEventListener(){}, removeEventListener(){},
     getContext:()=>fakeCtx(),
     width:0,height:0,
+    /* The game drives modal transitions through button.click(), including
+       from the key handler, so the stub has to activate the handler the same
+       way a browser would — not just hold the property. */
+    click(){ if (this.onclick) this.onclick(); },
   };
   return el;
 }
@@ -80,12 +84,15 @@ global.document = {
   getElementById(id){ return els[id] || (els[id]=fakeEl(id)); },
   querySelector(sel){ return els[sel] || (els[sel]=fakeEl(sel)); },
   querySelectorAll(){ return []; },
-  createElement(tag){ return tag==='canvas' ? fakeCanvas() : fakeEl(tag); },
   addEventListener(){},
   body: { appendChild(){} },
 };
 global.window = {
-  addEventListener(){},
+  /* Key handlers are kept so tests can press real keys. Every screen change
+     in this game is a key handler away, and a suite that could not press a
+     key could not tell a working menu from a decorative one. */
+  _h:{},
+  addEventListener(t,f){ this._h[t]=f; },
   devicePixelRatio:1,
   AudioContext: undefined,   // exercise the no-AudioContext fallback path
 };
@@ -162,6 +169,7 @@ globalThis.__api = {
   get WATER_TINTS(){ return WATER_TINTS; },
   loadSettings, saveSettings, resetSettings, applySettings, setOption,
   settingsValid, get SETTINGS_KEY(){ return SETTINGS_KEY; },
+  advanceSplash, backSplash, show, hideAll, get SCREENS(){ return SCREENS; },
   get FLOORS(){ return FLOORS; },
   get HUNT_BASE(){ return HUNT_BASE; }, get HUNT_STEP(){ return HUNT_STEP; },
   get lives(){ return lives; }, set lives(v){ lives = v; },
@@ -2616,6 +2624,88 @@ console.log('[20] settings — persistence, validation, and the difficulty contr
     assert(A.FLOORS===5 && A.REPAIR_TIME===5, 'normal did not restore the documented tuning');
     console.log('  the preset actually reaches FLOORS and REPAIR_TIME');
   }
+}
+
+/* ============ TEST 21: the splash chain — 03 riser, 04 work order, then the run
+   Two splash frames sit in front of the game now, so the path a player walks
+   to reach the first frame is part of the build and has to be tested like
+   one: which screen is up, what each key does, what is left held afterwards. */
+console.log('[21] the splash chain — 03 riser, 04 work order, then the run');
+{
+  const html = fs.readFileSync(__dirname+'/index.html','utf8');
+  const css  = fs.readFileSync(__dirname+'/style.css','utf8');
+
+  /* --- the markup contract --- */
+  assert(!/screen-title/.test(html), 'the old title screen is still wired into index.html');
+  const splashHtml = html.slice(html.indexOf('id="screen-splash"'), html.indexOf('id="screen-order"'));
+  const orderHtml  = html.slice(html.indexOf('id="screen-order"'), html.indexOf('id="screen-settings"'));
+  assert(splashHtml.length>0 && orderHtml.length>0, 'the splash or work-order screen is missing from index.html');
+  assert(/LEAKROOMS/.test(splashHtml), 'splash 03 does not show the title');
+  assert(!/\bhidden\b/.test(splashHtml), 'splash 03 ships hidden — the boot frame would be a blank canvas');
+  assert(/class="screen hidden"/.test(orderHtml), 'work order 04 ships visible over the riser');
+  assert(/id="btn-start"/.test(orderHtml), 'work order 04 has no clock-in button for btn-start to bind');
+
+  /* --- the controls summary is the reason screen 04 exists --- */
+  for (const key of ['WASD','ARROWS','SHIFT','ENTER','ESC']){
+    assert(new RegExp('>'+key+'<').test(orderHtml), `work order 04 never lists ${key}`);
+  }
+  assert(/>R</.test(orderHtml), 'work order 04 never lists R, the radar');
+
+  /* --- and it is legible, not merely present.
+         The old title screen was 11px and nobody read it, so the requirement
+         is a floor on rendered size, not the existence of the text. --- */
+  const px = (sel)=>{ const m = css.match(sel); return m ? Number(m[1]) : NaN; };
+  assert(px(/\.controls-big span\{[^}]*font-size:(\d+)px/)>=14,
+         'the controls summary body text is under 14px');
+  assert(px(/\.controls-big b\{[^}]*font-size:(\d+)px/)>=14,
+         'the control keys are under 14px');
+  assert(px(/\.order \.field b\{[^}]*font-size:(\d+)px/)>=15,
+         'the work order body text is under 15px');
+  assert(px(/\.order-head h2\{[^}]*font-size:(\d+)px/)>=20,
+         'the work order title is under 20px');
+  console.log(`  work order type: title ${px(/\.order-head h2\{[^}]*font-size:(\d+)px/)}px, `+
+              `body ${px(/\.order \.field b\{[^}]*font-size:(\d+)px/)}px, controls ${px(/\.controls-big b\{[^}]*font-size:(\d+)px/)}px`);
+
+  /* --- the chain itself, driven through the real key handler --- */
+  const keydown = ctxObj.window._h.keydown;
+  assert(typeof keydown==='function', 'no keydown handler was registered');
+  const press = (key, extra={})=> keydown({ key, repeat:false, metaKey:false, ctrlKey:false,
+                                            altKey:false, preventDefault(){}, ...extra });
+  const vis = ()=> A.SCREENS.filter(s=>!els['screen-'+s].classList.contains('hidden'));
+
+  A.hideAll(); A.STATE='splash'; A.show('splash');
+  assert(vis().join()==='splash', `boot shows ${vis().join()||'nothing'}, expected the riser`);
+
+  press('Enter');
+  assert(A.STATE==='order', `ENTER on the riser left STATE at ${A.STATE}`);
+  assert(vis().join()==='order', `ENTER showed ${vis().join()||'nothing'}, expected the work order alone`);
+  assert(/^#88D-[0-9A-F]{1,4}$/.test(els['order-seed'].textContent),
+    `the run seed is "${els['order-seed'].textContent}" — the stub does not carry the seed of the floor it clocks into`);
+
+  press('Escape');
+  assert(A.STATE==='splash' && vis().join()==='splash', 'ESC did not walk back to the riser');
+  press('Escape');
+  assert(A.STATE==='splash', 'ESC on the riser advanced anyway — there is nothing behind it');
+
+  press('q');
+  assert(A.STATE==='order', 'an ordinary key did not advance the splash');
+
+  press('w');
+  assert(A.STATE==='play', `the clock-in did not start the run (STATE=${A.STATE})`);
+  assert(!A.keys['w'], 'the key that dismissed the splash is still held — the player walks before they can react');
+  assert(els['hud'].classList.contains('on'), 'the HUD did not come up with the run');
+  assert(vis().length===0, `${vis().join()} still up on top of the run`);
+
+  /* repeat is how a held key behaves, and it must not advance twice */
+  A.hideAll(); A.STATE='splash'; A.show('splash');
+  press('Enter', {repeat:true});
+  assert(A.STATE==='splash', 'an auto-repeating ENTER advanced the splash');
+  press('Enter');
+  press('Enter', {repeat:true});
+  assert(A.STATE==='order', 'an auto-repeating ENTER skipped the work order and started the run');
+  press('Enter');
+  assert(A.STATE==='play', `two ENTER presses on the chain did not reach the run (STATE=${A.STATE})`);
+  console.log('  ENTER / any key / click advance, ESC steps back, one screen at a time');
 }
 
 reportTimings();

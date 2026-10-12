@@ -198,7 +198,146 @@ button.ghost:hover{ background:rgba(228,230,168,.10); color:var(--yellow); }
 #flashnote.on{ opacity:1; }
 
 /* ------------------------------------------------------------
-   screens (title / pause / dead / win)
+   SPLASH 03 — RISER
+   Title on black, water climbing the frame. The flood that ends
+   the run is on screen before the run starts.
+   ------------------------------------------------------------ */
+.screen.splash{
+  background:#07060a;
+  backdrop-filter:none;
+  overflow:hidden;
+}
+.splash-water{
+  position:absolute; left:0; right:0; bottom:0; height:22%;
+  background:linear-gradient(180deg,#8fc4cc 0 3px,#3c5a60 4px 55%,#1d2f34 100%);
+  animation:rise 9s cubic-bezier(.2,.7,.3,1) infinite alternate;
+}
+/* Surface ripple: one gradient stripe, offset. Same trick as the flood
+   gauge staying the only blue in the shell — water is the only hue. */
+.splash-water::before{
+  content:""; position:absolute; left:-50%; top:-3px; width:200%; height:6px;
+  background:repeating-linear-gradient(90deg,#8fc4cc 0 18px,transparent 18px 36px);
+  animation:drift 3.4s linear infinite; opacity:.55;
+}
+@keyframes rise{ from{height:12%} to{height:40%} }
+@keyframes drift{ to{transform:translateX(36px)} }
+.splash-drip{
+  position:absolute; inset:0; pointer-events:none;
+  background:
+    linear-gradient(#8fc4cc,#8fc4cc) 12% 8%  /2px 26px no-repeat,
+    linear-gradient(#8fc4cc,#8fc4cc) 78% 16% /2px 18px no-repeat,
+    linear-gradient(#8fc4cc,#8fc4cc) 46% 4%  /2px 32px no-repeat;
+  animation:drip 2.1s linear infinite;
+}
+@keyframes drip{ from{transform:translateY(-30px)} to{transform:translateY(30px)} }
+
+.splash-plate{ position:relative; z-index:2; text-align:center; padding:0 24px; }
+.screen.splash h1{
+  font-size:clamp(34px,8.4vw,84px);
+  letter-spacing:.26em;
+  margin:0 0 12px;
+  text-indent:.26em;                 /* letter-spacing trails the last glyph; this re-centres the word */
+  text-shadow:0 0 26px rgba(228,230,168,.28);
+}
+.splash-plate .go{
+  margin:34px 0 0; font-size:14px; letter-spacing:.3em;
+  animation:pulse 2.2s ease-in-out infinite;
+}
+.splash-plate .go b{ color:var(--ink); background:var(--yellow); padding:2px 8px; font-weight:400; }
+@keyframes pulse{ 50%{ opacity:.35 } }
+
+/* ------------------------------------------------------------
+   SPLASH 04 — WORK ORDER 88-D
+   The controls list is the reason this screen exists, so it is the
+   largest thing on it. Everything else supports it.
+   ------------------------------------------------------------ */
+.order-wrap{
+  width:min(94vw,960px);
+  display:flex; flex-direction:column; align-items:center; gap:18px;
+}
+/* The world behind the ticket is lit and busy, so this one screen runs a
+   touch more opaque than the other modals — paper on a bright window is
+   just hard to read. */
+#screen-order{ background:rgba(6,5,3,.95); }
+.order{
+  width:100%;
+  display:grid; grid-template-columns:1fr 208px;
+  border:1px solid rgba(228,230,168,.32);
+  background:
+    repeating-linear-gradient(0deg,rgba(0,0,0,.14) 0 2px,transparent 2px 4px),
+    rgba(12,10,6,.96);
+  box-shadow:0 0 60px rgba(0,0,0,.9), inset 0 0 40px rgba(228,230,168,.05);
+}
+/* Perforation down both long edges — a work order is paper, and paper
+   that goes through a machine has holes in it. */
+.order.perf{
+  background-image:
+    radial-gradient(circle at 0 8px,#000 0 2.5px,transparent 2.6px),
+    radial-gradient(circle at 100% 8px,#000 0 2.5px,transparent 2.6px),
+    repeating-linear-gradient(0deg,rgba(0,0,0,.14) 0 2px,transparent 2px 4px),
+    rgba(12,10,6,.96);
+  background-size:100% 16px,100% 16px,auto,auto;
+  background-position:left top,right top,0 0,0 0;
+  background-repeat:repeat-y,repeat-y,repeat,no-repeat;
+}
+
+.order-body{ padding:22px 26px 20px; text-align:left; }
+.order-head{ border-bottom:1px solid rgba(228,230,168,.2); padding-bottom:12px; margin-bottom:14px; }
+.order-head h2{
+  font-size:26px; letter-spacing:.22em; font-weight:400; margin:0;
+  text-shadow:2px 0 0 rgba(216,80,60,.45), -2px 0 0 rgba(80,150,216,.3);
+}
+.order-head .meta{
+  margin:8px 0 0; font-size:12px; letter-spacing:.18em; color:var(--yellow-deep);
+}
+.order-head .meta b{ color:#8fc4cc; font-weight:400; }
+
+.order .field{ margin:12px 0; }
+.order .field span{
+  display:block; font-size:11px; letter-spacing:.22em; color:var(--yellow-deep); margin-bottom:4px;
+}
+.order .field b{ font-size:16px; line-height:1.5; font-weight:400; color:var(--yellow); }
+
+/* Controls: the payload of the screen. */
+.controls-big{ margin:18px 0 4px; font-size:15px; letter-spacing:.06em; }
+.controls-big div{ display:flex; gap:10px; align-items:baseline; padding:3px 0; }
+.controls-big b{
+  min-width:78px; font-size:15px; padding:3px 9px;
+  color:var(--ink); background:var(--yellow); border:1px solid var(--yellow);
+}
+.controls-big span{ font-size:14px; color:var(--yellow-dim); }
+
+.order .notes{ margin:8px 0 0; padding:0; list-style:none; }
+.order .notes li{
+  font-size:14px; line-height:1.6; color:var(--yellow-dim); padding-left:18px; position:relative;
+}
+.order .notes li::before{ content:"\2610"; position:absolute; left:0; color:var(--yellow-deep); }
+.order .notes b{ color:var(--yellow); font-weight:400; }
+
+.order-side{
+  border-left:2px dashed rgba(228,230,168,.28);
+  padding:20px 16px;
+  background:repeating-linear-gradient(180deg,rgba(255,255,255,.02) 0 6px,transparent 6px 12px);
+  display:flex; flex-direction:column;
+}
+.order-side small{
+  display:block; font-size:10px; letter-spacing:.2em; color:var(--yellow-deep); margin-bottom:2px;
+}
+.order-side small:not(:first-child){ margin-top:16px; }
+.order-side .big{ font-size:36px; line-height:1; color:#8fc4cc; margin-bottom:2px; }
+.order-side .badge{ font-size:22px; letter-spacing:.3em; color:var(--yellow); }
+.order-side .seed{ font-size:15px; color:var(--yellow-dim); letter-spacing:.1em; }
+.order-side .stub-note{
+  margin-top:auto; margin-bottom:0; padding-top:18px;
+  font-size:11px; line-height:1.8; letter-spacing:.12em; color:var(--yellow-deep);
+}
+
+.order-cta{ display:flex; align-items:center; gap:18px; flex-wrap:wrap; justify-content:center; }
+.cta-hint{ font-size:12px; letter-spacing:.2em; color:var(--yellow-deep); }
+.cta-hint b{ color:var(--yellow); font-weight:400; }
+
+/* ------------------------------------------------------------
+   screens (splash / order / settings / pause / dead / win)
    ------------------------------------------------------------ */
 .screen{
   position:absolute;
@@ -296,9 +435,29 @@ button:hover{
 }
 button:active{ transform:translateY(1px); }
 
+@media (max-width:820px){
+  .order{ grid-template-columns:1fr; }
+  .order-side{
+    border-left:none; border-top:2px dashed rgba(228,230,168,.28);
+    flex-direction:row; flex-wrap:wrap; gap:0 20px; align-items:baseline;
+  }
+  .order-side small:not(:first-child){ margin-top:0; }
+  .order-head h2{ font-size:20px; }
+}
+
 @media (max-width:620px){
   .tape{ padding:22px; max-width:92vw; }
   h1{ font-size:24px; }
   blockquote{ font-size:11px; }
   .controls{ grid-template-columns:1fr; }
+  .order-body{ padding:16px; }
+  .controls-big{ font-size:14px; }
+  .controls-big b{ min-width:64px; font-size:14px; }
+}
+
+/* Motion is decoration here, and every one of these is decoration. The
+   standing water still reads as water when it is not moving. */
+@media (prefers-reduced-motion:reduce){
+  .splash-water,.splash-water::before,.splash-drip,.splash-plate .go{ animation:none; }
+  .splash-water{ height:26%; }
 }
