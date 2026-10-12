@@ -88,6 +88,73 @@
       </p>
 
       <button id="btn-start">NO-CLIP</button>
+      <button id="btn-settings-title" class="ghost">SETTINGS</button>
+    </div>
+  </div>
+
+  <!-- ============ SETTINGS ============ -->
+  <div id="screen-settings" class="screen hidden">
+    <div class="tape wide">
+      <h1>SETTINGS</h1>
+      <p class="sub">PREFERENCES ARE STORED ON THIS MACHINE</p>
+
+      <div class="settings-grid">
+
+        <div class="setrow">
+          <label for="set-difficulty">DIFFICULTY</label>
+          <div class="seg" id="set-difficulty" data-opt="difficulty"></div>
+          <p class="note" id="note-difficulty"></p>
+        </div>
+
+        <div class="setrow">
+          <label for="set-flicker">FLUORESCENT FLICKER</label>
+          <div class="seg" id="set-flicker" data-opt="flicker"></div>
+          <p class="note">16% of the tubes stutter on their own. Reduced keeps them alive without the strobing.</p>
+        </div>
+
+        <div class="setrow">
+          <label for="set-master">VOLUME</label>
+          <input type="range" id="set-master" min="0" max="1" step="0.05" data-opt="master">
+        </div>
+
+        <div class="setrow">
+          <label for="set-vhs">TAPE DEGRADATION</label>
+          <input type="range" id="set-vhs" min="0" max="1" step="0.05" data-opt="vhs">
+          <p class="note">Grain, scanlines, tracking bands, chroma ghost. Zero turns the whole pass off.</p>
+        </div>
+
+        <div class="setrow">
+          <label for="set-shake">CAMERA SHAKE</label>
+          <input type="range" id="set-shake" min="0" max="1" step="0.05" data-opt="shake">
+        </div>
+
+        <div class="setrow">
+          <label for="set-hue">WATER TINT</label>
+          <div class="seg" id="set-hue" data-opt="waterHue"></div>
+          <p class="note">The leak is the only colour in the building. Pick the one you can actually see.</p>
+        </div>
+
+        <div class="setrow">
+          <label for="set-contrast">WATER CONTRAST</label>
+          <input type="range" id="set-contrast" min="0.4" max="2" step="0.1" data-opt="waterContrast">
+        </div>
+
+        <div class="setrow">
+          <label for="set-sprint">SPRINT</label>
+          <div class="seg" id="set-sprint" data-opt="sprintToggle"></div>
+        </div>
+
+        <div class="setrow">
+          <label for="set-fps">FRAME COUNTER</label>
+          <div class="seg" id="set-fps" data-opt="showFps"></div>
+        </div>
+
+      </div>
+
+      <div class="setrow buttons">
+        <button id="btn-settings-reset" class="ghost">RESET</button>
+        <button id="btn-settings-back">BACK</button>
+      </div>
     </div>
   </div>
 
@@ -107,6 +174,7 @@
       <p class="hint" id="pause-hint"></p>
 
       <button id="btn-resume">RESUME</button>
+      <button id="btn-settings-pause" class="ghost">SETTINGS</button>
     </div>
   </div>
 

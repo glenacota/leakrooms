@@ -29,7 +29,13 @@ const LS     = 4;                 // light samples per tile
 const MAP_W  = 76;
 const MAP_H  = 76;
 const VIEW_T = 27;                // tiles across the viewport
-const FLOORS = 5;
+/* These four are `let` rather than `const` because the settings modal drives
+   them. Their initialisers are the NORMAL preset and are the documented
+   tuning; applySettings() overwrites them at load. The noise table below is
+   NOT among them, and deliberately so — see the difficulty note. */
+let FLOORS      = 5;
+let HUNT_BASE   = 3.45;           // tiles/sec, a committed Lifeform on floor 0
+let HUNT_STEP   = 0.34;           // extra per floor
 
 const WALK   = 3.3;               // tiles/sec
 const SPRINT = 6.0;
@@ -93,7 +99,7 @@ const LEAK_HEADSTART = 42;   // seconds of flood pre-warmed at floor start
 /* The repair itself. Five seconds is long enough that standing there is a
    commitment, and the commitment is the whole point of the mechanic: you are
    choosing to be immobile and loud in a building with something in it. */
-const REPAIR_TIME  = 5.0;    // seconds of unbroken contact to seal the pipe
+let REPAIR_TIME    = 5.0;    // seconds of unbroken contact to seal the pipe
 const REPAIR_REACH = 1.25;   // tiles from the pipe face
 const REPAIR_DECAY = 2.6;    // whole-bars lost per second once you move
 const REPAIR_NOISE = 0.85;   // LOUD. Louder than running. That is the point.
@@ -200,6 +206,132 @@ function resize(){
 window.addEventListener('resize', resize);
 
 /* ============================================================
+   SETTINGS
+   ============================================================ */
+
+/* The water palette. The leak is the ONLY non-yellow hue in the world and it
+   is the entire cue, so a player who cannot separate this from the carpet
+   cannot play the mechanic at all. `damp` is what compositing wet carpet looks
+   like; `deep` is the hue that finally wins. Every value here is chosen by
+   solving for the composited tile, not by picking a colour that looks like
+   water in isolation — see packWet().
+
+   `grey` is the accessibility option: no hue at all, just a hard value
+   difference, for anyone who cannot separate slate from olive. */
+const WATER_TINTS = {
+  slate:  { damp:[54,50,40],  deep:[32,76,112] },
+  teal:   { damp:[44,52,46],  deep:[24,88,98]  },
+  violet: { damp:[54,44,58],  deep:[78,50,114] },
+  grey:   { damp:[40,40,40],  deep:[104,104,108] },
+};
+
+/* Difficulty. PRESETS, not a slider, and they move COUNTS AND SPACING only:
+   lives, floors, how long the repair takes, and how fast the Lifeform commits.
+   None of them touches the noise table, and that is the whole discipline here
+   — walk/wading staying under LOUD is the design contract, and a difficulty
+   control that could push a quiet noise over the line would let a player
+   configure the stealth layer out of the game. The suite asserts this. */
+const DIFFICULTIES = {
+  relaxed: { lives:5, floors:4, repairTime:7.0, huntBase:2.90, huntStep:0.26,
+             label:'RELAXED' },
+  normal:  { lives:3, floors:5, repairTime:5.0, huntBase:3.45, huntStep:0.34,
+             label:'NORMAL' },
+  brutal:  { lives:1, floors:6, repairTime:4.0, huntBase:4.05, huntStep:0.42,
+             label:'BRUTAL' },
+};
+
+const SETTINGS_DEFAULTS = {
+  difficulty: 'normal',
+  master: 0.7,
+  flicker: 'full',        // off | reduced | full
+  vhs: 0.7,               // grain, scanlines, chroma ghost, dropouts
+  shake: 1.0,             // 0 .. 1
+  waterHue: 'slate',
+  waterContrast: 1.0,     // multiplies the tint alpha
+  sprintToggle: false,
+  showFps: false,
+};
+
+/* Every field, its type, and its allowed range. The store validates against
+   this rather than trusting whatever is in localStorage: a stale blob from an
+   older build, a hand-edited value, or a half-written one must degrade to the
+   default for THAT FIELD and leave the rest alone. Validating per field is
+   what makes that true. */
+const SETTINGS_SCHEMA = {
+  difficulty:     { type:'enum', values:Object.keys(DIFFICULTIES) },
+  master:         { type:'range', min:0, max:1 },
+  flicker:        { type:'enum', values:['off','reduced','full'] },
+  vhs:            { type:'range', min:0, max:1 },
+  shake:          { type:'range', min:0, max:1 },
+  waterHue:       { type:'enum', values:Object.keys(WATER_TINTS) },
+  waterContrast:  { type:'range', min:0.4, max:2 },
+  sprintToggle:   { type:'bool' },
+  showFps:        { type:'bool' },
+};
+
+const SETTINGS_KEY = 'backrooms.settings.v1';
+let SETTINGS = Object.assign({}, SETTINGS_DEFAULTS);
+
+function settingsValid(key, v){
+  const s = SETTINGS_SCHEMA[key];
+  if (!s) return false;
+  if (s.type === 'enum') return s.values.indexOf(v) >= 0;
+  if (s.type === 'bool') return typeof v === 'boolean';
+  if (s.type === 'range') return typeof v === 'number' && Number.isFinite(v)
+                            && v >= s.min && v <= s.max;
+  return false;
+}
+
+/* Read the store. EVERY failure path returns defaults for the affected field
+   and never throws: localStorage is absent in the headless suite, throws on
+   some file:// origins, and can be disabled entirely in private browsing. A
+   settings system is never allowed to be the reason the game does not start. */
+function loadSettings(){
+  /* Always load over DEFAULTS rather than over whatever is live. The first
+     version overlaid onto the current SETTINGS, which meant the result
+     depended on WHEN it was called: a field absent from the blob kept
+     whatever value it happened to hold, so loading a partial blob after a
+     Brutal run left you Brutal. Loading is a total function of the blob and
+     nothing else. */
+  SETTINGS = Object.assign({}, SETTINGS_DEFAULTS);
+  let raw = null;
+  try { raw = localStorage.getItem(SETTINGS_KEY); } catch(e){ return SETTINGS; }
+  if (!raw) return SETTINGS;
+  let obj = null;
+  try { obj = JSON.parse(raw); } catch(e){ return SETTINGS; }
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return SETTINGS;
+  for (const k of Object.keys(SETTINGS_SCHEMA)){
+    if (Object.prototype.hasOwnProperty.call(obj, k) && settingsValid(k, obj[k])){
+      SETTINGS[k] = obj[k];
+    }
+  }
+  return SETTINGS;
+}
+
+function saveSettings(){
+  try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(SETTINGS)); return true; }
+  catch(e){ return false; }
+}
+
+function resetSettings(){
+  SETTINGS = Object.assign({}, SETTINGS_DEFAULTS);
+  applySettings();
+  saveSettings();
+}
+
+/* Push the store into everything that reads a tuning value. Called on load and
+   on every change from the modal, so a setting takes effect immediately rather
+   than at the next run. */
+function applySettings(){
+  const d = DIFFICULTIES[SETTINGS.difficulty] || DIFFICULTIES.normal;
+  FLOORS       = d.floors;
+  REPAIR_TIME  = d.repairTime;
+  HUNT_BASE    = d.huntBase;
+  HUNT_STEP    = d.huntStep;
+  Audio_.setMaster(SETTINGS.master);
+}
+
+/* ============================================================
    AUDIO — synthesized, deliberately minimal.
    fluorescent hum, wet carpet footsteps, proximity drone, hiss
    ============================================================ */
@@ -223,10 +355,20 @@ const Audio_ = {
     for (let i=0;i<len;i++) d[i] = Math.random()*2-1;
     this.noise = buf;
 
+    /* --- MASTER. Every voice below connects to this and not to destination.
+       There is no other way to make a volume slider: each of the eleven voices
+       used to wire itself straight to the speakers, so turning the game down
+       meant editing eleven call sites. One node in front of all of them is the
+       whole feature. It is also the node the settings modal drives, and it is
+       created before anything connects to it. */
+    this.master = a.createGain();
+    this.master.gain.value = SETTINGS.master;
+    this.master.connect(this.master);
+
     // --- 60Hz fluorescent hum + its 2nd/3rd harmonics ---
     this.humGain = a.createGain();
     this.humGain.gain.value = 0.055;
-    this.humGain.connect(a.destination);
+    this.humGain.connect(this.master);
     [[60,0.55],[120,0.3],[180,0.12]].forEach(([f,g])=>{
       const o = a.createOscillator(); o.type='sine'; o.frequency.value=f;
       const gg = a.createGain(); gg.gain.value=g;
@@ -238,7 +380,7 @@ const Audio_ = {
     this.hissGain.gain.value = 0.012;
     const hp = a.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=3800;
     const hs = a.createBufferSource(); hs.buffer=buf; hs.loop=true;
-    hs.connect(hp); hp.connect(this.hissGain); this.hissGain.connect(a.destination);
+    hs.connect(hp); hp.connect(this.hissGain); this.hissGain.connect(this.master);
     hs.start();
 
     // --- proximity drone (Lifeform) ---
@@ -246,7 +388,7 @@ const Audio_ = {
     this.droneGain.gain.value = 0;
     this.droneFilter = a.createBiquadFilter();
     this.droneFilter.type='lowpass'; this.droneFilter.frequency.value=180;
-    this.droneGain.connect(this.droneFilter); this.droneFilter.connect(a.destination);
+    this.droneGain.connect(this.droneFilter); this.droneFilter.connect(this.master);
     const o1=a.createOscillator(); o1.type='sawtooth'; o1.frequency.value=41;
     const o2=a.createOscillator(); o2.type='sine';     o2.frequency.value=55.5;
     const g2=a.createGain(); g2.gain.value=0.6;
@@ -266,7 +408,7 @@ const Audio_ = {
     g.gain.setValueAtTime(0.0001,t);
     g.gain.exponentialRampToValueAtTime(0.10*vol, t+0.012);
     g.gain.exponentialRampToValueAtTime(0.0001, t+0.17);
-    s.connect(f); f.connect(g); g.connect(a.destination);
+    s.connect(f); f.connect(g); g.connect(this.master);
     s.start(t); s.stop(t+0.2);
   },
 
@@ -284,7 +426,7 @@ const Audio_ = {
     g.gain.setValueAtTime(0.0001,t);
     g.gain.exponentialRampToValueAtTime(0.11*vol, t+0.010);
     g.gain.exponentialRampToValueAtTime(0.0001, t+0.22);
-    s.connect(f); f.connect(g); g.connect(a.destination);
+    s.connect(f); f.connect(g); g.connect(this.master);
     s.start(t); s.stop(t+0.25);
   },
 
@@ -298,7 +440,7 @@ const Audio_ = {
     g.gain.setValueAtTime(0.0001,t);
     g.gain.exponentialRampToValueAtTime(0.035*vol, t+0.006);
     g.gain.exponentialRampToValueAtTime(0.0001, t+0.13);
-    o.connect(g); g.connect(a.destination);
+    o.connect(g); g.connect(this.master);
     o.start(t); o.stop(t+0.15);
   },
 
@@ -316,7 +458,7 @@ const Audio_ = {
       g.gain.setValueAtTime(0.0001,st);
       g.gain.exponentialRampToValueAtTime(0.085, st+0.01);
       g.gain.exponentialRampToValueAtTime(0.0001, st+0.16);
-      o.connect(f); f.connect(g); g.connect(a.destination);
+      o.connect(f); f.connect(g); g.connect(this.master);
       o.start(st); o.stop(st+0.18);
     }
   },
@@ -333,7 +475,7 @@ const Audio_ = {
     const g=a.createGain();
     g.gain.setValueAtTime(0.14,t);
     g.gain.exponentialRampToValueAtTime(0.0001,t+1.1);
-    o.connect(f); f.connect(g); g.connect(a.destination);
+    o.connect(f); f.connect(g); g.connect(this.master);
     o.start(t); o.stop(t+1.2);
   },
 
@@ -350,7 +492,7 @@ const Audio_ = {
       g.gain.setValueAtTime(0.0001,st);
       g.gain.exponentialRampToValueAtTime(0.05*vol, st+0.006);
       g.gain.exponentialRampToValueAtTime(0.0001, st+0.07);
-      s.connect(f); f.connect(g); g.connect(a.destination);
+      s.connect(f); f.connect(g); g.connect(this.master);
       s.start(st); s.stop(st+0.09);
     }
   },
@@ -365,7 +507,7 @@ const Audio_ = {
     const g=a.createGain();
     g.gain.setValueAtTime(0.32,t);
     g.gain.exponentialRampToValueAtTime(0.0001,t+1.5);
-    s.connect(f); f.connect(g); g.connect(a.destination);
+    s.connect(f); f.connect(g); g.connect(this.master);
     s.start(t); s.stop(t+1.6);
   },
 
@@ -380,7 +522,7 @@ const Audio_ = {
     g.gain.setValueAtTime(0.0001,t);
     g.gain.exponentialRampToValueAtTime(0.16,t+0.08);
     g.gain.exponentialRampToValueAtTime(0.0001,t+1.2);
-    o.connect(f); f.connect(g); g.connect(a.destination);
+    o.connect(f); f.connect(g); g.connect(this.master);
     o.start(t); o.stop(t+1.3);
   },
 
@@ -391,7 +533,16 @@ const Audio_ = {
     this.droneGain.gain.setTargetAtTime(g, t, 0.35);
     this.droneFilter.frequency.setTargetAtTime(140 + (1-level)*40 + 90*level, t, 0.4);
   },
-  silence(){ if (this.ok) this.droneGain.gain.setTargetAtTime(0, this.ctx.currentTime, 0.2); }
+  silence(){ if (this.ok) this.droneGain.gain.setTargetAtTime(0, this.ctx.currentTime, 0.2); },
+
+  /* Live volume. Ramped rather than assigned, and clamped to a small floor
+     rather than to zero: a mute slider that truly reaches 0 leaves the graph
+     in a state where a later unmute has to re-prime it, and a 0.0001 gain is
+     inaudible in practice. */
+  setMaster(v){
+    this.masterVol = Math.max(0.02, Math.min(1, v));
+    if (this.ok && this.master) this.master.gain.setTargetAtTime(this.masterVol, this.ctx.currentTime, 0.05);
+  }
 };
 
 /* ============================================================
@@ -1471,35 +1622,28 @@ function tickFlood(dt){
 
    Dry tiles are written with alpha 0, NOT with alpha 255 and black RGB. That
    is the bug this shape of the loop exists to prevent: the image is opaque, so
-   an untouched tile is black and paints black over the carpet it is drawn on. */
+   an untouched tile is black and paints black over the carpet it is drawn on.
+
+   The ramp is a straight lerp between the two ends of the selected tint, and
+   the ends are picked by SOLVING for what the composited tile should look like
+   over the carpet — see WATER_TINTS. Picking a colour that looks like water in
+   isolation is what produced two wrong versions: one that read as glowing ice,
+   and one so dark it was indistinguishable from an unlit floor, which defeats
+   the mechanic entirely. */
 function packWet(){
+  const T = WATER_TINTS[SETTINGS.waterHue] || WATER_TINTS.slate;
+  const contrast = SETTINGS.waterContrast;
   const d = wetImg.data;
   for (let i=0;i<MAP_W*MAP_H;i++){
     const a = wetArr[i];
     const k = i*4;
     if (a <= 0.015){ d[k+3] = 0; continue; }
-    /* Damp carpet goes DARK. Standing water adds a desaturated slate blue on top.
-       Both halves are load-bearing and both were got wrong once:
-
-       - the FIRST version was a mid-value saturated blue and the flood read as
-         glowing ice rather than as a wet floor;
-       - the second darkened so hard that a flooded tile came out a dark olive
-         you could not tell from an unlit one, which defeats the entire
-         mechanic — if you cannot see the water you cannot follow it.
-
-       So the numbers below are chosen by SOLVING for what the composited tile
-       should look like over the carpet, not by picking a colour that looks
-       like water in isolation. Damp composites to roughly (135,139,81) — the
-       same hue family as dry carpet but about 30% darker, because wet carpet
-       is darker and nobody has to be told. Standing water composites to about
-       (78,105,104), where blue finally beats red by enough to read at a
-       glance in a dark corridor. */
     const t = Math.min(1, a);
     const blue = Math.max(0, (t-0.35)/0.65);
-    d[k]   = Math.round(54 - blue*22);
-    d[k+1] = Math.round(50 + blue*26);
-    d[k+2] = Math.round(40 + blue*72);
-    d[k+3] = Math.round(255*Math.min(0.82, 0.34 + t*0.48));
+    d[k]   = Math.round(T.damp[0] + (T.deep[0]-T.damp[0])*blue);
+    d[k+1] = Math.round(T.damp[1] + (T.deep[1]-T.damp[1])*blue);
+    d[k+2] = Math.round(T.damp[2] + (T.deep[2]-T.damp[2])*blue);
+    d[k+3] = Math.round(255*Math.min(0.94, (0.34 + t*0.48)*contrast));
   }
   wetCtx.putImageData(wetImg, 0, 0);
 }
@@ -2057,6 +2201,11 @@ const MODAL_ACTION = {
   pause:  ()=>document.getElementById('btn-resume').click(),
   dead:   ()=>document.getElementById('btn-retry').click(),
   win:    ()=>document.getElementById('btn-again').click(),
+  /* Enter closes the settings the same way it closes every other modal. It
+     returns to wherever it was opened from rather than to the title, because
+     opening settings from a pause and being dropped on the title screen is the
+     kind of small betrayal that makes a menu feel hostile. */
+  settings: ()=>document.getElementById('btn-settings-back').click(),
 };
 
 window.addEventListener('keydown', e=>{
@@ -2079,15 +2228,32 @@ window.addEventListener('keydown', e=>{
     return;
   }
 
+  /* Sprint is hold or toggle, per settings. The toggle is latched on a rising
+     edge so holding the key down does not re-toggle it sixty times a second,
+     and the keyup only clears it when the latch was never set — otherwise
+     releasing a held sprint would also cancel a toggled one. */
+  if ((k==='shift') && G && STATE==='play'){
+    if (SETTINGS.sprintToggle){
+      if (!keys['_shiftLatch'] && !e.repeat) keys['_shiftLatch'] = true;
+    } else {
+      keys['_shiftLatch'] = false;
+    }
+  }
+
   if (k==='r' && G && STATE==='play'){
     if (G.radar) G.radar = false;
     else if (G.batt<=0) flash('NO POWER — THE RADAR IS DEAD');
     else { G.radar = true; Audio_.rattle(0.4); }
   }
   if (e.key==='Escape' && (STATE==='play'||STATE==='pause')) togglePause();
+  else if (e.key==='Escape' && STATE==='settings') closeSettings();
   if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key)) e.preventDefault();
 });
-window.addEventListener('keyup', e=>{ keys[e.key.toLowerCase()] = false; });
+window.addEventListener('keyup', e=>{
+  const k=e.key.toLowerCase();
+  if (k==='shift' && !SETTINGS.sprintToggle) keys['_shiftLatch'] = false;
+  keys[k] = false;
+});
 
 function update(dt){
   const p = G.player;
@@ -2118,7 +2284,7 @@ function update(dt){
   const wet = wetAt(p.x, p.y);
   G.wet = wet;
 
-  const sprinting = (keys['shift']) && (ix||iy);
+  const sprinting = (SETTINGS.sprintToggle ? keys['_shiftLatch'] : keys['shift']) && (ix||iy);
   const wade = wet > 0.25 ? 0.80 : 1;          // knee-deep costs you a fifth
   const spd = (sprinting ? SPRINT : WALK) * wade;
   let moving=false, bumped=false;
@@ -2375,7 +2541,7 @@ function updateAgent(a, dt, p){
   if (a.state==='HUNT'){
     a.rise = Math.min(1, a.rise + dt*2.4);
     a.t -= dt;
-    const spd = 3.45 + G.floor*0.34;
+    const spd = HUNT_BASE + G.floor*HUNT_STEP;
     const tgt = a.target || {x:p.x,y:p.y};
     const ang = Math.atan2(tgt.y-a.y, tgt.x-a.x);
     a.face = ang;
@@ -2438,6 +2604,16 @@ function randomFloorNear(x,y,rad){
 let STATE='title';       // title | play | pause | dead | win
 let RUN_SEED = (Math.random()*1e9)|0;
 let lives = 3, floorIdx = 0, runTime = 0;
+/* The life pips are drawn from this, not from a hardcoded three. The naive
+   version maps over [0,1,2], so RELAXED would render five pips with the fifth
+   always spent and BRUTAL would render three for a one-life run. */
+let runLives = 3;
+function renderLives(){
+  const el = document.getElementById('val-lives');
+  if (!el) return;
+  el.innerHTML = Array.from({length:Math.max(1,runLives)},
+    (_,i)=> `<span class="${i<lives?'':'gone'}">&#9679;</span>`).join('');
+}
 
 function nextFloor(){
   floorIdx++;
@@ -2455,8 +2631,7 @@ function caught(){
   lives--;
   Audio_.sting(); Audio_.silence();
   STATE='dead';
-  document.getElementById('val-lives').innerHTML =
-    [0,1,2].map(i=> `<span class="${i<lives?'':'gone'}">&#9679;</span>`).join('');
+  renderLives();
   document.getElementById('hud').classList.remove('on');
   const sub = document.getElementById('dead-sub');
   if (lives>0) sub.textContent = `${lives} LIVES REMAINING \u2014 TAPE DAMAGED`;
@@ -2491,8 +2666,12 @@ function caught(){
     cam.x += (p.x - cam.x) * k;
     cam.y += (p.y - cam.y) * k;
     const breathe = Math.sin(t*0.0009)*0.06;
-    cam.jx = (Math.random()-0.5)*0.10 + breathe*0.35;
-    cam.jy = (Math.random()-0.5)*0.10;
+    /* Shake is a multiplier on the camera jitter, not a new system — the
+       breathing motion and the VHS wobble were already here, and a settings
+       slider that scales them turns both off at 0. */
+    const sh = SETTINGS.shake;
+    cam.jx = ((Math.random()-0.5)*0.10 + breathe*0.35) * sh;
+    cam.jy = (Math.random()-0.5)*0.10 * sh;
 
     // clamp to the maze so the viewport is never half off-map void
     const T = TILE*SCALE;
@@ -2701,9 +2880,16 @@ function caught(){
     const fv = fixtureVis(f);
     if (fv < 0.02) continue;
     let a = 0.12 * fv;
-    if (f.flicker){
-      a *= (0.35 + 0.65*Math.max(0, Math.sin(t*0.001*f.flicker + f.phase)));
-      if (Math.random()<0.02) a*=0.15;
+    /* Fluorescent flicker, at three intensities. This is a photosensitivity
+       control and not a taste one: 16% of fixtures stutter, a 2%-per-frame
+       dropout dips a tube to 15%, and on top of that the VHS pass adds its own
+       dropouts. `reduced` keeps the tubes alive — the hum is the room's whole
+       character and a perfectly steady light reads as a bug — while cutting the
+       depth and killing the dropouts. */
+    if (f.flicker && SETTINGS.flicker !== 'off'){
+      const depth = SETTINGS.flicker === 'reduced' ? 0.22 : 0.65;
+      a *= (1-depth + depth*Math.max(0, Math.sin(t*0.001*f.flicker + f.phase)));
+      if (SETTINGS.flicker === 'full' && Math.random()<0.02) a*=0.15;
     }
     const fx=w2sx(f.x), fy=w2sy(f.y);
     const rr=f.r*T;
@@ -2835,12 +3021,14 @@ function caught(){
   vg2.addColorStop(1,'rgba(0,0,0,0.34)');
   ctx.fillStyle=vg2; ctx.fillRect(0,0,cvs.width,cvs.height);
 
-  /* ---------- 8. VHS composite ---------- */
-  /* The chromatic ghost used to do drawImage(cvs, ...) — the canvas ONTO
-     ITSELF — with 'lighter'. That feeds back: each frame's source already
-     contained the previous frame's ghost, so brightness compounded until the
-     whole image desaturated to flat white. Snapshot first, then composite
-     the ghost from the snapshot, and clear at the top of the frame. */
+  /* ---------- 8. VHS composite ----------
+     Every pass here is scaled by SETTINGS.vhs. At 0 the whole block is skipped:
+     a lopping tracking band, a 4px scanline grid and a chroma ghost are a
+     motion-sickness trigger for some people and a load for a weak GPU, and
+     "off" has to actually mean off rather than "on but faint" — half-strength
+     scanlines are still scanlines. The snapshot is taken regardless, because
+     the tracking band below reads from it. */
+  const vhs = SETTINGS.vhs;
   if (!postCv || postCv.width!==cvs.width || postCv.height!==cvs.height){
     postCv = document.createElement('canvas');
     postCv.width = cvs.width; postCv.height = cvs.height;
@@ -2850,23 +3038,26 @@ function caught(){
   pg.drawImage(cvs,0,0);
   pg.globalCompositeOperation='source-over';
 
+  if (vhs > 0.01){
   // tracking band
   const bandY = ((t*0.055) % (cvs.height+220)) - 110;
   const tg=ctx.createLinearGradient(0,bandY,0,bandY+110);
   tg.addColorStop(0,'rgba(255,255,255,0)');
-  tg.addColorStop(0.5,'rgba(255,248,220,0.05)');
+  tg.addColorStop(0.5,`rgba(255,248,220,${0.05*vhs})`);
   tg.addColorStop(1,'rgba(255,255,255,0)');
   ctx.fillStyle=tg; ctx.fillRect(0,bandY,cvs.width,110);
 
   // scanlines
   ctx.globalCompositeOperation='multiply';
+  ctx.globalAlpha = vhs;
   ctx.fillStyle=scanPat;
   ctx.fillRect(0,0,cvs.width,cvs.height);
+  ctx.globalAlpha = 1;
   ctx.globalCompositeOperation='source-over';
 
   // grain
   ctx.globalCompositeOperation='overlay';
-  ctx.globalAlpha=0.032;
+  ctx.globalAlpha=0.032*vhs;
   const gx=-(Math.random()*160)|0, gy=-(Math.random()*160)|0;
   for(let y=gy;y<cvs.height;y+=160) for(let x=gx;x<cvs.width;x+=160) ctx.drawImage(grainCv,x,y);
   ctx.globalAlpha=1;
@@ -2874,7 +3065,7 @@ function caught(){
 
   // chromatic ghost, from the snapshot — bounded, no feedback
   ctx.globalCompositeOperation='lighter';
-  ctx.globalAlpha=0.03;
+  ctx.globalAlpha=0.03*vhs;
   const ca = 1 + Math.round(Math.random()*2);
   ctx.drawImage(postCv, -ca, 0);
   ctx.drawImage(postCv,  ca, 0);
@@ -2882,11 +3073,12 @@ function caught(){
   ctx.globalCompositeOperation='source-over';
 
   // dropouts
-  if (Math.random()<0.02){
+  if (Math.random()<0.02*vhs){
     const y=(Math.random()*cvs.height)|0;
     ctx.fillStyle='rgba(210,206,190,0.14)';
     ctx.fillRect(0,y,cvs.width,1+Math.random()*2|0);
   }
+  }   // end vhs
 }
 
 /* The avatar, seen from directly above.
@@ -3053,11 +3245,108 @@ function flash(text){
 }
 
 function show(which){
-  for (const s of ['title','pause','dead','win'])
+  for (const s of ['title','pause','dead','win','settings'])
     document.getElementById('screen-'+s).classList.toggle('hidden', s!==which);
 }
-function hideAll(){ for (const s of ['title','pause','dead','win'])
+function hideAll(){ for (const s of ['title','pause','dead','win','settings'])
     document.getElementById('screen-'+s).classList.add('hidden'); }
+
+/* ============================================================
+   THE SETTINGS SCREEN
+   Every control writes straight into SETTINGS, then calls applySettings() and
+   saveSettings(). There is no "apply" button and no pending copy: a slider
+   that only commits on OK makes people wonder whether it saved, and these
+   values are all cheap and reversible.
+   ============================================================ */
+let settingsReturn = 'title';    // where BACK goes
+let settingsPrevState = 'title';
+
+function openSettings(from){
+  settingsReturn = from || (STATE === 'pause' ? 'pause' : 'title');
+  /* STATE has to actually become 'settings' or the keydown dispatcher — which
+     keys MODAL_ACTION off STATE — never sees this screen, and Enter does
+     nothing. It also stops the game updating behind the menu, which is what we
+     want: opening the settings mid-run should not let a Lifeform eat you. */
+  settingsPrevState = STATE;
+  STATE = 'settings';
+  show('settings');
+  syncSettingsUI();
+}
+
+function closeSettings(){
+  STATE = settingsPrevState;
+  show(settingsReturn === 'pause' ? 'pause' : 'title');
+}
+
+function setOption(key, value){
+  if (!settingsValid(key, value)) return false;
+  SETTINGS[key] = value;
+  applySettings();
+  saveSettings();
+  syncSettingsUI();
+  return true;
+}
+
+function syncSettingsUI(){
+  // sliders
+  for (const el of document.querySelectorAll('input[type=range][data-opt]')){
+    const v = SETTINGS[el.dataset.opt];
+    if (v !== undefined && Number(el.value) !== v) el.value = v;
+  }
+  // segmented buttons
+  for (const row of document.querySelectorAll('.seg[data-opt]')){
+    const key = row.dataset.opt, cur = String(SETTINGS[key]);
+    for (const b of row.querySelectorAll('button')){
+      b.setAttribute('aria-pressed', String(b.dataset.value === cur));
+    }
+  }
+  const note = document.getElementById('note-difficulty');
+  if (note){
+    const d = DIFFICULTIES[SETTINGS.difficulty] || DIFFICULTIES.normal;
+    note.textContent = `${d.lives} lives · ${d.floors} floors · ${d.repairTime}s at the pipe`;
+  }
+}
+
+/* Button label sets per segmented row. Declared here rather than in markup so
+   the enum and the labels cannot drift apart. */
+const SEGMENTS = {
+  difficulty: () => Object.keys(DIFFICULTIES).map(k => [k, DIFFICULTIES[k].label]),
+  flicker:    () => [['off','OFF'],['reduced','REDUCED'],['full','FULL']],
+  waterHue:   () => [['slate','SLATE'],['teal','TEAL'],['violet','VIOLET'],['grey','GREY']],
+  sprintToggle: () => [[false,'HOLD'],[true,'TOGGLE']],
+  showFps:    () => [[false,'OFF'],[true,'ON']],
+};
+const DIFFICULTY_KEYS = {};
+
+function buildSettingsUI(){
+  /* openSettings() does not change STATE, so returning from the pause menu is
+     just "show the pause screen again" — no state juggling, and Escape out of
+     a submenu cannot strand the player in a state with no way back. */
+  for (const row of document.querySelectorAll('.seg[data-opt]')){
+    const key = row.dataset.opt;
+    const opts = (SEGMENTS[key] || (()=>[]))();
+    row.innerHTML = '';
+    for (const [val,label] of opts){
+      const b = document.createElement('button');
+      b.textContent = label;
+      b.dataset.value = String(val);
+      b.onclick = ()=> setOption(key, (key==='difficulty'||key==='flicker'||key==='waterHue') ? val : (val==='true'));
+      row.appendChild(b);
+    }
+  }
+  for (const el of document.querySelectorAll('input[type=range][data-opt]')){
+    const key = el.dataset.opt;
+    el.addEventListener('input', ()=> setOption(key, parseFloat(el.value)));
+  }
+  const back = document.getElementById('btn-settings-back');
+  if (back) back.onclick = closeSettings;
+  const reset = document.getElementById('btn-settings-reset');
+  if (reset) reset.onclick = ()=>{ resetSettings(); syncSettingsUI(); };
+  const t = document.getElementById('btn-settings-title');
+  if (t) t.onclick = ()=> openSettings('title');
+  const p = document.getElementById('btn-settings-pause');
+  if (p) p.onclick = ()=> openSettings('pause');
+}
 
 function togglePause(){
   if (STATE==='play'){
@@ -3101,7 +3390,8 @@ function updateHUD(){
   if (HUD.vFlood) HUD.vFlood.textContent = String(Math.round(G.floodCover*100)).padStart(2,'0');
   if (HUD.barFlood) HUD.barFlood.style.width = (G.floodCover*100)+'%';
   HUD.vDepth.textContent = `${G.floor+1} / ${FLOORS}`;
-  HUD.vLives.innerHTML = [0,1,2].map(i=>`<span class="${i<lives?'':'gone'}">&#9679;</span>`).join('');
+  HUD.vLives.innerHTML = Array.from({length:Math.max(1,runLives)},
+    (_,i)=>`<span class="${i<lives?'':'gone'}">&#9679;</span>`).join('');
 }
 
 function setPrompt(){
@@ -3128,8 +3418,9 @@ document.getElementById('btn-start').onclick = ()=>{
   Audio_.init();
   if (Audio_.ctx && Audio_.ctx.state==='suspended') Audio_.ctx.resume();
   RUN_SEED = (Math.random()*1e9)|0;
-  lives=3; floorIdx=0; runTime=0;
-  document.getElementById('val-lives').innerHTML='&#9679;&#9679;&#9679;';
+  runLives = (DIFFICULTIES[SETTINGS.difficulty] || DIFFICULTIES.normal).lives;
+  lives = runLives; floorIdx=0; runTime=0;
+  renderLives();
   buildFloor(0, RUN_SEED);
   hideAll();
   STATE='play';
@@ -3159,6 +3450,7 @@ document.getElementById('btn-again').onclick = ()=>{
    LOOP
    ============================================================ */
 let last = performance.now();
+let fpsAcc = 0, fpsFrames = 0, fpsShown = 0;
 function frame(now){
   let dt = (now-last)/1000;
   last = now;
@@ -3167,10 +3459,34 @@ function frame(now){
   if (STATE==='play'){ runTime+=dt; update(dt); updateHUD(); setPrompt(); }
   if (G) render(now);
 
+  if (SETTINGS.showFps){
+    fpsAcc += dt; fpsFrames++;
+    if (fpsAcc >= 0.5){
+      fpsShown = Math.round(fpsFrames/fpsAcc);
+      const el = document.getElementById('fps');
+      if (el) el.textContent = fpsShown + ' FPS';
+      fpsAcc = 0; fpsFrames = 0;
+    }
+  }
   requestAnimationFrame(frame);
 }
 
+/* ---- boot ----
+   The store is read BEFORE anything that depends on it, and applySettings
+   runs before the first buildFloor so the opening floor is generated with the
+   player's depth and repair time already in place. Building the floor first
+   and applying after would mean the first floor of a run quietly used NORMAL
+   while the menu said BRUTAL. */
 resize();
 buildPatterns();
+loadSettings();
+applySettings();
+buildSettingsUI();
+syncSettingsUI();
+const fpsEl = document.createElement('div');
+fpsEl.id = 'fps';
+/* Guarded: a decorative readout is not worth a boot failure in any embed that
+   has not got a body yet. The counter simply does not appear. */
+if (document.body) document.body.appendChild(fpsEl);
 buildFloor(0, 12345);
 requestAnimationFrame(frame);

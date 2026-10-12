@@ -82,6 +82,7 @@ global.document = {
   querySelectorAll(){ return []; },
   createElement(tag){ return tag==='canvas' ? fakeCanvas() : fakeEl(tag); },
   addEventListener(){},
+  body: { appendChild(){} },
 };
 global.window = {
   addEventListener(){},
@@ -90,6 +91,18 @@ global.window = {
 };
 global.requestAnimationFrame = ()=>0;
 global.performance = { now: ()=> Date.now() };
+
+/* A real localStorage, because the settings store's whole job is surviving a
+   round trip. A stub that silently did nothing would let the persistence code
+   be entirely untested, which is the one part of it that can fail silently in
+   production. Tests can reach __store to corrupt it deliberately. */
+global.__store = new Map();
+global.localStorage = {
+  getItem(k){ return __store.has(k) ? __store.get(k) : null; },
+  setItem(k,v){ __store.set(k, String(v)); },
+  removeItem(k){ __store.delete(k); },
+  clear(){ __store.clear(); },
+};
 
 /* ---- load game.js into this context ---- */
 const src = fs.readFileSync(__dirname + '/game.js','utf8');
@@ -141,7 +154,18 @@ globalThis.__api = {
   get LEAK_LURE(){ return LEAK_LURE; },
   get WALK(){ return WALK; }, get SPRINT(){ return SPRINT; },
   tickFlood, wetAt, floodCover, sealLeak, leakReach, initFlood, packWet,
-  get wetCv(){ return wetCv; }
+  get wetCv(){ return wetCv; },
+  get SETTINGS(){ return SETTINGS; },
+  get SETTINGS_DEFAULTS(){ return SETTINGS_DEFAULTS; },
+  get SETTINGS_SCHEMA(){ return SETTINGS_SCHEMA; },
+  get DIFFICULTIES(){ return DIFFICULTIES; },
+  get WATER_TINTS(){ return WATER_TINTS; },
+  loadSettings, saveSettings, resetSettings, applySettings, setOption,
+  settingsValid, get SETTINGS_KEY(){ return SETTINGS_KEY; },
+  get FLOORS(){ return FLOORS; },
+  get HUNT_BASE(){ return HUNT_BASE; }, get HUNT_STEP(){ return HUNT_STEP; },
+  get lives(){ return lives; }, set lives(v){ lives = v; },
+  get runLives(){ return runLives; }
 };
 `, ctxObj);
 
@@ -2352,6 +2376,170 @@ console.log('[19] the leak is drawn where it is, not just where it is computed')
     assert(near.length>0, 'no ring is painted on the spot while the repair runs');
   }
   console.log('  the pipe and the wrench ring land on screen, not off in device-pixel space');
+}
+
+/* ============ TEST 20: settings ==========================================
+   A settings screen is a place to quietly break the game, and the two ways
+   that matter are specific:
+
+   1. The store must never be able to stop the game booting. localStorage is
+      absent in this harness before this change, throws on some file://
+      origins, and can be disabled outright in private browsing. Every failure
+      path has to return defaults.
+   2. DIFFICULTY MUST NOT BE ABLE TO TOUCH THE NOISE TABLE. That table is the
+      design contract — quiet noise only makes it curious — and a difficulty
+      control that could push a walk above LOUD would let a player configure
+      the stealth layer out of existence. This is asserted by comparing the
+      noise constants across every preset, not by trusting the implementation. */
+console.log('[20] settings — persistence, validation, and the difficulty contract');
+{
+  /* --- defaults are a complete, valid schema --- */
+  {
+    const S=A.SETTINGS_DEFAULTS, SC=A.SETTINGS_SCHEMA;
+    for (const k of Object.keys(SC)){
+      assert(Object.prototype.hasOwnProperty.call(S,k), `no default for ${k}`);
+      assert(A.settingsValid(k, S[k]), `the default for ${k} (${JSON.stringify(S[k])}) is not a legal value`);
+    }
+    assert(Object.keys(S).length === Object.keys(SC).length,
+      'the defaults and the schema disagree about how many fields there are');
+    console.log(`  ${Object.keys(SC).length} settings, all with valid defaults`);
+  }
+
+  /* --- round trip --- */
+  {
+    global.__store.clear();
+    A.resetSettings();
+    A.setOption('difficulty','brutal');
+    A.setOption('vhs', 0.2);
+    A.setOption('sprintToggle', true);
+    A.setOption('waterHue','grey');
+    const raw = global.__store.get(A.SETTINGS_KEY);
+    assert(raw, 'nothing was written to the store');
+    /* resetSettings PERSISTS — it is the Reset button — so calling it here
+       clobbers the blob we just saved. Snapshot it and put it back, which is
+       exactly what a page reload does. The first version of this test called
+       reset and then asserted the old values came back, which is a test of a
+       Reset button, not of persistence. */
+    A.resetSettings();
+    assert(A.SETTINGS.difficulty==='normal', 'reset did not restore the default difficulty');
+    global.__store.set(A.SETTINGS_KEY, raw);
+    A.loadSettings();
+    assert(A.SETTINGS.difficulty==='brutal', 'difficulty did not survive the round trip');
+    assert(A.SETTINGS.vhs===0.2, `vhs came back as ${A.SETTINGS.vhs}`);
+    assert(A.SETTINGS.sprintToggle===true, 'sprintToggle did not survive');
+    assert(A.SETTINGS.waterHue==='grey', 'waterHue did not survive');
+    console.log('  every field survives a write / wipe / read cycle');
+  }
+
+  /* --- a corrupt blob degrades per field, not wholesale --- */
+  {
+    const bad  = { difficulty:'NONSENSE',        // not an enum member
+                   master:'loud',                // wrong type
+                   vhs:17,                       // out of range
+                   shake:NaN,                    // not finite
+                   flicker:'strobe',             // not an enum member
+                   waterHue:'chartreuse',
+                   waterContrast:-4,             // below the floor
+                   sprintToggle:'yes',           // wrong type
+                   showFps:true };               // the one legal field
+    global.__store.set(A.SETTINGS_KEY, JSON.stringify(bad));
+    A.loadSettings();
+    /* The one good field is taken... */
+    assert(A.SETTINGS.showFps===true, 'a valid field in a partly-corrupt blob was discarded');
+    /* ...and every bad one falls back on its own, rather than the whole load
+       being rejected because one value is nonsense. */
+    assert(A.SETTINGS.difficulty==='normal', 'a bad enum was accepted');
+    assert(A.SETTINGS.master===A.SETTINGS_DEFAULTS.master, 'a string was accepted for a range');
+    assert(A.SETTINGS.vhs===A.SETTINGS_DEFAULTS.vhs, 'an out-of-range number was accepted');
+    assert(A.SETTINGS.shake===A.SETTINGS_DEFAULTS.shake, 'NaN was accepted for a range');
+    assert(A.SETTINGS.flicker==='full', 'a bad flicker enum was accepted');
+    assert(A.SETTINGS.waterHue==='slate', 'a bad hue was accepted');
+    assert(A.SETTINGS.waterContrast===A.SETTINGS_DEFAULTS.waterContrast, 'a below-floor contrast was accepted');
+    assert(A.SETTINGS.sprintToggle===false, 'a string was accepted for a bool');
+    console.log('  a blob of nonsense keeps its one good field and rejects the rest individually');
+  }
+
+  /* --- unparseable, non-object, and absent all fall back --- */
+  {
+    for (const junk of ['not json at all', '[1,2,3]', 'null', '"a string"', '42']){
+      global.__store.set(A.SETTINGS_KEY, junk);
+      A.loadSettings();
+      assert(A.SETTINGS.difficulty==='normal' && A.SETTINGS.vhs===A.SETTINGS_DEFAULTS.vhs,
+        `a ${junk} blob did not fall back to defaults`);
+    }
+    global.__store.clear();
+    A.loadSettings();
+    assert(A.SETTINGS.difficulty==='normal', 'an absent store did not fall back to defaults');
+    /* loadSettings must be a total function of the blob, not of call order —
+       a field ABSENT from a valid blob falls back rather than keeping whatever
+       was live. This is the regression the "load over defaults" fix prevents.
+       ORDER MATTERS: setOption persists, so the partial blob has to be written
+       AFTER it, or setting an option overwrites the very blob under test. */
+    A.setOption('difficulty','brutal');
+    assert(A.SETTINGS.difficulty==='brutal', 'setOption did not take effect');
+    global.__store.set(A.SETTINGS_KEY, JSON.stringify({vhs:0.4}));
+    A.loadSettings();
+    assert(A.SETTINGS.difficulty==='normal',
+      'loading a partial blob kept the live difficulty — the result depends on call order');
+    assert(A.SETTINGS.vhs===0.4, 'the one present field was not applied');
+    console.log('  unparseable, non-object, and absent blobs fall back; a partial blob is a total reset plus its own fields');
+  }
+
+  /* --- a store that throws must not stop the game ---
+     This is the one that matters in production: Safari in private mode throws
+     on setItem, and a settings screen that throws during boot takes the whole
+     game with it. */
+  {
+    const real = global.localStorage;
+    global.localStorage = {
+      getItem(){ throw new Error('SecurityError'); },
+      setItem(){ throw new Error('QuotaExceededError'); },
+    };
+    let threw=false;
+    try { A.resetSettings(); A.loadSettings(); A.saveSettings(); }
+    catch(e){ threw=true; }
+    global.localStorage = real;
+    assert(!threw, 'a throwing localStorage propagated out of the settings code — it would take the boot with it');
+    assert(A.SETTINGS.difficulty==='normal', 'a throwing store left the game in a broken settings state');
+    console.log('  a localStorage that throws is survivable at every entry point');
+  }
+
+  /* --- THE CONTRACT: no preset touches the noise table --- */
+  {
+    const noiseBefore = { LOUD:A.LOUD, repair:A.REPAIR_NOISE,
+                          base:A.LEAK_NOISE_BASE, gain:A.LEAK_NOISE_GAIN,
+                          wade:0.30, walk:0.22, sprint:1.0 };
+    const seen = [];
+    for (const k of Object.keys(A.DIFFICULTIES)){
+      A.setOption('difficulty', k);
+      seen.push({ k, floors:A.FLOORS, lives:A.DIFFICULTIES[k].lives,
+                  repair:A.REPAIR_TIME, hunt:A.HUNT_BASE, step:A.HUNT_STEP });
+      assert(A.LOUD===noiseBefore.LOUD, `preset ${k} changed LOUD`);
+      assert(A.REPAIR_NOISE===noiseBefore.repair, `preset ${k} changed the wrench noise`);
+      assert(A.LEAK_NOISE_BASE===noiseBefore.base, `preset ${k} changed the leak's base noise`);
+      assert(A.LEAK_NOISE_GAIN===noiseBefore.gain, `preset ${k} changed the leak's noise gain`);
+    }
+    /* and the ordering that makes the stealth layer work still holds */
+    assert(A.LEAK_NOISE_BASE + A.LEAK_NOISE_GAIN < A.LOUD,
+      'the leak can cross LOUD under some preset — the lure becomes a hunt trigger');
+    assert(A.LEAK_NOISE_BASE < 0.30, 'wading is no longer quieter than a wet step');
+    assert(A.REPAIR_NOISE >= A.LOUD, 'the repair is no longer the loud decision');
+    assert(seen.length===3, `expected 3 difficulty presets, saw ${seen.length}`);
+    for (const p of seen) assert(p.floors>=1 && p.lives>=1, `preset ${p.k} is degenerate`);
+    console.log(`  3 presets move depth/lives/repair/chase only — noise table untouched`);
+    console.log(`    ${seen.map(p=>`${p.k}: ${p.lives} lives, ${p.floors} floors, ${p.repair}s, chase ${p.hunt}+${p.step}/floor`).join('\n    ')}`);
+    A.setOption('difficulty','normal');
+  }
+
+  /* --- difficulty reaches the game, not just the store --- */
+  {
+    A.setOption('difficulty','brutal');
+    assert(A.FLOORS===A.DIFFICULTIES.brutal.floors, `FLOORS is ${A.FLOORS}, want ${A.DIFFICULTIES.brutal.floors}`);
+    assert(A.REPAIR_TIME===A.DIFFICULTIES.brutal.repairTime, 'REPAIR_TIME did not follow the preset');
+    A.setOption('difficulty','normal');
+    assert(A.FLOORS===5 && A.REPAIR_TIME===5, 'normal did not restore the documented tuning');
+    console.log('  the preset actually reaches FLOORS and REPAIR_TIME');
+  }
 }
 
 console.log('\n' + (fail? `\n${fail} FAILURE(S)\n` : 'ALL TESTS PASSED\n'));

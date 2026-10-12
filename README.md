@@ -199,11 +199,71 @@ Three lives for a full descent.
 | key | |
 |---|---|
 | `WASD` / arrows | move |
-| `Shift` | sprint — fast, and very loud |
+| `Shift` | sprint — fast, and very loud (hold or toggle, per settings) |
 | `R` | radar — lights the whole floor, burns battery fast |
 | *(nothing)* | **the repair has no button. Stand at the pipe and do not press anything.** |
 | `Enter` | start / confirm / resume — closes whichever modal is up |
 | `Esc` | pause (the modal re-shows the controls and your current depth, exits, battery, riser state and flood level) |
+
+---
+
+## Settings
+
+Reachable from the title screen and from pause, and stored in
+`localStorage` under `backrooms.settings.v1`. Nine options:
+
+| | |
+|---|---|
+| **Difficulty** | Relaxed / Normal / Brutal — see below |
+| **Fluorescent flicker** | Off / Reduced / Full |
+| **Volume** | master gain |
+| **Tape degradation** | grain, scanlines, tracking bands, chroma ghost, dropouts |
+| **Camera shake** | scales the camera jitter and breathing |
+| **Water tint** | Slate / Teal / Violet / **Grey** |
+| **Water contrast** | 0.4x to 2x on the tint alpha |
+| **Sprint** | hold or toggle |
+| **Frame counter** | on / off |
+
+Changes apply immediately — there is no OK button, because a slider that only
+commits on confirm makes people wonder whether it saved. Opening settings
+mid-run also pauses the game, so a Lifeform cannot eat you while you read.
+
+**Why difficulty is presets and not sliders.** A preset moves *counts and
+spacing*: lives, floors, `REPAIR_TIME`, and the Lifeform's chase speed.
+
+| | lives | floors | repair | chase |
+|---|---|---|---|---|
+| Relaxed | 5 | 4 | 7.0s | 2.90 + 0.26/floor |
+| Normal | 3 | 5 | 5.0s | 3.45 + 0.34/floor |
+| Brutal | 1 | 6 | 4.0s | 4.05 + 0.42/floor |
+
+None of them touches the noise table, and that is the discipline rather than an
+oversight. `LOUD` is the design contract — quiet noise only makes it curious —
+so a difficulty control that could push a walk or a wading step above it would
+let a player configure the stealth layer out of existence. The suite asserts the
+noise constants are byte-identical across all three presets, and that
+`LEAK_NOISE_BASE + LEAK_NOISE_GAIN` still lands under `LOUD` in every one.
+
+This is also the tuning instrument. With the monster present, test 4b clears 0
+of 6 and never leaves floor 1, and a bot cannot tell you whether the repair is
+too dangerous or the bot is bad at it. Presets do not tune anything; they make
+the question *askable*.
+
+**Why the water is configurable at all.** The leak is the only non-yellow hue
+in the world and it is the entire cue. A player who cannot separate slate from
+yellow-olive cannot play the mechanic, and had no way to say so. `Grey` drops
+the hue entirely and keeps only the value difference. The contrast slider is
+the same idea for low-contrast displays.
+
+**Persistence is defensive on purpose.** The store validates per field against
+a schema, so a stale blob from an older build, a hand-edited value, or a
+half-written one degrades *that field* to its default and leaves the rest
+intact. `loadSettings()` always loads over the defaults rather than over
+whatever is live, so its result is a total function of the blob and does not
+depend on when it was called. Every access is wrapped: `localStorage` is absent
+in the headless suite, throws on some `file://` origins, and can be disabled
+outright in private browsing, and a settings screen is never allowed to be the
+reason the game does not start.
 
 ---
 
@@ -356,6 +416,17 @@ What it actually checks:
     completely off screen. Nothing about that arithmetic looks wrong, and no
     exception is thrown. This asserts the pipe's projected device position is
     on the canvas and that something is actually painted there.
+20. **Settings.** The defaults are a complete and valid schema. The store
+    round-trips every field. A blob of deliberate nonsense — a bad enum, a
+    string where a range belongs, `NaN`, an out-of-bounds contrast — keeps its
+    one legal field and rejects the rest **individually**, because a settings
+    screen that throws away everything over one bad value trains people to
+    distrust it. Unparseable, non-object, and absent blobs all fall back. And
+    **a `localStorage` that throws on every access is survivable at every entry
+    point**, which is the case that actually happens in a browser. Then the
+    contract: all three difficulty presets leave `LOUD`, the wrench power, and
+    both leak noise constants byte-identical, and the preset values genuinely
+    reach `FLOORS` and `REPAIR_TIME` rather than sitting in the store.
 
 ### Lighting
 
