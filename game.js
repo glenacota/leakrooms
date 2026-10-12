@@ -426,10 +426,22 @@ const Audio_ = {
        used to wire itself straight to the speakers, so turning the game down
        meant editing eleven call sites. One node in front of all of them is the
        whole feature. It is also the node the settings modal drives, and it is
-       created before anything connects to it. */
+       created before anything connects to it.
+
+       ...and it connects to the DESTINATION. This line read
+       `connect(this.master)` — the master wired to itself — which builds a closed
+       loop: every voice in the game chains up into a node that goes nowhere, and
+       the result is total silence that behaves perfectly in every other
+       respect. No voice is missing, no voice throws, the master gain tracks the
+       slider; the graph simply terminates in a circle.
+
+       It survived because the headless harness runs with no AudioContext at all,
+       so every voice method returns on `if (!this.ok)` before it builds a node —
+       a graph bug is only findable by building the graph, so the suite now does
+       that too. */
     this.master = a.createGain();
     this.master.gain.value = SETTINGS.master;
-    this.master.connect(this.master);
+    this.master.connect(a.destination);
 
     // --- 60Hz fluorescent hum + its 2nd/3rd harmonics ---
     this.humGain = a.createGain();

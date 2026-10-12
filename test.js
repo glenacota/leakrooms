@@ -100,6 +100,50 @@ global.document = {
   addEventListener(){},
   body: { appendChild(){} },
 };
+global.__audioNodes = [];
+function fakeParam(v){
+  return { value:v,
+    setValueAtTime(){}, setTargetAtTime(){}, linearRampToValueAtTime(){},
+    exponentialRampToValueAtTime(){}, cancelScheduledValues(){}, setValueCurveAtTime(){} };
+}
+function fakeAudioNode(kind){
+  const n = {
+    kind, _out: [], _starts: 0, _stops: 0,
+    connect(x){ n._out.push(x); return x; },
+    disconnect(){ n._out.length = 0; },
+    start(){ n._starts++; }, stop(){ n._stops++; },
+    gain: fakeParam(1), frequency: fakeParam(440), detune: fakeParam(0),
+    Q: fakeParam(1), playbackRate: fakeParam(1),
+    buffer: null, loop: false, type: 'sine', pan: fakeParam(0),
+  };
+  global.__audioNodes.push(n);
+  return n;
+}
+/* A Web Audio stub that RECORDS THE GRAPH.
+
+   The harness deliberately runs the whole suite with no AudioContext, which is
+   the right call for exercising the fallback path and is also why a completely
+   silent game stayed silent through every run: with no context `Audio_.ok` is
+   false and every voice method returns on its first line without building a
+   single node. Nothing in this file had ever constructed the audio graph.
+
+   So this builds one on demand and remembers every node, so the wiring can be
+   walked. A synthesis bug is only findable by synthesising. */
+function fakeAudioContext(){
+  return {
+    currentTime: 0, sampleRate: 48000, state: 'running',
+    destination: { isDestination: true },
+    createGain: ()=>fakeAudioNode('gain'),
+    createOscillator: ()=>fakeAudioNode('osc'),
+    createBufferSource: ()=>fakeAudioNode('bufsrc'),
+    createBiquadFilter: ()=>fakeAudioNode('biquad'),
+    createStereoPanner: ()=>fakeAudioNode('pan'),
+    createBuffer: (ch,len)=>({ length:len, getChannelData: ()=>new Float32Array(len) }),
+    resume(){ this.state='running'; return Promise.resolve(); },
+    suspend(){ this.state='suspended'; return Promise.resolve(); },
+    close(){ this.state='closed'; return Promise.resolve(); },
+  };
+}
 global.window = {
   /* Key handlers are kept so tests can press real keys. Every screen change
      in this game is a key handler away, and a suite that could not press a
@@ -192,6 +236,7 @@ globalThis.__api = {
   get LEAK_LURE(){ return LEAK_LURE; },
   get WALK(){ return WALK; }, get SPRINT(){ return SPRINT; },
   tickFlood, wetAt, floodCover, sealLeak, leakReach, leakAt, initFlood, packWet,
+  Audio_,
   get wetCv(){ return wetCv; },
   get SETTINGS(){ return SETTINGS; },
   get SETTINGS_DEFAULTS(){ return SETTINGS_DEFAULTS; },
@@ -2985,6 +3030,105 @@ console.log('[22] the run — five levels, three minutes, one door');
     assert(!('found' in door), 'the door still carries a found flag — something is looking for it');
     console.log(`  the door opens ${d.toFixed(1)} tiles from the spawn, with nothing to find`);
   }
+}
+
+/* ============ TEST 23: the audio graph actually reaches the speakers ===
+   Every other test in this file runs with no AudioContext at all, so `Audio_.ok`
+   is false and every voice method returns on its first line without building a
+   node. That is the right way to test the fallback — and it means a game that
+   makes no sound whatsoever looks identical to a game that makes all of it.
+
+   It was one line. The master gain was connected to ITSELF:
+
+       this.master.connect(this.master);
+
+   which is a closed loop: every voice in the game chains up into a node that
+   goes nowhere. No voice is missing, nothing throws, the volume slider tracks
+   the setting — the graph simply terminates in a circle, so the game is silent
+   from the splash screen to the win screen and no assertion here could see it.
+
+   So this builds the graph for real and walks it. */
+console.log('[23] audio — the graph reaches the destination');
+{
+  /* no AudioContext at all: the fallback must be a no-op, not a crash */
+  assert(global.window.AudioContext===undefined, 'the fallback path is not being tested');
+  const before = A.Audio_.ok;
+  assert(before===false, 'audio came up without an AudioContext — the fallback is not guarded');
+  A.Audio_.step(1); A.Audio_.seal(); A.Audio_.drone(1,0);
+  assert(global.__audioNodes.length===0, 'the no-AudioContext path built nodes anyway');
+
+  /* now give it one, and build the whole thing */
+  global.__audioNodes.length = 0;
+  const ctx = fakeAudioContext();
+  global.window.AudioContext = function(){ return ctx; };
+  A.Audio_.ctx = null; A.Audio_.ok = false;
+  A.Audio_.init();
+  assert(A.Audio_.ok===true, 'Audio_.init did not come up with a context available');
+  assert(A.Audio_.ctx===ctx, 'Audio_.init did not keep the context it created');
+
+  /* reachability: follow the wires from the master to the speakers */
+  const reaches = (start, dest)=>{
+    const seen = new Set(), q = [start];
+    while (q.length){
+      const n = q.pop();
+      if (n===dest) return true;
+      if (!n || seen.has(n)) continue;
+      seen.add(n);
+      for (const o of (n._out||[])) q.push(o);
+    }
+    return false;
+  };
+  assert(reaches(A.Audio_.master, ctx.destination),
+    'the master gain does not reach the audio destination — the game is silent');
+  assert(A.Audio_.master._out.indexOf(A.Audio_.master) < 0,
+    'the master gain is connected to itself');
+
+  /* every voice the game builds has to end up in that graph too, or it is a
+     node that runs for the whole session and reaches nobody */
+  const orphans = global.__audioNodes.filter(n=>!reaches(n, ctx.destination));
+  assert(orphans.length===0,
+    `${orphans.length} audio nodes reach nothing (${orphans.slice(0,4).map(n=>n.kind).join(', ')})`+
+    ' — the voices built so far are inaudible');
+
+  /* and the long-running ones have to be running */
+  const started = global.__audioNodes.filter(n=>n._starts>0).length;
+  assert(started>=5, `only ${started} nodes were started — the hum, the hiss and the drone are silent`);
+
+  /* every one-shot voice: build it and check it lands */
+  /* Every voice, driven with plausible arguments — enumerated from the object
+     itself rather than from a hand-written list, because a list is a list that
+     goes stale the moment somebody adds a sound and forgets the test. The
+     argument count comes from fn.length and the values are all in range for
+     every voice here. */
+  const oneShots = Object.keys(A.Audio_).filter(k=>typeof A.Audio_[k]==='function'
+                                               && !['init','setMaster'].includes(k));
+  assert(oneShots.length>=10, `only found ${oneShots.length} voices on Audio_`);
+  for (const name of oneShots){
+    const args = new Array(A.Audio_[name].length).fill(0.5);
+    const n0 = global.__audioNodes.length;
+    A.Audio_[name](...args);
+    const made = global.__audioNodes.length - n0;
+    /* silence/setMaster are continuous, not one-shots: they move an existing
+       gain rather than building a voice, so they legitimately build nothing. */
+    const continuous = (name==='silence'||name==='drone'||name==='setMaster');
+    assert(continuous || made>0, `Audio_.${name} built no nodes — it is inaudible`);
+    const dead = global.__audioNodes.slice(n0).filter(n=>!reaches(n, ctx.destination));
+    assert(dead.length===0, `Audio_.${name} built ${dead.length} nodes that reach nothing`);
+  }
+
+  /* the volume slider is the one thing in front of all of them */
+  A.Audio_.setMaster(0);
+  assert(A.Audio_.masterVol===0.02, `muting gave ${A.Audio_.masterVol}, not the documented floor`);
+  A.Audio_.setMaster(1);
+  assert(A.Audio_.masterVol===1, 'the master volume does not track the setting');
+
+  /* and it all has to survive being called with no context, which is what a
+     browser that refuses to start one does */
+  A.Audio_.ctx = null; A.Audio_.ok = false;
+  for (const name of oneShots) A.Audio_[name](...new Array(A.Audio_[name].length).fill(0.5));
+  console.log(`  ${global.__audioNodes.length} nodes built, all reaching the destination; `+
+    `${oneShots.length} one-shots wired; muted to ${A.Audio_.masterVol}, no-context path is a no-op`);
+  global.window.AudioContext = undefined;
 }
 
 /* ============ TEST 21: the splash chain — 03 riser, 04 work order, then the run
