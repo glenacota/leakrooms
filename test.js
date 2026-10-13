@@ -261,6 +261,7 @@ globalThis.__api = {
   settingsValid, get SETTINGS_KEY(){ return SETTINGS_KEY; },
   advanceSplash, backSplash, show, hideAll, get SCREENS(){ return SCREENS; },
   paintSplashPlan, rollRunSeed, get RUN_SEED(){ return RUN_SEED; },
+  togglePause, clockText,
   get FLOORS(){ return FLOORS; },
   get HUNT_BASE(){ return HUNT_BASE; }, get HUNT_STEP(){ return HUNT_STEP; },
   get lives(){ return lives; }, set lives(v){ lives = v; },
@@ -2777,8 +2778,7 @@ console.log('[20] settings — persistence, validation, and the difficulty contr
     global.__store.clear();
     A.resetSettings();
     A.setOption('difficulty','brutal');
-    A.setOption('vhs', 0.2);
-    A.setOption('sprintToggle', true);
+    A.setOption('waterContrast', 1.6);
     A.setOption('waterHue','grey');
     const raw = global.__store.get(A.SETTINGS_KEY);
     assert(raw, 'nothing was written to the store');
@@ -2792,8 +2792,7 @@ console.log('[20] settings — persistence, validation, and the difficulty contr
     global.__store.set(A.SETTINGS_KEY, raw);
     A.loadSettings();
     assert(A.SETTINGS.difficulty==='brutal', 'difficulty did not survive the round trip');
-    assert(A.SETTINGS.vhs===0.2, `vhs came back as ${A.SETTINGS.vhs}`);
-    assert(A.SETTINGS.sprintToggle===true, 'sprintToggle did not survive');
+    assert(A.SETTINGS.waterContrast===1.6, `waterContrast came back as ${A.SETTINGS.waterContrast}`);
     assert(A.SETTINGS.waterHue==='grey', 'waterHue did not survive');
     console.log('  every field survives a write / wipe / read cycle');
   }
@@ -2802,28 +2801,24 @@ console.log('[20] settings — persistence, validation, and the difficulty contr
   {
     const bad  = { difficulty:'NONSENSE',        // not an enum member
                    master:'loud',                // wrong type
-                   vhs:17,                       // out of range
-                   shake:NaN,                    // not finite
-                   flicker:'strobe',             // not an enum member
                    waterHue:'chartreuse',
                    waterContrast:-4,             // below the floor
-                   sprintToggle:'yes',           // wrong type
-                   showFps:true };               // the one legal field
+                   muted:false };                // the one legal field
     global.__store.set(A.SETTINGS_KEY, JSON.stringify(bad));
     A.loadSettings();
     /* The one good field is taken... */
-    assert(A.SETTINGS.showFps===true, 'a valid field in a partly-corrupt blob was discarded');
+    assert(A.SETTINGS.muted===false && A.SETTINGS_DEFAULTS.muted===false, 'the legal field in a partly-corrupt blob was discarded');
     /* ...and every bad one falls back on its own, rather than the whole load
        being rejected because one value is nonsense. */
     assert(A.SETTINGS.difficulty==='normal', 'a bad enum was accepted');
     assert(A.SETTINGS.master===A.SETTINGS_DEFAULTS.master, 'a string was accepted for a range');
-    assert(A.SETTINGS.vhs===A.SETTINGS_DEFAULTS.vhs, 'an out-of-range number was accepted');
-    assert(A.SETTINGS.shake===A.SETTINGS_DEFAULTS.shake, 'NaN was accepted for a range');
-    assert(A.SETTINGS.flicker==='full', 'a bad flicker enum was accepted');
     assert(A.SETTINGS.waterHue==='slate', 'a bad hue was accepted');
     assert(A.SETTINGS.waterContrast===A.SETTINGS_DEFAULTS.waterContrast, 'a below-floor contrast was accepted');
-    assert(A.SETTINGS.sprintToggle===false, 'a string was accepted for a bool');
-    console.log('  a blob of nonsense keeps its one good field and rejects the rest individually');
+    /* A blob written by an older build carries fields this build has no
+       control for. They must be dropped, not resurrected: the whole point of
+       removing a setting is that a stale store cannot put it back. */
+    assert(!('vhs' in A.SETTINGS), 'a removed setting came back from a stale store');
+    console.log('  a blob of nonsense keeps its one good field, rejects the rest, and drops removed fields');
   }
 
   /* --- unparseable, non-object, and absent all fall back --- */
@@ -2831,7 +2826,7 @@ console.log('[20] settings — persistence, validation, and the difficulty contr
     for (const junk of ['not json at all', '[1,2,3]', 'null', '"a string"', '42']){
       global.__store.set(A.SETTINGS_KEY, junk);
       A.loadSettings();
-      assert(A.SETTINGS.difficulty==='normal' && A.SETTINGS.vhs===A.SETTINGS_DEFAULTS.vhs,
+      assert(A.SETTINGS.difficulty==='normal' && A.SETTINGS.master===A.SETTINGS_DEFAULTS.master,
         `a ${junk} blob did not fall back to defaults`);
     }
     global.__store.clear();
@@ -2844,11 +2839,11 @@ console.log('[20] settings — persistence, validation, and the difficulty contr
        AFTER it, or setting an option overwrites the very blob under test. */
     A.setOption('difficulty','brutal');
     assert(A.SETTINGS.difficulty==='brutal', 'setOption did not take effect');
-    global.__store.set(A.SETTINGS_KEY, JSON.stringify({vhs:0.4}));
+    global.__store.set(A.SETTINGS_KEY, JSON.stringify({master:0.4}));
     A.loadSettings();
     assert(A.SETTINGS.difficulty==='normal',
       'loading a partial blob kept the live difficulty — the result depends on call order');
-    assert(A.SETTINGS.vhs===0.4, 'the one present field was not applied');
+    assert(A.SETTINGS.master===0.4, 'the one present field was not applied');
     console.log('  unparseable, non-object, and absent blobs fall back; a partial blob is a total reset plus its own fields');
   }
 
@@ -3433,10 +3428,11 @@ console.log('[21] the splash chain — 03 riser, 04 work order, then the run');
   assert(/id="btn-start"/.test(orderHtml), 'work order 04 has no clock-in button for btn-start to bind');
 
   /* --- the controls summary is the reason screen 04 exists --- */
-  for (const key of ['WASD','ARROWS','SHIFT','ENTER','ESC']){
-    assert(new RegExp('>'+key+'<').test(orderHtml), `work order 04 never lists ${key}`);
+  for (const key of ['WASD','SHIFT','ENTER','ESC']){
+    assert(new RegExp('>'+key+'[^<]*<').test(orderHtml), `work order 04 never lists ${key}`);
   }
   assert(/>R</.test(orderHtml), 'work order 04 never lists R, the radar');
+  assert(/>M</.test(orderHtml), 'work order 04 never lists M, the mute');
 
   /* --- and it is legible, not merely present.
          The old title screen was 11px and nobody read it, so the requirement
@@ -3590,6 +3586,128 @@ console.log('[25] the splash plan — painted from the seed the run uses');
   assert(A.RUN_SEED!==seedAtBoot, 'a new run kept the old seed — RUN IT AGAIN is the same building');
   assert(G.seed===A.RUN_SEED, 'the re-rolled seed did not reach the level');
   console.log(`  plan rolls at two speeds, faded to ${op?op[1]:'?'}, loops seamlessly, and matches seed #${(A.RUN_SEED>>>0).toString(16)}`);
+}
+
+/* ============ TEST 26: the pause screen IS the work order
+   Splash 04 and the pause modal are the same document. That is a design claim,
+   so it is asserted as one: same ticket markup, same controls block, and the
+   numbers on it are the run's real numbers rather than the static copy the
+   splash ships with. A pause screen showing stale text is worse than a plain
+   one, because the player trusts it. */
+console.log('[26] the pause screen — the work order, with the run written on it');
+{
+  const html = fs.readFileSync(__dirname+'/index.html','utf8');
+  const splash = html.slice(html.indexOf('id="screen-splash"'));
+  const order  = html.slice(html.indexOf('id="screen-order"'),  html.indexOf('id="screen-pause"'));
+  const pause  = html.slice(html.indexOf('id="screen-pause"'),   html.indexOf('id="screen-dead"'));
+  assert(pause.length>0, 'the pause screen is missing from index.html');
+
+  /* --- same furniture --- */
+  assert(/class="order perf"/.test(pause), 'the pause screen is not the ticket');
+  assert(!/class="tape"/.test(pause), 'the pause screen still has its own layout');
+  assert(/id="btn-settings-pause"/.test(pause), 'the pause screen has no link to settings');
+  /* the settings link sits BELOW the ticket, not inside it */
+  assert(pause.indexOf('id="btn-settings-pause"') > pause.indexOf('class="order perf"'),
+    'the settings link is inside the ticket instead of under it');
+
+  /* --- the same controls, in the same place: the stub, under CONTROLS --- */
+  const ctrlBlock = (s)=>{ const m = s.match(/<small>CONTROLS<\/small>([\s\S]*?)<\/div>\s*<\/p>/); return m?m[1]:''; };
+  const keysOf = (s)=> [...ctrlBlock(s).matchAll(/<b>([^<]+)<\/b>/g)].map(m=>m[1]);
+  const pk = keysOf(pause), ok = keysOf(order);
+  assert(ctrlBlock(pause).length>0, 'the pause ticket has no controls block');
+  assert(ctrlBlock(order).length>0, 'the splash ticket has no controls block');
+  /* The chips are styled with letter-spacing, so the labels are free to be
+     written in prose case ("WASD / arrows"); matching is case-insensitive. */
+  const has = (list, k)=> list.some(x=>x.toUpperCase().includes(k.toUpperCase()));
+  for (const k of ['WASD','ARROWS','SHIFT','R','M','ESC']){
+    assert(has(pk, k), `the pause ticket never lists ${k}`);
+  }
+  /* ENTER is the splash's confirm key and has no job on the pause ticket — it
+     is not the resume key there, ESC is, and a key listed as doing something it
+     does not do is worse than a key missing from a list. */
+  assert(!has(pk, 'ENTER'), 'the pause ticket still lists ENTER, which resumes nothing');
+  for (const k of ok.filter(x=>!x.toUpperCase().includes('ENTER'))){
+    assert(has(pk, k), `the pause ticket dropped ${k}, which the splash lists`);
+  }
+
+  /* --- and the numbers are the run's --- */
+  buildFloor(2, 9090);
+  G.leaksOpen = G.risers; G.floodCover = 0.31; G.batt = 42; G.stat.noises = 7;
+  A.STATE = 'play';
+  A.togglePause();
+  assert(A.STATE==='pause', 'ESC did not pause');
+  const txt = id=> els[id] ? els[id].innerHTML : '';
+  assert(/3 \/ /.test(txt('pause-level')), `depth reads "${txt('pause-level')}" on level 3`);
+  assert(txt('pause-risers').includes('0/'), `the riser tally reads "${txt('pause-risers')}"`);
+  assert(txt('pause-batt')==='42', `battery reads "${txt('pause-batt')}", expected 42`);
+  assert(/^#88D-[0-9A-F]{1,4}$/.test(txt('pause-seed')), `the ticket seed reads "${txt('pause-seed')}"`);
+  assert(txt('pause-clock')===A.clockText(G.clock), 'the clock on the ticket is not the clock in state');
+  assert(/7<\/b> noise/.test(txt('pause-hint')), 'the status line does not report what the run has heard');
+
+  /* the life pips are spent ones included — the count the HUD has been showing */
+  A.lives = Math.max(1, A.runLives-1);
+  A.STATE='play'; A.togglePause();
+  assert(/gone/.test(txt('pause-lives')), 'a spent life is not drawn as spent on the ticket');
+  A.lives = A.runLives;
+
+  /* the scope line answers a different question than the status line */
+  assert(txt('pause-scope').length>0, 'the scope of work was left blank');
+  assert(txt('pause-scope')!==txt('pause-hint'), 'scope and status are the same sentence');
+
+  /* and once everything is sealed, the scope line says so instead of stalling */
+  G.leaksOpen = 0;
+  A.STATE='play'; A.togglePause();
+  assert(/threshold/i.test(txt('pause-scope')), 'with every riser sealed the ticket still asks for sealing');
+
+  A.STATE='play'; A.hideAll();
+  console.log('  pause = the work order, live numbers, controls intact, settings below');
+}
+
+/* ============ TEST 27: the four removed settings are gone, and stay gone
+   Settings that only had their widgets deleted would still be readable from a
+   stale localStorage blob, still settable through the API, and still rendered
+   by a branch nobody remembers writing. All four have to be absent from the
+   schema, the store, the markup, and the renderer. */
+console.log('[27] the removed settings — frame counter, flicker, tape, shake');
+{
+  const html = fs.readFileSync(__dirname+'/index.html','utf8');
+  const css  = fs.readFileSync(__dirname+'/style.css','utf8');
+  const src  = fs.readFileSync(__dirname+'/game.js','utf8');
+  const GONE = ['showFps','flicker','vhs','shake'];
+
+  for (const k of GONE){
+    assert(!(k in A.SETTINGS_SCHEMA), `${k} is still in the schema`);
+    assert(!(k in A.SETTINGS_DEFAULTS), `${k} is still a stored default`);
+    assert(!(k in A.SETTINGS), `${k} is still live in the store`);
+    assert(!html.includes(`data-opt="${k}"`), `index.html still renders a control for ${k}`);
+    assert(!new RegExp(`SETTINGS\\.${k}\\b`).test(src), `game.js still reads SETTINGS.${k}`);
+  }
+
+  /* no control anywhere: the ids, the labels, the stylesheet rule */
+  for (const id of ['set-fps','set-flicker','set-vhs','set-shake']){
+    assert(!html.includes(id), `index.html still has #${id}`);
+  }
+  assert(!/FRAME COUNTER|FLUORESCENT FLICKER|TAPE DEGRADATION|CAMERA SHAKE/.test(html),
+    'a removed setting still has a label on screen');
+  assert(!/#fps\b/.test(css), 'the frame counter stylesheet rule survived');
+
+  /* and the API refuses to set them, rather than silently growing SETTINGS */
+  for (const k of GONE){
+    assert(A.settingsValid(k, 1)===false, `${k} still validates`);
+    assert(A.setOption(k, 1)===false, `setOption('${k}') was accepted`);
+    assert(!(k in A.SETTINGS), `${k} appeared in the store after a set attempt`);
+  }
+
+  /* the effects themselves are still drawn — these were look, not preference,
+     so removing the settings must not quietly remove the VHS pass */
+  assert(/VHS_PASS\s*=\s*0\.7/.test(src), 'the VHS pass lost its constant');
+  assert(/FLICKER_DEPTH\s*=\s*0\.65/.test(src), 'the flicker lost its constant');
+  assert(/ctx\.fillStyle=scanPat/.test(src), 'the scanline pass is gone — the game no longer looks like a tape');
+  assert(/if \(f\.flicker\)/.test(src), 'the tubes no longer stutter');
+  render(1000);
+  render(2000);
+  console.log('  4 settings gone from schema, store, markup, stylesheet, and renderer');
+  console.log('  and the effects they controlled are still on, as constants');
 }
 
 reportTimings();

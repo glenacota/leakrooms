@@ -259,17 +259,16 @@ body{ display:flex; align-items:center; justify-content:center; }
    row of buttons — because the whole point is that they work, and a
    custom widget would be reimplementing a slider badly.
    ------------------------------------------------------------ */
-.tape.wide{ max-width:620px; }
 .settings-grid{
-  display:grid; grid-template-columns:1fr 1fr; gap:16px 26px;
+  display:grid; grid-template-columns:1fr 1fr; gap: 26px;
   margin:22px 0 6px; text-align:left;
 }
 .setrow{ display:flex; flex-direction:column; gap:6px; }
 .setrow label{
-  color:var(--yellow-deep); font-size:10px; letter-spacing:.2em;
+  color:var(--yellow-dim); font-size:13px; font-weight: 900; letter-spacing:.2em;
 }
 .setrow .note{
-  margin:0; font-size:10px; line-height:1.5; opacity:.55; max-width:46ch;
+  margin:0; font-size:13px; font-weight: 900; line-height:1.5; opacity:.55; max-width:46ch;
 }
 .setrow.buttons{
   flex-direction:row; gap:12px; justify-content:flex-end;
@@ -281,7 +280,7 @@ body{ display:flex; align-items:center; justify-content:center; }
    their own width evenly. */
 .seg{ display:grid; grid-template-columns:repeat(auto-fit,minmax(52px,1fr)); gap:6px; }
 .seg button{
-  padding:6px 8px; font-size:10px; white-space:nowrap;
+  padding:6px 8px; font-size:12px; white-space:nowrap;
   letter-spacing:.14em; background:transparent; color:var(--yellow-dim);
   border:1px solid rgba(228,230,168,.28); cursor:pointer;
 }
@@ -306,7 +305,7 @@ button.ghost{
   border:1px solid rgba(228,230,168,.35);
 }
 button.ghost:hover{ background:rgba(228,230,168,.10); color:var(--yellow); }
-#fps{ position:fixed; left:8px; bottom:6px; font-size:10px; opacity:.5; pointer-events:none; }
+
 
 /* ------------------------------------------------------------
    prompts / found notes
@@ -425,9 +424,10 @@ button.ghost:hover{ background:rgba(228,230,168,.10); color:var(--yellow); }
    ------------------------------------------------------------ */
 .order-wrap{
   width:min(94vw,960px);
+  max-height:94vh; overflow-y:auto; scrollbar-width:thin;
   display:flex; flex-direction:column; align-items:center; gap:18px;
 }
-#screen-order{ background:rgba(6,5,3,.95); }
+#screen-order, #screen-pause{ background:rgba(6,5,3,.95); }
 .order{
   width:100%;
   display:grid; grid-template-columns:1fr 250px;
@@ -496,6 +496,10 @@ button.ghost:hover{ background:rgba(228,230,168,.10); color:var(--yellow); }
 .order-side .big{ font-size:36px; line-height:1; color:#8fc4cc; margin-bottom:2px; }
 .order-side .badge{ font-size:22px; letter-spacing:.3em; color:var(--yellow); }
 .order-side .seed{ font-size:16px; color:var(--yellow-dim); letter-spacing:.1em; }
+/* The life pips read exactly as they do in the HUD, spent ones included, so the
+   count on the ticket is the count the player has been watching all along. */
+.order-side .seed.lives-row{ color:var(--danger); letter-spacing:.3em; }
+.order-side .seed.lives-row .gone{ opacity:.18; }
 .order-side .stub-note{
   margin-top:auto; margin-bottom:0; padding-top:18px;
   font-size:11px; line-height:1.8; letter-spacing:.12em; color:var(--yellow-deep);
@@ -542,10 +546,11 @@ h1{
 h1.bad{ color:var(--danger); letter-spacing:.2em; font-size:32px; }
 
 .sub{
-  font-size:10px;
+  font-size:12px;
+  font-weight: 900;
   letter-spacing:.4em;
   color:var(--yellow-deep);
-  margin-bottom:22px;
+  margin-bottom:32px;
 }
 
 blockquote{

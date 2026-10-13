@@ -256,6 +256,15 @@ const cvs = document.getElementById('game');
 const ctx = cvs.getContext('2d', { alpha:false });
 let VW = 0, VH = 0, DPR = 1, SCALE = 1;
 
+/* VHS_PASS and FLICKER_DEPTH used to be slider positions. They are constants
+   now: the scanline crawl and the stuttering tubes are how the place is lit,
+   and a preference for "less of the look" is not a preference the game can
+   honour without becoming a different game. Everything that reads them reads
+   these, so restoring a slider later is a matter of wiring the control, not
+   of hunting the values back out of the renderer. */
+const VHS_PASS = 0.7;
+const FLICKER_DEPTH = 0.65;
+
 function resize(){
   DPR = Math.min(window.devicePixelRatio || 1, 2);
   VW = cvs.clientWidth; VH = cvs.clientHeight;
@@ -314,13 +323,8 @@ const SETTINGS_DEFAULTS = {
      the toast it raises when you press it. Persisted like everything else: a
      player who muted the game once is a player who has muted it five times. */
   muted: false,
-  flicker: 'full',        // off | reduced | full
-  vhs: 0.7,               // grain, scanlines, chroma ghost, dropouts
-  shake: 1.0,             // 0 .. 1
   waterHue: 'slate',
-  waterContrast: 1.0,     // multiplies the tint alpha
-  sprintToggle: false,
-  showFps: false,
+  waterContrast: 1.0,
 };
 
 /* Every field, its type, and its allowed range. The store validates against
@@ -332,13 +336,8 @@ const SETTINGS_SCHEMA = {
   difficulty:     { type:'enum', values:Object.keys(DIFFICULTIES) },
   master:         { type:'range', min:0, max:1 },
   muted:          { type:'bool' },
-  flicker:        { type:'enum', values:['off','reduced','full'] },
-  vhs:            { type:'range', min:0, max:1 },
-  shake:          { type:'range', min:0, max:1 },
   waterHue:       { type:'enum', values:Object.keys(WATER_TINTS) },
   waterContrast:  { type:'range', min:0.4, max:2 },
-  sprintToggle:   { type:'bool' },
-  showFps:        { type:'bool' },
 };
 
 const SETTINGS_KEY = 'leakrooms.settings.v1';
@@ -2654,7 +2653,10 @@ const keys = {};
 const MODAL_ACTION = {
   splash: ()=>advanceSplash(),
   order:  ()=>advanceSplash(),
-  pause:  ()=>document.getElementById('btn-resume').click(),
+  /* The pause ticket has no resume button — ESC is the resume, and the one
+     thing under it is the settings link. Pointing ENTER at a button that is not
+     on the screen is how a modal ends up with a dead confirm key. */
+  pause:  ()=>togglePause(),
   dead:   ()=>document.getElementById('btn-retry').click(),
   win:    ()=>document.getElementById('btn-again').click(),
   /* Enter closes the settings the same way it closes every other modal. It
@@ -2734,16 +2736,8 @@ window.addEventListener('keydown', e=>{
     return;
   }
 
-  /* Sprint is hold or toggle, per settings. The toggle is latched on a rising
-     edge so holding the key down does not re-toggle it sixty times a second,
-     and the keyup only clears it when the latch was never set — otherwise
-     releasing a held sprint would also cancel a toggled one. */
   if ((k==='shift') && G && STATE==='play'){
-    if (SETTINGS.sprintToggle){
-      if (!keys['_shiftLatch'] && !e.repeat) keys['_shiftLatch'] = true;
-    } else {
-      keys['_shiftLatch'] = false;
-    }
+    keys['_shiftLatch'] = false;
   }
 
   if (k==='r' && G && STATE==='play'){
@@ -2757,7 +2751,7 @@ window.addEventListener('keydown', e=>{
 });
 window.addEventListener('keyup', e=>{
   const k=e.key.toLowerCase();
-  if (k==='shift' && !SETTINGS.sprintToggle) keys['_shiftLatch'] = false;
+  if (k==='shift') keys['_shiftLatch'] = false;
   keys[k] = false;
 });
 
@@ -2809,7 +2803,7 @@ function update(dt){
   const wet = wetAt(p.x, p.y);
   G.wet = wet;
 
-  const sprinting = (SETTINGS.sprintToggle ? keys['_shiftLatch'] : keys['shift']) && (ix||iy);
+  const sprinting = keys['shift'] && (ix||iy);
   const wade = wet > 0.25 ? 0.80 : 1;          // knee-deep costs you a fifth
   const spd = (sprinting ? SPRINT : WALK) * wade;
   let moving=false, bumped=false;
@@ -3348,9 +3342,12 @@ function outOfTime(){ lose('THE CLOCK RAN OUT'); }
     /* Shake is a multiplier on the camera jitter, not a new system — the
        breathing motion and the VHS wobble were already here, and a settings
        slider that scales them turns both off at 0. */
-    const sh = SETTINGS.shake;
-    cam.jx = ((Math.random()-0.5)*0.10 + breathe*0.35) * sh;
-    cam.jy = (Math.random()-0.5)*0.10 * sh;
+    /* Camera jitter. Always on: the breathing sway and the handheld wobble were
+       here before the slider existed, and a "camera shake" preference could
+       only ever be OFF (0) or exactly what the game already did (1). Turning it
+       down did not make the game calmer, it made the camera less honest. */
+    cam.jx = (Math.random()-0.5)*0.10 + breathe*0.35;
+    cam.jy = (Math.random()-0.5)*0.10;
 
     // clamp to the maze so the viewport is never half off-map void
     const T = TILE*SCALE;
@@ -3563,16 +3560,14 @@ function outOfTime(){ lose('THE CLOCK RAN OUT'); }
     const fv = fixtureVis(f);
     if (fv < 0.02) continue;
     let a = 0.12 * fv;
-    /* Fluorescent flicker, at three intensities. This is a photosensitivity
-       control and not a taste one: 16% of fixtures stutter, a 2%-per-frame
-       dropout dips a tube to 15%, and on top of that the VHS pass adds its own
-       dropouts. `reduced` keeps the tubes alive — the hum is the room's whole
-       character and a perfectly steady light reads as a bug — while cutting the
-       depth and killing the dropouts. */
-    if (f.flicker && SETTINGS.flicker !== 'off'){
-      const depth = SETTINGS.flicker === 'reduced' ? 0.22 : 0.65;
-      a *= (1-depth + depth*Math.max(0, Math.sin(t*0.001*f.flicker + f.phase)));
-      if (SETTINGS.flicker === 'full' && Math.random()<0.02) a*=0.15;
+    /* Fluorescent flicker. 16% of fixtures stutter, a 2%-per-frame dropout dips
+       a tube to 15%, and the VHS pass adds its own on top. The depth and the
+       dropout were a three-way preference once; they are now simply what a
+       fluorescent tube does, at FLICKER_DEPTH. The hum is the room's whole
+       character — a perfectly steady light reads as a bug, not as calm. */
+    if (f.flicker){
+      a *= (1-FLICKER_DEPTH + FLICKER_DEPTH*Math.max(0, Math.sin(t*0.001*f.flicker + f.phase)));
+      if (Math.random()<0.02) a*=0.15;
     }
     const fx=w2sx(f.x), fy=w2sy(f.y);
     const rr=f.r*T;
@@ -3708,13 +3703,14 @@ function outOfTime(){ lose('THE CLOCK RAN OUT'); }
   ctx.fillStyle=vg2; ctx.fillRect(0,0,cvs.width,cvs.height);
 
   /* ---------- 8. VHS composite ----------
-     Every pass here is scaled by SETTINGS.vhs. At 0 the whole block is skipped:
-     a lopping tracking band, a 4px scanline grid and a chroma ghost are a
-     motion-sickness trigger for some people and a load for a weak GPU, and
-     "off" has to actually mean off rather than "on but faint" — half-strength
-     scanlines are still scanlines. The snapshot is taken regardless, because
-     the tracking band below reads from it. */
-  const vhs = SETTINGS.vhs;
+     A lopping tracking band, a scanline grid, grain, a chroma ghost and
+     dropouts. This is the pass that makes the game a recording rather than a
+     window, and it is now unconditional: it was a slider once, and the two
+     things people turned it down for — the scanline crawl and the shake — are
+     both still here at full strength, so "tape degradation" as a preference
+     could not honestly offer a middle. The snapshot is taken before the passes
+     that read it. */
+  const vhs = VHS_PASS;
   if (!postCv || postCv.width!==cvs.width || postCv.height!==cvs.height){
     postCv = document.createElement('canvas');
     postCv.width = cvs.width; postCv.height = cvs.height;
@@ -4050,7 +4046,7 @@ function syncSettingsUI(){
   const note = document.getElementById('note-difficulty');
   if (note){
     const d = DIFFICULTIES[SETTINGS.difficulty] || DIFFICULTIES.normal;
-    note.textContent = `${d.lives} lives · ${LEVELS_N} levels · ${Math.round(d.clock)}s on the clock · ${d.repairTime}s at the pipe`;
+    note.textContent = `${d.lives} attempts · ${LEVELS_N} levels · ${Math.round(d.clock)}s on the clock · ${d.repairTime}s at the pipe`;
   }
 }
 
@@ -4058,10 +4054,7 @@ function syncSettingsUI(){
    the enum and the labels cannot drift apart. */
 const SEGMENTS = {
   difficulty: () => Object.keys(DIFFICULTIES).map(k => [k, DIFFICULTIES[k].label]),
-  flicker:    () => [['off','OFF'],['reduced','REDUCED'],['full','FULL']],
   waterHue:   () => [['slate','SLATE'],['teal','TEAL'],['violet','VIOLET'],['grey','GREY']],
-  sprintToggle: () => [[false,'HOLD'],[true,'TOGGLE']],
-  showFps:    () => [[false,'OFF'],[true,'ON']],
 };
 const DIFFICULTY_KEYS = {};
 
@@ -4079,7 +4072,7 @@ function buildSettingsUI(){
       const b = document.createElement('button');
       b.textContent = label;
       b.dataset.value = String(val);
-      b.onclick = ()=> setOption(key, (key==='difficulty'||key==='flicker'||key==='waterHue') ? val : (val==='true'));
+      b.onclick = ()=> setOption(key, SETTINGS_SCHEMA[key].type === 'enum' ? val : (val==='true'));
       row.appendChild(b);
     }
   }
@@ -4108,21 +4101,33 @@ function togglePause(){
   if (STATE==='play'){
     STATE='pause';
     show('pause');
-    // show where you stand, so pausing never costs you your bearings
-    const h = document.getElementById('pause-hint');
-    if (h) h.innerHTML =
-      `Level <b>${G.floor+1}/${FLOORS}</b> &nbsp; Risers <b>${G.risers-G.leaksOpen}/${G.risers}</b>`+
-      ` &nbsp; Clock <b>${clockText(G.clock)}</b> &nbsp; Battery <b>${Math.ceil(G.batt)}</b> &nbsp; Lives <b>${lives}</b><br>`+
-      (G.leaksOpen===0
-        ? `Every riser is <b>SEALED</b>. The floor is still draining &mdash; <b>${Math.round(G.floodCover*100)}%</b> under water.<br>Get back to the door you came in through.`
-        : `<b>${G.leaksOpen}</b> riser${G.leaksOpen===1?'':'s'} still <b>OPEN</b>. <b>${Math.round(G.floodCover*100)}%</b> of the floor is under water and still rising.<br>`+
-          `Follow the wet floor downhill to the wall, then hold still for <b>${REPAIR_TIME} seconds</b>. It is loud.`)+
-      `<br>It has heard you make <b>${G.stat.noises}</b> noise${G.stat.noises===1?'':'s'} so far.`;
-    /* "TAPE STILL RUNNING" was written when there was no deadline to be late
-       for. The clock is the level, so the pause screen restates it — a pause
-       that hides the only number that matters is a pause that costs the level. */
-    const ps = document.querySelector('#screen-pause .sub');
-    if (ps) ps.textContent = `THE CLOCK IS STILL RUNNING \u2014 ${clockText(G.clock)}`;
+    /* The pause screen is splash 04 with the run's own numbers written on it,
+       so pausing costs no bearings: depth, risers left, clock, battery, lives,
+       and the next move — all in the places a clerk would have written them.
+       SCOPE OF WORK answers "what am I here for" and STATUS answers "where
+       does that stand"; the ticket has a line for each because they are
+       different questions. */
+    const set = (id, html)=>{ const el = document.getElementById(id); if (el) el.innerHTML = html; };
+    const sealed = G.risers - G.leaksOpen;
+
+    set('pause-level',   `${G.floor+1} / ${FLOORS}`);
+    set('pause-clock',   clockText(G.clock));
+    set('pause-risers',  `${sealed}/${G.risers}`);
+    set('pause-batt',    String(Math.ceil(G.batt)));
+    set('pause-lives',   Array.from({length:Math.max(1,runLives)},
+                        (_,i)=> `<span class="${i<lives?'':'gone'}">&#9679;</span>`).join(''));
+    set('pause-seed',    '#88D-' + (RUN_SEED>>>0).toString(16).toUpperCase().slice(-4));
+
+    set('pause-scope', G.leaksOpen===0
+      ? 'Every leak is sealed. Walk back through the Threshold you came in by.'
+      : `Seal the remaining ${G.leaksOpen} leak${G.leaksOpen===1?'':'s'}. The Threshold won't open until then.`);
+
+    set('pause-hint',
+      `<b>${Math.round(G.floodCover*100)}%</b> of the floor is under water`+
+      (G.leaksOpen===0 ? ' and draining' : ' and still rising')+'.<br>'+
+      (G.leaksOpen===0 ? '' :
+        `Follow the wet floor downhill to the wall, then hold still for <b>${REPAIR_TIME} seconds</b>. It is loud.<br>`)+
+      `It has heard you make <b>${G.stat.noises}</b> noise${G.stat.noises===1?'':'s'} so far.`);
   }
   else if (STATE==='pause'){ STATE='play'; hideAll(); }
 }
@@ -4203,7 +4208,7 @@ document.getElementById('btn-start').onclick = ()=>{
   document.getElementById('hud').classList.add('on');
   syncAmbience();        // the title bed has no business following you downstairs
 };
-document.getElementById('btn-resume').onclick = togglePause;
+
 document.getElementById('btn-retry').onclick = ()=>{
   if (lives<=0){
     document.getElementById('btn-start').click(); return;
@@ -4229,7 +4234,6 @@ document.getElementById('btn-again').onclick = ()=>{
    LOOP
    ============================================================ */
 let last = performance.now();
-let fpsAcc = 0, fpsFrames = 0, fpsShown = 0;
 function frame(now){
   let dt = (now-last)/1000;
   last = now;
@@ -4238,15 +4242,6 @@ function frame(now){
   if (STATE==='play'){ runTime+=dt; update(dt); updateHUD(); setPrompt(); }
   if (G) render(now);
 
-  if (SETTINGS.showFps){
-    fpsAcc += dt; fpsFrames++;
-    if (fpsAcc >= 0.5){
-      fpsShown = Math.round(fpsFrames/fpsAcc);
-      const el = document.getElementById('fps');
-      if (el) el.textContent = fpsShown + ' FPS';
-      fpsAcc = 0; fpsFrames = 0;
-    }
-  }
   requestAnimationFrame(frame);
 }
 
@@ -4271,11 +4266,6 @@ syncSettingsUI();
    advanceSplash — and everything is built and wired in the meantime. */
 Audio_.init();
 syncAmbience();
-const fpsEl = document.createElement('div');
-fpsEl.id = 'fps';
-/* Guarded: a decorative readout is not worth a boot failure in any embed that
-   has not got a body yet. The counter simply does not appear. */
-if (document.body) document.body.appendChild(fpsEl);
 /* The splash plan is the level the first run is built from, so the boot floor
    is built from RUN_SEED instead of a throwaway constant: painting it is then
    a copy of what already exists rather than a second generation of the maze. */

@@ -70,7 +70,7 @@
       <div class="hud-div"></div>
 
       <div class="stat lives">
-        <span class="lbl">LIVES</span>
+        <span class="lbl">ATTEMPTS</span>
         <span class="val lives" id="val-lives">&#9679;&#9679;&#9679;</span>
       </div>
 
@@ -117,7 +117,7 @@
           <ul class="notes">
             <li><b>Follow the wet floor to find the leak.</b></li>
             <li><b>Stand in front of the leak to fix it.</b> It takes only 5 seconds.</li>
-            <li><b>The radar is reliable, but drains batteries fast.</b> We left some spare batteries on the floor.</li>
+            <li><b>The radar is reliable, but drains batteries fast.</b> We left some spare batteries around the Sector.</li>
             <li><b>You must return through the same Threshold you entered.</b> It won’t reopen until every leak is fixed. Too dangerous with water around.</li>
             <li><b>Lifeforms are roaming in the Sector.</b> They hunt by sound. Running attracts them. Water makes it worse. Fixing pipes is loudest.</li>
             <li>If you hear breathing, run first. Ask questions later.</li>
@@ -167,25 +167,8 @@
         </div>
 
         <div class="setrow">
-          <label for="set-flicker">FLUORESCENT FLICKER</label>
-          <div class="seg" id="set-flicker" data-opt="flicker"></div>
-          <p class="note">16% of the tubes stutter on their own. Reduced keeps them alive without the strobing.</p>
-        </div>
-
-        <div class="setrow">
           <label for="set-master">VOLUME</label>
           <input type="range" id="set-master" min="0" max="1" step="0.05" data-opt="master">
-        </div>
-
-        <div class="setrow">
-          <label for="set-vhs">TAPE DEGRADATION</label>
-          <input type="range" id="set-vhs" min="0" max="1" step="0.05" data-opt="vhs">
-          <p class="note">Grain, scanlines, tracking bands, chroma ghost. Zero turns the whole pass off.</p>
-        </div>
-
-        <div class="setrow">
-          <label for="set-shake">CAMERA SHAKE</label>
-          <input type="range" id="set-shake" min="0" max="1" step="0.05" data-opt="shake">
         </div>
 
         <div class="setrow">
@@ -199,17 +182,7 @@
           <input type="range" id="set-contrast" min="0.4" max="2" step="0.1" data-opt="waterContrast">
         </div>
 
-        <div class="setrow">
-          <label for="set-sprint">SPRINT</label>
-          <div class="seg" id="set-sprint" data-opt="sprintToggle"></div>
         </div>
-
-        <div class="setrow">
-          <label for="set-fps">FRAME COUNTER</label>
-          <div class="seg" id="set-fps" data-opt="showFps"></div>
-        </div>
-
-      </div>
 
       <div class="setrow buttons">
         <button id="btn-settings-reset" class="ghost">RESET</button>
@@ -218,24 +191,56 @@
     </div>
   </div>
 
+  <!-- ---- PAUSE -->
   <div id="screen-pause" class="screen hidden">
-    <div class="tape">
-      <h1>PAUSED</h1>
-      <p class="sub">TAPE STILL RUNNING</p>
+    <div class="order-wrap">
+      <div class="order perf">
+        <div class="order-body">
+          <div class="order-head">
+            <h2>WORK ORDER 88-D</h2>
+            <p class="meta">PAUSED &nbsp;&middot;&nbsp; LEVEL <b id="pause-level">1 / 5</b> &nbsp;&middot;&nbsp; SHIFT: NIGHT</p>
+          </div>
 
-      <div class="controls">
-        <div><b>WASD</b> / <b>ARROWS</b><span>move</span></div>
-        <div><b>SHIFT</b><span>sprint &mdash; loud</span></div>
-        <div><b>R</b><span>radar &mdash; costs battery</span></div>
-        <div><b>M</b><span>mute</span></div>
-        <div><b>ENTER</b><span>resume</span></div>
-        <div><b>ESC</b><span>pause</span></div>
+          <div class="field"><span>LOCATION</span><b>Sub-Level Maintenance &mdash; Threshold, Sector 4.</b></div>
+          <div class="field"><span>SCOPE OF WORK</span><b id="pause-scope">&nbsp;</b></div>
+          <div class="field"><span>STATUS</span><b id="pause-hint">&nbsp;</b></div>
+
+          <div class="field"><span>NOTES FROM THE LAST REPARATIONS</span></div>
+          <ul class="notes">
+            <li><b>The clock does not move while you are here.</b>.</li>
+            <li><b>The radar is reliable, but drains batteries fast.</b> We left some spare batteries around the Sector.</li>
+            <li><b>Lifeforms are roaming in the Sector.</b> They hunt by sound. Running attracts them. Water makes it worse. Fixing pipes is loudest.</li>
+          </ul>
+        </div>
+
+        <div class="order-side">
+          <small>ON THE CLOCK</small>
+          <div class="big" id="pause-clock">3:00</div>
+          <small>RISERS SEALED</small>
+          <div class="badge" id="pause-risers">0/1</div>
+          <small>BATTERY</small>
+          <div class="seed" id="pause-batt">100</div>
+          <small>ATTEMPTS</small>
+          <div class="seed lives-row" id="pause-lives">&#9679;&#9679;&#9679;</div>
+          <small>RUN SEED</small>
+          <div class="seed" id="pause-seed">#88D-0000</div>
+          <p class="stub-note">
+            <small>CONTROLS</small>
+            <div class="controls controls-big">
+              <div><b>WASD / arrows</b><span>move</span></div>
+              <div><b>SHIFT</b><span>sprint</span></div>
+              <div><b>R</b><span>radar</span></div>
+              <div><b>M</b><span>mute</span></div>
+              <div><b>ESC</b><span>resume</span></div>
+            </div>
+          </p>
+        </div>
       </div>
 
-      <p class="hint" id="pause-hint"></p>
-
-      <button id="btn-resume">RESUME</button>
-      <button id="btn-settings-pause" class="ghost">SETTINGS</button>
+      <div class="order-cta">
+        <button id="btn-settings-pause" class="ghost">SETTINGS</button>
+        <span class="cta-hint">OR PRESS <b>ESC</b> TO KEEP GOING</span>
+      </div>
     </div>
   </div>
 
