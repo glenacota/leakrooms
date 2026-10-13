@@ -806,7 +806,7 @@ console.log('[4] end-to-end — bot drives REAL keys through update()');
   let feas=0, ft=[], worstMargin=1e9, worstBatt=100, escA=0;
   globalThis.TRACE=false;
   for(let s=0;s<6;s++){
-    const r=play(s*5077+5, false, 14);
+    const r=play(s*5077+5, false, 5);
     if(r.depth>=5){ feas++; ft.push(r.t); }
     if(process.env.V) console.log(`     seed ${s}: depth ${r.depth}/5 time ${r.t.toFixed(0)}s why=${r.why}`);
     worstMargin=Math.min(worstMargin,r.minMargin); escA+=r.escapes;
@@ -827,7 +827,7 @@ console.log('[4] end-to-end — bot drives REAL keys through update()');
   // --- 4b: full game with the monster ---
   let wins=0, rt=[], dsum=0, reach=0, escSum=0;
   for(let s=0;s<6;s++){
-    const r=play(s*3319+11, true, 14);
+    const r=play(s*3319+11, true, 5);
     if(r.depth>=5){ wins++; rt.push(r.t); }
     dsum+=r.deaths; reach=Math.max(reach,r.depth); escSum+=r.escapes;
   }
@@ -2560,7 +2560,7 @@ console.log('[18] end-to-end — the bot seals every riser, then walks back out'
     const f0 = A.floorIdx;
     const door=G.exitTiles[0];
 
-    while (frames < 60*240*2 && !done){
+    while (frames < 60*240 && !done){
       frames++;
       const px=G.player.x, py=G.player.y;
       keys.w=keys.s=keys.a=keys.d=false; keys.shift=false;
