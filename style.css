@@ -430,7 +430,7 @@ button.ghost:hover{ background:rgba(228,230,168,.10); color:var(--yellow); }
 #screen-order{ background:rgba(6,5,3,.95); }
 .order{
   width:100%;
-  display:grid; grid-template-columns:1fr 208px;
+  display:grid; grid-template-columns:1fr 250px;
   border:1px solid rgba(228,230,168,.32);
   background:
     repeating-linear-gradient(0deg,rgba(0,0,0,.14) 0 2px,transparent 2px 4px),
@@ -468,7 +468,7 @@ button.ghost:hover{ background:rgba(228,230,168,.10); color:var(--yellow); }
 .order .field b{ font-size:15px; line-height:1.5; font-weight:400; color:var(--yellow-dim); }
 
 /* Controls: the payload of the screen. */
-.controls-big{ margin:18px 0 4px; font-size:15px; letter-spacing:.06em; }
+.controls-big{ font-size:15px; letter-spacing:.06em; }
 .controls-big div{ display:flex; gap:10px; align-items:baseline; padding:3px 0; }
 .controls-big b{
   min-width:78px; font-size:15px; padding:3px 9px;
@@ -490,20 +490,20 @@ button.ghost:hover{ background:rgba(228,230,168,.10); color:var(--yellow); }
   display:flex; flex-direction:column;
 }
 .order-side small{
-  display:block; font-size:10px; letter-spacing:.2em; color:var(--yellow-deep); margin-bottom:2px;
+  display:block; font-size:11px; letter-spacing:.2em; color:var(--yellow-dim); font-weight: 900; margin-bottom:2px;
 }
 .order-side small:not(:first-child){ margin-top:16px; }
 .order-side .big{ font-size:36px; line-height:1; color:#8fc4cc; margin-bottom:2px; }
 .order-side .badge{ font-size:22px; letter-spacing:.3em; color:var(--yellow); }
-.order-side .seed{ font-size:15px; color:var(--yellow-dim); letter-spacing:.1em; }
+.order-side .seed{ font-size:16px; color:var(--yellow-dim); letter-spacing:.1em; }
 .order-side .stub-note{
   margin-top:auto; margin-bottom:0; padding-top:18px;
   font-size:11px; line-height:1.8; letter-spacing:.12em; color:var(--yellow-deep);
 }
 
-.order-cta{ display:flex; align-items:center; gap:18px; flex-wrap:wrap; justify-content:center; }
+.order-cta{ display:flex; font-weight: 900; align-items:center; gap:18px; flex-wrap:wrap; justify-content:center; }
 .cta-hint{ font-size:12px; letter-spacing:.2em; color:var(--yellow-deep); }
-.cta-hint b{ color:var(--yellow); font-weight:400; }
+.cta-hint b{ color:var(--yellow); font-weight:900; }
 
 /* ------------------------------------------------------------
    screens (splash / order / settings / pause / dead / win)
@@ -560,11 +560,9 @@ blockquote{
 }
 
 .controls{
-  display:grid;
-  grid-template-columns:1fr 1fr;
   gap:8px 20px;
-  font-size:11px;
-  margin-bottom:22px;
+  font-size:10px;
+  font-weight: 900;
   letter-spacing:.1em;
 }
 .controls div{ display:flex; gap:9px; align-items:baseline; }
@@ -610,7 +608,6 @@ button:active{ transform:translateY(1px); }
     border-left:none; border-top:2px dashed rgba(228,230,168,.28);
     flex-direction:row; flex-wrap:wrap; gap:0 20px; align-items:baseline;
   }
-  .order-side small:not(:first-child){ margin-top:0; }
   .order-head h2{ font-size:20px; }
 }
 
