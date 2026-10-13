@@ -11,47 +11,69 @@
 <div id="crt">
   <canvas id="game"></canvas>
 
-  <!-- ============ HUD ============ -->
+  <!-- ============ HUD ============
+       Option 06: one full-height column on the right edge. Every stat gets the
+       same width, so nothing is competing for horizontal space and the whole
+       instrument can be scanned top to bottom in one sweep — which is the
+       actual argument for this layout over the two clusters it replaces.
+
+       It is an OVERLAY, not a reservation: the canvas is the whole window and
+       this sits on top of it. The sidebar is opaque, so the world does not show
+       through it, but nothing about the game's camera or level dimensions knows
+       it exists.
+
+       BATTERY, NOISE and FLOOD are the three continuous readings and they get
+       bars — a bar is read in one glance where a number has to be parsed. The
+       rest are states and counts, where a bar would be the wrong shape: you
+       cannot read WHICH riser is sealed off a gradient. -->
   <div id="hud">
-    <div class="hud-left">
+    <div class="hud-side">
+
       <div class="stat clock" id="clock">
         <span class="lbl">CLOCK</span>
-        <span id="val-clock">3:00</span>
+        <span class="val" id="val-clock">3:00</span>
       </div>
+
+      <div class="hud-div"></div>
+
       <div class="stat">
         <span class="lbl">BATTERY</span>
         <div class="bar"><i id="bar-batt"></i></div>
-        <span id="val-batt">100</span>
+        <span class="val val-bar" id="val-batt">100</span>
       </div>
       <div class="stat">
         <span class="lbl">NOISE</span>
         <div class="bar noise"><i id="bar-noise"></i></div>
-        <span id="val-noise">00</span>
+        <span class="val val-bar" id="val-noise">00</span>
       </div>
       <div class="stat">
         <span class="lbl">FLOOD</span>
         <div class="bar flood"><i id="bar-flood"></i></div>
-        <span id="val-flood">00</span>
+        <span class="val val-bar water" id="val-flood">00</span>
       </div>
-    </div>
 
-    <div class="hud-right">
+      <div class="hud-div"></div>
+
       <div class="stat">
-        <span class="lbl">RISERS</span>
-        <span id="val-risers">0/1</span>
+        <span class="lbl">LEAKS</span>
+        <span class="val" id="val-leaks">0/1</span>
       </div>
       <div class="stat">
         <span class="lbl">DOOR</span>
-        <span id="val-leak">SEALED</span>
+        <span class="val" id="val-leak">OPEN</span>
       </div>
       <div class="stat">
         <span class="lbl">LEVEL</span>
-        <span id="val-depth">1/5</span>
+        <span class="val" id="val-depth">1/5</span>
       </div>
+
+      <div class="hud-div"></div>
+
       <div class="stat lives">
         <span class="lbl">LIVES</span>
-        <span id="val-lives">&#9679;&#9679;&#9679;</span>
+        <span class="val lives" id="val-lives">&#9679;&#9679;&#9679;</span>
       </div>
+
     </div>
   </div>
 

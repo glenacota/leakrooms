@@ -27,7 +27,7 @@ State lives in module-level `let` bindings. `G` holds per-level state (grid, pla
 ## Rules of the run
 
 - Five levels, fixed content in `LEVELS` (leaks / lifeforms). Presets do not change the count.
-- One door: the one you spawned at. Seal every riser, then cycle it before `FLOOR_CLOCK`.
+- One door: the one you spawned at. Seal every leak, then cycle it before `FLOOR_CLOCK`.
 - Running out of clock costs a life, exactly like being caught. The clock is frozen while paused.
 
 ## Tuning

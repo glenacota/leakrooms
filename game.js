@@ -3866,7 +3866,7 @@ const HUD = {
   vNoise: document.getElementById('val-noise'),
   vClock: document.getElementById('val-clock'),
   clockWrap: document.getElementById('clock'),
-  vRisers: document.getElementById('val-risers'),
+  vRisers: document.getElementById('val-leaks'),
   vLeak: document.getElementById('val-leak'),
   vFlood: document.getElementById('val-flood'),
   barFlood: document.getElementById('bar-flood'),
@@ -4059,21 +4059,28 @@ function updateHUD(){
      water: it keeps climbing while you are still working, and it drains after
      the last seal, so it is both the pressure and the proof the repair worked. */
   if (HUD.vRisers) HUD.vRisers.textContent = `${G.risers-G.leaksOpen}/${G.risers}`;
-  if (HUD.vLeak) HUD.vLeak.innerHTML = G.leaksOpen===0
-    ? '<span class="ok">OPEN</span>'
-    : '<span class="bad2">SEALED</span>';
+  /* The door. OPEN means every riser is sealed and the level can be ended, so
+     OPEN is the good state and gets no colour; SEALED is the only one that
+     shouts. The old version injected <span class="ok">OPEN</span> with ok being
+     water-blue, next to a flood gauge also in water-blue — so the word that
+     answers "can I leave yet" looked like it belonged to the thing keeping you
+     here. Text plus a class, not markup, so the stylesheet can say what the
+     states mean. */
+  if (HUD.vLeak){
+    HUD.vLeak.textContent = G.leaksOpen===0 ? 'OPEN' : 'SEALED';
+    HUD.vLeak.classList.toggle('shut', G.leaksOpen>0);
+  }
   if (HUD.vFlood) HUD.vFlood.textContent = String(Math.round(G.floodCover*100)).padStart(2,'0');
   if (HUD.barFlood) HUD.barFlood.style.width = (G.floodCover*100)+'%';
-  /* The clock. Whole seconds, and it turns into the danger colour in the last
-     thirty — the same thirty the flash announces — because a number that does
-     not change colour is a number players stop seeing after the first level. */
-  if (HUD.vClock){
-    HUD.vClock.textContent = clockText(G.clock);
-    const low = G.clock <= 30;
-    HUD.vClock.classList.toggle('low', low);
-    HUD.vClock.classList.toggle('critical', G.clock <= 10);
-  }
-  if (HUD.clockWrap) HUD.clockWrap.classList.toggle('low', G.clock <= 30);
+  /* The clock. Whole seconds, and it changes COLOUR in the last thirty — the
+     same thirty the flash announces — because a number that does not change
+     colour is a number players stop seeing after the first level, and a number
+     that changes SIZE is one that reflows its own box once a second for three
+     minutes. Both flags live on the wrapper, so the stylesheet owns what
+     "low" and "critical" look like and this never has to restate it. */
+  HUD.vClock.textContent = clockText(G.clock);
+  HUD.clockWrap.classList.toggle('low',     G.clock <= 30);
+  HUD.clockWrap.classList.toggle('critical', G.clock <= 10);
   HUD.vDepth.textContent = `${G.floor+1}/${FLOORS}`;
   HUD.vLives.innerHTML = Array.from({length:Math.max(1,runLives)},
     (_,i)=>`<span class="${i<lives?'':'gone'}">&#9679;</span>`).join('');

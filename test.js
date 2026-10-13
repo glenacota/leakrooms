@@ -3210,6 +3210,208 @@ console.log('[23] audio — the graph reaches the destination');
   global.window.AudioContext = undefined;
 }
 
+/* ============ TEST 24: the sidebar HUD — one column, bars where bars fit
+
+   The HUD is the one part of this game that is pure presentation, which makes
+   it the one part with nothing stopping a later pass from quietly undoing it.
+   Style regressions are exactly the kind that survive: the game still runs, the
+   numbers are still correct, and nobody notices until someone squints.
+
+   Every assertion below is a number that was wrong and is now pinned, or a
+   decision that looks arbitrary until you try to make it the other way:
+
+     - ONE full-height column. Two top-edge clusters gave the clock whatever
+       room it wanted and then guessed what was left over, which is how RISERS
+       and LEVEL used to wrap and push LIVES off the edge of the frame.
+     - BARS ON EXACTLY THREE STATS. Battery, noise and flood are continuous
+       readings, and a bar is read in one glance where a number has to be
+       parsed. Risers, door and level are states and counts, where a bar is the
+       wrong shape — you cannot read WHICH riser is sealed off a gradient.
+     - TYPE FLOORS. The old HUD was 10px labels and 12px values, which is the
+       whole original complaint. The proposal sketch says 9.5px labels; that is
+       a half-scale mockup, not evidence about type size, and the floor stays.
+     - BLUE IS WATER. The door used to report its good state in water-blue,
+       next to a flood gauge also in water-blue, so the word that answers "can I
+       leave yet" looked like it belonged to the thing keeping you here.
+     - THE CANVAS IS THE WHOLE WINDOW. The sidebar is an overlay. The previous
+       one reserved 150px of canvas, which is play area the player could
+       neither see nor be seen in. */
+console.log('[24] the sidebar HUD — one column, bars where bars fit');
+{
+  const html = fs.readFileSync(__dirname+'/index.html',  'utf8');
+  const css  = fs.readFileSync(__dirname+'/style.css',   'utf8');
+  const hudHtml = html.slice(html.indexOf('<div id="hud">'), html.indexOf('id="prompt"'));
+
+  /* --- one column, not two clusters --------------------------------- */
+  assert(/class="hud-side"/.test(hudHtml), 'the HUD has no .hud-side column');
+  assert(!/hud-left|hud-right/.test(hudHtml),
+    'the two top-edge clusters are still wired up — every stat should share one column');
+  assert((hudHtml.match(/class="stat/g)||[]).length === 8,
+    `expected 8 stats in the column, found ${(hudHtml.match(/class="stat/g)||[]).length}`);
+  /* Grouped by KIND: clock alone, the three gauges, the three states, lives. */
+  assert((hudHtml.match(/class="hud-div"/g)||[]).length === 3,
+    'the column is not divided into its four groups');
+
+  /* --- the column is pinned to ONE EDGE, full height ------------------
+     WHICH edge is deliberately not asserted. It used to say "right", and when
+     the column moved left that assertion failed and told you nothing except that
+     the author had changed his mind — which is exactly what a test should never
+     report as a defect. What has to hold is the SHAPE: one edge, top to bottom.
+     An inset that pins only the top is a panel floating in a corner.
+
+     So the edge is read out of the stylesheet and then everything else is
+     checked relative to it. That also buys a real assertion for free — the
+     plate's rule and its fade have to point at the play area, and that is only
+     checkable if you know which edge the column is on. */
+  const hudRule = css.match(/#hud\s*\{([^}]*)\}/);
+  assert(hudRule, 'no #hud rule');
+  const inset = ((hudRule[1].match(/inset\s*:\s*([^;]+)/)||[])[1]||'').trim().replace(/\s+/g,' ');
+  const onLeft  = /^0\s+auto\s+0\s+0$/.test(inset);
+  const onRight = /^0\s+0\s+0\s+auto$/.test(inset);
+  assert(onLeft || onRight,
+    `#hud is not pinned to one edge full-height (inset: ${inset}) — a sidebar needs an edge to sit on and the full height`);
+  assert(/--side-w/.test(hudRule[1]), '#hud has no width — a sidebar needs one');
+  assert(/z-index/.test(hudRule[1]),
+    '#hud has no stacking level — anything painted later covers it silently');
+  assert(/pointer-events\s*:\s*none/.test(hudRule[1]),
+    '#hud swallows clicks — the game underneath must still be playable');
+
+  /* --- and the plate presents itself to the PLAY area, not the bezel ---
+     Both halves of this were left pointing the wrong way when the column moved
+     from the right edge to the left, and neither is merely cosmetic:
+
+       - a gradient that fades to transparent AT THE WINDOW EDGE and stays
+         opaque in the middle means the world stops being readable ~130px before
+         it is actually covered. You cannot tell where the blind spot starts,
+         which is the specific thing an opaque overlay is supposed to guarantee.
+       - a border on the window side separates nothing. The one crisp edge has
+         to be the edge the player is reading against. */
+  const sideRule = css.match(/\.hud-side\s*\{([^}]*)\}/);
+  assert(sideRule, 'no .hud-side rule');
+  const wantBorder = onLeft ? 'border-right' : 'border-left';
+  const wantDeg    = onLeft ? '90deg'    : '270deg';
+  assert(new RegExp('(?:^|;)\\s*'+wantBorder+'\\s*:').test(sideRule[1]),
+    `.hud-side has no ${wantBorder} — the column is on the ${onLeft?'left':'right'}, so the rule belongs on the edge facing the play area, not against the window bezel`);
+  assert(new RegExp('linear-gradient\\(\\s*'+wantDeg).test(sideRule[1]),
+    `.hud-side does not fade with ${wantDeg} — on the ${onLeft?'left':'right'} that means solid at the window edge and fading out over the play area, so the boundary of the blind spot is where it looks like it is`);
+
+  /* --- and it does NOT reserve canvas -------------------------------
+     This is the assertion that would have caught the old 150px sidebar, and it
+     is a genuine gameplay bug rather than a style one: reserved canvas is play
+     area you cannot see or be seen in, on the side things approach from. */
+  const gameRule = css.match(/#game\s*\{([^}]*)\}/);
+  assert(gameRule, 'no #game rule');
+  assert(!/right\s*:\s*\d+px/.test(gameRule[1]),
+    '#game reserves a pixel strip of play area for the HUD');
+  assert(/inset\s*:\s*0/.test(gameRule[1]) || /width\s*:\s*100%/.test(gameRule[1]),
+    '#game is not the whole window');
+
+  /* --- bars on battery, noise and flood, and ONLY those three --------
+     Over-collecting is a real failure here, not pedantry: a bar under a count
+     is actively misleading, because a half-full gradient next to "2/4" invites
+     you to read the gradient as the number. */
+  const stats = hudHtml.split('<div class="stat').slice(1);
+  const withBar = stats.filter(s => s.includes('class="bar'));
+  const barLabels = withBar.map(s => (s.match(/class="lbl">([A-Z]+)/)||[])[1]).sort();
+  assert(JSON.stringify(barLabels)===JSON.stringify(['BATTERY','FLOOD','NOISE']),
+    `bars are on ${JSON.stringify(barLabels)}, expected BATTERY/FLOOD/NOISE only`);
+  for (const need of ['bar-batt','bar-noise','bar-flood']){
+    assert(hudHtml.includes(`id="${need}"`), `the HUD is missing #${need}`);
+  }
+
+  /* --- type floors ---------------------------------------------------
+     The parser has to be a little more forgiving than `font-size:NNpx`.
+
+     It used to require exactly that, and it reported NaN on both `font-size:1rem`
+     and `font-size: 30px` — a space after the colon, which is legal CSS and which
+     the very first thing it read here had. That produced three failures that all
+     said "NaNpx" for two entirely different reasons and neither of which was a
+     problem with the game. A test that cannot parse its input is not a test; it
+     is a tripwire on the author's formatting habits. rem/em are resolved against
+     a 16px root, which is the browser default and nothing in this sheet overrides
+     html's font-size. */
+  const px = (sel)=>{
+    const m = css.match(new RegExp('(^|\\})\\s*'+sel.replace(/[.#]/g,'\\$&')+'\\s*\\{([^}]*)\\}','m'));
+    if (!m) return NaN;
+    const s = m[2].match(/font-size\s*:\s*([\d.]+)\s*(px|rem|em)/);
+    if (!s) return NaN;
+    return s[2]==='px' ? Number(s[1]) : Number(s[1])*16;
+  };
+  assert(px('.lbl')>=11, `labels are ${px('.lbl')}px — the floor is 11`);
+  assert(px('.val')>=15, `values are ${px('.val')}px — the floor is 15`);
+  assert(px('#val-clock')>=22, `the clock is ${px('#val-clock')}px — it can end a level by itself, it should be the biggest thing`);
+  assert(px('#val-clock')>px('.val'),
+    'the clock is not larger than an ordinary value — the hierarchy is inverted');
+  /* Labels sit above their numbers. Sideways means the eye travels for every
+     value and the column reads as a run-on sentence instead of a list. */
+  assert(/flex-direction\s*:\s*column/.test(css.match(/\.stat\s*\{([^}]*)\}/)[1]),
+    '.stat is not a column — labels and values are beside each other');
+
+  /* --- label contrast: not the floor of the palette ------------------ */
+  assert(!/color\s*:\s*var\(--yellow-deep\)/.test(css.match(/\.lbl\s*\{([^}]*)\}/)[1]),
+    'labels are back to --yellow-deep, the darkest yellow in the palette');
+
+  /* --- one meaning per colour ---------------------------------------- */
+  const barFlood = css.match(/\.bar\.flood i\s*\{([^}]*)\}/);
+  assert(barFlood && /#3c5a60|#8fc4cc/i.test(barFlood[1]),
+    'the flood bar is not blue — blue is the water\'s colour, full stop');
+
+  /* ...and the flood NUMBER is blue, which takes two things to be true at once
+     and both of them were false for a while: the span has to carry `water`, and
+     it has to also carry `val`. `.val.water` is a compound selector, so dropping
+     `val` in favour of a `val-bar` modifier quietly un-blues the reading and
+     leaves a yellow number sitting above a blue bar — which reads as two
+     different things rather than one, and undoes the whole reason the colour
+     exists. Assert the class list, not the intent. */
+  const floodVal = hudHtml.match(/<span class="([^"]*)"[^>]*id="val-flood"/);
+  assert(floodVal, 'the flood reading has no #val-flood');
+  assert(/\bwater\b/.test(floodVal[1]),
+    'the flood number lost its .water class — the bar is blue and the number is not');
+
+  /* --- `val-bar` is a MODIFIER, never a replacement -------------------
+     Every value in the HUD gets `.val`: that is where the colour and the
+     tabular figures live. A span carrying `val-bar` WITHOUT `val` loses both,
+     silently, and nothing in the stylesheet says so — the number just comes back
+     the default foreground and starts sliding sideways as its digits change,
+     while every other number in the column stays put. */
+  assert(!/class="val-bar[ "]/.test(hudHtml),
+    'a value span uses .val-bar without also carrying .val — it loses the colour and the tabular figures');
+  for (const m of hudHtml.matchAll(/<span class="([^"]*)"[^>]*id="val-[a-z]+"/g)){
+    assert(/\bval\b/.test(m[1]),
+      `#${m[0].match(/id="([^"]*)"/)[1]} has no .val class — it is not being styled as a HUD value`);
+  }
+  const shut = css.match(/#val-leak\.shut\s*\{([^}]*)\}/);
+  assert(shut && /--danger|#d8503c/i.test(shut[1]),
+    'the door no longer shouts in red');
+  /* ...and the good state is quiet. If OPEN were the red one, the single most
+     important word in the HUD would be the loudest thing on screen, which is
+     backwards: OPEN means every riser is sealed and you can leave.
+
+     NOTE the lookbehind-ish guard. The selector must be BARE `#val-leak`, not
+     `#val-leak.shut` or `#val-leak .foo` — a colour on a bare #val-leak is a
+     colour on every state. Written carelessly this assertion is dead: an
+     alternation like /#val-leak\.open|--val-leak\{/ splits at the `|` and the
+     second branch looks for `--val-leak`, two hyphens, which no selector in
+     this stylesheet will ever contain. */
+  assert(!/(^|[^.\w#])#val-leak\s*\{[^}]*(?:--danger|#d8503c)/.test(css),
+    'the door shouts in its GOOD state — only the state that is stopping you may shout');
+  assert(/^#val-leak\.shut\s*\{/m.test(css),
+    'the door has no .shut rule, so the state that is stopping you cannot shout at all');
+
+  /* --- the clock changes colour, never size -------------------------- */
+  const clockRule = css.match(/#val-clock\s*\{([^}]*)\}/);
+  assert(!/animation/.test(clockRule[1]),
+    'the clock itself animates — a resizing number reflows its own box once a second');
+  assert(/#clock\.low #val-clock\s*\{[^}]*color/.test(css), 'the clock does not change colour when it is low');
+
+  /* --- narrow windows: a permanent column costs play area, so it sheds -- */
+  assert(/max-width\s*:\s*900px/.test(css) && /max-width\s*:\s*680px/.test(css),
+    'the sidebar does not respond to narrow windows — it is the one HUD shape whose cost grows as the window shrinks');
+
+  console.log(`  ${stats.length} stats in one column, bars on ${barLabels.length} of them; `+
+    `labels ${px('.lbl')}px, values ${px('.val')}px, clock ${px('#val-clock')}px, overlaying a full-width canvas`);
+}
+
 /* ============ TEST 21: the splash chain — 03 riser, 04 work order, then the run
    Two splash frames sit in front of the game now, so the path a player walks
    to reach the first frame is part of the build and has to be tested like

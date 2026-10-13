@@ -21,6 +21,11 @@
   --danger:      #d8503c;   /* deliberately off-palette: it is a UI accent */
   --ok:          #8fd07a;
   --mono: "Courier New", "Courier", monospace;
+
+  /* The HUD sidebar's width. A variable because it is the one HUD dimension
+     that has to shrink on narrow windows, and because it is the number the
+     layout comment talks about — keep those two in sync. */
+  --side-w: 180px;
 }
 
 *{ margin:0; padding:0; box-sizing:border-box; }
@@ -51,43 +56,121 @@ body{ display:flex; align-items:center; justify-content:center; }
   display:block;
   image-rendering:pixelated;
 }
-
 /* ------------------------------------------------------------
-   HUD
+   HUD — vertical sidebar, left edge
    ------------------------------------------------------------ */
 #hud{
   position:absolute;
-  inset:0 0 auto 0;
-  padding:14px 18px;
-  display:flex;
-  justify-content:space-between;
-  gap:12px;
-  align-items:flex-start;
-  pointer-events:none;
-  font-size:12px;
-  letter-spacing:.14em;
-  text-transform:uppercase;
+  inset:0 auto 0 0;          /* LEFT edge, full height */
+  width:var(--side-w);
+  min-width: var(--side-w);
+  z-index:5;                 /* its own stacking level, so nothing painted
+                                later can silently win and cover it */
+  pointer-events:none;       /* the game is under this; clicks must pass through */
   opacity:0;
-  transition:opacity .6s ease;
-  text-shadow:0 0 8px rgba(228,230,168,.35);
+  transition:opacity .5s ease;
+  font-weight: 900;
 }
-#hud.on{ opacity:.85; }
+#hud.on{ opacity:1; }        /* full. The plate does the separating — washing the
+                                whole overlay back to .85 is what made the old
+                                one look faint even where it was legible. */
 
-/* One line, always, and the right-hand cluster never gives up its width to the
-   left one. The clock is large enough that without this the RISERS and LEVEL
-   values wrapped onto two lines and LIVES walked off the edge of the frame —
-   a HUD that reflows is a HUD nobody can scan, and the one number that can end
-   the run was the cause. */
-.hud-left,.hud-right{ display:flex; gap:14px; align-items:center; white-space:nowrap; }
-.hud-left{ flex:0 1 auto; min-width:0; }
-.hud-right{ flex:0 0 auto; text-align:right; }
-.stat{ display:flex; align-items:center; gap:7px; white-space:nowrap; }
-.lbl{ color:var(--yellow-deep); font-size:10px; letter-spacing:.2em; }
+.hud-side{
+  position:relative;
+  height:100%;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  padding:14px 0 12px;
+  gap:2rem;
+  /* The plate fades AWAY from the window edge and toward the play area, and the
+     rule is on the edge that faces the play area.
 
+     Both of these were left pointing the other way when the column moved from
+     the right edge to the left, and it is worth being explicit about why they
+     matter rather than cosmetic: with a 270deg gradient on a LEFT-hand column
+     the plate is transparent at the window edge and opaque in the middle, so the
+     world stops being readable about 130px before it is actually covered — you
+     cannot tell where the blind spot begins. And border-left on a left-hand
+     column puts the only crisp edge against the window bezel, where it
+     separates nothing. 90deg + border-right puts both where they do work. */
+  background:linear-gradient(90deg, rgba(7,6,3,.97) 0%, rgba(7,6,3,.93) 82%, rgba(7,6,3,0) 100%);
+  border-right:2px solid var(--yellow-deep);
+}
+
+/* The rules between groups. 70% width and centred, per the proposal — a full
+   width hairline reads as a table border and makes the column look like a form;
+   a short one reads as a break in a list, which is what it is. Grouping is by
+   KIND, not by importance: the clock alone at the top, then the three gauges
+   you watch, then the three states you steer by, then the one number that
+   matters at the very bottom. */
+.hud-div{
+  width:80%;
+  height:1px;
+  flex:0 0 auto;
+  margin:3px 0;
+  background:rgba(228,230,168,.18);
+}
+
+/* A stat is a vertical stack — label, number, and for the three continuous
+   readings a bar underneath. Every stat is exactly the same width, so the eye
+   goes straight down the numbers without having to re-find a ragged baseline. */
+.stat{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:3px;
+  width:90%;
+  white-space:nowrap;        /* a HUD that reflows is a HUD nobody can scan */
+}
+
+/* Labels sit ABOVE their numbers, always. Beside them, the eye has to travel
+   sideways for every single value and the column reads as a run-on sentence. */
+.lbl{
+  color:#a9a86f;             /* NOT --yellow-deep: that is the darkest yellow
+                                the palette has, and it was the colour of the
+                                most frequent text in the game */
+  font-size:1rem;
+  letter-spacing:.2em;
+  line-height:1.5;
+  text-indent:.2em;          /* letter-spacing pads the right of the last glyph,
+                                not the left, so centred text sits visibly left */
+}
+.val{
+  color:var(--bright);   /* this is what `.val-bar` drops if it is used alone */
+  font-size:17px;
+  line-height:1.05;
+  letter-spacing:.02em;
+  font-variant-numeric:tabular-nums;  /* no width jitter as digits change */
+}
+/* The three values that sit above a bar are rendered smaller than the others.
+
+   This is a MODIFIER, not a replacement — the markup carries `val val-bar`, and
+   that ordering matters twice over. Give it `val-bar` alone and the element
+   silently loses `.val`'s colour and its tabular-nums: the number turns the
+   default foreground and starts jittering in width as its digits change, while
+   every other value in the column stays put. And `.val.water` stops matching, so
+   the flood reading comes back yellow while its own bar is blue.
+
+   Smaller because the BAR is the readout on these three and the number is the
+   backup you check when you don't trust the bar. That is the opposite of the
+   other five, where the number is all there is. */
+.val-bar {
+  font-size:12px;
+}
+/* Blue, because this one IS water. Nothing else in the shell is. */
+.val.water{ color:#8fc4cc; }
+
+/* --- bars: battery, noise, flood only ---
+   Full width of the column. A bar is the right shape for a continuous reading
+   and the wrong shape for a count — you cannot read WHICH riser is sealed off a
+   gradient — so these three and only these three get one. */
 .bar{
   position:relative;
-  width:96px; height:9px;
-  background:rgba(20,17,10,.75);
+  width:82%;
+  height:7px;
+  margin-top:2px;
+  background:rgba(20,17,10,.85);
   border:1px solid rgba(228,230,168,.28);
   overflow:hidden;
 }
@@ -99,42 +182,49 @@ body{ display:flex; align-items:center; justify-content:center; }
   transition:width .12s linear;
 }
 .bar.noise i{ background:linear-gradient(90deg,var(--yellow-dim),#e4e6a8); }
+/* Past 45% the noise meter goes red, which is the same red the door uses to
+   say "this is what is stopping you". Deliberate: both mean a hunter. */
 .bar.noise.hot i{ background:linear-gradient(90deg,var(--danger),#ff8f6b); }
-/* The flood gauge is the ONE place in the shell that is allowed to be blue.
-   The world stays mono-yellow except for the water itself, and the water is
-   the mechanic — a gauge in the game's own palette would read as an unrelated
-   meter, so this one takes the water's colour and nothing else does. */
 .bar.flood i{ background:linear-gradient(90deg,#3c5a60,#8fc4cc); }
 
-#val-batt,#val-noise,#val-risers,#val-depth{ min-width:28px; font-variant-numeric:tabular-nums; }
-#val-flood{ min-width:28px; font-variant-numeric:tabular-nums; color:#8fc4cc; }
-#val-leak{ letter-spacing:.12em; }
-#val-leak .ok{ color:#8fc4cc; }
-#val-leak .bad2{ color:var(--danger); }
-.lives{ color:var(--danger); font-size:13px; letter-spacing:.22em; }
-.lives span.gone{ opacity:.18; }
+/* --- the door ---
+   OPEN means every riser is sealed and the level can be ended, so OPEN is the
+   GOOD state and gets no colour at all. SEALED — the door you cannot leave by —
+   is the only one that shouts. Reading it the other way round would mean the
+   single most important word in the HUD is the quietest thing on screen. */
+#val-leak.shut{ color:var(--danger); }
 
-/* The clock.
-   The largest thing in the HUD and the only element that can end a level on
-   its own, so it is sized and placed like a headline rather than like a
-   readout. It changes COLOUR rather than changing size: a number that resizes
-   reflows the whole bar around it every second, which on a row of fixed-width
-   stats means the battery and noise gauges twitch once a second for three
-   minutes. Colour is free and the eye finds it. */
-#clock{ gap:10px; }
+/* --- lives ---
+   Stacked directly under LEVEL, NOT pinned to the bottom of the column.
+
+   Pinning it looked right on a short mockup stage and was wrong on a real
+   screen: on a 1025px-tall window that puts a ~650px void between LEVEL and
+   LIVES, and a gap in the middle of a panel reads as something that failed to
+   render rather than as deliberate spacing. All the dead space ends up BELOW
+   the last stat instead, where it reads as the panel having room to grow.
+
+   Its position is still constant for the whole run either way, which is the
+   thing that made it worth pinning to something in the first place. */
+.val.lives{ color:var(--danger); font-size:15px; letter-spacing:.22em; line-height:1.2; }
+.val.lives span.gone{ opacity:.2; }
+
+/* --- the clock ---
+   Biggest thing in the HUD and the only element that can end a level on its
+   own, so it is sized like a headline. It changes COLOUR rather than size: a
+   number that resizes reflows everything around it once a second for three
+   minutes, and on a fixed-width column that visibly twitches. */
 #val-clock{
-  font-size:22px; line-height:1;
+  font-size: 30px;
+  line-height:1;
   letter-spacing:.06em;
-  font-variant-numeric:tabular-nums;
   color:var(--yellow);
-  text-shadow:0 0 12px rgba(228,230,168,.5);
+  text-shadow:0 0 14px rgba(228,230,168,.45);
   transition:color .3s ease;
 }
-#clock .lbl{ align-self:center; }
 #clock.low #val-clock{ color:#e8a05a; }
 #clock.low .lbl{ color:#a8663a; }
 /* The last ten seconds blink. Once a second is enough — a faster pulse is a
-   strobe, and the flicker setting exists precisely because this game should not
+   strobe, and this game has a flicker setting precisely because it should not
    strobe people. */
 #val-clock.critical{ color:var(--danger); animation:clockPulse 1s steps(2,end) infinite; }
 @keyframes clockPulse{ 0%,60%{ opacity:1; } 61%,100%{ opacity:.35; } }
@@ -142,6 +232,27 @@ body{ display:flex; align-items:center; justify-content:center; }
   #val-clock.critical{ animation:none; }
 }
 
+/* ------------------------------------------------------------
+   Narrow windows.
+
+   A permanent column is the one HUD shape that costs play area proportional to
+   the window, so below 900px it is the first thing to shed — the game is
+   playable, the HUD is not optional. Bars go before type, because the number
+   directly above a bar already says what the bar says.
+   ------------------------------------------------------------ */
+@media (max-width:900px){
+  :root{ --side-w:104px; }
+  .lbl{ font-size:10px; letter-spacing:.14em; }
+  .val{ font-size:15px; }
+  #val-clock{ font-size:21px; }
+  .bar{ width:76%; height:6px; }
+}
+@media (max-width:680px){
+  :root{ --side-w:104px; }
+  .bar{ display:none; }
+  #val-clock{ font-size:19px; }
+  .hud-side{ gap:7px; }
+}
 /* ------------------------------------------------------------
    SETTINGS
    The controls are deliberately plain HTML — a range input and a
