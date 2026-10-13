@@ -3796,35 +3796,71 @@ console.log('[28] the cast — the Rigger walks, the Stalker does not grow');
     assert(footmost < -3, `the rigger has no off-centre shape forward of the origin (closest y = ${footmost.toFixed(2)}px) — no feet to swing`);
   }
 
-  /* THE STALKER DOES NOT GROW. It is full size on the first frame it draws, so
-     the recorded geometry is compared across the whole rise range with the gait
-     clock and the wall clock pinned — a single stray h term shows up as a
-     difference. globalAlpha is a property rather than a call, so the rise's
-     one legitimate job, fading the thing in, never reaches this string. */
+  /* THE STALKER DOES NOT GROW, AND IS TWICE THE PLUMBER. It is full size on
+     the first frame it draws, so the recorded geometry is compared across the
+     whole rise range with the gait clock and the wall clock pinned — a single
+     stray h term shows up as a difference. globalAlpha is a property rather
+     than a call, so the rise's one legitimate job, fading the thing in, never
+     reaches this string. */
   {
     const shapeAt = (h) => run(A.drawStalker, { T:40, t:1234, h, gait:1, phase:0.25 });
     assert(shapeAt(0.05)===shapeAt(1),
       'the stalker changes shape as it rises — its size must not depend on the rise at all');
-    /* and it must actually be TALL: a lifeform that never leaves the carpet
-       footprint is not a thing you have to be afraid of */
+
+    /* measured, not asserted from a constant: the vertical extent of each
+       sprite is taken from its own recorded geometry, so "twice as big" is a
+       fact about the drawing rather than a number in a comment */
+    const extent = (fn) => {
+      const c = recCtx();
+      fn(c, { T:40, t:0, h:1, gait:1, phase:0.25 });
+      let tx = 0, ty = 0, top = 1e9, bot = -1e9;
+      for (const call of c.log){
+        const [k, a, b] = call;
+        if (k === 'translate'){ tx += a; ty += b; continue; }
+        if (k === 'restore'){ tx = 0; ty = 0; continue; }
+        if (k !== 'ellipse' && k !== 'arc' && k !== 'rect' && k !== 'fillRect') continue;
+        const cy = ty + b, cx = tx + a;
+        const r = Math.abs(call[4] || call[3] || 0);
+        top = Math.min(top, cy - r);
+        bot = Math.max(bot, cy + r);
+      }
+      return bot - top;
+    };
+    const riggerH = extent(A.drawRigger), stalkerH = extent(A.drawStalker);
+    assert(stalkerH > riggerH * 1.5,
+      `the stalker is ${stalkerH.toFixed(0)}px tall against the rigger's ${riggerH.toFixed(0)}px — it is not twice the plumber`);
+    assert(stalkerH < riggerH * 4,
+      `the stalker is ${stalkerH.toFixed(0)}px tall against the rigger's ${riggerH.toFixed(0)}px — past twice the plumber and into the room`);
+
+    /* THE HIT ZONE IS DRAWN AT THE KILL RADIUS. brush() is fatal at CATCH_R
+       tiles; the disc under the Stalker is that radius, so the part that can
+       touch you is visible. Asserted against the constant, so a sprite that
+       draws a different disc than the one that kills you cannot pass. */
     const c = recCtx();
-    A.drawStalker(c, { T:40, t:0, h:1, gait:1, phase:0.25 });
-    let top = 1e9;
+    A.drawStalker(c, { T:40, t:0, h:1, gait:1, phase:0.25, danger:1 });
+    const want = 40 * 0.52;
+    let found = null;
     for (const call of c.log){
-      const [k, a, b] = call;
-      if (k==='ellipse' || k==='arc' || k==='moveTo') top = Math.min(top, b);
+      const [k, a, b, rx] = call;
+      if ((k==='ellipse' || k==='arc') && Math.abs(rx - want) < 1){ found = call; break; }
     }
-    assert(top < -40, `the stalker only reaches ${(-top).toFixed(0)}px up a 40px tile — it is not a tall thing`);
+    assert(found, `the stalker draws no disc at the ${want.toFixed(1)}px kill radius — the hit zone is invisible`);
   }
 
   /* the game draws these two and nothing else: no table, no index, no clamp */
   const src = fs.readFileSync(__dirname+'/game.js','utf8');
   assert(/drawRigger\(ctx, \{ T:TILE, phase, gait: p\.moving \? 1 : 0, t \}\)/.test(src),
     'drawPlayer no longer draws the Rigger');
-  assert(/drawStalker\(ctx, \{ T:TILE, h, phase: \(t\*0\.0009\) % 1, gait, t \}\)/.test(src),
+  assert(/drawStalker\(ctx, \{ T:TILE, h, phase: \(t\*0\.0009\) % 1, gait, t,/.test(src),
     'drawAgent no longer draws the Stalker');
   assert(!/SPRITES/.test(src), 'game.js still dispatches through a sprite table');
   assert(!/setSkin/.test(src), 'game.js still carries a skin selector');
+  /* and the lifeform is clipped to the floor, so its legs cannot stride over a
+     partition — an unclipped leg reads as walking through walls */
+  const asrc = A.drawAgent.toString();
+  assert(/ctx\.clip\(\)/.test(asrc), 'the lifeform is no longer clipped to the floor');
+  assert(/G\.grid\[ty\*MAP_W\+tx\]===FLOOR/.test(asrc), 'the floor clip no longer reads the grid');
+  assert(/CATCH_R/.test(src), 'the hit zone is not drawn at the kill radius');
 
   const html = fs.readFileSync(__dirname+'/index.html','utf8');
   assert(!html.includes('sprites.js'), 'index.html still loads sprites.js');
@@ -3840,13 +3876,10 @@ console.log('[28] the cast — the Rigger walks, the Stalker does not grow');
   for (const a of G.agents) a.rise = 0.05;
   render(2000);
 
-  /* the sheet is a deliverable, and it is also a second copy of the cast if it
-     ever carries drawings of its own — so it has to inline the same two */
-  const sheet = fs.readFileSync(__dirname+'/sprites.html','utf8');
-  assert(!/<script src="sprites\.js">/.test(sheet), 'the sprite sheet still loads sprites.js');
-  assert(sheet.includes('drawRigger') && sheet.includes('drawStalker'),
-    'the sprite sheet does not draw the two sprites it is showing off');
+  /* the sheet is gone — the cast lives in game.js and nowhere else */
+
   console.log('  the Rigger strides, the Stalker is full size at every rise');
+  console.log('  the hit zone is drawn at the kill radius, and the legs stop at walls');
   console.log('  and both survive a real update + render');
 }
 

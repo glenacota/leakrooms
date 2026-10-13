@@ -67,6 +67,12 @@ const WALK   = 3.3;               // tiles/sec
 const SPRINT = 6.0;
 const R      = 0.33;              // player collision radius (tiles)
 const RA     = 0.34;              // Lifeform collision radius (bulkier)
+
+/* THE HIT ZONE. brush() kills at this distance, and the Stalker draws a disc
+   of exactly this radius under itself, so the thing that can touch you is
+   visible rather than implied. One constant, two readers: if the radius ever
+   moves, the picture moves with it. */
+const CATCH_R = 0.52;
 /* How far in front of the body the character holds their gear, in tiles. This
    is both where the vision cone originates and where the device is drawn on
    the avatar, so the two can never disagree. */
@@ -3081,7 +3087,7 @@ function updateAgent(a, dt, p){
       // blocked — sidestep along the wall
       moveEnt(a, Math.cos(ang+1.57)*spd*dt, Math.sin(ang+1.57)*spd*dt, RA);
     }
-    if (Math.hypot(a.x-p.x,a.y-p.y) < 0.52) brush(a, p);
+    if (Math.hypot(a.x-p.x,a.y-p.y) < CATCH_R) brush(a, p);
     if (a.t < -8){ a.state='SEARCH'; a.t=6; a.target=randomFloorNear(a.x,a.y,9); }
     return;
   }
@@ -3118,7 +3124,7 @@ function updateAgent(a, dt, p){
     const ang = Math.atan2(a.target.y-a.y, a.target.x-a.x);
     a.face = ang;
     moveEnt(a, Math.cos(ang)*2.3*dt, Math.sin(ang)*2.3*dt, RA);
-    if (Math.hypot(a.x-p.x,a.y-p.y) < 0.52) brush(a, p);
+    if (Math.hypot(a.x-p.x,a.y-p.y) < CATCH_R) brush(a, p);
     if (a.t<=0){
       a.state = 'DORMANT'; a.rise=0.3; a.target=null;
       if (a.born<=0){ a.state='WALK'; }
@@ -3890,63 +3896,73 @@ function drawRigger(g, S) {
   g.restore();
 
   // hard hat: dome plus a brim that leads
-  blob(g, 0, T * 0.055 + hip, T * 0.10, '#e8b62e');
+  blob(g, 0, T * 0.055 + hip, T * 0.10, T * 0.10, '#e8b62e');
   rim(g, 0, T * 0.055 + hip, T * 0.10, T * 0.10);
   blob(g, 0, T * 0.105 + hip, T * 0.115, T * 0.05, '#c9921f');
   g.strokeStyle = 'rgba(255,244,200,0.6)'; g.lineWidth = 1.4;
   g.beginPath(); g.moveTo(-T * 0.07, T * 0.04 + hip); g.lineTo(T * 0.07, T * 0.04 + hip); g.stroke();
 }
 
-/* THE LIFEFORM — the Stalker. Four long black legs carrying a small glossy
-   body. It strides: the legs cross in pairs and the body pitches with the
-   gait, so from directly above it looks like it is covering ground rather
-   than standing on it. The origin is the feet and it grows upward. */
+/* THE LIFEFORM — the Stalker. Four thick black legs under a small glossy
+   body, sized at roughly TWICE the avatar: the Rigger stands about a quarter
+   of a tile tall and half a tile wide, and this is about half a tile tall and
+   three quarters across. A thing that swells as it approaches you is a threat
+   you can watch coming; this one is compact and simply is already there, and
+   its legs reach further than its body, which is why the floor is clipped
+   under it (see drawAgent) — an unclipped leg over a partition reads as
+   walking through walls. The origin is the feet; it grows upward. */
 function drawStalker(g, S) {
   const T = S.T, t = S.t;
-  const HGT = T * 2.9;
-  /* IT DOES NOT GROW. The rise only brings it UP out of the carpet; h feeds
-     opacity and nothing else, so the geometry below is the geometry at every
-     h. A thing that swells as it approaches you is a threat you can watch
-     coming; a thing at one fixed size simply is already there. */
+  const HGT = T * 0.75;
   g.globalAlpha = Math.min(1, 0.30 + S.h * 0.70);
   g.save();
   const s = Math.sin(S.phase * TAU) * (S.gait || 0);
   const legs = [[-1, 0], [1, Math.PI], [-1, Math.PI * 0.55], [1, Math.PI * 0.55]];
 
+  /* THE HIT ZONE, drawn first so the legs and body stand on it. brush() is
+     fatal at CATCH_R tiles and nothing on screen said so: the legs reached
+     further than the kill radius and the body was smaller than it, so the part
+     that could touch you was invisible. This disc IS the kill radius. */
+  const danger = S.danger || 0;
+  blob(g, 0, 0, T * CATCH_R, T * CATCH_R * 0.92, `rgba(18,20,14,${0.20 + 0.14 * danger})`);
+  g.strokeStyle = `rgba(216,80,60,${0.20 + 0.34 * danger})`;
+  g.lineWidth = 2;
+  g.beginPath(); g.ellipse(0, 0, T * CATCH_R, T * CATCH_R * 0.92, 0, 0, TAU); g.stroke();
+
   for (let i = 0; i < legs.length; i++) {
     const side = legs[i][0], ph = legs[i][1];
     const sw = Math.sin(S.phase * TAU + ph) * (S.gait || 0);
-    const footX = side * T * (0.42 + sw * 0.22);
-    const footY = -HGT * 0.06 + Math.cos(S.phase * TAU + ph) * T * 0.18 * (S.gait || 0);
-    const hipX = side * T * 0.08, hipY = -HGT * 0.72;
+    const footX = side * T * (0.30 + sw * 0.10);
+    const footY = -HGT * 0.06 + Math.cos(S.phase * TAU + ph) * T * 0.09 * (S.gait || 0);
+    const hipX = side * T * 0.10, hipY = -HGT * 0.62;
     // knee: out to the side and below the hip line, so the leg reads bent
-    const kneeX = side * T * (0.26 + sw * 0.10);
-    const kneeY = -HGT * 0.42;
-    limb(g, hipX, hipY, kneeX, kneeY, T * 0.055, '#0e0e0d');
-    limb(g, kneeX, kneeY, footX, footY, T * 0.042, '#0e0e0d');
+    const kneeX = side * T * (0.22 + sw * 0.06);
+    const kneeY = -HGT * 0.34;
+    limb(g, hipX, hipY, kneeX, kneeY, T * 0.095, '#0e0e0d');
+    limb(g, kneeX, kneeY, footX, footY, T * 0.070, '#0e0e0d');
     // three-toed foot, the shape that says "not a boot"
-    g.strokeStyle = '#0e0e0d'; g.lineWidth = T * 0.022; g.lineCap = 'round';
+    g.strokeStyle = '#0e0e0d'; g.lineWidth = T * 0.035; g.lineCap = 'round';
     for (const k of [-0.4, 0, 0.4]) {
       g.beginPath();
       g.moveTo(footX, footY);
-      g.lineTo(footX + Math.sin(k) * T * 0.14, footY - T * 0.14 + Math.abs(k) * T * 0.04);
+      g.lineTo(footX + Math.sin(k) * T * 0.08, footY - T * 0.08 + Math.abs(k) * T * 0.02);
       g.stroke();
     }
     g.lineCap = 'butt';
   }
 
   // body: a glossy black mass with two lobed shoulders
-  const pitch = s * T * 0.05;
+  const pitch = s * T * 0.03;
   g.save();
   g.translate(pitch, 0);
-  blob(g, 0, -HGT * 0.80, T * 0.20, T * 0.15, '#121211');
-  blob(g, -T * 0.16, -HGT * 0.92, T * 0.11, T * 0.09, '#151514');
-  blob(g, T * 0.17, -HGT * 0.88, T * 0.13, T * 0.10, '#151514');
-  blob(g, 0, -HGT * 0.99, T * 0.115, T * 0.085, '#181817');
+  blob(g, 0, -HGT * 0.72, T * 0.20, T * 0.15, '#121211');
+  blob(g, -T * 0.15, -HGT * 0.84, T * 0.10, T * 0.08, '#151514');
+  blob(g, T * 0.16, -HGT * 0.80, T * 0.12, T * 0.09, '#151514');
+  blob(g, 0, -HGT * 0.92, T * 0.10, T * 0.08, '#181817');
   // wet highlights: the sheen is what makes it liquid rather than matte
   g.fillStyle = `rgba(228,230,168,${0.10 + 0.05 * Math.sin(t * 0.004)})`;
-  g.beginPath(); g.ellipse(-T * 0.05, -HGT * 0.84, T * 0.05, T * 0.02, -0.5, 0, TAU); g.fill();
-  g.beginPath(); g.ellipse(T * 0.06, -HGT * 0.95, T * 0.035, T * 0.015, -0.4, 0, TAU); g.fill();
+  g.beginPath(); g.ellipse(-T * 0.045, -HGT * 0.75, T * 0.045, T * 0.017, -0.5, 0, TAU); g.fill();
+  g.beginPath(); g.ellipse(T * 0.055, -HGT * 0.86, T * 0.035, T * 0.014, -0.4, 0, TAU); g.fill();
   g.restore();
   g.globalAlpha = 1;
 }
@@ -3991,10 +4007,10 @@ function drawAgent(a, t){
   const x=a.x*TILE, y=a.y*TILE;
   const h = a.rise;
 
-  // shadow
+  // shadow, sized to the body rather than to the rise
   ctx.fillStyle='rgba(6,5,3,0.5)';
   ctx.beginPath();
-  ctx.ellipse(x, y+4, TILE*(0.30+0.12*h), TILE*(0.12+0.04*h), 0,0,6.283);
+  ctx.ellipse(x, y+4, TILE*0.36, TILE*0.20, 0,0,6.283);
   ctx.fill();
 
   if (h < 0.02){
@@ -4015,19 +4031,40 @@ function drawAgent(a, t){
      a SEARCH drifts, a WALK is halfway between the two. */
   const gait = a.state==='HUNT' ? 1 : a.state==='WALK' ? 0.55 : 0.3;
 
+  /* CLIP TO THE FLOOR. The Stalker's legs reach further than its collision
+     disc, so drawn unclipped it strides straight over the partition into the
+     next room — which reads as walking through walls, and a wall it can cross
+     is a wall that cannot save you. The clip is the walkable tiles within
+     reach of it, so the legs stop at the wall line exactly like the body
+     does. Built per frame from the grid: 25 rects, and the alternative is a
+     sprite that lies about where it is. */
+  const CR = 2;
+  const cx0 = Math.max(0, Math.floor(a.x - CR)), cx1 = Math.min(MAP_W-1, Math.ceil(a.x + CR));
+  const cy0 = Math.max(0, Math.floor(a.y - CR)), cy1 = Math.min(MAP_H-1, Math.ceil(a.y + CR));
+  ctx.save();
+  ctx.beginPath();
+  for (let ty=cy0; ty<=cy1; ty++)
+    for (let tx=cx0; tx<=cx1; tx++)
+      if (G.grid[ty*MAP_W+tx]===FLOOR) ctx.rect(tx*TILE, ty*TILE, TILE, TILE);
+  ctx.clip();
+
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(-a.face + Math.PI/2 + Math.sin(t*0.0018)*0.05);
 
-  drawStalker(ctx, { T:TILE, h, phase: (t*0.0009) % 1, gait, t });
+  /* `danger` is how close it is to hunting you: 0 when it is wandering,
+     1 when it is coming. It drives the rim on the hit zone below. */
+  drawStalker(ctx, { T:TILE, h, phase: (t*0.0009) % 1, gait, t,
+                     danger: a.state==='HUNT' ? 1 : 0.25 });
 
-  ctx.restore();
+  ctx.restore();   // the transform
+  ctx.restore();   // the floor clip
 
-  // when it has you, a thin red rim
+  // when it has you, a thin red rim on the hit zone itself
   if (G.seenBy>0.35){
     ctx.strokeStyle=`rgba(216,80,60,${0.30*G.seenBy})`;
     ctx.lineWidth=2;
-    ctx.beginPath(); ctx.ellipse(x,y,TILE*0.44,TILE*0.44,0,0,6.283); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(x,y,TILE*CATCH_R,TILE*CATCH_R,0,0,6.283); ctx.stroke();
   }
 }
 
