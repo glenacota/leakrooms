@@ -188,6 +188,9 @@ const vm = require('vm');
 const ctxObj = vm.createContext(global);
 vm.runInContext(src, ctxObj, { filename:'game.js' });
 
+/* seeded RNG for deterministic fuzzing */
+const seededRNG = vm.runInContext('mulberry32(0xC0FFEE)', ctxObj);
+
 /* `let`/`const` at vm top level are lexical, not globalThis properties.
    Re-export through getters so the harness sees live reassignments. */
 vm.runInContext(`
@@ -484,8 +487,8 @@ console.log('[2] collision — 20000 random walks must not enter walls');
   buildFloor(0, 999);
   let inside=0;
   for (let i=0;i<20000;i++){
-    keys['w']=Math.random()<0.34; keys['a']=Math.random()<0.34;
-    keys['s']=Math.random()<0.34; keys['d']=Math.random()<0.34;
+    keys['w']=seededRNG()<0.34; keys['a']=seededRNG()<0.34;
+    keys['s']=seededRNG()<0.34; keys['d']=seededRNG()<0.34;
     update(0.016);
     keys.w=keys.a=keys.s=keys.d=false;
     if (inWall(G.player.x, G.player.y, 0.33, true)) inside++;
