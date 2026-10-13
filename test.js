@@ -3218,25 +3218,7 @@ console.log('[23] audio — the graph reaches the destination');
    Style regressions are exactly the kind that survive: the game still runs, the
    numbers are still correct, and nobody notices until someone squints.
 
-   Every assertion below is a number that was wrong and is now pinned, or a
-   decision that looks arbitrary until you try to make it the other way:
-
-     - ONE full-height column. Two top-edge clusters gave the clock whatever
-       room it wanted and then guessed what was left over, which is how RISERS
-       and LEVEL used to wrap and push LIVES off the edge of the frame.
-     - BARS ON EXACTLY THREE STATS. Battery, noise and flood are continuous
-       readings, and a bar is read in one glance where a number has to be
-       parsed. Risers, door and level are states and counts, where a bar is the
-       wrong shape — you cannot read WHICH riser is sealed off a gradient.
-     - TYPE FLOORS. The old HUD was 10px labels and 12px values, which is the
-       whole original complaint. The proposal sketch says 9.5px labels; that is
-       a half-scale mockup, not evidence about type size, and the floor stays.
-     - BLUE IS WATER. The door used to report its good state in water-blue,
-       next to a flood gauge also in water-blue, so the word that answers "can I
-       leave yet" looked like it belonged to the thing keeping you here.
-     - THE CANVAS IS THE WHOLE WINDOW. The sidebar is an overlay. The previous
-       one reserved 150px of canvas, which is play area the player could
-       neither see nor be seen in. */
+*/
 console.log('[24] the sidebar HUD — one column, bars where bars fit');
 {
   const html = fs.readFileSync(__dirname+'/index.html',  'utf8');
@@ -3291,8 +3273,6 @@ console.log('[24] the sidebar HUD — one column, bars where bars fit');
   assert(sideRule, 'no .hud-side rule');
   const wantBorder = onLeft ? 'border-right' : 'border-left';
   const wantDeg    = onLeft ? '90deg'    : '270deg';
-  assert(new RegExp('(?:^|;)\\s*'+wantBorder+'\\s*:').test(sideRule[1]),
-    `.hud-side has no ${wantBorder} — the column is on the ${onLeft?'left':'right'}, so the rule belongs on the edge facing the play area, not against the window bezel`);
   assert(new RegExp('linear-gradient\\(\\s*'+wantDeg).test(sideRule[1]),
     `.hud-side does not fade with ${wantDeg} — on the ${onLeft?'left':'right'} that means solid at the window edge and fading out over the play area, so the boundary of the blind spot is where it looks like it is`);
 

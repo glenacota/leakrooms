@@ -4258,7 +4258,7 @@ function togglePause(){
 
     set('pause-hint',
       `<b>${Math.round(G.floodCover*100)}%</b> of the floor is under water`+
-      (G.leaksOpen===0 ? ' and draining' : ' and still rising')+'.<br>'+
+      (G.leaksOpen===0 ? ' and draining' : ' and still rising')+'. '+
       (G.leaksOpen===0 ? '' :
         `Follow the wet floor downhill to the wall, then hold still for <b>${REPAIR_TIME} seconds</b>. It is loud.<br>`)+
       `It has heard you make <b>${G.stat.noises}</b> noise${G.stat.noises===1?'':'s'} so far.`);
