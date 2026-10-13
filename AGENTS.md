@@ -7,13 +7,14 @@ LEAKROOMS — 2D top-down puzzle/stealth. Vanilla JS + canvas, zero dependencies
 ## Files
 
 - `index.html` — markup, HUD, screens (title/pause/dead/win), settings modal
-- `game.js` — entire game: sim, render, audio, input, state machine
+- `game.js` — entire game: sim, render, audio, input, state machine, and the cast
+- `sprites.html` — sprite sheet: inlines the same two sprites, drawn live
 - `style.css` — CRT shell, mono-yellow palette, tape UI
 - `test.js` — headless regression suite (`node test.js`, ~80s, exit 0 = pass)
 
 ## Architecture
 
-Single-file game. No modules, no build step. `game.js` runs in browser and in Node (via `vm` in test.js) — keep it loadable headless.
+Single-file game. No modules, no build step. `game.js` runs in browser and in Node (via `vm` in test.js) — keep it loadable headless. The cast is drawn inline in `game.js`.
 
 State lives in module-level `let` bindings. `G` holds per-level state (grid, player, agents, `leaks`, flood, the one `exitTiles` door, `clock`). `LEVELS` is the fixed five-level content table; `SETTINGS` is global config, persisted to `localStorage` under `leakroom.settings.v1`.
 

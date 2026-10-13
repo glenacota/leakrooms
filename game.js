@@ -3763,8 +3763,197 @@ function outOfTime(){ lose('THE CLOCK RAN OUT'); }
   }   // end vhs
 }
 
-/* The avatar — Drain Specialist. Waders, dark jacket, headlamp, pipe wrench
-   on back. Every part drawn INSIDE the collision disc (R = 0.33 tiles). */
+/* ============================================================
+   THE CAST — two sprites, drawn as paths.
+   ============================================================ */
+const TAU = Math.PI * 2;
+
+function limb(g, x1, y1, x2, y2, w, col) {
+  g.strokeStyle = col;
+  g.lineWidth = w;
+  g.lineCap = 'round';
+  g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke();
+  g.lineCap = 'butt';
+}
+
+function blob(g, cx, cy, rx, ry, col, rot) {
+  g.fillStyle = col;
+  g.beginPath(); g.ellipse(cx, cy, rx, ry, rot || 0, 0, TAU); g.fill();
+}
+
+/* One stride: `s` is the fore/aft offset of the leading foot, `liftL`/`liftR`
+   are how high each foot is off the carpet, `bob` is the body rise that comes
+   with two steps. gait=0 collapses all of it to zero, so an idle sprite is
+   symmetric without any special case. */
+function stride(S) {
+  const k = S.gait || 0;
+  const p = S.phase * TAU;
+  const s = Math.sin(p) * k;
+  return { s, liftL: Math.max(0, s), liftR: Math.max(0, -s), bob: -Math.abs(Math.cos(p)) * 0.012 * k };
+}
+
+/* A rubber boot: shaft, then a sole that reaches forward of it. The sole is
+   what reads as a foot from above, so it is drawn second and darker. */
+function boot(g, T, cx, cy, ang, sc, col, dark) {
+  g.save();
+  g.translate(cx, cy);
+  g.rotate(ang);
+  blob(g, 0, 0, 0.058 * sc * T, 0.078 * sc * T, col);
+  blob(g, 0, -0.048 * sc * T, 0.052 * sc * T, 0.040 * sc * T, dark);
+  g.restore();
+}
+
+/* The carpet is a saturated yellow and so is the vest. A dark rim is what
+   keeps a figure from bleeding into the floor at game scale. */
+function rim(g, cx, cy, rx, ry) {
+  g.strokeStyle = 'rgba(24,26,16,0.55)';
+  g.lineWidth = 0.055 * (rx + ry) * 0.5 + 0.6;
+  g.beginPath(); g.ellipse(cx, cy, rx, ry, 0, 0, TAU); g.stroke();
+}
+
+/* An arm from the shoulder to the hand. The shoulder sits BEHIND the centre
+   of the body and the hand level with it, so the limb hangs along the flank:
+   reaching further forward than this puts two pale blobs above the head, and
+   from directly overhead a top-down figure with two blobs above its head is
+   a rabbit. */
+function arm(g, T, side, cy, swing, col, handCol, reach) {
+  const r = reach || 1;
+  const sx = side * T * 0.155, sy = cy + T * 0.05;
+  const ex = side * T * (0.17 + 0.02 * r), ey = cy + T * 0.01 + swing * T * 0.5;
+  const hx = side * T * (0.10 + 0.04 * r), hy = cy - T * 0.055 + swing * T;
+  limb(g, sx, sy, ex, ey, T * 0.066, col);
+  limb(g, ex, ey, hx, hy, T * 0.056, col);
+  blob(g, hx, hy, T * 0.038, T * 0.042, handCol);
+}
+
+/* Where both feet are, this frame. One plan, two consumers: the legs are
+   drawn to it and the boots are drawn on it, so the legs cannot come apart
+   from the boots — which is the usual way a hand-drawn walk cycle falls
+   apart. */
+function footPlan(S, T, o) {
+  const st = stride(S);
+  const bob = st.bob * T + (o.bob || 0);
+  const out = [];
+  for (const s of [-1, 1]) {
+    const lift = s > 0 ? st.liftR : st.liftL;
+    const fore = -st.s * s * T * (o.swing || 0.045);
+    out.push({
+      s,
+      x: s * o.sep * T,
+      y: o.y * T + bob + fore - lift * (o.lift || 0.06) * T,
+      ang: -s * st.s * (o.turn || 0.30),
+      sc: o.sc || 1,
+    });
+  }
+  return out;
+}
+
+function feet(g, T, S, o) {
+  for (const f of footPlan(S, T, o)) boot(g, T, f.x, f.y, f.ang, f.sc, o.col, o.dark);
+}
+
+function legs(g, T, S, o) {
+  for (const f of footPlan(S, T, o))
+    limb(g, f.s * o.hipSep * T, o.hipY * T, f.x, f.y + T * 0.035, T * (o.w || 0.10), o.col);
+}
+
+/* THE AVATAR — the Rigger. Hard hat, hi-vis vest with two reflective bands
+   that slide fore and aft on the stride, tool belt, and a wrench that swings
+   with the walk. Local -y is forward: the boots lead, the hat brim trails. */
+function drawRigger(g, S) {
+  const T = S.T, st = stride(S);
+  const hip = st.bob * T;
+
+  feet(g, T, S, { sep:0.088, y:-0.085, bob:hip, col:'#4a3a22', dark:'#2f2515', lift:0.06, sc:0.9 });
+
+  // work trousers
+  legs(g, T, S, { sep:0.105, y:-0.135, bob:hip, hipSep:0.072, hipY:-0.02, col:'#4a4a52', w:0.095 });
+
+  // vest over a grey tee
+  blob(g, 0, T * 0.025 + hip, T * 0.155, T * 0.115, '#c8b25a');
+  rim(g, 0, T * 0.025 + hip, T * 0.155, T * 0.115);
+  g.fillStyle = '#8e8a72';
+  g.beginPath(); g.ellipse(0, T * 0.045 + hip, T * 0.055, T * 0.075, 0, 0, TAU); g.fill();
+  // reflective bands, offset by the stride
+  const off = st.s * T * 0.018;
+  g.fillStyle = 'rgba(236,238,196,0.85)';
+  g.fillRect(-T * 0.15, T * 0.05 + hip - off, T * 0.30, T * 0.022);
+  g.fillRect(-T * 0.15, T * 0.10 + hip - off, T * 0.30, T * 0.022);
+
+  // arms, and a wrench hanging off the belt that swings with the walk
+  for (const s of [-1, 1]) arm(g, T, s, T * 0.035 + hip, -st.s * 0.05 * s, '#8e8a72', '#c9a072');
+  g.save();
+  g.translate(T * 0.14, T * 0.10 + hip); g.rotate(-0.4 + st.s * 0.5);
+  g.fillStyle = '#7d8288';
+  g.fillRect(-T * 0.015, 0, T * 0.03, T * 0.11);
+  g.beginPath(); g.arc(0, T * 0.11, T * 0.028, 0, TAU); g.fill();
+  g.restore();
+
+  // hard hat: dome plus a brim that leads
+  blob(g, 0, T * 0.055 + hip, T * 0.10, '#e8b62e');
+  rim(g, 0, T * 0.055 + hip, T * 0.10, T * 0.10);
+  blob(g, 0, T * 0.105 + hip, T * 0.115, T * 0.05, '#c9921f');
+  g.strokeStyle = 'rgba(255,244,200,0.6)'; g.lineWidth = 1.4;
+  g.beginPath(); g.moveTo(-T * 0.07, T * 0.04 + hip); g.lineTo(T * 0.07, T * 0.04 + hip); g.stroke();
+}
+
+/* THE LIFEFORM — the Stalker. Four long black legs carrying a small glossy
+   body. It strides: the legs cross in pairs and the body pitches with the
+   gait, so from directly above it looks like it is covering ground rather
+   than standing on it. The origin is the feet and it grows upward. */
+function drawStalker(g, S) {
+  const T = S.T, t = S.t;
+  const HGT = T * 2.9;
+  /* IT DOES NOT GROW. The rise only brings it UP out of the carpet; h feeds
+     opacity and nothing else, so the geometry below is the geometry at every
+     h. A thing that swells as it approaches you is a threat you can watch
+     coming; a thing at one fixed size simply is already there. */
+  g.globalAlpha = Math.min(1, 0.30 + S.h * 0.70);
+  g.save();
+  const s = Math.sin(S.phase * TAU) * (S.gait || 0);
+  const legs = [[-1, 0], [1, Math.PI], [-1, Math.PI * 0.55], [1, Math.PI * 0.55]];
+
+  for (let i = 0; i < legs.length; i++) {
+    const side = legs[i][0], ph = legs[i][1];
+    const sw = Math.sin(S.phase * TAU + ph) * (S.gait || 0);
+    const footX = side * T * (0.42 + sw * 0.22);
+    const footY = -HGT * 0.06 + Math.cos(S.phase * TAU + ph) * T * 0.18 * (S.gait || 0);
+    const hipX = side * T * 0.08, hipY = -HGT * 0.72;
+    // knee: out to the side and below the hip line, so the leg reads bent
+    const kneeX = side * T * (0.26 + sw * 0.10);
+    const kneeY = -HGT * 0.42;
+    limb(g, hipX, hipY, kneeX, kneeY, T * 0.055, '#0e0e0d');
+    limb(g, kneeX, kneeY, footX, footY, T * 0.042, '#0e0e0d');
+    // three-toed foot, the shape that says "not a boot"
+    g.strokeStyle = '#0e0e0d'; g.lineWidth = T * 0.022; g.lineCap = 'round';
+    for (const k of [-0.4, 0, 0.4]) {
+      g.beginPath();
+      g.moveTo(footX, footY);
+      g.lineTo(footX + Math.sin(k) * T * 0.14, footY - T * 0.14 + Math.abs(k) * T * 0.04);
+      g.stroke();
+    }
+    g.lineCap = 'butt';
+  }
+
+  // body: a glossy black mass with two lobed shoulders
+  const pitch = s * T * 0.05;
+  g.save();
+  g.translate(pitch, 0);
+  blob(g, 0, -HGT * 0.80, T * 0.20, T * 0.15, '#121211');
+  blob(g, -T * 0.16, -HGT * 0.92, T * 0.11, T * 0.09, '#151514');
+  blob(g, T * 0.17, -HGT * 0.88, T * 0.13, T * 0.10, '#151514');
+  blob(g, 0, -HGT * 0.99, T * 0.115, T * 0.085, '#181817');
+  // wet highlights: the sheen is what makes it liquid rather than matte
+  g.fillStyle = `rgba(228,230,168,${0.10 + 0.05 * Math.sin(t * 0.004)})`;
+  g.beginPath(); g.ellipse(-T * 0.05, -HGT * 0.84, T * 0.05, T * 0.02, -0.5, 0, TAU); g.fill();
+  g.beginPath(); g.ellipse(T * 0.06, -HGT * 0.95, T * 0.035, T * 0.015, -0.4, 0, TAU); g.fill();
+  g.restore();
+  g.globalAlpha = 1;
+}
+
+/* The avatar. Every part drawn INSIDE the collision disc (R = 0.33 tiles).
+   The body itself is the Rigger, drawn by drawRigger below; this function owns
+   the shadow, the facing, the gait clock and the radar in hand. */
 function drawPlayer(p, t){
   const x=p.x*TILE, y=p.y*TILE;
 
@@ -3772,76 +3961,17 @@ function drawPlayer(p, t){
   ctx.fillStyle='rgba(8,6,3,0.34)';
   ctx.beginPath(); ctx.ellipse(x+1.5, y+3, TILE*0.19, TILE*0.11, 0,0,6.283); ctx.fill();
 
+  /* The gait phase is the step timer — the same one that paces the footstep
+     audio — so a rig's feet are on the floor on the frame the sound lands.
+     Standing still, phase keeps its last value but gait drops to zero and
+     every stride in the table collapses with it. */
+  const phase = p.stepDur ? 1 - p.stepT/p.stepDur : 0;
+
   ctx.save();
   ctx.translate(x,y);
   ctx.rotate(p.face + Math.PI/2);
 
-  // head — drawn first so body parts overlap its base.
-  // Local +y is BACKWARD (away from p.face): the boots lead, the head trails.
-  ctx.fillStyle='#c89068';
-  ctx.beginPath(); ctx.arc(0, TILE*0.06, TILE*0.085, 0, 6.283); ctx.fill();
-  // headlamp strap + lamp, glowing on the trailing side
-  ctx.strokeStyle='#222'; ctx.lineWidth=2;
-  ctx.beginPath(); ctx.arc(0, TILE*0.06, TILE*0.088, 0, 6.283); ctx.stroke();
-  ctx.fillStyle='rgba(255,248,200,0.18)';
-  ctx.beginPath(); ctx.arc(0, TILE*0.13, TILE*0.06, 0, 6.283); ctx.fill();
-  ctx.fillStyle='#fff8d0';
-  ctx.beginPath(); ctx.arc(0, TILE*0.13, TILE*0.035, 0, 6.283); ctx.fill();
-  ctx.fillStyle='rgba(255,248,200,0.25)';
-  ctx.beginPath(); ctx.arc(0, TILE*0.13, TILE*0.05, 0, 6.283); ctx.fill();
-
-  // torso / dark jacket
-  ctx.fillStyle='#2a3038';
-  ctx.beginPath(); ctx.ellipse(0, TILE*0.02, TILE*0.16, TILE*0.12, 0, 0, 6.283); ctx.fill();
-  // jacket zipper
-  ctx.strokeStyle='#4a5560'; ctx.lineWidth=1.5;
-  ctx.beginPath(); ctx.moveTo(0,TILE*0.12); ctx.lineTo(0,-TILE*0.06); ctx.stroke();
-
-  // arms
-  ctx.fillStyle='#2a3038';
-  for (const s of [-1,1]){
-    ctx.beginPath();
-    ctx.ellipse(s*TILE*0.17, -TILE*0.02, TILE*0.05, TILE*0.065, 0, 0, 6.283);
-    ctx.fill();
-  }
-  // hands
-  ctx.fillStyle='#c89068';
-  for (const s of [-1,1]){
-    ctx.beginPath(); ctx.arc(s*TILE*0.17, -TILE*0.07, TILE*0.035, 0, 6.283); ctx.fill();
-  }
-
-  // wader top
-  ctx.fillStyle='#3a5a3a';
-  ctx.beginPath(); ctx.ellipse(0, -TILE*0.04, TILE*0.14, TILE*0.08, 0, 0, 6.283); ctx.fill();
-
-  /* Tall rubber wader boots — these lead, pointing where you move.
-     While walking they shuffle fore/aft out of phase, driven by the same
-     step timer that paces the footstep audio. Standing still, they settle
-     back to neutral so the idle sprite is symmetrical. */
-  const step = p.moving && p.stepDur ? Math.sin((1 - p.stepT/p.stepDur)*Math.PI*2) : 0;
-  const lift = step * TILE*0.04;
-  for (const s of [-1,1]){
-    // boot shaft
-    ctx.fillStyle='#3a5a3a';
-    ctx.beginPath();
-    ctx.ellipse(s*TILE*0.10, -TILE*0.12 - s*lift, TILE*0.06, TILE*0.075, 0, 0, 6.283);
-    ctx.fill();
-    // boot foot, slightly darker, extends forward
-    ctx.fillStyle='#2e4a2e';
-    ctx.beginPath();
-    ctx.ellipse(s*TILE*0.10, -TILE*0.165 - s*lift, TILE*0.05, TILE*0.04, 0, 0, 6.283);
-    ctx.fill();
-  }
-
-  // pipe wrench strapped across the back
-  ctx.save(); ctx.rotate(0.6);
-  ctx.fillStyle='#888';
-  ctx.fillRect(-TILE*0.02, TILE*0.13, TILE*0.04, TILE*0.17);
-  ctx.fillStyle='#666';
-  ctx.beginPath(); ctx.arc(0, TILE*0.13, TILE*0.04, 0, 6.283); ctx.fill();
-  ctx.fillStyle='#999';
-  ctx.beginPath(); ctx.arc(0, TILE*0.28, TILE*0.03, 0, 6.283); ctx.fill();
-  ctx.restore();
+  drawRigger(ctx, { T:TILE, phase, gait: p.moving ? 1 : 0, t });
 
   /* The radar, held out in front — same forward offset as vision cone. */
   const rg = G.radar ? 1 : 0.35;
@@ -3853,9 +3983,10 @@ function drawPlayer(p, t){
   ctx.restore();
 }
 
-/* The Lifeform — Static Wraith. Glitchy humanoid made of TV static and
-   scan lines. Dormant = static burst on carpet. Rising = fragmented body
-   coalesces. Hunting = full glitch figure with CRT head. */
+/* The Lifeform. Dormant = static burst on carpet. Rising = the body
+   coalesces out of its own footprint. Hunting = fully up, one of six
+   the Stalker, drawn by drawStalker below. The shadow and the red rim are the
+   game's; the thing itself is the sprite's. */
 function drawAgent(a, t){
   const x=a.x*TILE, y=a.y*TILE;
   const h = a.rise;
@@ -3878,52 +4009,17 @@ function drawAgent(a, t){
     return;
   }
 
-  /* RISING / HUNTING — glitch body of fragmented rectangles.
-     Height ramps in over the first third of the rise, then holds, so the
-     hunting silhouette is the same length as the rising one. */
-  const HGT = TILE*2.3*Math.min(1, h*3);
+  /* Gait. The Lifeforms have no step timer of their own — they are not
+     walking anything, they are coming — so the phase runs off the frame
+     clock and the stride amount comes from the state: a HUNT strides,
+     a SEARCH drifts, a WALK is halfway between the two. */
+  const gait = a.state==='HUNT' ? 1 : a.state==='WALK' ? 0.55 : 0.3;
+
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(-a.face + Math.PI/2 + Math.sin(t*0.0018)*0.05);
 
-  // glitch body: fragmented horizontal slices
-  for (let i=0;i<12;i++){
-    const k=i/12;
-    const yy=-k*HGT;
-    const ww=TILE*(0.30*(1-k*0.5) + Math.sin(t*0.01+i*2)*0.03);
-    const hh=HGT*0.08;
-    const xx=Math.sin(t*0.008+i*1.5)*TILE*0.03;
-    const br=40+Math.sin(t*0.012+i*3)*30;
-    ctx.fillStyle=`rgba(${br},${br},${br+10},0.7)`;
-    ctx.fillRect(xx-ww/2, yy-hh/2, ww, hh);
-  }
-
-  // scan lines
-  ctx.strokeStyle='rgba(200,200,200,0.1)';
-  ctx.lineWidth=1;
-  for (let i=0;i<6;i++){
-    const yy=-HGT*(i/6)-((t*0.02)%(HGT/6));
-    ctx.beginPath(); ctx.moveTo(-TILE*0.25,yy); ctx.lineTo(TILE*0.25,yy); ctx.stroke();
-  }
-
-  // head: CRT screen
-  ctx.fillStyle='#1a1a1a';
-  ctx.fillRect(-TILE*0.12, -HGT-TILE*0.15, TILE*0.24, TILE*0.18);
-  ctx.fillStyle=`rgba(150,200,255,${0.3+Math.sin(t*0.01)*0.1})`;
-  ctx.fillRect(-TILE*0.10, -HGT-TILE*0.13, TILE*0.20, TILE*0.14);
-
-  // eyes: bright pixels
-  ctx.fillStyle=`rgba(255,255,255,${0.8*h})`;
-  ctx.fillRect(-TILE*0.06, -HGT-TILE*0.08, 3, 3);
-  ctx.fillRect(TILE*0.03, -HGT-TILE*0.08, 3, 3);
-
-  // glitch fragments
-  for (let i=0;i<6;i++){
-    const gx=Math.sin(t*0.015+i*2.7)*TILE*0.35;
-    const gy=-HGT*0.5+Math.cos(t*0.012+i*1.9)*TILE*0.2;
-    ctx.fillStyle=`rgba(200,200,220,${0.3+Math.sin(t*0.02+i)*0.2})`;
-    ctx.fillRect(gx, gy, 4, 2);
-  }
+  drawStalker(ctx, { T:TILE, h, phase: (t*0.0009) % 1, gait, t });
 
   ctx.restore();
 

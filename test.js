@@ -265,7 +265,11 @@ globalThis.__api = {
   get FLOORS(){ return FLOORS; },
   get HUNT_BASE(){ return HUNT_BASE; }, get HUNT_STEP(){ return HUNT_STEP; },
   get lives(){ return lives; }, set lives(v){ lives = v; },
-  get runLives(){ return runLives; }
+  get runLives(){ return runLives; },
+  /* the cast, inlined: the avatar's rig and the thing hunting it */
+  drawRigger, drawStalker,
+  /* their shared gait clock, so the tests can drive the walk cycle */
+  stride, footPlan, feet,
 };
 `, ctxObj);
 
@@ -1005,18 +1009,19 @@ console.log('[8] avatar fits inside the collision disc');
   const R = A.R;
   const parts = [
     ['shadow',     0.0375, 0.0750, 0.190, 0.110],
-    ['boot shaft L', -0.10, -0.12, 0.06, 0.075],
-    ['boot shaft R',  0.10, -0.12, 0.06, 0.075],
-    ['boot foot L',  -0.10, -0.165, 0.05, 0.04],
-    ['boot foot R',   0.10, -0.165, 0.05, 0.04],
-    ['waders',      0,     0.04,   0.14,  0.08],
-    ['jacket',      0,    -0.02,   0.16,  0.12],
-    ['arm L',      -0.17,  0.02,   0.05,  0.065],
-    ['arm R',       0.17,  0.02,   0.05,  0.065],
-    ['wrench',      0,     0.13,   0.04,  0.17],
-    ['head',        0,    -0.06,   0.085, 0.085],
-    ['headlamp',    0,    -0.13,   0.03,  0.03],
-    ['radar glow',  0,    -0.135,  0.082, 0.082],
+    ['boot L',    -0.088, -0.085, 0.058, 0.078],
+    ['boot R',     0.088, -0.085, 0.058, 0.078],
+    ['trouser L', -0.072, -0.020, 0.036, 0.050],
+    ['trouser R',  0.072, -0.020, 0.036, 0.050],
+    ['vest',       0,     0.025,   0.155, 0.115],
+    ['arm L',     -0.170,  0.035,   0.033, 0.050],
+    ['arm R',      0.170,  0.035,   0.033, 0.050],
+    ['hand L',    -0.140, -0.020,   0.038, 0.042],
+    ['hand R',     0.140, -0.020,   0.038, 0.042],
+    ['wrench',     0.140,  0.155,   0.043, 0.028],
+    ['hat dome',   0,     0.055,   0.100, 0.100],
+    ['hat brim',   0,     0.105,   0.115, 0.050],
+    ['radar glow',  0,    -0.135,   0.082, 0.082],
   ];
   let worst=0, worstPart='';
   for (const [name,ox,oy,rx,ry] of parts){
@@ -3708,6 +3713,141 @@ console.log('[27] the removed settings — frame counter, flicker, tape, shake')
   render(2000);
   console.log('  4 settings gone from schema, store, markup, stylesheet, and renderer');
   console.log('  and the effects they controlled are still on, as constants');
+}
+
+/* ============ TEST 28: the cast — the Rigger and the Stalker ============
+   Two sprites, inlined in game.js. Two of their properties are mechanics and
+   are asserted here as such: a rig that does not move its feet when it walks
+   is a picture of a person, and a rig that still moves them while standing
+   still is a bug in the gait. Both directions are checked against the recorded
+   draw calls of the sprite's own drawing code — the same code the game calls. */
+console.log('[28] the cast — the Rigger walks, the Stalker does not grow');
+{
+  /* A canvas stub that records EVERYTHING, including the translation stack.
+     The translation matters: a boot is drawn as translate(foot) then an
+     ellipse at the origin, so a recorder that keeps only the path arguments
+     sees every boot at (0,0) and concludes nothing about the sprite reaches
+     forward of the origin — which is what a boot is. */
+  const recCtx = () => {
+    const log = [];
+    const c = { log, canvas:{width:1,height:1}, tx:0, ty:0, stack:[] };
+    c.save  = ()=>{ c.stack.push([c.tx,c.ty]); log.push(['save']); };
+    c.restore = ()=>{ const p = c.stack.pop(); if (p){ c.tx=p[0]; c.ty=p[1]; } log.push(['restore']); };
+    c.translate = (x,y)=>{ c.tx+=x; c.ty+=y; log.push(['translate',x,y]); };
+    for (const k of ['fillRect','strokeRect','ellipse','arc','rect','moveTo','lineTo',
+                     'quadraticCurveTo','bezierCurveTo','closePath','fill','stroke',
+                     'rotate','scale','setTransform','clearRect','fillText','drawImage',
+                     'clip','arcTo','beginPath'])
+      c[k] = (...a)=> log.push([k, ...a]);
+    c.measureText = ()=>({width:10});
+    return c;
+  };
+  const run = (fn, S) => {
+    const c = recCtx();
+    fn(c, S);
+    return JSON.stringify(c.log);
+  };
+  const CAST = [
+    ['the avatar',  A.drawRigger,  { h:1 }],
+    ['the lifeform', A.drawStalker, { h:1 }],
+  ];
+
+  for (const [who, fn, extra] of CAST){
+    assert(typeof fn==='function', `${who} has no draw function`);
+    let threw = null;
+    try {
+      for (const phase of [0,0.25,0.5,0.75])
+        for (const gait of [0,0.55,1])
+          for (const h of [0,0.34,1]) run(fn, Object.assign({ T:40, t:1234, gait, phase }, extra, { h }));
+    } catch (err) { threw = err; }
+    assert(!threw, `${who} threw while drawing: ${threw && threw.message}`);
+  }
+
+  /* THE CONTRACT: at full gait the pose must depend on the phase (the feet
+     are somewhere else a quarter of a cycle later) and at zero gait it must
+     not (a standing avatar is symmetric whichever way it last faced). */
+  for (const [who, fn] of CAST){
+    const a = run(fn, { T:40, t:1234, h:1, gait:1, phase:0.25 });
+    const b = run(fn, { T:40, t:1234, h:1, gait:1, phase:0.75 });
+    assert(a!==b, `${who}: identical drawing at phase .25 and .75 while walking — it does not move`);
+    const c = run(fn, { T:40, t:1234, h:1, gait:0, phase:0.25 });
+    const d = run(fn, { T:40, t:1234, h:1, gait:0, phase:0.75 });
+    assert(c===d, `${who}: the pose still depends on the gait clock while standing still`);
+  }
+
+  /* THE RIGGER puts its feet forward of the origin and off the centreline,
+     because local -y is where it walks and a symmetric sprite has no feet to
+     swing. */
+  {
+    const c = recCtx();
+    A.drawRigger(c, { T:40, t:0, h:1, gait:1, phase:0.25 });
+    assert(c.log.length > 20, `the rigger makes only ${c.log.length} draw calls — that is a silhouette, not a rig`);
+    let tx = 0, ty = 0, most = 0, footmost = 0;
+    for (const call of c.log){
+      const [k, a, b] = call;
+      if (k === 'translate'){ tx += a; ty += b; continue; }
+      if (k === 'restore'){ tx = 0; ty = 0; continue; }
+      if (k !== 'ellipse' && k !== 'arc' && k !== 'rect' && k !== 'fillRect') continue;
+      if (typeof b !== 'number') continue;
+      most = Math.min(most, ty + b);
+      if (ty + b < -0.5 && Math.abs(tx) > 0.5) footmost = Math.min(footmost, ty + b);
+    }
+    assert(most < -2, `the rigger reaches nothing forward of the origin (closest y = ${most.toFixed(2)}px) — it cannot be walking into anything`);
+    assert(footmost < -3, `the rigger has no off-centre shape forward of the origin (closest y = ${footmost.toFixed(2)}px) — no feet to swing`);
+  }
+
+  /* THE STALKER DOES NOT GROW. It is full size on the first frame it draws, so
+     the recorded geometry is compared across the whole rise range with the gait
+     clock and the wall clock pinned — a single stray h term shows up as a
+     difference. globalAlpha is a property rather than a call, so the rise's
+     one legitimate job, fading the thing in, never reaches this string. */
+  {
+    const shapeAt = (h) => run(A.drawStalker, { T:40, t:1234, h, gait:1, phase:0.25 });
+    assert(shapeAt(0.05)===shapeAt(1),
+      'the stalker changes shape as it rises — its size must not depend on the rise at all');
+    /* and it must actually be TALL: a lifeform that never leaves the carpet
+       footprint is not a thing you have to be afraid of */
+    const c = recCtx();
+    A.drawStalker(c, { T:40, t:0, h:1, gait:1, phase:0.25 });
+    let top = 1e9;
+    for (const call of c.log){
+      const [k, a, b] = call;
+      if (k==='ellipse' || k==='arc' || k==='moveTo') top = Math.min(top, b);
+    }
+    assert(top < -40, `the stalker only reaches ${(-top).toFixed(0)}px up a 40px tile — it is not a tall thing`);
+  }
+
+  /* the game draws these two and nothing else: no table, no index, no clamp */
+  const src = fs.readFileSync(__dirname+'/game.js','utf8');
+  assert(/drawRigger\(ctx, \{ T:TILE, phase, gait: p\.moving \? 1 : 0, t \}\)/.test(src),
+    'drawPlayer no longer draws the Rigger');
+  assert(/drawStalker\(ctx, \{ T:TILE, h, phase: \(t\*0\.0009\) % 1, gait, t \}\)/.test(src),
+    'drawAgent no longer draws the Stalker');
+  assert(!/SPRITES/.test(src), 'game.js still dispatches through a sprite table');
+  assert(!/setSkin/.test(src), 'game.js still carries a skin selector');
+
+  const html = fs.readFileSync(__dirname+'/index.html','utf8');
+  assert(!html.includes('sprites.js'), 'index.html still loads sprites.js');
+
+  /* and both survive a real frame — a stub gap in a sprite kills the render,
+     not one assert */
+  buildFloor(0, 4242);
+  A.STATE='play';
+  G.player.moving = true; G.player.stepT = 0.2; G.player.stepDur = 0.46;
+  for (const a of G.agents) a.rise = 1;
+  update(0.016);
+  render(1000);
+  for (const a of G.agents) a.rise = 0.05;
+  render(2000);
+
+  /* the sheet is a deliverable, and it is also a second copy of the cast if it
+     ever carries drawings of its own — so it has to inline the same two */
+  const sheet = fs.readFileSync(__dirname+'/sprites.html','utf8');
+  assert(!/<script src="sprites\.js">/.test(sheet), 'the sprite sheet still loads sprites.js');
+  assert(sheet.includes('drawRigger') && sheet.includes('drawStalker'),
+    'the sprite sheet does not draw the two sprites it is showing off');
+  console.log('  the Rigger strides, the Stalker is full size at every rise');
+  console.log('  and both survive a real update + render');
 }
 
 reportTimings();
