@@ -260,6 +260,7 @@ globalThis.__api = {
   loadSettings, saveSettings, resetSettings, applySettings, setOption,
   settingsValid, get SETTINGS_KEY(){ return SETTINGS_KEY; },
   advanceSplash, backSplash, show, hideAll, get SCREENS(){ return SCREENS; },
+  paintSplashPlan, rollRunSeed, get RUN_SEED(){ return RUN_SEED; },
   get FLOORS(){ return FLOORS; },
   get HUNT_BASE(){ return HUNT_BASE; }, get HUNT_STEP(){ return HUNT_STEP; },
   get lives(){ return lives; }, set lives(v){ lives = v; },
@@ -3533,6 +3534,62 @@ console.log('[21] the splash chain — 03 riser, 04 work order, then the run');
   A.setOption('muted', false);
   console.log('  ENTER / any key / click advance, ESC steps back, one screen at a time');
   console.log('  M toggles mute from every screen, survives a reload, and never advances the splash');
+}
+
+/* ============ TEST 25: the plan behind the title — it is the level you get
+   The splash paints a floor plan. The only version of that worth shipping is
+   the one the run is actually built from, so the seed contract is the test:
+   the painting cannot be re-rolled by anything the player does between seeing
+   it and playing it. */
+console.log('[25] the splash plan — painted from the seed the run uses');
+{
+  const html = fs.readFileSync(__dirname+'/index.html','utf8');
+  const css  = fs.readFileSync(__dirname+'/style.css','utf8');
+  const splashHtml = html.slice(html.indexOf('id="screen-splash"'), html.indexOf('id="screen-order"'));
+
+  /* --- markup: two layers plus the tape pass --- */
+  assert(/id="splash-plan"/.test(splashHtml),  'the splash has no plan canvas');
+  assert(/id="splash-plan-far"/.test(splashHtml), 'the parallax layer is missing from the splash');
+  assert(/splash-bands/.test(splashHtml) && /splash-track/.test(splashHtml),
+    'the tape pass over the plan is missing');
+
+  /* --- the roll has to loop: -50% of the canvas must be exactly one period
+         of the painting, or there is a seam travelling across the title. --- */
+  const roll = css.match(/@keyframes planroll\{[\s\S]*?translateX\(-50%\)/);
+  assert(roll, 'the plan does not roll, or does not end at -50% — the period is not the frame width');
+  assert(/\.splash-plan\s+canvas\{[^}]*animation:planroll/.test(css), 'the plan layer is not wired to the roll');
+  assert(/prefers-reduced-motion[\s\S]*\.splash-plan canvas[^{]*\{[^}]*animation:none/.test(css),
+    'the plan still rolls when the system asks for reduced motion');
+
+  /* --- it is faded. A plan at full strength is a tutorial. --- */
+  const op = css.match(/\.splash-plan\{[^}]*opacity:([\d.]+)/);
+  assert(op && Number(op[1])>0 && Number(op[1])<=0.15,
+    `the plan sits at opacity ${op?op[1]:'unset'} — it is supposed to be a hint, not a map`);
+
+  /* --- painting runs headless, and sizes itself so one period is one frame --- */
+  buildFloor(0, 4242);
+  const cv = els['splash-plan'], far = els['splash-plan-far'];
+  const before = calls.list.length;
+  A.paintSplashPlan();
+  assert(calls.list.length>before, 'paintSplashPlan drew nothing at all');
+  assert(cv.width === cv.clientWidth*2,
+    `the canvas is ${cv.width}px for a ${cv.clientWidth}px frame — the roll seam is not on a period boundary`);
+  assert(far.width === cv.width && far.height === cv.height,
+    'the parallax layer is not the same painting at a different speed');
+
+  /* --- the seed contract: nothing between seeing the plan and playing it may
+         re-roll the seed. This is the assertion that stops the splash from
+         quietly becoming a picture of a building you will never walk. --- */
+  const seedAtBoot = A.RUN_SEED;
+  document.getElementById('btn-start').click();
+  assert(A.RUN_SEED===seedAtBoot, 'clocking in re-rolled the seed — the splash was showing a different level');
+  assert(G.seed===A.RUN_SEED, 'the run was not built from the seed the splash was painted with');
+
+  /* ...but a finished run is entitled to a new building. */
+  A.rollRunSeed();
+  assert(A.RUN_SEED!==seedAtBoot, 'a new run kept the old seed — RUN IT AGAIN is the same building');
+  assert(G.seed===A.RUN_SEED, 'the re-rolled seed did not reach the level');
+  console.log(`  plan rolls at two speeds, faded to ${op?op[1]:'?'}, loops seamlessly, and matches seed #${(A.RUN_SEED>>>0).toString(16)}`);
 }
 
 reportTimings();

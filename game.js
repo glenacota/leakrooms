@@ -262,6 +262,7 @@ function resize(){
   cvs.width = Math.floor(VW * DPR);
   cvs.height = Math.floor(VH * DPR);
   SCALE = cvs.width / (VIEW_T * TILE);
+  if (G) paintSplashPlan();
 }
 window.addEventListener('resize', resize);
 
@@ -1075,7 +1076,7 @@ function genMaze(rng){
 /* ============================================================
    FLOOR STATE
    ============================================================ */
-let G;                       // everything below belongs to one floor
+let G = null;                // everything below belongs to one floor (null until the first buildFloor)
 let lightArr, lightCv, postCv;  // postCv = VHS composite scratch
 let lightImg, lightCtx;      // the packed lightmap, repacked as visArr fades
 let regionOf, regionAdj, regionCount;  // lit spaces and how they connect
@@ -3177,6 +3178,89 @@ function backSplash(){
   return false;                       // nothing behind splash 03: it is the first frame
 }
 
+/* ------------------------------------------------------------
+   THE PLAN ON THE SPLASH
+   The blueprint behind the title is the level the run is about to be built
+   from — the same G the player is seconds away from standing in, drawn from
+   the same RUN_SEED. It is faded to the point of being unreadable on purpose:
+   a splash that handed over a legible map would be a tutorial, and a tutorial
+   here would give away the only thing the player earns, which is finding the
+   risers by following water downhill.
+   ------------------------------------------------------------ */
+function paintSplashPlan(){
+  const cv = document.getElementById('splash-plan');
+  if (!cv || !G || !G.grid || !cv.getContext) return;
+  const far = document.getElementById('splash-plan-far');
+  const W = Math.max(320, Math.floor(cv.clientWidth  || VW || 1280));
+  const H = Math.max(240, Math.floor(cv.clientHeight || VH || 720));
+  /* One period of the painting has to be exactly the frame width, or the -50%
+     roll leaves a visible seam. Scaling by width does that for free, and the
+     plan is a cropped texture anyway — nobody sees the top and the bottom. */
+  const cell = W / MAP_W;
+  const pw = Math.ceil(W * 2), ph = Math.ceil(H);
+  for (const c of [cv, far]){
+    if (!c) continue;
+    c.width = pw; c.height = ph;
+  }
+  const ctx = cv.getContext('2d');
+  if (!ctx) return;
+  ctx.clearRect(0, 0, pw, ph);
+
+  const px = (v)=> Math.floor(v*cell);
+  for (let pass=0; pass<2; pass++){
+    const ox = pass*W;
+    /* The corridors are drawn and the walls are left empty, not the other way
+       round. A 76-wide BSP level is mostly wall, so filling the walls paints
+       large slabs and the splash turns into a checkerboard; lighting the walkable
+       tiles instead gives the thin lattice that reads as a plan. */
+    for (let y=0; y<MAP_W; y++) for (let x=0; x<MAP_W; x++){
+      if (G.grid[y*MAP_W+x] === FLOOR){
+        ctx.fillStyle = 'rgba(228,230,168,0.55)';
+        ctx.fillRect(ox+px(x), px(y), Math.ceil(cell), Math.ceil(cell));
+      }
+    }
+    /* the survey grid, one hairline every four tiles */
+    ctx.strokeStyle = 'rgba(228,230,168,0.16)';
+    ctx.lineWidth = 1;
+    for (let x=0; x<=MAP_W; x+=4){
+      ctx.beginPath(); ctx.moveTo(ox+px(x)+0.5, 0); ctx.lineTo(ox+px(x)+0.5, ph); ctx.stroke();
+    }
+    for (let y=0; y<=MAP_W; y+=4){
+      ctx.beginPath(); ctx.moveTo(ox, px(y)+0.5); ctx.lineTo(ox+W, px(y)+0.5); ctx.stroke();
+    }
+    /* the marks that are the run: the door you came in by, and every riser.
+       Water-blue, because water is the only hue in this place and these two
+       things are both water problems. */
+    ctx.fillStyle = 'rgba(143,196,204,1)';
+    const dz = Math.max(3, cell*0.34);
+    for (const L of (G.leaks || [])){
+      ctx.fillRect(ox+px(L.x+0.5)-dz/2, px(L.y+0.5)-dz/2, dz, dz);
+    }
+    const p = G.player;
+    if (p){
+      ctx.strokeStyle = 'rgba(143,196,204,0.9)';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(ox+px(p.x), px(p.y), Math.max(4, cell*1.1), 0, 6.284); ctx.stroke();
+    }
+  }
+  /* the far layer is the same painting, not a second generation of it */
+  if (far && far.getContext){
+    const f = far.getContext('2d');
+    if (f){ f.clearRect(0,0,pw,ph); f.drawImage(cv, 0, 0); }
+  }
+}
+
+/* A new run gets a new plan, and the splash is repainted to match even though
+   nobody is looking at it yet: the win screen's RUN IT AGAIN button leads back
+   through here, and a title screen showing the level you just finished would be
+   the sort of small mistake that makes a procedural game feel hand-authored in
+   the wrong direction. */
+function rollRunSeed(){
+  RUN_SEED = (Math.random()*1e9)|0;
+  buildFloor(0, RUN_SEED);
+  paintSplashPlan();
+}
+
 /* ============================================================
    FLOW
    ============================================================ */
@@ -4106,7 +4190,10 @@ function setPrompt(){
 document.getElementById('btn-start').onclick = ()=>{
   Audio_.init();
   Audio_.unlock();
-  RUN_SEED = (Math.random()*1e9)|0;
+  /* The seed is NOT rolled here. It was rolled before the splash was painted,
+     because the plan behind the title has to be the level the player is about
+     to walk — re-rolling at the moment of entry would make the splash a lie
+     and nothing else. A finished run rolls its own; see rollRunSeed(). */
   runLives = (DIFFICULTIES[SETTINGS.difficulty] || DIFFICULTIES.normal).lives;
   lives = runLives; floorIdx=0; runTime=0;
   renderLives();
@@ -4134,6 +4221,7 @@ document.getElementById('btn-retry').onclick = ()=>{
   syncAmbience();
 };
 document.getElementById('btn-again').onclick = ()=>{
+  rollRunSeed();                 // a new run deserves a new building
   document.getElementById('btn-start').click();
 };
 
@@ -4188,5 +4276,9 @@ fpsEl.id = 'fps';
 /* Guarded: a decorative readout is not worth a boot failure in any embed that
    has not got a body yet. The counter simply does not appear. */
 if (document.body) document.body.appendChild(fpsEl);
-buildFloor(0, 12345);
+/* The splash plan is the level the first run is built from, so the boot floor
+   is built from RUN_SEED instead of a throwaway constant: painting it is then
+   a copy of what already exists rather than a second generation of the maze. */
+buildFloor(0, RUN_SEED);
+paintSplashPlan();
 requestAnimationFrame(frame);

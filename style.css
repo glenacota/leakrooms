@@ -343,10 +343,39 @@ button.ghost:hover{ background:rgba(228,230,168,.10); color:var(--yellow); }
 #flashnote.on{ opacity:1; }
 
 /* ------------------------------------------------------------
-   SPLASH 03 — RISER
-   Title on black, water climbing the frame. The flood that ends
-   the run is on screen before the run starts.
+   SPLASH 01
    ------------------------------------------------------------ */
+.splash-plan{
+  position:absolute; left:0; top:0; width:100%; height:100%; z-index:0;
+  overflow:hidden; pointer-events:none; opacity:.085;
+  -webkit-mask-image:linear-gradient(180deg,rgba(0,0,0,.35) 0%,#000 26%,#000 74%,rgba(0,0,0,.35) 100%);
+          mask-image:linear-gradient(180deg,rgba(0,0,0,.35) 0%,#000 26%,#000 74%,rgba(0,0,0,.35) 100%);
+}
+.splash-plan.far{ opacity:.03; filter:blur(2px); }
+.splash-plan canvas{ display:block; width:200%; height:100%; }
+.splash-plan       canvas{ animation:planroll 96s linear infinite; }
+.splash-plan.far   canvas{ animation:planroll 61s linear infinite; }
+/* -50% is exactly one period of the painting (game.js sizes the canvas so one
+   copy of the plan spans the frame), so the loop has no seam. */
+@keyframes planroll{ from{ transform:translateX(0); } to{ transform:translateX(-50%); } }
+
+.splash-bands{
+  position:absolute; inset:0; z-index:1; pointer-events:none; opacity:.45;
+  background:repeating-linear-gradient(180deg,rgba(0,0,0,0) 0 5px,rgba(0,0,0,.55) 5px 7px);
+}
+.splash-track{
+  position:absolute; inset:0; z-index:1; pointer-events:none;
+  background:repeating-linear-gradient(180deg,rgba(228,230,168,.045) 0 2px,transparent 2px 9px);
+  animation:splashjit 7.5s steps(1) infinite;
+}
+@keyframes splashjit{
+  0%,95.9%{ transform:none; }
+  96%{ transform:translateX(4px); }
+  97%{ transform:translateX(-6px); }
+  98%{ transform:translateX(2px); }
+  99%{ transform:translateX(-2px); }
+}
+
 .screen.splash{
   background:#07060a;
   backdrop-filter:none;
@@ -357,8 +386,7 @@ button.ghost:hover{ background:rgba(228,230,168,.10); color:var(--yellow); }
   background:linear-gradient(180deg,#8fc4cc 0 3px,#3c5a60 4px 55%,#1d2f34 100%);
   animation:rise 9s cubic-bezier(.2,.7,.3,1) infinite alternate;
 }
-/* Surface ripple: one gradient stripe, offset. Same trick as the flood
-   gauge staying the only blue in the shell — water is the only hue. */
+
 .splash-water::before{
   content:""; position:absolute; left:-50%; top:-3px; width:200%; height:6px;
   background:repeating-linear-gradient(90deg,#8fc4cc 0 18px,transparent 18px 36px);
@@ -383,26 +411,22 @@ button.ghost:hover{ background:rgba(228,230,168,.10); color:var(--yellow); }
   margin:0 0 12px;
   text-indent:.26em;                 /* letter-spacing trails the last glyph; this re-centres the word */
   text-shadow:0 0 26px rgba(228,230,168,.28);
+  font-weight: 900;
 }
 .splash-plate .go{
-  margin:34px 0 0; font-size:14px; letter-spacing:.3em;
+  margin:34px 0 0; font-size:14px; letter-spacing:.3em; font-weight: 900;
   animation:pulse 2.2s ease-in-out infinite;
 }
 .splash-plate .go b{ color:var(--ink); background:var(--yellow); padding:2px 8px; font-weight:400; }
 @keyframes pulse{ 50%{ opacity:.35 } }
 
 /* ------------------------------------------------------------
-   SPLASH 04 — WORK ORDER 88-D
-   The controls list is the reason this screen exists, so it is the
-   largest thing on it. Everything else supports it.
+   SPLASH 02 — Backstory, controls list
    ------------------------------------------------------------ */
 .order-wrap{
   width:min(94vw,960px);
   display:flex; flex-direction:column; align-items:center; gap:18px;
 }
-/* The world behind the ticket is lit and busy, so this one screen runs a
-   touch more opaque than the other modals — paper on a bright window is
-   just hard to read. */
 #screen-order{ background:rgba(6,5,3,.95); }
 .order{
   width:100%;
@@ -429,19 +453,19 @@ button.ghost:hover{ background:rgba(228,230,168,.10); color:var(--yellow); }
 .order-body{ padding:22px 26px 20px; text-align:left; }
 .order-head{ border-bottom:1px solid rgba(228,230,168,.2); padding-bottom:12px; margin-bottom:14px; }
 .order-head h2{
-  font-size:26px; letter-spacing:.22em; font-weight:400; margin:0;
+  font-size:34px; letter-spacing:.22em; font-weight:400; margin:0;
   text-shadow:2px 0 0 rgba(216,80,60,.45), -2px 0 0 rgba(80,150,216,.3);
 }
 .order-head .meta{
-  margin:8px 0 0; font-size:12px; letter-spacing:.18em; color:var(--yellow-deep);
+  margin:8px 0 0; font-size:15px; letter-spacing:.18em; color:var(--yellow-deep); font-weight: 900;
 }
-.order-head .meta b{ color:#8fc4cc; font-weight:400; }
+.order-head .meta b{ color:#8fc4cc; }
 
 .order .field{ margin:12px 0; }
 .order .field span{
-  display:block; font-size:11px; letter-spacing:.22em; color:var(--yellow-deep); margin-bottom:4px;
+  display:block; font-size:12px; font-weight: 900; line-height:2; letter-spacing:.22em; margin-bottom:4px; color:var(--yellow);
 }
-.order .field b{ font-size:16px; line-height:1.5; font-weight:400; color:var(--yellow); }
+.order .field b{ font-size:15px; line-height:1.5; font-weight:400; color:var(--yellow-dim); }
 
 /* Controls: the payload of the screen. */
 .controls-big{ margin:18px 0 4px; font-size:15px; letter-spacing:.06em; }
@@ -454,7 +478,7 @@ button.ghost:hover{ background:rgba(228,230,168,.10); color:var(--yellow); }
 
 .order .notes{ margin:8px 0 0; padding:0; list-style:none; }
 .order .notes li{
-  font-size:14px; line-height:1.6; color:var(--yellow-dim); padding-left:18px; position:relative;
+  font-size:15px; line-height:1.6; color:var(--yellow-dim); padding-left:18px; position:relative;
 }
 .order .notes li::before{ content:"\2610"; position:absolute; left:0; color:var(--yellow-deep); }
 .order .notes b{ color:var(--yellow); font-weight:400; }
@@ -605,4 +629,7 @@ button:active{ transform:translateY(1px); }
 @media (prefers-reduced-motion:reduce){
   .splash-water,.splash-water::before,.splash-drip,.splash-plate .go{ animation:none; }
   .splash-water{ height:26%; }
+  /* The plan stops rolling but stays painted: the map is information about
+     the run, and removing it would change what the screen says. */
+  .splash-plan canvas,.splash-track{ animation:none; }
 }

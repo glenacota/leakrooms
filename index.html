@@ -82,41 +82,44 @@
 
   <!-- ============ SCREENS ============ -->
 
-  <!-- ---- SPLASH 03 — RISER ----------------------------------------
-       Opaque on purpose: the world behind is a floor the player has not
-       entered yet, and the frame is meant to read as a title, not a pause. -->
+  /* ------------------------------------------------------------
+   SPLASH 01
+   ------------------------------------------------------------ */
   <div id="screen-splash" class="screen splash">
+    <div class="splash-plan"><canvas id="splash-plan"></canvas></div>
+    <div class="splash-plan far"><canvas id="splash-plan-far"></canvas></div>
+    <div class="splash-bands"></div>
+    <div class="splash-track"></div>
     <div class="splash-drip"></div>
     <div class="splash-water"></div>
     <div class="splash-plate">
       <h1>LEAKROOMS</h1>
-      <p class="go">PRESS <b>ENTER</b> TO NOCLIP</p>
+      <p class="go">PRESS <b>ANY KEY</b> TO NOCLIP</p>
     </div>
   </div>
 
-  <!-- ---- SPLASH 04 — WORK ORDER 88-D ------------------------------
-       Type here is sized to be read from a chair, not scanned: the old
-       title screen was a 12px wall of lore that everyone skipped. -->
+  /* ------------------------------------------------------------
+   SPLASH 02 — Backstory, controls list
+   ------------------------------------------------------------ */
   <div id="screen-order" class="screen hidden">
     <div class="order-wrap">
       <div class="order perf">
         <div class="order-body">
           <div class="order-head">
             <h2>WORK ORDER 88-D</h2>
-            <p class="meta">ISSUE 03-14-26 &nbsp;&middot;&nbsp; PRIORITY <b>FLOODING</b> &nbsp;&middot;&nbsp; SHIFT NIGHT</p>
+            <p class="meta">PRIORITY: <b>FLOODING</b> &nbsp;&middot;&nbsp; SHIFT: NIGHT</p>
           </div>
 
-          <div class="field"><span>LOCATION</span><b>Sub-Level Maintenance &mdash; Threshold, Sector 4 (non-Euclidean)</b></div>
-          <div class="field"><span>SCOPE OF WORK</span><b>Seal every riser on the level. Get back through the door you came in by. You have three minutes.</b></div>
+          <div class="field"><span>LOCATION</span><b>Sub-Level Maintenance &mdash; Threshold, Sector 4.</b></div>
+          <div class="field"><span>SCOPE OF WORK</span><b>Seal every leak on the Sector. Get back through the Threshold you came in by. You have three minutes.</b></div>
 
-          <div class="field"><span>NOTES FROM THE LAST MAN WHO WENT IN</span></div>
+          <div class="field"><span>NOTES FROM THE LAST REPARATIONS</span></div>
           <ul class="notes">
-            <li>The radar does not know plumbing. <b>The wet floor does</b> &mdash; water runs downhill away from the break.</li>
-            <li>There is more than one break up there. <b>Seal all of them</b> &mdash; the door does not cycle for a wet floor.</li>
-            <li>Follow it back to the wall, then <b>stand still at the pipe for five seconds to bang it back to normal</b>. It is the loudest thing you will do.</li>
-            <li>The door is <b>behind you</b>. It will still be behind you when you come back for it.</li>
-            <li>Copper carries sound. Do not sprint near the lifeforms.</li>
-            <li>If you hear breathing, run first and ask later.</li>
+            <li><b>Follow the wet floor to find the leak.</b></li>
+            <li><b>Stand in front of the leak to fix it.</b> It takes only 5 seconds.</li>
+            <li><b>You must return through the same Threshold you entered.</b> It won’t reopen until every leak is fixed. Too dangerous with water around - they say.</li>
+            <li><b>Lifeforms are roaming in the Sector.</b> They hunt by sound. Running attracts them. Water makes it worse. Fixing pipes is loudest.</li>
+            <li>If you hear breathing, run first. Ask questions later.</li>
           </ul>
 
           <div class="controls controls-big">
