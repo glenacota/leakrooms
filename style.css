@@ -81,21 +81,10 @@ body{ display:flex; align-items:center; justify-content:center; }
   display:flex;
   flex-direction:column;
   align-items:center;
-  padding:14px 0 12px;
+  padding:14px 14px 14px 0;
   gap:2rem;
-  /* The plate fades AWAY from the window edge and toward the play area, and the
-     rule is on the edge that faces the play area.
-
-     Both of these were left pointing the other way when the column moved from
-     the right edge to the left, and it is worth being explicit about why they
-     matter rather than cosmetic: with a 270deg gradient on a LEFT-hand column
-     the plate is transparent at the window edge and opaque in the middle, so the
-     world stops being readable about 130px before it is actually covered — you
-     cannot tell where the blind spot begins. And border-left on a left-hand
-     column puts the only crisp edge against the window bezel, where it
-     separates nothing. 90deg + border-right puts both where they do work. */
-  background:linear-gradient(90deg, rgba(7,6,3,.97) 0%, rgba(7,6,3,.93) 82%, rgba(7,6,3,0) 100%);
-  border-right:2px solid var(--yellow-deep);
+  background:linear-gradient(90deg, rgba(7,6,3,.97) 0%, rgba(7,6,3,.93) 90%, rgba(7,6,3,0) 100%);
+  /* border-right:2px solid var(--yellow-deep); */
 }
 
 /* The rules between groups. 70% width and centred, per the proposal — a full
