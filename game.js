@@ -3275,11 +3275,14 @@ let lives = 3, floorIdx = 0, runTime = 0;
    version maps over [0,1,2], so RELAXED would render five pips with the fifth
    always spent and BRUTAL would render three for a one-life run. */
 let runLives = 3;
+function livesHTML(){
+  return Array.from({length:Math.max(1,runLives)},
+    (_,i)=> `<span class="${i<lives?'':'gone'}">&#9679;</span>`).join('');
+}
 function renderLives(){
   const el = document.getElementById('val-lives');
   if (!el) return;
-  el.innerHTML = Array.from({length:Math.max(1,runLives)},
-    (_,i)=> `<span class="${i<lives?'':'gone'}">&#9679;</span>`).join('');
+  el.innerHTML = livesHTML();
 }
 
 function nextFloor(){
@@ -4189,7 +4192,6 @@ const SEGMENTS = {
   difficulty: () => Object.keys(DIFFICULTIES).map(k => [k, DIFFICULTIES[k].label]),
   waterHue:   () => [['slate','SLATE'],['teal','TEAL'],['violet','VIOLET'],['grey','GREY']],
 };
-const DIFFICULTY_KEYS = {};
 
 function buildSettingsUI(){
   /* Settings are only reachable from the pause screen now, so BACK always has
@@ -4247,8 +4249,7 @@ function togglePause(){
     set('pause-clock',   clockText(G.clock));
     set('pause-risers',  `${sealed}/${G.risers}`);
     set('pause-batt',    String(Math.ceil(G.batt)));
-    set('pause-lives',   Array.from({length:Math.max(1,runLives)},
-                        (_,i)=> `<span class="${i<lives?'':'gone'}">&#9679;</span>`).join(''));
+    set('pause-lives', livesHTML());
     set('pause-seed',    '#88D-' + (RUN_SEED>>>0).toString(16).toUpperCase().slice(-4));
 
     set('pause-scope', G.leaksOpen===0
@@ -4304,8 +4305,7 @@ function updateHUD(){
   HUD.clockWrap.classList.toggle('low',     G.clock <= 30);
   HUD.clockWrap.classList.toggle('critical', G.clock <= 10);
   HUD.vDepth.textContent = `${G.floor+1}/${FLOORS}`;
-  HUD.vLives.innerHTML = Array.from({length:Math.max(1,runLives)},
-    (_,i)=>`<span class="${i<lives?'':'gone'}">&#9679;</span>`).join('');
+  HUD.vLives.innerHTML = livesHTML();
 }
 
 function setPrompt(){
