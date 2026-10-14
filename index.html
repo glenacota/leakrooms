@@ -9,7 +9,18 @@
 <body>
 
 <div id="crt">
-  <canvas id="game"></canvas>
+  <!-- ============ STAGE ============
+       The play area. The canvas fills this box and nothing else, so the map is
+       never drawn under the instrument panel: the camera, the ambient bake, the
+       visibility mask and the vignette all size off this box, so what you can
+       see is exactly what the game renders. The prompt and the flash note live
+       in here too, because they are centred on the MAP — outside this box they
+       would centre on the window and sit a third of a tile off the player. -->
+  <div id="stage">
+    <canvas id="game"></canvas>
+    <div id="prompt"></div>
+    <div id="flashnote"></div>
+  </div>
 
   <!-- ============ HUD ============
        Option 06: one full-height column on the right edge. Every stat gets the
@@ -17,10 +28,11 @@
        instrument can be scanned top to bottom in one sweep — which is the
        actual argument for this layout over the two clusters it replaces.
 
-       It is an OVERLAY, not a reservation: the canvas is the whole window and
-       this sits on top of it. The sidebar is opaque, so the world does not show
-       through it, but nothing about the game's camera or level dimensions knows
-       it exists.
+       It is NOT an overlay: the canvas lives in #stage, a flex sibling of this
+       column, so the panel and the play area cannot overlap. It used to be one
+       — the canvas was the whole window with this painted on top of it — and
+       the cost was a strip of live viewport that was rendered, lit, tracked by
+       the visibility mask and never seen, on the side things approach from.
 
        BATTERY, NOISE and FLOOD are the three continuous readings and they get
        bars — a bar is read in one glance where a number has to be parsed. The
@@ -76,9 +88,6 @@
 
     </div>
   </div>
-
-  <div id="prompt"></div>
-  <div id="flashnote"></div>
 
   <!-- ============ SCREENS ============ -->
 

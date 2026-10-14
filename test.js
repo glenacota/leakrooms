@@ -3226,7 +3226,7 @@ console.log('[24] the sidebar HUD — one column, bars where bars fit');
 {
   const html = fs.readFileSync(__dirname+'/index.html',  'utf8');
   const css  = fs.readFileSync(__dirname+'/style.css',   'utf8');
-  const hudHtml = html.slice(html.indexOf('<div id="hud">'), html.indexOf('id="prompt"'));
+  const hudHtml = html.slice(html.indexOf('<div id="hud">'), html.indexOf('<!-- ============ SCREENS'));
 
   /* --- one column, not two clusters --------------------------------- */
   assert(/class="hud-side"/.test(hudHtml), 'the HUD has no .hud-side column');
@@ -3238,57 +3238,73 @@ console.log('[24] the sidebar HUD — one column, bars where bars fit');
   assert((hudHtml.match(/class="hud-div"/g)||[]).length === 3,
     'the column is not divided into its four groups');
 
-  /* --- the column is pinned to ONE EDGE, full height ------------------
-     WHICH edge is deliberately not asserted. It used to say "right", and when
-     the column moved left that assertion failed and told you nothing except that
-     the author had changed his mind — which is exactly what a test should never
-     report as a defect. What has to hold is the SHAPE: one edge, top to bottom.
-     An inset that pins only the top is a panel floating in a corner.
+  /* --- the play area STARTS where the panel ends --------------------
+     It used to be asserted the other way round: the test pinned the HUD to one
+     window edge and forbade the canvas from reserving any width for it. That is
+     the overlay, and the overlay is the bug — the canvas sizes the camera, the
+     ambient bake and the visibility mask to itself, so a panel painted over it
+     renders a lit, scoped, masked strip of the world the player never sees, on
+     the side things approach from.
 
-     So the edge is read out of the stylesheet and then everything else is
-     checked relative to it. That also buys a real assertion for free — the
-     plate's rule and its fade have to point at the play area, and that is only
-     checkable if you know which edge the column is on. */
+     What holds now is not an EDGE but a RELATIONSHIP: the canvas is boxed by
+     #stage, and #stage is inset by the panel's width. Which side it sits on is
+     still not asserted — a test that fails because the author changed his mind
+     is a test reporting its own history. */
   const hudRule = css.match(/#hud\s*\{([^}]*)\}/);
   assert(hudRule, 'no #hud rule');
-  const inset = ((hudRule[1].match(/inset\s*:\s*([^;]+)/)||[])[1]||'').trim().replace(/\s+/g,' ');
-  const onLeft  = /^0\s+auto\s+0\s+0$/.test(inset);
-  const onRight = /^0\s+0\s+0\s+auto$/.test(inset);
-  assert(onLeft || onRight,
-    `#hud is not pinned to one edge full-height (inset: ${inset}) — a sidebar needs an edge to sit on and the full height`);
   assert(/--side-w/.test(hudRule[1]), '#hud has no width — a sidebar needs one');
   assert(/z-index/.test(hudRule[1]),
     '#hud has no stacking level — anything painted later covers it silently');
   assert(/pointer-events\s*:\s*none/.test(hudRule[1]),
     '#hud swallows clicks — the game underneath must still be playable');
 
-  /* --- and the plate presents itself to the PLAY area, not the bezel ---
-     Both halves of this were left pointing the wrong way when the column moved
-     from the right edge to the left, and neither is merely cosmetic:
+  /* the column is pinned to ONE edge, and the stage is cut back by its width.
+     The two must agree on the same number: if they disagree, the panel either
+     covers the map again or leaves a dead strip of black beside it. */
+  const inset = ((hudRule[1].match(/inset\s*:\s*([^;]+)/)||[])[1]||'').trim().replace(/\s+/g,' ');
+  const onLeft  = /^0\s+auto\s+0\s+0$/.test(inset);
+  const onRight = /^0\s+0\s+0\s+auto$/.test(inset);
+  assert(onLeft || onRight,
+    `#hud is not pinned to one edge full-height (inset: ${inset}) — a sidebar needs an edge to sit on and the full height`);
 
-       - a gradient that fades to transparent AT THE WINDOW EDGE and stays
-         opaque in the middle means the world stops being readable ~130px before
-         it is actually covered. You cannot tell where the blind spot starts,
-         which is the specific thing an opaque overlay is supposed to guarantee.
-       - a border on the window side separates nothing. The one crisp edge has
-         to be the edge the player is reading against. */
+  const stageRule = css.match(/#stage\s*\{([^}]*)\}/);
+  assert(stageRule, 'no #stage rule — the canvas has no play area to live in and is back under the panel');
+  const stageLeft  = ((stageRule[1].match(/left\s*:\s*([^;]+)/)||[])[1]||'').trim();
+  const stageRight = ((stageRule[1].match(/right\s*:\s*([^;]+)/)||[])[1]||'').trim();
+  if (onLeft) assert(stageLeft.includes('--side-w'),
+    '#stage does not start at --side-w — the panel is painted over the map again');
+  else       assert(stageRight.includes('--side-w'),
+    '#stage does not end at --side-w — the panel is painted over the map again');
+  assert(/position\s*:\s*absolute/.test(stageRule[1]),
+    '#stage is not absolutely positioned — it would sit in flow and the canvas below it would still span the window');
+
+  /* --- and the canvas is INSIDE the stage ----------------------------
+     A stage that does not contain the canvas, or a canvas left on the window
+     root, puts the map back under the panel one level up. */
+  assert(/<div id="stage">[\s\S]*?<canvas id="game">/.test(html),
+    'the canvas is not inside #stage');
+  assert(/#game\s*\{[^}]*inset\s*:\s*0/.test(css),
+    '#game is not filling #stage — it is sized against the window instead');
+
+  /* --- and the map-relative text is centred on the MAP --------------
+     #prompt and #flashnote are positioned left:0; right:0. Outside #stage they
+     centre on the window, which is a whole panel wider than the play area on
+     the left — both would sit visibly off the player they are describing. */
+  const stageEnd = html.indexOf('<!-- ============ SCREENS');
+  const stage = html.slice(html.indexOf('<div id="stage">'), stageEnd);
+  assert(stage.includes('id="prompt"'), '#prompt is not inside #stage — it centres on the window, not the map');
+  assert(stage.includes('id="flashnote"'), '#flashnote is not inside #stage — it centres on the window, not the map');
+
+  /* --- the plate presents itself to the PLAY area, not the bezel -----
+     With the map no longer behind it the fade runs into the black edge of the
+     tube rather than over live geometry, so it is a bezel treatment rather
+     than a readability one — but it must still point at the play area, which
+     is the side the player reads against. */
   const sideRule = css.match(/\.hud-side\s*\{([^}]*)\}/);
   assert(sideRule, 'no .hud-side rule');
-  const wantBorder = onLeft ? 'border-right' : 'border-left';
-  const wantDeg    = onLeft ? '90deg'    : '270deg';
+  const wantDeg = onLeft ? '90deg' : '270deg';
   assert(new RegExp('linear-gradient\\(\\s*'+wantDeg).test(sideRule[1]),
-    `.hud-side does not fade with ${wantDeg} — on the ${onLeft?'left':'right'} that means solid at the window edge and fading out over the play area, so the boundary of the blind spot is where it looks like it is`);
-
-  /* --- and it does NOT reserve canvas -------------------------------
-     This is the assertion that would have caught the old 150px sidebar, and it
-     is a genuine gameplay bug rather than a style one: reserved canvas is play
-     area you cannot see or be seen in, on the side things approach from. */
-  const gameRule = css.match(/#game\s*\{([^}]*)\}/);
-  assert(gameRule, 'no #game rule');
-  assert(!/right\s*:\s*\d+px/.test(gameRule[1]),
-    '#game reserves a pixel strip of play area for the HUD');
-  assert(/inset\s*:\s*0/.test(gameRule[1]) || /width\s*:\s*100%/.test(gameRule[1]),
-    '#game is not the whole window');
+    `.hud-side does not fade with ${wantDeg} — on the ${onLeft?'left':'right'} that means solid at the window edge and fading out over the play area`);
 
   /* --- bars on battery, noise and flood, and ONLY those three --------
      Over-collecting is a real failure here, not pedantry: a bar under a count

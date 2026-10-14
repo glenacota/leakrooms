@@ -49,6 +49,23 @@ body{ display:flex; align-items:center; justify-content:center; }
   background:#000;
 }
 
+/* The play area: everything the game draws, and everything the player can see.
+   It starts where the instrument panel ends. The canvas sizes the camera, the
+   ambient bake, the visibility mask and the vignette to ITSELF, so a panel
+   painted over it is not a cosmetic overlap — it is a strip of the world that
+   gets rendered, lit, scoped and masked, and then never shown.
+
+   Absolute rather than a flex sibling of the panel: the panel's width is a
+   media-query variable, so the two boxes have to agree on one number, and a
+   flex row that resolves against a stale --side-w collapses the play area to
+   nothing instead of falling back to something playable. */
+#stage{
+  position:absolute;
+  top:0; right:0; bottom:0;
+  left:var(--side-w);
+  overflow:hidden;
+}
+
 #game{
   position:absolute;
   inset:0;
@@ -61,7 +78,8 @@ body{ display:flex; align-items:center; justify-content:center; }
    ------------------------------------------------------------ */
 #hud{
   position:absolute;
-  inset:0 auto 0 0;          /* LEFT edge, full height */
+  inset:0 auto 0 0;          /* LEFT edge, full height, over the strip #stage
+                               does not cover */
   width:var(--side-w);
   min-width: var(--side-w);
   z-index:5;                 /* its own stacking level, so nothing painted
