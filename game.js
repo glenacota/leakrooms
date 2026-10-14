@@ -3966,6 +3966,15 @@ function drawStalker(g, S) {
   g.fillStyle = `rgba(228,230,168,${0.10 + 0.05 * Math.sin(t * 0.004)})`;
   g.beginPath(); g.ellipse(-T * 0.045, -HGT * 0.75, T * 0.045, T * 0.017, -0.5, 0, TAU); g.fill();
   g.beginPath(); g.ellipse(T * 0.055, -HGT * 0.86, T * 0.035, T * 0.014, -0.4, 0, TAU); g.fill();
+  g.restore();   // the body pitch
+
+  /* Pop the save() at the top of this function. Without it the Stalker leaks
+     one canvas state per frame, and because the states are LIFO the damage is
+     not confined to itself: drawAgent's two restores then pop the WRONG pair,
+     so its floor clip survives past drawAgent and the player — drawn after it
+     in the y-sort — is clipped to the five tiles around the Stalker. The
+     Rigger therefore vanished whenever a Lifeform happened to sort north of
+     it, which is every frame in the bottom half of a floor. */
   g.restore();
   g.globalAlpha = 1;
 }

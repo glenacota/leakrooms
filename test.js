@@ -3866,6 +3866,59 @@ console.log('[28] the cast — the Rigger walks, the Stalker does not grow');
   console.log('  and both survive a real update + render');
 }
 
+/* ============ TEST 29: the canvas state stack survives a frame ============
+   The Rigger used to vanish whenever a Lifeform sorted north of it, which is
+   most frames in the bottom half of a floor. Cause: drawStalker pushed two
+   canvas states and popped one, so drawAgent's two restores popped the wrong
+   pair and its FLOOR CLIP stayed live for the rest of the frame — the player,
+   drawn after it in the y-sort, was clipped to the five tiles around the
+   Stalker. Nothing about the player changed; everything after the agent did.
+
+   Asserted on the real render(), against the real stub context: no save may
+   outlive the frame, and no clip may be live while the player is drawn. */
+console.log('[29] canvas state — nothing outlives the frame that opened it');
+{
+  const c = A.ctxRef;
+  const realSave = c.save, realRestore = c.restore, realClip = c.clip;
+  /* A clip belongs to the state saved by the save() before it, so the model is
+     a stack of clip depths — a counter cannot tell "one clip under three saves"
+     from "one clip, un-released". */
+  let depth = 0, clips = [], clipWhenPlayerDrawn = null;
+  const liveClips = ()=> clips.length ? clips[clips.length-1] : 0;
+  c.save  = function(){ depth++; clips.push(liveClips()); return realSave.call(c); };
+  c.clip  = function(){ clips[clips.length-1]++; return realClip.call(c); };
+  c.restore = function(){ depth--; clips.pop(); return realRestore.call(c); };
+  try {
+    buildFloor(0, 4242);
+    A.STATE = 'play';
+    /* An agent NORTH of the player is the exact y-sort order that triggered it:
+       the clip is opened first and the Rigger is drawn inside it. */
+    const p = G.player;
+    G.agents.length = 0;
+    G.agents[0] = { x:p.x, y:p.y-4, rise:1, face:0, state:'WALK', born:1, huntT:0,
+                     searchT:0, target:null, path:[], stuck:0, ripT:0 };
+    update(0.016);
+
+    const realDrawPlayer = ctxObj.drawPlayer;
+    ctxObj.drawPlayer = function(pp, t){ clipWhenPlayerDrawn = liveClips(); return realDrawPlayer(pp, t); };
+    render(1000);
+    ctxObj.drawPlayer = realDrawPlayer;
+
+    assert(depth === 0, `render() finished ${depth} canvas state(s) deep — something saved without restoring`);
+    assert(liveClips() === 0, `${liveClips()} clip(s) survived the frame`);
+    assert(clipWhenPlayerDrawn === 0,
+      `the player was drawn with ${clipWhenPlayerDrawn} clip(s) live — something earlier in the frame never released its clip`);
+
+    /* and it does not accumulate: twenty frames leave the stack where it was */
+    for (let i=0;i<20;i++){ update(0.016); render(2000+i*16); }
+    assert(depth === 0, `after twenty frames the stack is ${depth} deep — the leak compounds`);
+  } finally {
+    c.save = realSave; c.restore = realRestore; c.clip = realClip;
+  }
+  console.log('  every save in a frame is popped in that frame');
+  console.log('  and nothing is clipped when the player is drawn');
+}
+
 reportTimings();
 console.log('\n' + (fail? `\n${fail} FAILURE(S)\n` : 'ALL TESTS PASSED\n'));
 process.exit(fail?1:0);
