@@ -2830,31 +2830,37 @@ window.addEventListener('keyup', e=>{
   keys[k] = false;
 });
 
-function update(dt){
-  const p = G.player;
+/* --- THE CLOCK ---
+   Runs before everything, and it is the only thing on this level that cannot
+   be argued with. It does not stop while you wrench, it does not stop while
+   something is standing over you, and it does not reset because you sealed a
+   pipe. Three minutes to find the work, do the work, and walk all the way back
+   to the door you came in through — and every second of it is spent on the
+   return trip, which is why the return trip is the part the level is about.
+
+   The last thirty seconds are announced once, loudly, because a clock that is
+   only ever visible in a corner of the HUD is a clock most players will watch
+   the ceiling instead.
+
+   Returns false when the clock has run out: the level is over and the caller
+   must stop the frame there, exactly as it did when this code sat inline. */
+function tickClock(dt){
   G.time += dt;
   G.noise = Math.max(0, G.noise - dt*1.55);
 
-  /* --- THE CLOCK ---
-     Runs before everything, and it is the only thing on this level that cannot
-     be argued with. It does not stop while you wrench, it does not stop while
-     something is standing over you, and it does not reset because you sealed a
-     pipe. Three minutes to find the work, do the work, and walk all the way back
-     to the door you came in through — and every second of it is spent on the
-     return trip, which is why the return trip is the part the level is about.
-
-     The last thirty seconds are announced once, loudly, because a clock that is
-     only ever visible in a corner of the HUD is a clock most players will watch
-     the ceiling instead. */
   G.clock = Math.max(0, G.clock - dt);
-  if (G.clock <= 0){ outOfTime(); return; }
+  if (G.clock <= 0){ outOfTime(); return false; }
   if (G.clock <= 30 && !G.clockAnnounced){
     G.clockAnnounced = true;
     flash('THIRTY SECONDS \u2014 THE WATER IS AT YOUR FEET');
     Audio_.sting();
   }
+  return true;
+}
 
-  /* --- battery --- */
+/* --- battery --- */
+function tickBattery(dt){
+  const p = G.player;
   if (G.radar){
     G.batt -= RADAR_DRAIN*dt;
     if (G.batt<=0){ G.batt=0; G.radar=false; flash('NO POWER — THE RADAR IS DEAD'); }
@@ -2863,8 +2869,14 @@ function update(dt){
     if (b.taken) continue;
     if (Math.hypot(b.x-p.x,b.y-p.y)<0.85){ b.taken=true; G.batt=Math.min(BATT_MAX,G.batt+50); flash('+50 BATTERY'); }
   }
+}
 
-  /* --- movement --- */
+/* --- movement ---
+   Returns the frame's movement facts for the stages that run after it:
+   whether the player moved, bumped, is sprinting, and how wet the tile they
+   ENDED the frame on is. */
+function tickMovement(dt){
+  const p = G.player;
   let ix=0, iy=0;
   if (keys['a']||keys['arrowleft'])  ix--;
   if (keys['d']||keys['arrowright']) ix++;
@@ -2875,10 +2887,10 @@ function update(dt){
      not after: sampling after would use last frame's tile at the boundary,
      which reads as the speed changing a step after you leave the water rather
      than as you entering it. */
-  const wet = wetAt(p.x, p.y);
+  const preWet = wetAt(p.x, p.y);
 
   const sprinting = keys['shift'] && (ix||iy);
-  const wade = wet > 0.25 ? 0.80 : 1;          // knee-deep costs you a fifth
+  const wade = preWet > 0.25 ? 0.80 : 1;       // knee-deep costs you a fifth
   const spd = (sprinting ? SPRINT : WALK) * wade;
   let moving=false, bumped=false;
 
@@ -2893,63 +2905,46 @@ function update(dt){
     if (!moving && (ix!==0||iy!==0)) bumped=true;   // walked into a partition
   }
 
+  /* Wet at the position the frame ENDS on. This is the sample G.wet carries and
+     the one the stages after movement should read: the tile you are standing
+     in now, not the tile you left. The wading speed above deliberately still
+     uses preWet — the two answers are different questions. */
+  const wet = wetAt(p.x, p.y);
+
   /* Wet walking is also louder than dry walking. It stays under LOUD on purpose
      — wet boots must not wake anything, or following the water would be
      strictly worse than sweeping, and the trail has to be the cheap option or
      nobody follows it at all. */
   if (moving){
-    const inWater = wet > 0.25;
+    const inWater = preWet > 0.25;
     sustainedNoise(sprinting ? 1.0 : (inWater ? 0.30 : 0.22), p.x, p.y);
     p.stepT -= dt;
     if (p.stepT<=0){
       p.stepT = sprinting ? 0.26 : 0.46;
       p.stepDur = p.stepT;
-      if (inWater) Audio_.splash(sprinting?1:0.5, wet); else Audio_.step(sprinting?1:0.5);
+      if (inWater) Audio_.splash(sprinting?1:0.5, preWet); else Audio_.step(sprinting?1:0.5);
     }
     p.moving = moving;
     /* Waking pushes a ripple ahead of you. It is a readable trace of where you
        have been, which is a second cue on top of the noise you already made. */
-    if (wet > 0.3){
+    if (preWet > 0.3){
       p.rippleT = (p.rippleT||0) - dt;
-      if (p.rippleT <= 0){ p.rippleT = 0.22; seedSplash(p.x, p.y, wet*0.55); }
+      if (p.rippleT <= 0){ p.rippleT = 0.22; seedSplash(p.x, p.y, preWet*0.55); }
     }
   }
   if (bumped && sprinting) emitNoise(0.55, p.x, p.y);
   else if (bumped) sustainedNoise(0.3, p.x, p.y);
 
-  /* --- room-scoped light ---
-     Runs AFTER movement, so the room you just walked into is the room that
-     lights up this frame. Checked before, it would lag a frame behind and
-     read as the fluorescents chasing you. */
-  scopeRoomLight(dt, false);
-  fadeRoomLight(dt);
-  /* Retrace on any movement, then EASE toward it. Both halves matter: the
-     retrace alone still steps a tile at a time, and the easing alone still
-     quantises to when the retrace happens.
+  return { moving, bumped, sprinting, wet };
+}
 
-     Skipped wholesale when the harness has switched vision off. G.scopeDirty is
-     deliberately left alone: it is pending work, not stale state, so the first
-     frame after vision comes back on recombines whatever the room crossfade
-     moved while it was off rather than dropping it. */
-  if (wantVision){
-    if (traceViewCone(false) || G.scopeDirty){ combineMask(); G.scopeDirty = false; }
-    if (smoothMask(dt)) packMask();
-  }
-
-  /* --- the flood ---
-     Runs after movement so the water you are standing in this frame is the
-     water you walked into this frame. One pass over the tile array, and only
-     over tiles that are within the reachable radius of the leak — the front
-     cannot be further than LEAK_SPREAD seconds of travel from the source, so
-     the outer ring is skipped entirely instead of being tested and rejected. */
-  tickFlood(dt);
-  if (waterDirty){ packWet(); waterDirty = false; }
-
-  /* --- the risers ---
-     Every open one is a continuous emitter at the pipe, not a repeating one-shot.
-     sustainedNoise rather than emitNoise: a burst every few frames would inflate
-     the noise stats and fight the meter decay, and what this needs to be is a
-     standing sound the Lifeform can walk toward, not a series of events. */
+/* --- the risers ---
+   Every open one is a continuous emitter at the pipe, not a repeating one-shot.
+   sustainedNoise rather than emitNoise: a burst every few frames would inflate
+   the noise stats and fight the meter decay, and what this needs to be is a
+   standing sound the Lifeform can walk toward, not a series of events. */
+function tickLeakNoise(dt){
+  const p = G.player;
   if (G.leaksOpen > 0){
     /* Power rises with how much of the level is under water, so the leak gets
        louder as the floor drowns — but it is clamped below LOUD no matter how
@@ -3002,16 +2997,19 @@ function update(dt){
   } else {
     G.leakPower = 0;
   }
+}
 
-  /* --- the repair ---
-     Hold still next to the pipe for five seconds. Moving decays the bar rather
-     than freezing it, so a panic step costs real progress instead of just
-     costing you the second — the failure has to cost something or the five
-     seconds are free and the whole mechanic is a formality.
+/* --- the repair ---
+   Hold still next to the pipe for five seconds. Moving decays the bar rather
+   than freezing it, so a panic step costs real progress instead of just
+   costing you the second — the failure has to cost something or the five
+   seconds are free and the whole mechanic is a formality.
 
-     The wrench is LOUD, which is the deal. You are choosing to stand immobile
-     and announce yourself, next to the noisiest thing on the floor, with
-     something already on its way. */
+   The wrench is LOUD, which is the deal. You are choosing to stand immobile
+   and announce yourself, next to the noisiest thing on the floor, with
+   something already on its way. */
+function tickRepair(dt, moving, bumped){
+  const p = G.player;
   const L = leakAt(p.x, p.y);
   G.atLeak = !!L;
   if (L){
@@ -3038,8 +3036,14 @@ function update(dt){
       o.repair = Math.max(0, o.repair - dt*REPAIR_DECAY*REPAIR_TIME);
     }
   }
+}
 
-  /* --- the radar reveals --- */
+/* --- the radar reveals ---
+   The agent loop plus the sight check that feeds G.seenBy and G.nearest:
+   what can see you, how close the nearest riser of it is, and whether
+   anything is allowed to start hunting this frame. */
+function tickAgents(dt){
+  const p = G.player;
   let seenBy = 0, nearest = 99;
   for (const a of G.agents){
     updateAgent(a, dt, p);
@@ -3064,30 +3068,37 @@ function update(dt){
   }
   G.seenBy = Math.max(0, G.seenBy + (seenBy?dt*6:-dt*2.5));
   G.nearest = nearest;
+}
 
-  /* --- the radar reveals ---
-     Sweeping lights the whole level, so "can you see it" stops being a question
-     about angles and walls and becomes exactly what it says: is it on your
-     screen. That is checked against the same rectangle the renderer draws
-     into, so a thing is revealed on the frame it appears, not a frame before.
+/* --- the radar reveals ---
+   Sweeping lights the whole level, so "can you see it" stops being a question
+   about angles and walls and becomes exactly what it says: is it on your
+   screen. That is checked against the same rectangle the renderer draws
+   into, so a thing is revealed on the frame it appears, not a frame before.
 
-     There is nothing in the world that NEEDS finding any more — the door is
-     where you came in and you know it — so the radar is down to what it was
-     always honestly good for: reading the carpet. The scrawls are the only
-     thing it surfaces, and they are worth a battery because they are free
-     information about a building that lies to you. */
-  if (G.radar){
-    for (const gr of G.graffiti){
-      if (gr.seen) continue;
-      if (!onScreen(gr.x+0.5, gr.y+0.5)) continue;
-      gr.seen=true; flash(gr.text);
-    }
+   There is nothing in the world that NEEDS finding any more — the door is
+   where you came in and you know it — so the radar is down to what it was
+   always honestly good for: reading the carpet. The scrawls are the only
+   thing it surfaces, and they are worth a battery because they are free
+   information about a building that lies to you. */
+function tickRadarReveal(){
+  if (!G.radar) return;
+  for (const gr of G.graffiti){
+    if (gr.seen) continue;
+    if (!onScreen(gr.x+0.5, gr.y+0.5)) continue;
+    gr.seen=true; flash(gr.text);
   }
+}
 
-  /* --- the door ---
-     Hold at it for 1.5s and it cycles open. Step away and the progress drains
-     fast, so committing to the door is a real decision — and with a clock
-     running it is the last decision of the level. */
+/* --- the door ---
+   Hold at it for 1.5s and it cycles open. Step away and the progress drains
+   fast, so committing to the door is a real decision — and with a clock
+   running it is the last decision of the level.
+
+   Returns false when the door cycled: nextFloor() has already rebuilt the
+   floor and the frame must stop there, as it did when this code sat inline. */
+function tickDoor(dt){
+  const p = G.player;
   const leakDone = G.leaksOpen === 0;
   if (leakDone){
     let onExit=false;
@@ -3100,7 +3111,7 @@ function update(dt){
       if (G.descend===0) Audio_.door();
       G.descend += dt;
       sustainedNoise(1.8, p.x, p.y);
-      if (G.descend>=1.5){ nextFloor(); return; }
+      if (G.descend>=1.5){ nextFloor(); return false; }
     } else {
       G.descend = Math.max(0, G.descend - dt*2.5);
     }
@@ -3110,11 +3121,63 @@ function update(dt){
        progress bar frozen waiting for something that has not happened. */
     G.descend = Math.max(0, G.descend - dt*2.5);
   }
+  return true;
+}
 
-  /* --- proximity drone --- */
+/* --- proximity drone --- */
+function tickAudio(){
   const prox = Math.max(0, 1 - G.nearest/13);
   Audio_.drone(prox * (0.35 + G.seenBy*0.65));
 }
+
+function update(dt){
+  /* ORDER IS THE DESIGN. The clock first because it can end the frame, then
+     the battery, then movement — and everything after movement reads what the
+     movement produced: the mask the room you walked into, the flood you are
+     standing in, the repair bar that decays because you walked, the things
+     that saw you move, and the door you are cycling. Each stage is a function
+     with the comment it was written next to; this is only the sequence. */
+  if (!tickClock(dt)) return;
+  tickBattery(dt);
+  const mv = tickMovement(dt);
+  G.wet = mv.wet;                  // the tile the player is standing on now
+
+  /* --- room-scoped light ---
+     Runs AFTER movement, so the room you just walked into is the room that
+     lights up this frame. Checked before, it would lag a frame behind and
+     read as the fluorescents chasing you. */
+  scopeRoomLight(dt, false);
+  fadeRoomLight(dt);
+  /* Retrace on any movement, then EASE toward it. Both halves matter: the
+     retrace alone still steps a tile at a time, and the easing alone still
+     quantises to when the retrace happens.
+
+     Skipped wholesale when the harness has switched vision off. G.scopeDirty is
+     deliberately left alone: it is pending work, not stale state, so the first
+     frame after vision comes back on recombines whatever the room crossfade
+     moved while it was off rather than dropping it. */
+  if (wantVision){
+    if (traceViewCone(false) || G.scopeDirty){ combineMask(); G.scopeDirty = false; }
+    if (smoothMask(dt)) packMask();
+  }
+
+  /* --- the flood ---
+     Runs after movement so the water you are standing in this frame is the
+     water you walked into this frame. One pass over the tile array, and only
+     over tiles that are within the reachable radius of the leak — the front
+     cannot be further than LEAK_SPREAD seconds of travel from the source, so
+     the outer ring is skipped entirely instead of being tested and rejected. */
+  tickFlood(dt);
+  if (waterDirty){ packWet(); waterDirty = false; }
+
+  tickLeakNoise(dt);
+  tickRepair(dt, mv.moving, mv.bumped);
+  tickAgents(dt);
+  tickRadarReveal();
+  if (!tickDoor(dt)) return;
+  tickAudio();
+}
+
 
 function updateAgent(a, dt, p){
   a.born = Math.max(0, a.born-dt);
