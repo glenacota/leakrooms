@@ -269,6 +269,7 @@ globalThis.__api = {
   get HUNT_BASE(){ return HUNT_BASE; }, get HUNT_STEP(){ return HUNT_STEP; },
   get lives(){ return lives; }, set lives(v){ lives = v; },
   get runLives(){ return runLives; },
+  get runStat(){ return runStat; },
   /* the cast, inlined: the avatar's rig and the thing hunting it */
   drawRigger, drawStalker,
   /* their shared gait clock, so the tests can drive the walk cycle */
@@ -3047,6 +3048,58 @@ console.log('[22] the run — five levels, three minutes, one door');
        exits this rule replaced. */
     assert(!('found' in door), 'the door still carries a found flag — something is looking for it');
     console.log(`  the door opens ${d.toFixed(1)} tiles from the spawn, with nothing to find`);
+  }
+
+  /* --- and the win card reports the RUN, not the floor it got printed on ---
+     G.stat is thrown away and rebuilt by buildFloor, so the card used to read
+     the LAST level's counters: a run that sealed 1+2+3+4+4 risers across five
+     levels and died once on level 2 reported four seals and no deaths. The card
+     is the only place the whole run is ever summed, so this drives a whole run
+     the real way — through the start button, through nextFloor(), one real
+     death and a retry — and then reads what the card actually says. */
+  {
+    els['btn-start'].click();                       // the real start path clears the tally
+    A.STATE = 'play';
+    assert(A.runStat.sealed===0 && A.runStat.deaths===0 && A.runStat.noises===0,
+      `starting a run left the totals at ${A.runStat.sealed}/${A.runStat.deaths}/${A.runStat.noises}`);
+    let sealed = 0, noises = 0;
+    for (let f=0; f<A.LEVELS_N; f++){
+      if (f>0) vm.runInContext('nextFloor();', ctxObj);   // walk through the door
+      A.STATE = 'play';
+      assert(G.leaks.length > 0, `level ${f+1} opened with no risers to seal`);
+      for (const L of G.leaks){ A.sealLeak(L); sealed++; }
+      A.emitNoise(0.3, G.player.x, G.player.y);
+      A.emitNoise(0.3, G.player.x, G.player.y);
+      noises += 2;
+      assert(A.runStat.sealed===sealed,
+        `after ${f+1} level(s) the run has sealed ${A.runStat.sealed}, want ${sealed}`);
+      if (f===1){
+        /* die once, on level 2, the real way — the clock, not a direct call */
+        G.clock = 0.5;
+        A.updateReal(1);
+        assert(A.STATE==='dead', 'the death on level 2 did not happen');
+        assert(A.runStat.deaths===1, `the run has ${A.runStat.deaths} deaths, want 1`);
+        els['btn-retry'].click();                   // the floor is rebuilt; the tally must not be
+        A.STATE = 'play';
+        assert(A.runStat.deaths===1 && A.runStat.sealed===sealed,
+          'retrying the level cleared the run totals');
+      }
+    }
+    vm.runInContext('nextFloor();', ctxObj);        // floorIdx hits FLOORS: the card is printed
+    assert(A.STATE==='win', `the run ended on STATE=${A.STATE}, not the win screen`);
+    assert(G.stat.sealed !== sealed,
+      'this assertion needs G.stat to differ from the run total or it proves nothing');
+    const card = els['win-stats'].innerHTML;
+    assert(card.includes(`<b>${sealed}</b> risers`),
+      `the win card does not report ${sealed} sealed risers (said: ${card.slice(0,90)}...)`);
+    assert(card.includes(`Deaths: <b>1</b>`), `the win card does not report 1 death (said: ${card.slice(0,90)}...)`);
+    assert(card.includes(`Noise made: <b>${noises}</b>`),
+      `the win card does not report ${noises} noises (said: ${card.slice(0,90)}...)`);
+    console.log(`  the win card counts the run: ${sealed} risers sealed, 1 death, ${noises} noises`);
+    /* leave the world where the next test expects to find it */
+    A.STATE = 'splash';
+    vm.runInContext('lives=3; floorIdx=0; runTime=0;', ctxObj);
+    buildFloor(0, 4242);
   }
 }
 

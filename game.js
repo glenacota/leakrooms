@@ -1969,6 +1969,7 @@ function sealLeak(L){
     ? `RISER SEALED \u2014 ${G.leaksOpen} STILL OPEN`
     : 'EVERY RISER SEALED \u2014 GET BACK TO THE DOOR');
   G.stat.sealed++;
+  runStat.sealed++;
   /* Recompute the distance field from the seal point so the recession runs
      outward from where the work happened rather than from the pipe. It is a
      visual difference, but it is the difference between water receding from
@@ -2622,6 +2623,7 @@ function emitNoise(power, x, y){
   G.noise = Math.max(G.noise, power);
   G.noisePeak = Math.max(G.noisePeak, power);
   G.stat.noises++;
+  runStat.noises++;
   alertAgents(hearRadius(power), power, x, y);
 }
 
@@ -3298,6 +3300,12 @@ let lives = 3, floorIdx = 0, runTime = 0;
    version maps over [0,1,2], so RELAXED would render five pips with the fifth
    always spent and BRUTAL would render three for a one-life run. */
 let runLives = 3;
+/* The run's own totals. G.stat is thrown away and rebuilt by buildFloor, so
+   everything it counted died with the floor it was counted on: the win card
+   read the LAST level's numbers and called them the run's. runStat lives as
+   long as the run does, is bumped beside every G.stat bump, and is cleared
+   only where a run starts — the CLOCK IN button. */
+let runStat = { noises:0, deaths:0, sealed:0 };
 function livesHTML(){
   return Array.from({length:Math.max(1,runLives)},
     (_,i)=> `<span class="${i<lives?'':'gone'}">&#9679;</span>`).join('');
@@ -3311,7 +3319,7 @@ function renderLives(){
 function nextFloor(){
   floorIdx++;
   if (floorIdx >= FLOORS){ STATE='win'; show('win'); document.getElementById('win-stats').innerHTML =
-      `You sealed <b>${G.stat.sealed}</b> risers and got back through the door on all <b>${FLOORS}</b> levels.<br>Deaths: <b>${G.stat.deaths}</b> &nbsp; Noise made: <b>${G.stat.noises}</b><br>Time: <b>${Math.floor(runTime/60)}:${String(Math.floor(runTime%60)).padStart(2,'0')}</b>`;
+      `You sealed <b>${runStat.sealed}</b> risers and got back through the door on all <b>${FLOORS}</b> levels.<br>Deaths: <b>${runStat.deaths}</b> &nbsp; Noise made: <b>${runStat.noises}</b><br>Time: <b>${Math.floor(runTime/60)}:${String(Math.floor(runTime%60)).padStart(2,'0')}</b>`;
     document.getElementById('hud').classList.remove('on');
     return;
   }
@@ -3326,6 +3334,7 @@ function nextFloor(){
 function lose(cause){
   if (STATE!=='play') return;
   G.stat.deaths++;
+  runStat.deaths++;
   lives--;
   Audio_.sting(); Audio_.silence();
   STATE='dead';
@@ -4370,6 +4379,9 @@ document.getElementById('btn-start').onclick = ()=>{
      and nothing else. A finished run rolls its own; see rollRunSeed(). */
   runLives = (DIFFICULTIES[SETTINGS.difficulty] || DIFFICULTIES.normal).lives;
   lives = runLives; floorIdx=0; runTime=0;
+  /* A new run, so a new tally: the win card is the only reader and it must not
+     inherit the previous run's seals and deaths. */
+  runStat = { noises:0, deaths:0, sealed:0 };
   renderLives();
   buildFloor(0, RUN_SEED);
   hideAll();
