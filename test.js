@@ -216,7 +216,7 @@ globalThis.__api = {
   get VIEW_HALF(){ return VIEW_HALF; },
   get VIEW_RANGE(){ return VIEW_RANGE; },
   get RADAR_DRAIN(){ return RADAR_DRAIN; },
-  buildFloor, blocked, moveEnt, render, emitNoise, setPrompt, drawPlayer,
+  buildFloor, genLevel, blocked, moveEnt, render, emitNoise, setPrompt, drawPlayer,
   frame,
   updateReal: update,
   /* Every test that is not ABOUT the clock holds it open.
@@ -3987,6 +3987,71 @@ console.log('[29] canvas state — nothing outlives the frame that opened it');
   }
   console.log('  every save in a frame is popped in that frame');
   console.log('  and nothing is clipped when the player is drawn');
+}
+
+/* ============ TEST 30: the level stages — genLevel is pure ============
+   buildFloor is now four pure stages and assembly. genLevel is the stage
+   that decides everything about the geometry — door, risers, fixtures,
+   pickups, graffiti — so it is tested here WITHOUT a floor: twenty seeds,
+   no buildFloor, every field asserted well-formed, and the same seed must
+   produce the same level twice. */
+console.log('[30] the level stages — genLevel is pure and well-formed');
+{
+  for (let s=0; s<20; s++){
+    const seed = 1000 + s*7777;
+    const W = 76;
+    const tag = `seed ${seed}`;
+    const level = A.genLevel(vm.runInContext('mulberry32('+seed+')', ctxObj));
+    const g = (x,y)=> level.grid[y*W+x];
+    const floor = (x,y)=> x>=0 && y>=0 && x<W && y<W && g(x,y)===1;
+
+    // grid
+    assert(level.grid.length === W*W, `${tag}: grid is ${level.grid.length} tiles, want ${W*W}`);
+
+    // exit: interior wall tile touching floor, closed
+    assert(level.exit.length >= 1, `${tag}: no exit`);
+    for (const e of level.exit){
+      assert(e.open === 0, `${tag}: exit is not closed`);
+      assert(e.x>0 && e.y>0 && e.x<W-1 && e.y<W-1, `${tag}: exit at ${e.x},${e.y} is on the border`);
+      assert(g(e.x,e.y)===0, `${tag}: exit at ${e.x},${e.y} is not wall`);
+      assert(floor(e.x+1,e.y)||floor(e.x-1,e.y)||floor(e.x,e.y+1)||floor(e.x,e.y-1),
+        `${tag}: exit at ${e.x},${e.y} touches no floor`);
+    }
+
+    // leaks: exactly spec.leaks, each a wall tile with a legal stand spot in a real room
+    assert(level.leaks.length === level.spec.leaks,
+      `${tag}: ${level.leaks.length} risers, want ${level.spec.leaks}`);
+    for (const L of level.leaks){
+      assert(L.fixed===false && L.repair===0 && L.fixedAt===0, `${tag}: riser not pristine`);
+      assert(g(L.x,L.y)===0, `${tag}: riser at ${L.x},${L.y} is not wall`);
+      assert(floor(L.sx,L.sy), `${tag}: stand spot ${L.sx},${L.sy} is not floor`);
+      /* L.room may be null: a stand spot in a partition band is in no rect,
+         and the game treats that as "no guaranteed pickup here", not as a
+         broken riser. */
+    }
+
+    // fixtures: sane radius and intensity, on the map
+    for (const f of level.fixtures){
+      assert(f.r > 0 && f.i > 0, `${tag}: fixture with r=${f.r} i=${f.i}`);
+      assert(f.x>=0 && f.y>=0 && f.x<W && f.y<W, `${tag}: fixture off the map`);
+    }
+
+    // batteries and graffiti: placed, not taken
+    assert(level.batteries.length > 0, `${tag}: no battery pickups`);
+    for (const b of level.batteries)
+      assert(b.taken === false && b.x>=0 && b.y>=0 && b.x<W && b.y<W, `${tag}: bad battery cell`);
+    assert(level.graffiti.length > 0, `${tag}: no graffiti`);
+    for (const gr of level.graffiti)
+      assert(gr.seen === false && typeof gr.text === 'string' && gr.text.length > 0, `${tag}: bad graffiti`);
+
+    // purity: same seed, same level
+    const again = A.genLevel(vm.runInContext('mulberry32('+seed+')', ctxObj));
+    assert(JSON.stringify(again.leaks) === JSON.stringify(level.leaks),
+      `${tag}: genLevel is not deterministic`);
+    assert(JSON.stringify(again.exit) === JSON.stringify(level.exit),
+      `${tag}: the door moved between two identical seeds`);
+  }
+  console.log('  20 seeds, no buildFloor: door, risers, fixtures, pickups, graffiti all well-formed');
 }
 
 reportTimings();

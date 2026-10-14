@@ -1174,77 +1174,20 @@ const WET_EDGE = WET_DRAW*0.8;    // ...so below THIS the simulation may stop ca
    with no repack is still a frame that draws the water correctly. */
 let waterDirty = false;
 
-function buildFloor(floorNum, seed){
-  const rng = mulberry32(seed + floorNum*7919);
+/* ============================================================
+   LEVEL STAGES
+   Four pure stages. Each takes the level (or just an rng) and
+   either returns data or fills the G fields documented on it.
+   None of them reads or writes module-level mutable state, so a
+   level can be generated, lit, labelled and cast without a floor
+   existing yet — buildFloor is now only the assembly.
+   ============================================================ */
+function genLevel(rng, floorNum=0){
   const maze = genMaze(rng);
   const grid = maze.grid;
   const at = (x,y)=> grid[y*MAP_W+x];
   const inB = (x,y)=> x>=0 && y>=0 && x<MAP_W && y<MAP_H;
 
-  /* --- line of sight (Bresenham, walls block) --- */
-  function los(x0,y0,x1,y1){
-    x0=Math.floor(x0); y0=Math.floor(y0); x1=Math.floor(x1); y1=Math.floor(y1);
-    let dx=Math.abs(x1-x0), dy=Math.abs(y1-y0);
-    let sx=x0<x1?1:-1, sy=y0<y1?1:-1, err=dx-dy;
-    let guard=0;
-    while(guard++ < 400){
-      if(x0===x1 && y0===y1) return true;
-      const e2 = 2*err;
-      if (e2 > -dy){ err -= dy; x0 += sx; }
-      if (e2 <  dx){ err += dx; y0 += sy; }
-      if (x0===x1 && y0===y1) return true;
-      if (!inB(x0,y0) || at(x0,y0)===WALL) return false;
-    }
-    return false;
-  }
-
-  /* The floor object is created HERE, before the bakes below write into it.
-     Every per-floor buffer — light, vision, mask, cone, regions, flood — is a
-     field of G, so building the next floor replaces them all at once and
-     nothing floor-scoped can outlive the floor it describes. The buffers are
-     preallocated because the bakes write through G from their first line;
-     the fields the placement code decides are assigned after it runs. */
-  G = {
-    floor: floorNum,
-    seed,
-    grid, at, inB, los,
-    rooms: maze.rooms,
-    lightArr: new Float32Array(MAP_W*MAP_H),
-    lightCv: null, lightCtx: null, lightImg: null,
-    visArr: new Float32Array(MAP_W*MAP_H).fill(DARK_ROOM),
-    visFrom: new Float32Array(MAP_W*MAP_H).fill(DARK_ROOM),
-    visTgt: new Float32Array(MAP_W*MAP_H).fill(DARK_ROOM),
-    visScratch: new Float32Array(MAP_W*MAP_H),
-    maskArr: new Float32Array(MAP_W*MAP_H),
-    maskTgt: new Float32Array(MAP_W*MAP_H),
-    coneArr: new Float32Array(MAP_W*MAP_H),
-    maskCv: null, maskCtx: null, maskImg: null,
-    regionOf: new Int32Array(MAP_W*MAP_H).fill(-1),
-    regionAdj: null, regionCount: 0,
-    visRegion: -1, visStep: 0, visFadeT: 0,
-    coneX: NaN, coneY: NaN, coneFace: NaN, coneRadar: null,
-    scopeDirty: false,
-    wetArr: new Float32Array(MAP_W*MAP_H),
-    waterDist: null, wetByDist: [], wetFront: 0, wetMaxDist: 0, wetSum: 0,
-    wetEdgeD: -1, wetIndexAtDist: null,
-    wetCv: null, wetCtx: null, wetImg: null,
-    postCv: null
-  };
-
-  /* --- the spawn, and the ONE door that matters --- */
-  const candidates = maze.rooms.filter(r=>r.rw>=6 && r.rh>=6);
-  const pool = candidates.length>=6 ? candidates : maze.rooms;
-  const entryRoom = pool[0];
-  /* The spawn, needed before anything that is placed relative to it — the risers
-     go as far from here as the geometry allows. */
-  const spawn0 = { x: entryRoom.rx + entryRoom.rw/2, y: entryRoom.ry + entryRoom.rh/2 };
-
-  /* The door is the way you CAME IN, so it belongs to the room you spawn in and
-     nowhere else. It is an interior wall tile touching that room's floor, for
-     the same three reasons as before: you must be able to walk up to it, and it
-     must not land on the outer border where the player's body can never get
-     within the cycle radius — a door you cannot reach makes the level unwinnable,
-     and the clock turns an unwinnable level into a dead one. */
   const INTERIOR = (x,y)=> x>0 && y>0 && x<MAP_W-1 && y<MAP_H-1;
   const touchesFloor = (tx,ty)=>
     (inB(tx+1,ty)&&at(tx+1,ty)===FLOOR)||(inB(tx-1,ty)&&at(tx-1,ty)===FLOOR)||
@@ -1286,11 +1229,18 @@ function buildFloor(floorNum, seed){
 
   /* THE DOOR. One tile, found from the spawn room, and KNOWN from the first
      frame — there is no hunt for it, because you walked through it. The old
-     three-exit economy was a search, and a search cannot survive being given a
-     deadline: what this rule replaces is a hunt you spend battery on, and what
+     three-exit economy was a search, and a search cannot survive being given
+     a deadline: what this rule replaces is a hunt you spend battery on, and what
      it puts in its place is a journey you spend CLOCK on. You know exactly
      where the door is and the whole question is whether you can get back to it
      in time, which is a question about the floor and not about your radar. */
+  const candidates = maze.rooms.filter(r=>r.rw>=6 && r.rh>=6);
+  const pool = candidates.length>=6 ? candidates : maze.rooms;
+  const entryRoom = pool[0];
+  /* The spawn, needed before anything that is placed relative to it — the risers
+     go as far from here as the geometry allows. */
+  const spawn = { x: entryRoom.rx + entryRoom.rw/2, y: entryRoom.ry + entryRoom.rh/2 };
+
   const exitTiles = [];
   {
     let cand = wallSlotFor(entryRoom);
@@ -1322,7 +1272,7 @@ function buildFloor(floorNum, seed){
   for (let y=1;y<MAP_H-1;y++) for (let x=1;x<MAP_W-1;x++){
     if (at(x,y)!==WALL) continue;
     if (!touchesFloor(x,y)) continue;
-    faceTiles.push({x, y, d: Math.hypot(x+0.5-spawn0.x, y+0.5-spawn0.y)});
+    faceTiles.push({x, y, d: Math.hypot(x+0.5-spawn.x, y+0.5-spawn.y)});
   }
   faceTiles.sort((a,b)=> b.d - a.d);
 
@@ -1450,7 +1400,7 @@ function buildFloor(floorNum, seed){
     }
   }
 
-/* --- battery pickups ---
+  /* --- battery pickups ---
      One is GUARANTEED inside the room the door is in, and one inside the room
      each riser stands in. The riser is what the water leads you to, so the cell
      that powers the radar is standing next to the work — with four risers and
@@ -1459,7 +1409,7 @@ function buildFloor(floorNum, seed){
   const batteries = [];
   const litRooms = maze.rooms.filter(r=>fixtures.some(f=>f.x>=r.rx&&f.x<=r.rx+r.rw&&f.y>=r.ry&&f.y<=r.ry+r.rh));
   const battRooms = new Set();
-  for (const b of [{room:entryRoom, away:spawn0, d:3}, ...leaks.map(L=>({room:L.room, away:{x:L.sx+0.5,y:L.sy+0.5}, d:1.5}))]){
+  for (const b of [{room:entryRoom, away:spawn, d:3}, ...leaks.map(L=>({room:L.room, away:{x:L.sx+0.5,y:L.sy+0.5}, d:1.5}))]){
     const r = b.room;
     if (!r || r.rw<5 || r.rh<5) continue;
     /* Two risers can share a room, and a stacked pair of cells reads as a bug
@@ -1480,7 +1430,7 @@ function buildFloor(floorNum, seed){
     /* The scatter cells respect the spawn exclusion too. A random pick that
        lands on the player's feet is a pickup they were handed for walking
        through a door, which is worse than no cell at all. */
-    const sp = floorTileIn(r, 1, spawn0, 3);
+    const sp = floorTileIn(r, 1, spawn, 3);
     if (!sp) continue;
     batteries.push({ x: sp.x+0.5, y: sp.y+0.5, taken:false });
   }
@@ -1516,9 +1466,37 @@ function buildFloor(floorNum, seed){
                     text:NOTES[(rng()*NOTES.length)|0], seen:false });
   }
 
+  return { grid, rooms: maze.rooms, leaves: maze.leaves, spawn, exit: exitTiles,
+           leaks, fixtures, batteries, graffiti, spec, rng };
+}
+
+/* Fills G.lightArr and the packed G.lightCv/G.lightCtx/G.lightImg from the
+   level's fixtures and grid. Pure apart from those G fields. */
+function bakeLighting(level){
+  const grid = level.grid;
+  const at = (x,y)=> grid[y*MAP_W+x];
+  const inB = (x,y)=> x>=0 && y>=0 && x<MAP_W && y<MAP_H;
+
+  /* --- line of sight (Bresenham, walls block) --- */
+  function los(x0,y0,x1,y1){
+    x0=Math.floor(x0); y0=Math.floor(y0); x1=Math.floor(x1); y1=Math.floor(y1);
+    let dx=Math.abs(x1-x0), dy=Math.abs(y1-y0);
+    let sx=x0<x1?1:-1, sy=y0<y1?1:-1, err=dx-dy;
+    let guard=0;
+    while(guard++ < 400){
+      if(x0===x1 && y0===y1) return true;
+      const e2 = 2*err;
+      if (e2 > -dy){ err -= dy; x0 += sx; }
+      if (e2 <  dx){ err += dx; y0 += sy; }
+      if (x0===x1 && y0===y1) return true;
+      if (!inB(x0,y0) || at(x0,y0)===WALL) return false;
+    }
+    return false;
+  }
+
   /* --- bake ambient light --- */
   G.lightArr = new Float32Array(MAP_W*MAP_H);
-  for (const f of fixtures){
+  for (const f of level.fixtures){
     const R2 = f.r*f.r;
     const x0=Math.max(0,Math.floor(f.x-f.r)), x1=Math.min(MAP_W-1,Math.ceil(f.x+f.r));
     const y0=Math.max(0,Math.floor(f.y-f.r)), y1=Math.min(MAP_H-1,Math.ceil(f.y+f.r));
@@ -1575,6 +1553,44 @@ function buildFloor(floorNum, seed){
     G.lightArr[i] = Math.max(m*0.95, BAKE_FLOOR*0.80);
   }
 
+  /* Pack the BAKE — pure, unchanged. Every viewer-side term (room scope, cone of
+     vision, radar) is folded into a single mask on a separate canvas, so there
+     is exactly one multiply and the mask can only ever remove light the bake
+     put there. */
+  G.lightCv = document.createElement('canvas');
+  G.lightCv.width = MAP_W*LS; G.lightCv.height = MAP_H*LS;
+  G.lightCtx = G.lightCv.getContext('2d');
+  G.lightImg = G.lightCtx.createImageData(G.lightCv.width, G.lightCv.height);
+  /* The canvas dimensions and the pixel buffer are DOM-backed reads: they are
+     resolved once here instead of per iteration, and every write below goes
+     through the local buffer reference. Same pixels, same order. */
+  const LW = G.lightCv.width, LH = G.lightCv.height, LD = G.lightImg.data;
+  for (let y=0;y<LH;y++){
+    const ty=(y/LS)|0, row=ty*MAP_W;
+    for (let x=0;x<LW;x++){
+      /* NEUTRAL, not mono-yellow. This used to be tinted (255,246,186) plus a
+         warm +18 lift, which existed to stop unlit floor going black. Now that
+         darkness is the mask's job, tinting the bake would double-count it:
+         a lit room would come out green-yellow a second time on top of a
+         palette that is already the right colour. The bake is now a pure
+         brightness, and the hue comes from the surfaces themselves. */
+      const b = Math.min(1, G.lightArr[row + ((x/LS)|0)]);
+      const v = Math.round(255*b);
+      const k=(y*LW+x)*4;
+      LD[k]=v; LD[k+1]=v; LD[k+2]=v;
+      LD[k+3] = 255;
+    }
+  }
+  G.lightCtx.putImageData(G.lightImg, 0, 0);
+}
+
+/* Fills G.regionOf, G.regionAdj and G.regionCount from the level's grid and
+   rooms. Pure apart from those G fields. */
+function labelRegions(level){
+  const grid = level.grid;
+  const at = (x,y)=> grid[y*MAP_W+x];
+  const inB = (x,y)=> x>=0 && y>=0 && x<MAP_W && y<MAP_H;
+
   /* --- room regions -------------------------------------------------
      A region is one lit space: a BSP room, or a run of band floor between
      rooms (a gate tunnel). Labelling them is what lets "the room you are in"
@@ -1588,7 +1604,7 @@ function buildFloor(floorNum, seed){
      own, which is exactly right — standing in a doorway lights the doorway,
      not the room behind you. */
   G.regionOf = new Int32Array(MAP_W*MAP_H).fill(-1);
-  maze.rooms.forEach((r, ri)=>{
+  level.rooms.forEach((r, ri)=>{
     /* FLOOR TILES ONLY. Labelling the whole rect swept up the stub
        partitions that rooms are carved with, and a stub wall then carried its
        room's scope directly and skipped the brightest-neighbour pass below —
@@ -1601,7 +1617,7 @@ function buildFloor(floorNum, seed){
       for (let x=r.rx; x<r.rx+r.rw; x++)
         if (at(x,y) === FLOOR) G.regionOf[y*MAP_W+x] = ri;
   });
-  let nRegions = maze.rooms.length;
+  let nRegions = level.rooms.length;
   for (let y=0;y<MAP_H;y++) for (let x=0;x<MAP_W;x++){
     const i0=y*MAP_W+x;
     if (at(x,y)!==FLOOR || G.regionOf[i0]>=0) continue;
@@ -1638,61 +1654,18 @@ function buildFloor(floorNum, seed){
   }
   G.regionAdj = regAdj;
   G.regionCount = nRegions;
+}
 
-  /* Pack the BAKE — pure, unchanged. Every viewer-side term (room scope, cone of
-     vision, radar) is folded into a single mask on a separate canvas, so there
-     is exactly one multiply and the mask can only ever remove light the bake
-     put there. */
-  G.lightCv = document.createElement('canvas');
-  G.lightCv.width = MAP_W*LS; G.lightCv.height = MAP_H*LS;
-  G.lightCtx = G.lightCv.getContext('2d');
-  G.lightImg = G.lightCtx.createImageData(G.lightCv.width, G.lightCv.height);
-  /* The canvas dimensions and the pixel buffer are DOM-backed reads: they are
-     resolved once here instead of per iteration, and every write below goes
-     through the local buffer reference. Same pixels, same order. */
-  const LW = G.lightCv.width, LH = G.lightCv.height, LD = G.lightImg.data;
-  for (let y=0;y<LH;y++){
-    const ty=(y/LS)|0, row=ty*MAP_W;
-    for (let x=0;x<LW;x++){
-      /* NEUTRAL, not mono-yellow. This used to be tinted (255,246,186) plus a
-         warm +18 lift, which existed to stop unlit floor going black. Now that
-         darkness is the mask's job, tinting the bake would double-count it:
-         a lit room would come out green-yellow a second time on top of a
-         palette that is already the right colour. The bake is now a pure
-         brightness, and the hue comes from the surfaces themselves. */
-      const b = Math.min(1, G.lightArr[row + ((x/LS)|0)]);
-      const v = Math.round(255*b);
-      const k=(y*LW+x)*4;
-      LD[k]=v; LD[k+1]=v; LD[k+2]=v;
-      LD[k+3] = 255;
-    }
-  }
-  G.lightCtx.putImageData(G.lightImg, 0, 0);
-
-  G.visArr  = new Float32Array(MAP_W*MAP_H).fill(DARK_ROOM);
-  G.visFrom = new Float32Array(MAP_W*MAP_H).fill(DARK_ROOM);
-  G.visTgt  = new Float32Array(MAP_W*MAP_H).fill(DARK_ROOM);
-  G.visScratch = new Float32Array(MAP_W*MAP_H);
-  G.visStep = 0;
-  G.visRegion = -1;
-
-  /* The mask is a SEPARATE canvas at 1 sample per tile rather than another
-     term folded into the light bake. It changes every frame the character
-     turns, and folding it into the lightmap would mean repacking 116k pixels
-     on every small movement instead of 5.8k. */
-  G.maskArr  = new Float32Array(MAP_W*MAP_H);
-  G.maskTgt  = new Float32Array(MAP_W*MAP_H);
-  G.coneArr  = new Float32Array(MAP_W*MAP_H);
-  G.maskCv = document.createElement('canvas');
-  G.maskCv.width = MAP_W; G.maskCv.height = MAP_H;
-  G.maskCtx = G.maskCv.getContext('2d');
-  G.maskImg = G.maskCtx.createImageData(MAP_W, MAP_H);
-
-  const spawn = spawn0;
+/* Returns the cast for the level: one walker as far from the door as the
+   geometry allows, the rest dormant coils spread across rooms. Pure. */
+function spawnAgents(level){
+  const spawn = level.spawn;
+  const spec = level.spec;
+  const rng = level.rng;
   /* the room farthest from the door — where the walker starts, so nothing is
      standing in the room you walk into */
   let far = null, fd = -1;
-  for (const r of maze.rooms){
+  for (const r of level.rooms){
     const cx=r.rx+r.rw/2, cy=r.ry+r.rh/2;
     const d = Math.hypot(cx-spawn.x, cy-spawn.y);
     if (d>fd){ fd=d; far=r; }
@@ -1710,7 +1683,7 @@ function buildFloor(floorNum, seed){
   const agentRooms = new Set();
   const firstFar = far && far.rw>=5 && far.rh>=5
     ? far
-    : maze.rooms.reduce((b,r)=>{
+    : level.rooms.reduce((b,r)=>{
         const d = Math.hypot(r.rx+r.rw/2-spawn.x, r.ry+r.rh/2-spawn.y);
         return (!b || d>b.d) ? {r,d} : b;
       }, null)?.r;
@@ -1722,7 +1695,7 @@ function buildFloor(floorNum, seed){
       wakeCd:0, stepT:0, born:3.5
     });
   }
-  const coilRooms = maze.rooms.filter(r=>r.rw>=5&&r.rh>=5 && !agentRooms.has(r));
+  const coilRooms = level.rooms.filter(r=>r.rw>=5&&r.rh>=5 && !agentRooms.has(r));
   for (let i=0; coilRooms.length && agents.length<spec.forms; i++){
     const r = coilRooms[(rng()*coilRooms.length)|0];
     const cx = r.rx+r.rw/2, cy = r.ry+r.rh/2;
@@ -1730,7 +1703,7 @@ function buildFloor(floorNum, seed){
        with the only place you can stand to repair would make that riser's five
        seconds unsurvivable by accident rather than by choice. */
     if (Math.hypot(cx-spawn.x, cy-spawn.y) < 9) continue;
-    if (leaks.some(L=>Math.hypot(cx-(L.sx+0.5), cy-(L.sy+0.5)) < 4)) continue;
+    if (level.leaks.some(L=>Math.hypot(cx-(L.sx+0.5), cy-(L.sy+0.5)) < 4)) continue;
     agents.push({
       x: r.rx+1+Math.floor(rng()*(r.rw-2)),
       y: r.ry+1+Math.floor(rng()*(r.rh-2)),
@@ -1738,20 +1711,88 @@ function buildFloor(floorNum, seed){
       wakeCd:0, stepT:0, born:0
     });
   }
+  return agents;
+}
 
-  /* What the placement code above decided. G itself was created before the
-     bakes; these fields only exist once the risers, fixtures and cast do. */
-  G.fixtures = fixtures;
-  G.batteries = batteries;
-  G.graffiti = graffiti;
-  G.exitTiles = exitTiles;
-  G.leaks = leaks;
-  /* The three numbers the HUD and the door gate read, derived once here so
-     nothing has to walk the array to answer "is this level finished". */
-  G.leaksOpen = leaks.length;
-  G.risers = leaks.length;
-  G.agents = agents;
-  G.player = { x: spawn.x, y: spawn.y, face:-Math.PI/2, stepT:0, stepDur:0.46, moving:false };
+function buildFloor(floorNum, seed){
+  const rng = mulberry32(seed + floorNum*7919);
+  const level = genLevel(rng, floorNum);
+
+  const grid = level.grid;
+  const at = (x,y)=> grid[y*MAP_W+x];
+  const inB = (x,y)=> x>=0 && y>=0 && x<MAP_W && y<MAP_H;
+
+  /* --- line of sight (Bresenham, walls block) --- */
+  function los(x0,y0,x1,y1){
+    x0=Math.floor(x0); y0=Math.floor(y0); x1=Math.floor(x1); y1=Math.floor(y1);
+    let dx=Math.abs(x1-x0), dy=Math.abs(y1-y0);
+    let sx=x0<x1?1:-1, sy=y0<y1?1:-1, err=dx-dy;
+    let guard=0;
+    while(guard++ < 400){
+      if(x0===x1 && y0===y1) return true;
+      const e2 = 2*err;
+      if (e2 > -dy){ err -= dy; x0 += sx; }
+      if (e2 <  dx){ err += dx; y0 += sy; }
+      if (x0===x1 && y0===y1) return true;
+      if (!inB(x0,y0) || at(x0,y0)===WALL) return false;
+    }
+    return false;
+  }
+
+  /* The floor object is created HERE, before the bakes below write into it.
+     Every per-floor buffer — light, vision, mask, cone, regions, flood — is a
+     field of G, so building the next floor replaces them all at once and
+     nothing floor-scoped can outlive the floor it describes. The buffers are
+     preallocated because the bakes write through G from their first line;
+     the fields the placement code decides are assigned after it runs. */
+  G = {
+    floor: floorNum,
+    seed,
+    grid, at, inB, los,
+    rooms: level.rooms,
+    exitTiles: level.exit,
+    leaks: level.leaks,
+    fixtures: level.fixtures,
+    batteries: level.batteries,
+    graffiti: level.graffiti,
+    /* The three numbers the HUD and the door gate read, derived once here so
+       nothing has to walk the array to answer "is this level finished". */
+    leaksOpen: level.leaks.length,
+    risers: level.leaks.length,
+    lightArr: new Float32Array(MAP_W*MAP_H),
+    lightCv: null, lightCtx: null, lightImg: null,
+    visArr: new Float32Array(MAP_W*MAP_H).fill(DARK_ROOM),
+    visFrom: new Float32Array(MAP_W*MAP_H).fill(DARK_ROOM),
+    visTgt: new Float32Array(MAP_W*MAP_H).fill(DARK_ROOM),
+    visScratch: new Float32Array(MAP_W*MAP_H),
+    maskArr: new Float32Array(MAP_W*MAP_H),
+    maskTgt: new Float32Array(MAP_W*MAP_H),
+    coneArr: new Float32Array(MAP_W*MAP_H),
+    maskCv: null, maskCtx: null, maskImg: null,
+    regionOf: new Int32Array(MAP_W*MAP_H).fill(-1),
+    regionAdj: null, regionCount: 0,
+    visRegion: -1, visStep: 0, visFadeT: 0,
+    coneX: NaN, coneY: NaN, coneFace: NaN, coneRadar: null,
+    scopeDirty: false,
+    wetArr: new Float32Array(MAP_W*MAP_H),
+    waterDist: null, wetByDist: [], wetFront: 0, wetMaxDist: 0, wetSum: 0,
+    wetEdgeD: -1, wetIndexAtDist: null,
+    wetCv: null, wetCtx: null, wetImg: null,
+    postCv: null
+  };
+
+  bakeLighting(level);
+  labelRegions(level);
+  /* The mask is a SEPARATE canvas at 1 sample per tile rather than another
+     term folded into the light bake. It changes every frame the character
+     turns, and folding it into the lightmap would mean repacking 116k pixels
+     on every small movement instead of 5.8k. */
+  G.maskCv = document.createElement('canvas');
+  G.maskCv.width = MAP_W; G.maskCv.height = MAP_H;
+  G.maskCtx = G.maskCv.getContext('2d');
+  G.maskImg = G.maskCtx.createImageData(MAP_W, MAP_H);
+  G.agents = spawnAgents(level);
+  G.player = { x: level.spawn.x, y: level.spawn.y, face:-Math.PI/2, stepT:0, stepDur:0.46, moving:false };
   G.batt = BATT_MAX;
   G.radar = false;
   G.noise = 0; G.noisePeak = 0;
@@ -1775,6 +1816,7 @@ function buildFloor(floorNum, seed){
 
   initFlood();
 }
+
 
 /* ============================================================
    THE FLOOD
