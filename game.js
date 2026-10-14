@@ -4372,7 +4372,30 @@ document.getElementById('btn-start').onclick = ()=>{
      inherit the previous run's seals and deaths. */
   runStat = { noises:0, deaths:0, sealed:0 };
   renderLives();
-  buildFloor(0, RUN_SEED);
+  /* Floor 0 was already built at boot — the same seed, the same geometry the
+     splash plan was painted from — so building it again here generates the
+     identical level a second time for nothing. Reuse it instead.
+
+     The extra two conditions are what stop the reuse from handing back a
+     PLAYED floor: a run that died on floor 1 and came back through CLOCK IN
+     (lives spent, btn-retry forwards to here) has the same seed and the same
+     floor number, but its risers are sealed and its clock has run. A floor
+     that has never ticked and still has every riser open is the only floor
+     worth keeping. The clock check also catches a difficulty change made
+     after boot, whose FLOOR_CLOCK the boot floor was never built with. */
+  const reuse = G && G.floor===0 && G.seed===RUN_SEED
+                && G.clock >= FLOOR_CLOCK && G.leaksOpen === G.risers;
+  if (!reuse) buildFloor(0, RUN_SEED);
+  else {
+    G.clock = FLOOR_CLOCK; G.time = 0; G.batt = BATT_MAX;
+    G.stat = {noises:0, deaths:0, sealed:0};
+    G.radar = false; G.noise = 0; G.noisePeak = 0; G.descend = 0; G.seenBy = 0;
+    initFlood();          // the flood the builder warmed, warmed again here
+    snapMask();
+  }
+  /* The opening grace period, on the start path either way — reuse and a
+     fresh build have to be indistinguishable from where the player stands. */
+  for (const a of G.agents){ a.born = 3.0; }
   hideAll();
   STATE='play';
   document.getElementById('hud').classList.add('on');

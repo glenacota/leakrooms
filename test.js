@@ -3668,7 +3668,7 @@ console.log('[26] the pause screen — the work order, with the run written on i
     'the settings link is inside the ticket instead of under it');
 
   /* --- the same controls, in the same place: the stub, under CONTROLS --- */
-  const ctrlBlock = (s)=>{ const m = s.match(/<small>CONTROLS<\/small>([\s\S]*?)<\/div>\s*<\/p>/); return m?m[1]:''; };
+  const ctrlBlock = (s)=>{ const m = s.match(/<small>CONTROLS<\/small>([\s\S]*?)<\/div>\s*<\/(?:p|div)>/); return m?m[1]:''; };
   const keysOf = (s)=> [...ctrlBlock(s).matchAll(/<b>([^<]+)<\/b>/g)].map(m=>m[1]);
   const pk = keysOf(pause), ok = keysOf(order);
   assert(ctrlBlock(pause).length>0, 'the pause ticket has no controls block');
