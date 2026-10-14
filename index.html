@@ -91,9 +91,9 @@
 
   <!-- ============ SCREENS ============ -->
 
-  /* ------------------------------------------------------------
+  <!-- ------------------------------------------------------------
    SPLASH 01
-   ------------------------------------------------------------ */
+   ------------------------------------------------------------ -->
   <div id="screen-splash" class="screen splash">
     <div class="splash-plan"><canvas id="splash-plan"></canvas></div>
     <div class="splash-plan far"><canvas id="splash-plan-far"></canvas></div>
@@ -107,9 +107,9 @@
     </div>
   </div>
 
-  /* ------------------------------------------------------------
+  <!-- ------------------------------------------------------------
    SPLASH 02 — Backstory, controls list
-   ------------------------------------------------------------ */
+   ------------------------------------------------------------ -->
   <div id="screen-order" class="screen hidden">
     <div class="order-wrap">
       <div class="order perf">
@@ -140,7 +140,7 @@
           <div class="big">&times;2</div>
           <small>RUN SEED</small>
           <div class="seed" id="order-seed">#88D-0000</div>
-          <p class="stub-note">
+          <div class="stub-note">
             <small>CONTROLS</small>
             <div class="controls controls-big">
               <div><b>WASD / arrows</b><span>move</span></div>
@@ -150,7 +150,7 @@
               <div><b>ENTER</b><span>confirm</span></div>
               <div><b>ESC</b><span>pause / settings</span></div>
             </div>
-          </p>
+          </div>
         </div>
       </div>
 
@@ -170,8 +170,8 @@
       <div class="settings-grid">
 
         <div class="setrow">
-          <label for="set-difficulty">DIFFICULTY</label>
-          <div class="seg" id="set-difficulty" data-opt="difficulty"></div>
+          <span class="lbl">DIFFICULTY</span>
+          <div class="seg" id="set-difficulty" data-opt="difficulty" role="group" aria-label="DIFFICULTY"></div>
           <p class="note" id="note-difficulty"></p>
         </div>
 
@@ -181,8 +181,8 @@
         </div>
 
         <div class="setrow">
-          <label for="set-hue">WATER TINT</label>
-          <div class="seg" id="set-hue" data-opt="waterHue"></div>
+          <span class="lbl">WATER TINT</span>
+          <div class="seg" id="set-hue" data-opt="waterHue" role="group" aria-label="WATER TINT"></div>
           <p class="note">The leak is the only colour in the building. Pick the one you can actually see.</p>
         </div>
 
@@ -237,7 +237,7 @@
           <div class="seed lives-row" id="pause-lives">&#9679;&#9679;&#9679;</div>
           <small>RUN SEED</small>
           <div class="seed" id="pause-seed">#88D-0000</div>
-          <p class="stub-note">
+          <div class="stub-note">
             <small>CONTROLS</small>
             <div class="controls controls-big">
               <div><b>WASD / arrows</b><span>move</span></div>
@@ -246,7 +246,7 @@
               <div><b>M</b><span>mute</span></div>
               <div><b>ESC</b><span>resume</span></div>
             </div>
-          </p>
+          </div>
         </div>
       </div>
 

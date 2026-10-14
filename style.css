@@ -271,7 +271,7 @@ body{ display:flex; align-items:center; justify-content:center; }
   margin:22px 0 6px; text-align:left;
 }
 .setrow{ display:flex; flex-direction:column; gap:6px; }
-.setrow label{
+.setrow label, .setrow .lbl{
   color:var(--yellow-dim); font-size:13px; font-weight: 900; letter-spacing:.2em;
 }
 .setrow .note{
@@ -306,6 +306,11 @@ input[type=range]::-webkit-slider-thumb{
 }
 input[type=range]::-moz-range-thumb{
   width:12px; height:18px; background:var(--yellow); border:none; cursor:pointer;
+}
+/* Keyboard focus has to be visible — the default ring is removed nowhere, but
+   it is a browser-grey ring that does not belong to this palette. */
+:focus-visible{
+  outline:2px solid var(--yellow); outline-offset:2px;
 }
 button.ghost{
   background:transparent; color:var(--yellow-dim);
