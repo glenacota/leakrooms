@@ -141,11 +141,24 @@ const WET_FALL     = 7.0;    // s for an abandoned tile to go 1 -> 0
 const LEAK_NOISE_BASE = 0.16;   // a quiet drip, heard ~6 tiles
 const LEAK_NOISE_GAIN = 0.26;   // added as the floor drowns; still under LOUD
 const LEAK_LURE    = 0.42;   // tiles: a SEARCHING entity drifts this close
-/* How far from the spawn the break may be, in a straight line. See the note at
-   the placement site — a maze makes straight-line distance a poor proxy for how
-   long the walk is, and without this cap the objective becomes a commute. */
-const LEAK_FAR     = 46;
-/* ...but the cap is a BUDGET, and the budget is three minutes for the whole
+/* RISER_FAR is the STRAIGHT-LINE CAP, indexed by riser count: how far from the
+   spawn a break is allowed to be, measured in a straight line — and the cap is
+   the whole point.
+
+   Sorting by Euclidean distance and taking the extreme corner looks right on
+   paper and is wrong in a maze: a tile 70 tiles away in a straight line can
+   be 200 tiles of corridor to actually walk, because a BSP level is a tree
+   and the winding is the point. The first version did exactly that and the
+   repair became a two-minute trudge across half the building — which is not
+   tension, it is a commute, and it made the headless playthrough take longer
+   than the entire rest of the suite put together.
+
+   Capping the straight-line distance keeps it a genuine hunt — enough tiles
+   that you cannot see the pipe when you spawn — without turning the
+   objective into a marathon. Anything within the cap is a candidate and the
+   farthest of those wins; the uncapped list is still the fallback.
+
+   The cap is also a BUDGET, and the budget is three minutes for the whole
    level, not for one pipe. One riser can afford to be in the far corner of the
    building; four cannot, because a level that asks for four crossings of the
    map and then the walk home is not a hard level, it is an arithmetic one that
@@ -642,7 +655,7 @@ const Audio_ = {
     o.start(t); o.stop(t+1.3);
   },
 
-  drone(level, dist){
+  drone(level){
     if (!this.ok) return;
     const a=this.ctx, t=a.currentTime;
     const g = level * 0.16;
@@ -1274,13 +1287,13 @@ function buildFloor(floorNum, seed){
     if (!cand.length) cand = wallSlotFor(maze.rooms[(rng()*maze.rooms.length)|0] || entryRoom);
     if (cand.length){
       const [bx,by] = cand[(rng()*cand.length)|0];
-      exitTiles.push({x:bx, y:by, open:0, room:entryRoom});
+      exitTiles.push({x:bx, y:by, open:0});
     }
   }
   /* Unreachable in practice on a 76x76 BSP: every room has interior wall around
      it. It is here because the alternative is a crash on the level the player
      cannot finish, and there is a clock on that now. */
-  if (!exitTiles.length) exitTiles.push({x:1, y:1, open:0, room:entryRoom});
+  if (!exitTiles.length) exitTiles.push({x:1, y:1, open:0});
 
   /* --- the risers ------------------------------------------------------
      Each is a single wall tile, as far from the spawn as the floor allows. It
@@ -1303,21 +1316,6 @@ function buildFloor(floorNum, seed){
   }
   faceTiles.sort((a,b)=> b.d - a.d);
 
-  /* LEAK_FAR caps how far a break is allowed to be, measured STRAIGHT-LINE, and
-     the cap is the whole point.
-
-     Sorting by Euclidean distance and taking the extreme corner looks right on
-     paper and is wrong in a maze: a tile 70 tiles away in a straight line can
-     be 200 tiles of corridor to actually walk, because a BSP level is a tree
-     and the winding is the point. The first version did exactly that and the
-     repair became a two-minute trudge across half the building — which is not
-     tension, it is a commute, and it made the headless playthrough take longer
-     than the entire rest of the suite put together.
-
-     Capping the straight-line distance keeps it a genuine hunt — enough tiles
-     that you cannot see the pipe when you spawn — without turning the
-     objective into a marathon. Anything within the cap is a candidate and the
-     farthest of those wins; the uncapped list is still the fallback. */
   const standSpot = (c) => {
     /* the repair spot: floor the player can actually stand on, flush against
        the pipe. Reachable AND not inside geometry, so the five seconds of the
@@ -2767,10 +2765,6 @@ window.addEventListener('keydown', e=>{
     return;
   }
 
-  if ((k==='shift') && G && STATE==='play'){
-    keys['_shiftLatch'] = false;
-  }
-
   if (k==='r' && G && STATE==='play'){
     if (G.radar) G.radar = false;
     else if (G.batt<=0) flash('NO POWER — THE RADAR IS DEAD');
@@ -2782,7 +2776,6 @@ window.addEventListener('keydown', e=>{
 });
 window.addEventListener('keyup', e=>{
   const k=e.key.toLowerCase();
-  if (k==='shift') keys['_shiftLatch'] = false;
   keys[k] = false;
 });
 
@@ -2832,7 +2825,6 @@ function update(dt){
      which reads as the speed changing a step after you leave the water rather
      than as you entering it. */
   const wet = wetAt(p.x, p.y);
-  G.wet = wet;
 
   const sprinting = keys['shift'] && (ix||iy);
   const wade = wet > 0.25 ? 0.80 : 1;          // knee-deep costs you a fifth
@@ -3070,7 +3062,7 @@ function update(dt){
 
   /* --- proximity drone --- */
   const prox = Math.max(0, 1 - G.nearest/13);
-  Audio_.drone(prox * (0.35 + G.seenBy*0.65), G.nearest);
+  Audio_.drone(prox * (0.35 + G.seenBy*0.65));
 }
 
 function updateAgent(a, dt, p){
@@ -4176,11 +4168,9 @@ function toggleMute(){
    that only commits on OK makes people wonder whether it saved, and these
    values are all cheap and reversible.
    ============================================================ */
-let settingsReturn = 'pause';    // where BACK goes
 let settingsPrevState = 'pause';
 
-function openSettings(from){
-  settingsReturn = from || STATE;
+function openSettings(){
   /* STATE has to actually become 'settings' or the keydown dispatcher — which
      keys MODAL_ACTION off STATE — never sees this screen, and Enter does
      nothing. It also stops the game updating behind the menu, which is what we
@@ -4265,7 +4255,7 @@ function buildSettingsUI(){
   const reset = document.getElementById('btn-settings-reset');
   if (reset) reset.onclick = ()=>{ resetSettings(); syncSettingsUI(); };
   const p = document.getElementById('btn-settings-pause');
-  if (p) p.onclick = ()=> openSettings('pause');
+  if (p) p.onclick = ()=> openSettings();
 }
 
 /* Click anywhere on either splash advances it, so a player who never reads
@@ -4315,7 +4305,6 @@ function updateHUD(){
   if (!G) return;
   HUD.batt.style.width = (G.batt/BATT_MAX*100)+'%';
   HUD.vBatt.textContent = Math.ceil(G.batt);
-  const np = Math.min(1, G.noisePeak);
   HUD.noise.style.width = (G.noise/BATT_MAX*100)+'%';
   HUD.vNoise.textContent = String(Math.round(G.noise/BATT_MAX*100)).padStart(2,'0');
   HUD.noiseWrap.classList.toggle('hot', G.noise>0.45);
