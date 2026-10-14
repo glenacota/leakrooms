@@ -290,6 +290,7 @@ function resize(){
   cvs.width = Math.floor(VW * DPR);
   cvs.height = Math.floor(VH * DPR);
   SCALE = cvs.width / (VIEW_T * TILE);
+  if (cvs.width > 0 && cvs.height > 0) buildGrainFull();
   if (G) paintSplashPlan();
 }
 window.addEventListener('resize', resize);
@@ -814,7 +815,12 @@ const Audio_ = {
    ============================================================ */
 function hash2(x,y){ let h = x*374761393 + y*668265263; h = (h ^ (h>>13))*1274126177; return ((h ^ (h>>16))>>>0)/4294967296; }
 
-let carpetPat, wallPat, ceilPat, scanPat, grainCv;
+let carpetPat, wallPat, ceilPat, scanPat;
+/* The grain, pre-composited to the size of the viewport. The live loop tiled a
+   160x160 tile ~40 times a frame at a random offset; this is one drawImage of
+   the same noise at the same opacity, rebuilt only when the canvas changes
+   size (resize, DPR change) rather than every frame. */
+let grainFull;
 
 /* THE PALETTE.
    The five colours of the place, and every surface in the game is drawn from
@@ -882,11 +888,17 @@ function buildPatterns(){
   g.fillStyle='rgba(0,0,0,0)'; g.fillRect(0,0,1,4);
   g.fillStyle='rgba(0,0,0,0.28)'; g.fillRect(0,3,1,1);
   scanPat = ctx.createPattern(c,'repeat');
+}
 
-  // --- grain ---
-  grainCv = document.createElement('canvas'); grainCv.width=grainCv.height=160;
-  g = grainCv.getContext('2d');
-  const im = g.createImageData(160,160);
+/* The viewport-sized grain. Same noise, same opacity — drawn once per frame as
+   one image instead of ~40 tiled copies. Rebuilt when the canvas size changes
+   (resize() calls it, and the renderer rebuilds lazily on the first frame
+   after boot, which runs before the first resize event). */
+function buildGrainFull(){
+  grainFull = document.createElement('canvas');
+  grainFull.width = cvs.width; grainFull.height = cvs.height;
+  const g = grainFull.getContext('2d');
+  const im = g.createImageData(cvs.width, cvs.height);
   for(let i=0;i<im.data.length;i+=4){
     const v = 118 + (Math.random()*74|0);
     im.data[i]=im.data[i+1]=im.data[i+2]=v; im.data[i+3]=255;
@@ -1582,6 +1594,107 @@ function bakeLighting(level){
     }
   }
   G.lightCtx.putImageData(G.lightImg, 0, 0);
+
+  /* The static tile layer, baked in the same stage: sections 1-3 of the
+     renderer are entirely static. The carpet, the hash2 tonal variation, the
+     wall faces, the wall tops and their edge highlights depend on nothing but
+     the grid, which never changes while a floor is played. Painting them per
+     viewport per frame was ~980 fillRect calls of unchanged pixels, so they
+     are drawn into two world-sized canvases here and the renderer samples the
+     viewport out of them with one drawImage each.
+
+     TWO canvases, not one: the flood has to land BETWEEN the carpet and the
+     wall faces — a partition standing in a flooded room stays dry — so the
+     carpet and the walls cannot share a single layer.
+
+     The patterns are anchored to the world grid here. The live code filled
+     them under the camera transform, which tied their phase to the camera
+     position, so the speckles swam as the view panned; baked, they are part
+     of the building, which is what they always looked like they were. */
+  bakeTiles();
+}
+
+/* Paint the static tile layer: carpet + tonal variation into G.tilesCv, wall
+   faces + tops into G.wallsCv. Runs once per floor, from bakeLighting, with G
+   and its grid already in place. Every pixel below is byte-for-byte the same
+   drawing the renderer used to do per frame — same patterns, same coordinates,
+   same order — over the whole map instead of the viewport. */
+function bakeTiles(){
+  G.tilesCv = document.createElement('canvas');
+  G.tilesCv.width = MAP_W*TILE; G.tilesCv.height = MAP_H*TILE;
+  G.tilesCtx = G.tilesCv.getContext('2d');
+  {
+    const g = G.tilesCtx;
+    g.setTransform(1,0,0,1,0,0);
+    /* ---------- carpet ---------- */
+    g.fillStyle = carpetPat;
+    g.fillRect(0, 0, MAP_W*TILE, MAP_H*TILE);
+    // per-tile tonal variation
+    for (let y=0;y<MAP_H;y++) for (let x=0;x<MAP_W;x++){
+      const h=hash2(x,y);
+      if (h<0.14){
+        g.fillStyle = h<0.05 ? 'rgba(163,163,112,0.16)' : 'rgba(228,230,168,0.10)';
+        g.fillRect(x*TILE, y*TILE, TILE, TILE);
+      }
+    }
+  }
+
+  G.wallsCv = document.createElement('canvas');
+  G.wallsCv.width = MAP_W*TILE; G.wallsCv.height = MAP_H*TILE;
+  G.wallsCtx = G.wallsCv.getContext('2d');
+  {
+    const g = G.wallsCtx;
+    g.setTransform(1,0,0,1,0,0);
+    /* ---------- wall faces + contact shadow ---------- */
+    // The face is the vertical side of a partition, drawn into the floor tile
+    // below it. A soft shadow on the carpet under it sells the height, which is
+    // what makes a top-down maze read as a photographed room instead of a
+    // colour-coded grid.
+    const FACE = TILE*0.46;
+    for (let y=0;y<MAP_H;y++) for (let x=0;x<MAP_W;x++){
+      if (G.grid[y*MAP_W+x]!==WALL) continue;
+      if (y+1>=MAP_H || G.grid[(y+1)*MAP_W+x]!==FLOOR) continue;
+      const fx=x*TILE, fy=(y+1)*TILE;
+
+      // shadow cast onto the carpet
+      const sh=g.createLinearGradient(0, fy, 0, fy+TILE*0.5);
+      sh.addColorStop(0,'rgba(12,10,4,0.30)');
+      sh.addColorStop(1,'rgba(12,10,4,0)');
+      g.fillStyle=sh;
+      g.fillRect(fx, fy, TILE, TILE*0.5);
+
+      // wallpapered face
+      g.fillStyle = wallPat;
+      g.fillRect(fx, fy, TILE, FACE);
+      // hard line where the face meets the ceiling
+      g.fillStyle='rgba(40,38,24,0.55)';
+      g.fillRect(fx, fy, TILE, 2);
+      // skirting shadow at the base
+      g.fillStyle='rgba(48,46,30,0.42)';
+      g.fillRect(fx, fy+FACE-2, TILE, 2);
+    }
+
+    /* ---------- wall tops ---------- */
+    // Seen from directly above, so they read as the top of a partition: cooler
+    // and clearly darker than the carpet. Deliberately NO per-tile banding —
+    // a lip/edge/seam on every tile made a solid wall block look like decking.
+    // Edges are drawn only where wall actually meets carpet.
+    for (let y=0;y<MAP_H;y++) for (let x=0;x<MAP_W;x++){
+      if (G.grid[y*MAP_W+x]!==WALL) continue;
+      g.fillStyle = ceilPat;
+      g.fillRect(x*TILE, y*TILE, TILE, TILE);
+    }
+    g.fillStyle='rgba(28,26,16,0.55)';
+    for (let y=0;y<MAP_H;y++) for (let x=0;x<MAP_W;x++){
+      if (G.grid[y*MAP_W+x]!==WALL) continue;
+      const below = (y+1<MAP_H && G.grid[(y+1)*MAP_W+x]===FLOOR);
+      if (below){ g.fillRect(x*TILE, y*TILE+TILE-2, TILE, 2); }
+      if (x>0      && G.grid[y*MAP_W+x-1]===FLOOR) g.fillRect(x*TILE, y*TILE, 2, TILE);
+      if (x<MAP_W-1 && G.grid[y*MAP_W+x+1]===FLOOR) g.fillRect(x*TILE+TILE-2, y*TILE, 2, TILE);
+      if (y>0      && G.grid[(y-1)*MAP_W+x]===FLOOR) g.fillRect(x*TILE, y*TILE, TILE, 2);
+      if (y<MAP_H-1 && G.grid[(y+1)*MAP_W+x]===FLOOR) g.fillRect(x*TILE, y*TILE+TILE-2, TILE, 2);
+    }
+  }
 }
 
 /* Fills G.regionOf, G.regionAdj and G.regionCount from the level's grid and
@@ -1769,6 +1882,9 @@ function buildFloor(floorNum, seed){
     maskTgt: new Float32Array(MAP_W*MAP_H),
     coneArr: new Float32Array(MAP_W*MAP_H),
     maskCv: null, maskCtx: null, maskImg: null,
+    /* the static tile layer: carpet + tonal variation, and wall faces + tops.
+       Two layers because the flood lands between them. */
+    tilesCv: null, tilesCtx: null, wallsCv: null, wallsCtx: null,
     regionOf: new Int32Array(MAP_W*MAP_H).fill(-1),
     regionAdj: null, regionCount: 0,
     visRegion: -1, visStep: 0, visFadeT: 0,
@@ -3530,18 +3646,17 @@ function outOfTime(){ lose('THE CLOCK RAN OUT'); }
 
     const x0=Math.max(0,tlx), y0=Math.max(0,tly);
   const x1=Math.min(MAP_W-1,tlx+tw), y1=Math.min(MAP_H-1,tly+th);
+  const vw = x1-x0+1, vh = y1-y0+1;
 
-  /* ---------- 1. carpet ---------- */
-  ctx.fillStyle = carpetPat;
-  ctx.fillRect(x0*TILE, y0*TILE, (x1-x0+1)*TILE, (y1-y0+1)*TILE);
-  // per-tile tonal variation
-  for (let y=y0;y<=y1;y++) for (let x=x0;x<=x1;x++){
-    const h=hash2(x,y);
-    if (h<0.14){
-      ctx.fillStyle = h<0.05 ? 'rgba(163,163,112,0.16)' : 'rgba(228,230,168,0.10)';
-      ctx.fillRect(x*TILE, y*TILE, TILE, TILE);
-    }
-  }
+  /* ---------- 1. carpet ----------
+     Baked at floor build: the carpet, the hash2 tonal variation, the wall
+     faces, the wall tops and their edge highlights are static, so the whole
+     viewport slice of them is one drawImage each. Source rect is the viewport
+     in TILES on the world-sized bake canvas; the destination is the same
+     rectangle in world pixels, inside the same camera transform the per-tile
+     fills used. */
+  ctx.drawImage(G.tilesCv, x0*TILE, y0*TILE, vw*TILE, vh*TILE,
+                            x0*TILE, y0*TILE, vw*TILE, vh*TILE);
 
   /* ---------- 1b. the flood ----------
      Drawn AFTER the carpet and BEFORE the walls, which is what makes it read as
@@ -3581,55 +3696,12 @@ function outOfTime(){ lose('THE CLOCK RAN OUT'); }
     ctx.globalCompositeOperation = 'source-over';
   }
 
-/* ---------- 2. wall faces + contact shadow ---------- */
-  // The face is the vertical side of a partition, drawn into the floor tile
-  // below it. A soft shadow on the carpet under it sells the height, which is
-  // what makes a top-down maze read as a photographed room instead of a
-  // colour-coded grid.
-  const FACE = TILE*0.46;
-  for (let y=y0;y<=y1;y++) for (let x=x0;x<=x1;x++){
-    if (G.grid[y*MAP_W+x]!==WALL) continue;
-    if (y+1>=MAP_H || G.grid[(y+1)*MAP_W+x]!==FLOOR) continue;
-    const fx=x*TILE, fy=(y+1)*TILE;
-
-    // shadow cast onto the carpet
-    const sh=ctx.createLinearGradient(0, fy, 0, fy+TILE*0.5);
-    sh.addColorStop(0,'rgba(12,10,4,0.30)');
-    sh.addColorStop(1,'rgba(12,10,4,0)');
-    ctx.fillStyle=sh;
-    ctx.fillRect(fx, fy, TILE, TILE*0.5);
-
-    // wallpapered face
-    ctx.fillStyle = wallPat;
-    ctx.fillRect(fx, fy, TILE, FACE);
-    // hard line where the face meets the ceiling
-    ctx.fillStyle='rgba(40,38,24,0.55)';
-    ctx.fillRect(fx, fy, TILE, 2);
-    // skirting shadow at the base
-    ctx.fillStyle='rgba(48,46,30,0.42)';
-    ctx.fillRect(fx, fy+FACE-2, TILE, 2);
-  }
-
-  /* ---------- 3. wall tops ---------- */
-  // Seen from directly above, so they read as the top of a partition: cooler
-  // and clearly darker than the carpet. Deliberately NO per-tile banding —
-  // a lip/edge/seam on every tile made a solid wall block look like decking.
-  // Edges are drawn only where wall actually meets carpet.
-  for (let y=y0;y<=y1;y++) for (let x=x0;x<=x1;x++){
-    if (G.grid[y*MAP_W+x]!==WALL) continue;
-    ctx.fillStyle = ceilPat;
-    ctx.fillRect(x*TILE, y*TILE, TILE, TILE);
-  }
-  ctx.fillStyle='rgba(28,26,16,0.55)';
-  for (let y=y0;y<=y1;y++) for (let x=x0;x<=x1;x++){
-    if (G.grid[y*MAP_W+x]!==WALL) continue;
-    const below = (y+1<MAP_H && G.grid[(y+1)*MAP_W+x]===FLOOR);
-    if (below){ ctx.fillRect(x*TILE, y*TILE+TILE-2, TILE, 2); }
-    if (x>0      && G.grid[y*MAP_W+x-1]===FLOOR) ctx.fillRect(x*TILE, y*TILE, 2, TILE);
-    if (x<MAP_W-1 && G.grid[y*MAP_W+x+1]===FLOOR) ctx.fillRect(x*TILE+TILE-2, y*TILE, 2, TILE);
-    if (y>0      && G.grid[(y-1)*MAP_W+x]===FLOOR) ctx.fillRect(x*TILE, y*TILE, TILE, 2);
-    if (y<MAP_H-1 && G.grid[(y+1)*MAP_W+x]===FLOOR) ctx.fillRect(x*TILE, y*TILE+TILE-2, TILE, 2);
-  }
+  /* ---------- 2+3. wall faces and tops ----------
+     The second baked layer, drawn AFTER the flood so a partition standing in
+     a flooded room stays dry: the water lands on the carpet and the walls are
+     painted over it, exactly the order the per-tile passes used. */
+  ctx.drawImage(G.wallsCv, x0*TILE, y0*TILE, vw*TILE, vh*TILE,
+                             x0*TILE, y0*TILE, vw*TILE, vh*TILE);
 
   /* ---------- 4. world markers ---------- */
   for (const b of G.batteries){
@@ -3888,8 +3960,8 @@ function outOfTime(){ lose('THE CLOCK RAN OUT'); }
   // grain
   ctx.globalCompositeOperation='overlay';
   ctx.globalAlpha=0.032*vhs;
-  const gx=-(Math.random()*160)|0, gy=-(Math.random()*160)|0;
-  for(let y=gy;y<cvs.height;y+=160) for(let x=gx;x<cvs.width;x+=160) ctx.drawImage(grainCv,x,y);
+  if (!grainFull || grainFull.width!==cvs.width || grainFull.height!==cvs.height) buildGrainFull();
+  ctx.drawImage(grainFull, 0, 0);
   ctx.globalAlpha=1;
   ctx.globalCompositeOperation='source-over';
 
@@ -4467,7 +4539,7 @@ function setPrompt(){
   if (working)                el.textContent = 'wrenching \u2014 DO NOT MOVE';
   else if (G.atLeak)         el.textContent = `hold still \u2014 ${REPAIR_TIME} seconds at the pipe`;
   else if (G.descend>0.02)   el.textContent = 'cycling door \u2014 do not stop';
-  else if (G.leaksOpen>0)    el.textContent = `${G.leaksOpen} RISER${G.leaksOpen===1?'':'S'} OPEN \u2014 THE WATER RUNS DOWNHILL FROM THE BREAK`;
+  else if (G.leaksOpen>0)    el.textContent = `${G.leaksOpen} PIPE${G.leaksOpen===1?'':'S'} LEAKING \u2014 THE WATER RUNS DOWNHILL FROM THE BREAK`;
   else                       el.textContent = 'the door will cycle \u2014 GET BACK TO THE ONE YOU CAME IN THROUGH';
   el.classList.add('on');
 }
