@@ -243,7 +243,7 @@ globalThis.__api = {
   LEVELS, LEVELS_N, get FLOOR_CLOCK(){ return FLOOR_CLOCK; },
   get WET_FALL(){ return WET_FALL; },
   get LEAK_HEADSTART(){ return LEAK_HEADSTART; },
-  get RISER_GAP(){ return RISER_GAP; },
+  get PIPE_GAP(){ return PIPE_GAP; },
   get FLOOR(){ return FLOOR; },
   get REPAIR_TIME(){ return REPAIR_TIME; },
   get REPAIR_REACH(){ return REPAIR_REACH; },
@@ -409,24 +409,24 @@ console.log('\n[1] maze generation — 400 floors');
        with a standable spot beside it. */
     const spec = A.LEVELS[Math.min(s%A.LEVELS.length, A.LEVELS_N-1)];
     assert(G.leaks.length===spec.leaks,
-      `seed ${s}: level ${s%A.LEVELS.length} has ${G.leaks.length} risers, want ${spec.leaks}`);
+      `seed ${s}: level ${s%A.LEVELS.length} has ${G.leaks.length} pipes, want ${spec.leaks}`);
     assert(G.leaksOpen===spec.leaks, `seed ${s}: leaksOpen is ${G.leaksOpen}, want ${spec.leaks}`);
-    assert(G.risers===spec.leaks, `seed ${s}: risers tally is ${G.risers}, want ${spec.leaks}`);
+    assert(G.pipes===spec.leaks, `seed ${s}: pipes tally is ${G.pipes}, want ${spec.leaks}`);
     for (const L of G.leaks){
       assert(g[L.y*W+L.x]===0, `seed ${s}: a riser is not on a wall tile`);
       assert(g[L.sy*W+L.sx]===1, `seed ${s}: a riser's repair spot is not floor`);
       assert(L.fixed===false && L.repair===0, `seed ${s}: a riser starts already worked`);
     }
-    /* The risers must not be stacked on one wall: four bursts four tiles apart
+    /* The pipes must not be stacked on one wall: four bursts four tiles apart
        are four repairs in the same breath, which is a counting exercise and not
        a level. Measured on the STANDING SPOTS, because that is what decides
        whether one five-second hold can reach two pipes. */
     for (let a=0;a<G.leaks.length;a++) for (let b=a+1;b<G.leaks.length;b++){
       const d = Math.hypot(G.leaks[a].sx-G.leaks[b].sx, G.leaks[a].sy-G.leaks[b].sy);
       assert(d > A.REPAIR_REACH,
-        `seed ${s}: two risers can be sealed by one hold (spots ${d.toFixed(2)} apart)`);
+        `seed ${s}: two pipes can be sealed by one hold (spots ${d.toFixed(2)} apart)`);
       const dw = Math.hypot(G.leaks[a].x-G.leaks[b].x, G.leaks[a].y-G.leaks[b].y);
-      assert(dw>=3, `seed ${s}: two risers are ${dw.toFixed(1)} tiles apart`);
+      assert(dw>=3, `seed ${s}: two pipes are ${dw.toFixed(1)} tiles apart`);
     }
 
     /* THE LIFEFORMS: exactly what this level says it has, and never standing in
@@ -697,7 +697,7 @@ console.log('[4] end-to-end — bot drives REAL keys through update()');
 
       /* --- no sweeping.
          The radar used to be an exit-finder and there is nothing left in the
-         world that needs finding: the door is where you came in and the risers
+         world that needs finding: the door is where you came in and the pipes
          announce themselves in water. So a sweep is pure waste against a
          three-minute budget, and the bot travelling dark is exactly the play the
          clock is asking for. It still has to SURVIVE the budget, so a dead radar
@@ -1826,7 +1826,7 @@ console.log('[14] the radar — off by default, total while on, expensive');
 
   /* --- the reveal: a scrawl is read when the sweep puts it on screen ---
      There is nothing left in the world that NEEDS finding — the door is where
-     you came in and the risers announce themselves in water — so the radar is
+     you came in and the pipes announce themselves in water — so the radar is
      down to reading the carpet. That makes the on-screen rule the whole of
      what it does, and it is checked directly rather than left to the playthrough
      bot: a scrawl just off screen must NOT be read, and the frame it comes on
@@ -1895,12 +1895,12 @@ console.log('[14] the radar — off by default, total while on, expensive');
      worse, visible through the lighting multiply and reads as a hole;
    - the leak must never reach LOUD. A leak at LOUD stops being a lure and
      becomes a floor-wide hunt trigger, which deletes the repair's tension. */
-console.log('[15] the risers — placement, reachability, and the flood field');
+console.log('[15] the pipes — placement, reachability, and the flood field');
 {
   const W=76;
 
   /* --- placement over 200 levels, and every riser on every level --- */
-  let unreachable=0, onWall=0, tooClose=0, noSpot=0, sealedAtStart=0, wrongCount=0, risers=0;
+  let unreachable=0, onWall=0, tooClose=0, noSpot=0, sealedAtStart=0, wrongCount=0, pipes=0;
   for (let s=0; s<200; s++){
     buildFloor(s % A.LEVELS_N, s*7907+31);
     const spec = A.LEVELS[s % A.LEVELS_N];
@@ -1909,7 +1909,7 @@ console.log('[15] the risers — placement, reachability, and the flood field');
       continue;
     }
     for (const L of G.leaks){
-      risers++;
+      pipes++;
       if (!L){ noSpot++; continue; }
       if (G.grid[L.y*W+L.x] !== 0) onWall++;
       if (L.fixed) sealedAtStart++;
@@ -1925,12 +1925,12 @@ console.log('[15] the risers — placement, reachability, and the flood field');
       if (d < 8) tooClose++;
     }
   }
-  assert(wrongCount===0, `${wrongCount}/200 levels built the wrong number of risers`);
-  assert(noSpot===0, `${noSpot}/${risers} risers have no usable repair spot`);
-  assert(unreachable===0, `${unreachable}/${risers} risers have a repair spot inside geometry`);
-  assert(onWall===0, `${onWall}/${risers} risers are not on a wall tile`);
-  assert(sealedAtStart===0, `${sealedAtStart} risers start already sealed`);
-  console.log(`  200 levels, ${risers} risers: every one on a wall, every repair spot standable`);
+  assert(wrongCount===0, `${wrongCount}/200 levels built the wrong number of pipes`);
+  assert(noSpot===0, `${noSpot}/${pipes} pipes have no usable repair spot`);
+  assert(unreachable===0, `${unreachable}/${pipes} pipes have a repair spot inside geometry`);
+  assert(onWall===0, `${onWall}/${pipes} pipes are not on a wall tile`);
+  assert(sealedAtStart===0, `${sealedAtStart} pipes start already sealed`);
+  console.log(`  200 levels, ${pipes} pipes: every one on a wall, every repair spot standable`);
 
   /* --- water can only exist on floor it can actually reach --- */
   buildFloor(2, 60606);
@@ -1959,7 +1959,7 @@ console.log('[15] the risers — placement, reachability, and the flood field');
       if (A.internals.waterDist[li]!==0) missing++;
     }
     assert(missing===0,
-      `${missing}/${G.leaks.length} risers do not sit at distance 0 — the field is not seeded from all of them`);
+      `${missing}/${G.leaks.length} pipes do not sit at distance 0 — the field is not seeded from all of them`);
     /* no tile may be closer than a neighbour minus one: a BFS that skipped a
        tile would produce a front that jumps, and the visible symptom is water
        arriving in a distant room before a nearer one. */
@@ -1973,7 +1973,7 @@ console.log('[15] the risers — placement, reachability, and the flood field');
       }
     }
     assert(jumps===0, `${jumps} neighbour pairs violate |d(n)-d(i)|<=1 — the front can skip tiles`);
-    console.log(`  distance field seeded from all ${G.leaks.length} risers and monotone across every floor edge`);
+    console.log(`  distance field seeded from all ${G.leaks.length} pipes and monotone across every floor edge`);
   }
 
   /* --- there IS a trail from the first second ---
@@ -2111,7 +2111,7 @@ console.log('[15] the risers — placement, reachability, and the flood field');
       `the level never actually flooded (${wet0} tiles, ${px0} drawn) — there is nothing to recede`);
 
     for (const L of G.leaks) A.sealLeak(L);
-    assert(G.leaksOpen===0, 'the level still has open risers — nothing to recede from');
+    assert(G.leaksOpen===0, 'the level still has open pipes — nothing to recede from');
 
     /* 1. the waterline is symmetric */
     const f0 = A.internals.wetFront;
@@ -2167,14 +2167,14 @@ console.log('[15] the risers — placement, reachability, and the flood field');
   }
 
   /* --- the leak NEVER gets loud. This is the design contract of the lure —
-         and with several risers open at once it is a contract about the TOTAL,
+         and with several pipes open at once it is a contract about the TOTAL,
          not about each one. Four standing sources that are individually quiet
          are collectively the loudest thing in the building if each is allowed
          its own full share, which would turn every late level into a hunt with
          no off switch. --- */
   {
     /* Builds its own level, and level 5, because the claim is about several
-       risers being open at once — and because a block that inherits whatever
+       pipes being open at once — and because a block that inherits whatever
        level the block above happened to leave behind is a block whose result
        depends on the order of the file. */
     buildFloor(A.LEVELS_N-1, 60606);
@@ -2186,10 +2186,10 @@ console.log('[15] the risers — placement, reachability, and the flood field');
       if (G.leakPower*G.leaksOpen >= A.LOUD) loud++;
     }
     assert(loud===0,
-      `the open risers reached LOUD ${loud}/${samples} samples — a loud leak is a level-wide hunt trigger, not a lure`);
+      `the open pipes reached LOUD ${loud}/${samples} samples — a loud leak is a level-wide hunt trigger, not a lure`);
     assert(G.leakPower > 0,
-      'the open risers went silent');
-    console.log(`  ${G.leaksOpen} open risers at ${G.leakPower.toFixed(2)} each = `+
+      'the open pipes went silent');
+    console.log(`  ${G.leaksOpen} open pipes at ${G.leakPower.toFixed(2)} each = `+
       `${(G.leakPower*G.leaksOpen).toFixed(2)} total, against a LOUD of ${A.LOUD} — always a lure`);
   }
 
@@ -2209,7 +2209,7 @@ console.log('[15] the risers — placement, reachability, and the flood field');
    Five seconds, standing still. The failure modes are all about the bar: it
    filling while you walk away, filling without you, filling without noise, or
    completing twice. Each of those makes the mechanic free or broken. With
-   several risers on a level there are two more: sealing the one you are at
+   several pipes on a level there are two more: sealing the one you are at
    while another is still open, and double-counting the tallies. */
 console.log('[16] the repair — five seconds, standing still');
 {
@@ -2253,7 +2253,7 @@ console.log('[16] the repair — five seconds, standing still');
     }
     const sealed = G.leaks.filter(l=>l.fixed);
     assert(L0.fixed, `held still for ${t.toFixed(1)}s and the pipe never sealed`);
-    assert(sealed.length===1, `${sealed.length} risers sealed from one hold — it took the lot at once`);
+    assert(sealed.length===1, `${sealed.length} pipes sealed from one hold — it took the lot at once`);
     assert(sealed[0]===L0, 'the riser that sealed was not the one the player was standing at');
     /* exactly the stated time, within a frame — a bar that fills early is a
        bar that was not asking for anything */
@@ -2342,8 +2342,8 @@ console.log('[16] the repair — five seconds, standing still');
      on a level they have left three-quarters flooded, and it is invisible until
      you test it deliberately. */
   {
-    buildFloor(3, 24680);          // level 4: four risers
-    assert(G.leaks.length===4, `expected 4 risers on level 4, got ${G.leaks.length}`);
+    buildFloor(3, 24680);          // level 4: four pipes
+    assert(G.leaks.length===4, `expected 4 pipes on level 4, got ${G.leaks.length}`);
     /* nextFloor() increments a global, and this file is not at floor 0 by now.
        The question is "did the level end", so the baseline is where it started. */
     const f0 = A.floorIdx;
@@ -2356,8 +2356,8 @@ console.log('[16] the repair — five seconds, standing still');
     atDoor();
     for (let i=0;i<400;i++){ G.batt=100; update(1/60); }
     assert(A.floorIdx===f0,
-      `descended with risers open — the door is supposed to stay shut (floorIdx ${A.floorIdx})`);
-    assert(G.descend===0, `the door cycled ${G.descend.toFixed(2)}s with risers open`);
+      `descended with pipes open — the door is supposed to stay shut (floorIdx ${A.floorIdx})`);
+    assert(G.descend===0, `the door cycled ${G.descend.toFixed(2)}s with pipes open`);
 
     /* Seal all but the last, one at a time, and try the door after EACH. This is
        the case the old three-exit rule could not even express. */
@@ -2371,7 +2371,7 @@ console.log('[16] the repair — five seconds, standing still');
     }
     console.log(`  door stays sealed through all ${others.length} partial repairs`);
 
-    /* and only the last one opens it, which proves the gate is the risers and
+    /* and only the last one opens it, which proves the gate is the pipes and
        not some side effect of the loop above */
     const last = G.leaks[G.leaks.length-1];
     A.sealLeak(last);
@@ -2381,7 +2381,7 @@ console.log('[16] the repair — five seconds, standing still');
       G.batt=100; update(1/60);
       if (A.floorIdx>f0) opened=true;
     }
-    assert(opened, 'with every riser sealed the door never opened — the gate is not the risers');
+    assert(opened, 'with every riser sealed the door never opened — the gate is not the pipes');
     console.log('  sealing the LAST riser opens the door');
     /* put the global back — the remaining tests assume floor 0-ish state */
     vm.runInContext('floorIdx=0;', ctxObj);
@@ -2503,12 +2503,12 @@ console.log('[17] the water as a cue — legible, free, and it actually leads');
   }
 }
 
-/* ============ TEST 18: a level is FINISHABLE, risers and all =========
+/* ============ TEST 18: a level is FINISHABLE, pipes and all =========
    The whole level is one objective set — every riser, then the door — so it
    has to be inside the completion path the end-to-end bot already walks. This
    drives the bot at one riser, then the next, then the door it came in by, and
    asserts the level actually completes through the real update() with real key
-   state. Level 5 is the one that matters: four risers is where a placement bug
+   state. Level 5 is the one that matters: four pipes is where a placement bug
    or a tally bug shows up, because with one there is nothing to get wrong. */
 console.log('[18] end-to-end — the bot seals every riser, then walks back out');
 {
@@ -2645,15 +2645,15 @@ console.log('[18] end-to-end — the bot seals every riser, then walks back out'
       if (Math.abs(G.player.x-bx0)+Math.abs(G.player.y-by0) > 1e-6) hasMovedLastFrame=true;
       if (A.STATE!=='play') A.STATE='play';       // respawn on death, keep trying
     }
-    if (process.env.V) console.log(`     level ${s}: ${frames} frames, ${sealedThisLevel} risers, ${allSealed?'all sealed':'LEFT OPEN'}`);
+    if (process.env.V) console.log(`     level ${s}: ${frames} frames, ${sealedThisLevel} pipes, ${allSealed?'all sealed':'LEFT OPEN'}`);
   }
   keys.w=keys.s=keys.a=keys.d=false; keys.shift=false;
   assert(noPath===0, `${noPath} legs had no path — the objective is unreachable`);
   assert(arrived===A.LEVELS_N, `the bot sealed every riser on ${arrived}/${A.LEVELS_N} levels`);
   assert(risersSealed===risersWanted,
-    `${risersSealed}/${risersWanted} risers were sealed — the tallies do not agree`);
+    `${risersSealed}/${risersWanted} pipes were sealed — the tallies do not agree`);
   assert(descended===A.LEVELS_N, `the bot walked back out on ${descended}/${A.LEVELS_N} levels`);
-  console.log(`  bot: ${risersSealed} risers sealed, ${descended}/${A.LEVELS_N} levels walked back out`);
+  console.log(`  bot: ${risersSealed} pipes sealed, ${descended}/${A.LEVELS_N} levels walked back out`);
   vm.runInContext('floorIdx=0;', ctxObj);
 }
 
@@ -2945,7 +2945,7 @@ console.log('[22] the run — five levels, three minutes, one door');
   /* --- and the BUILT levels match the table, on every level --- */
   for (let f=0; f<A.LEVELS_N; f++){
     buildFloor(f, 90210+f*131);
-    assert(G.leaks.length===A.LEVELS[f].leaks, `built level ${f+1} has ${G.leaks.length} risers`);
+    assert(G.leaks.length===A.LEVELS[f].leaks, `built level ${f+1} has ${G.leaks.length} pipes`);
     assert(G.agents.length===A.LEVELS[f].forms, `built level ${f+1} has ${G.agents.length} lifeforms`);
     assert(G.exitTiles.length===1, `built level ${f+1} has ${G.exitTiles.length} doors`);
     assert(G.clock===180, `level ${f+1} opens with ${G.clock}s, want 180`);
@@ -3053,7 +3053,7 @@ console.log('[22] the run — five levels, three minutes, one door');
 
   /* --- and the win card reports the RUN, not the floor it got printed on ---
      G.stat is thrown away and rebuilt by buildFloor, so the card used to read
-     the LAST level's counters: a run that sealed 1+2+3+4+4 risers across five
+     the LAST level's counters: a run that sealed 1+2+3+4+4 pipes across five
      levels and died once on level 2 reported four seals and no deaths. The card
      is the only place the whole run is ever summed, so this drives a whole run
      the real way — through the start button, through nextFloor(), one real
@@ -3067,7 +3067,7 @@ console.log('[22] the run — five levels, three minutes, one door');
     for (let f=0; f<A.LEVELS_N; f++){
       if (f>0) vm.runInContext('nextFloor();', ctxObj);   // walk through the door
       A.STATE = 'play';
-      assert(G.leaks.length > 0, `level ${f+1} opened with no risers to seal`);
+      assert(G.leaks.length > 0, `level ${f+1} opened with no pipes to seal`);
       for (const L of G.leaks){ A.sealLeak(L); sealed++; }
       A.emitNoise(0.3, G.player.x, G.player.y);
       A.emitNoise(0.3, G.player.x, G.player.y);
@@ -3091,12 +3091,12 @@ console.log('[22] the run — five levels, three minutes, one door');
     assert(G.stat.sealed !== sealed,
       'this assertion needs G.stat to differ from the run total or it proves nothing');
     const card = els['win-stats'].innerHTML;
-    assert(card.includes(`<b>${sealed}</b> risers`),
-      `the win card does not report ${sealed} sealed risers (said: ${card.slice(0,90)}...)`);
+    assert(card.includes(`<b>${sealed}</b> pipes`),
+      `the win card does not report ${sealed} sealed pipes (said: ${card.slice(0,90)}...)`);
     assert(card.includes(`Deaths: <b>1</b>`), `the win card does not report 1 death (said: ${card.slice(0,90)}...)`);
     assert(card.includes(`Noise made: <b>${noises}</b>`),
       `the win card does not report ${noises} noises (said: ${card.slice(0,90)}...)`);
-    console.log(`  the win card counts the run: ${sealed} risers sealed, 1 death, ${noises} noises`);
+    console.log(`  the win card counts the run: ${sealed} pipes sealed, 1 death, ${noises} noises`);
     /* leave the world where the next test expects to find it */
     A.STATE = 'splash';
     vm.runInContext('lives=3; floorIdx=0; runTime=0;', ctxObj);
@@ -3690,13 +3690,13 @@ console.log('[26] the pause screen — the work order, with the run written on i
 
   /* --- and the numbers are the run's --- */
   buildFloor(2, 9090);
-  G.leaksOpen = G.risers; G.floodCover = 0.31; G.batt = 42; G.stat.noises = 7;
+  G.leaksOpen = G.pipes; G.floodCover = 0.31; G.batt = 42; G.stat.noises = 7;
   A.STATE = 'play';
   A.togglePause();
   assert(A.STATE==='pause', 'ESC did not pause');
   const txt = id=> els[id] ? els[id].innerHTML : '';
   assert(/3 \/ /.test(txt('pause-level')), `depth reads "${txt('pause-level')}" on level 3`);
-  assert(txt('pause-risers').includes('0/'), `the riser tally reads "${txt('pause-risers')}"`);
+  assert(txt('pause-pipes').includes('0/'), `the riser tally reads "${txt('pause-pipes')}"`);
   assert(txt('pause-batt')==='42', `battery reads "${txt('pause-batt')}", expected 42`);
   assert(/^#88D-[0-9A-F]{1,4}$/.test(txt('pause-seed')), `the ticket seed reads "${txt('pause-seed')}"`);
   assert(txt('pause-clock')===A.clockText(G.clock), 'the clock on the ticket is not the clock in state');
@@ -3991,7 +3991,7 @@ console.log('[29] canvas state — nothing outlives the frame that opened it');
 
 /* ============ TEST 30: the level stages — genLevel is pure ============
    buildFloor is now four pure stages and assembly. genLevel is the stage
-   that decides everything about the geometry — door, risers, fixtures,
+   that decides everything about the geometry — door, pipes, fixtures,
    pickups, graffiti — so it is tested here WITHOUT a floor: twenty seeds,
    no buildFloor, every field asserted well-formed, and the same seed must
    produce the same level twice. */
@@ -4020,7 +4020,7 @@ console.log('[30] the level stages — genLevel is pure and well-formed');
 
     // leaks: exactly spec.leaks, each a wall tile with a legal stand spot in a real room
     assert(level.leaks.length === level.spec.leaks,
-      `${tag}: ${level.leaks.length} risers, want ${level.spec.leaks}`);
+      `${tag}: ${level.leaks.length} pipes, want ${level.spec.leaks}`);
     for (const L of level.leaks){
       assert(L.fixed===false && L.repair===0 && L.fixedAt===0, `${tag}: riser not pristine`);
       assert(g(L.x,L.y)===0, `${tag}: riser at ${L.x},${L.y} is not wall`);
@@ -4051,7 +4051,7 @@ console.log('[30] the level stages — genLevel is pure and well-formed');
     assert(JSON.stringify(again.exit) === JSON.stringify(level.exit),
       `${tag}: the door moved between two identical seeds`);
   }
-  console.log('  20 seeds, no buildFloor: door, risers, fixtures, pickups, graffiti all well-formed');
+  console.log('  20 seeds, no buildFloor: door, pipes, fixtures, pickups, graffiti all well-formed');
 }
 
 /* ============ TEST 31: the update stages — G.wet is the tile you end on ===

@@ -3,7 +3,7 @@
    2D top-down puzzle / stealth. JS + canvas only, no assets.
 
    Design contract:
-   - There is ONE door: the one you came in through. You seal the risers,
+   - There is ONE door: the one you came in through. You seal the pipes,
      then you get back to it before the clock runs out.
    - The radar is INFORMATION ONLY. It reveals the scrawled warnings.
      It never repels, never lies to the monster.
@@ -13,7 +13,7 @@
    - Noise is the entire stealth layer. Sprinting is fast and fatal.
    - The Lifeform: coiled black wire. Dormant = a pile of loops.
      It RISES when it hears you. That 1.4s animation is your window.
-   ============================================================ */
+   ============================================================ */ 
 
 /* ---------- deterministic RNG ---------- */
 function mulberry32(a){
@@ -34,13 +34,13 @@ const VIEW_T = 27;                // tiles across the viewport
 /* ---------- THE FIVE LEVELS ----------
    Fixed content, not a difficulty curve the presets tune: this is the shape of
    the run. Each level is a floor you enter through one door, a set of burst
-   risers to find and seal, and a set of things in the building with you.
+   pipes to find and seal, and a set of things in the building with you.
 
    `leaks` is the work — how many bursts to find, seal and then walk back from.
    `forms` is the pressure, and it deliberately does NOT track `leaks`: level 2
    has twice the work of level 1 and exactly the same number of things hunting
    for you, so the second level teaches the round trip (seal, then get back)
-   before the building ever gets crowded. Levels 4 and 5 share four risers and
+   before the building ever gets crowded. Levels 4 and 5 share four pipes and
    differ only in what is walking around while you do it. */
 const LEVELS = [
   { leaks:1, forms:1 },   // 1 — one pipe, one thing, learn the round trip
@@ -50,7 +50,7 @@ const LEVELS = [
   { leaks:4, forms:4 }
 ];
 const LEVELS_N = LEVELS.length;
-/* How long you have on each level to seal every riser and get back to the door
+/* How long you have on each level to seal every pipe and get back to the door
    you came in through. This is the whole pressure of a floor: the water is the
    clock's excuse, the walk back is what it actually spends. */
 let FLOOR_CLOCK = 180;      // seconds; NORMAL
@@ -85,11 +85,11 @@ const BATT_MAX   = 100;
    held indefinitely, which made the budget a formality rather than a decision;
    this one has to be switched off and thought about. */
 const RADAR_DRAIN = 5.6;          // per second while sweeping
-/* How far apart two risers may be placed, in tiles. Without it the placement
+/* How far apart two pipes may be placed, in tiles. Without it the placement
    loop — which always takes the farthest candidate — stacks every burst in the
-   same far corner of the floor, and four risers become one riser you seal four
+   same far corner of the floor, and four pipes become one pipes you seal four
    times in the same five seconds. The floor has to be a tour. */
-const RISER_GAP = 9;
+const PIPE_GAP = 9;
 
 /* ---------- THE LEAK ----------
    You are not here to hunt. You are here because a pipe is burst somewhere in
@@ -141,7 +141,7 @@ const WET_FALL     = 7.0;    // s for an abandoned tile to go 1 -> 0
 const LEAK_NOISE_BASE = 0.16;   // a quiet drip, heard ~6 tiles
 const LEAK_NOISE_GAIN = 0.26;   // added as the floor drowns; still under LOUD
 const LEAK_LURE    = 0.42;   // tiles: a SEARCHING entity drifts this close
-/* RISER_FAR is the STRAIGHT-LINE CAP, indexed by riser count: how far from the
+/* PIPE_FAR is the STRAIGHT-LINE CAP, indexed by pipe count: how far from the
    spawn a break is allowed to be, measured in a straight line — and the cap is
    the whole point.
 
@@ -159,13 +159,13 @@ const LEAK_LURE    = 0.42;   // tiles: a SEARCHING entity drifts this close
    farthest of those wins; the uncapped list is still the fallback.
 
    The cap is also a BUDGET, and the budget is three minutes for the whole
-   level, not for one pipe. One riser can afford to be in the far corner of the
+   level, not for one pipe. One pipe can afford to be in the far corner of the
    building; four cannot, because a level that asks for four crossings of the
    map and then the walk home is not a hard level, it is an arithmetic one that
-   only the best possible route survives. So each extra riser pulls the reach in
+   only the best possible route survives. So each extra pipe pulls the reach in
    — the work stays a tour, and the tour stays inside the clock. Indexed by
-   (risers - 1); the last entry repeats for any count past the table. */
-const RISER_FAR = [46, 38, 32, 28];
+   (pipes - 1); the last entry repeats for any count past the table. */
+const PIPE_FAR = [46, 38, 32, 28];
 /* The pipe has been open for a while before you got here. Without this the
    floor starts bone dry and the first half-minute has no cue in it at all —
    you would have to wander blindly until water happened to reach you, which
@@ -1151,7 +1151,7 @@ function setHeadless(px, vis){ wantPixels = !!px; wantVision = !!vis; }
    O(perimeter of the waterline) pass — a handful of tiles a frame instead of
    six thousand. The ordering is stable because the leak does not move. */
 
-/* G.wetEdgeD is the furthest distance from the nearest riser at which ANY tile is
+/* G.wetEdgeD is the furthest distance from the nearest pipe at which ANY tile is
    still visibly wet — and it is the bound the per-frame pass actually uses.
 
    It is not `G.wetFront`, and the difference is the whole recession. `G.wetFront` is
@@ -1249,7 +1249,7 @@ function genLevel(rng, floorNum=0){
   const candidates = maze.rooms.filter(r=>r.rw>=6 && r.rh>=6);
   const pool = candidates.length>=6 ? candidates : maze.rooms;
   const entryRoom = pool[0];
-  /* The spawn, needed before anything that is placed relative to it — the risers
+  /* The spawn, needed before anything that is placed relative to it — the pipes
      go as far from here as the geometry allows. */
   const spawn = { x: entryRoom.rx + entryRoom.rw/2, y: entryRoom.ry + entryRoom.rh/2 };
 
@@ -1267,18 +1267,18 @@ function genLevel(rng, floorNum=0){
      cannot finish, and there is a clock on that now. */
   if (!exitTiles.length) exitTiles.push({x:1, y:1, open:0});
 
-  /* --- the risers ------------------------------------------------------
+  /* --- the pipes ------------------------------------------------------
      Each is a single wall tile, as far from the spawn as the floor allows. It
      has to be a WALL and it has to touch walkable floor — you cannot wrench a
      pipe that opens onto solid rock, and you cannot walk to one that opens onto
      nowhere. If the extreme corner turns out to be unusable the search walks
      back toward the spawn rather than failing, because a level with an
-     unreachable riser is unwinnable and every repair is mandatory.
+     unreachable pipe is unwinnable and every repair is mandatory.
 
      Preferring the FARTHEST tile and only then falling back means the common
      case is a genuine trek and the rare case is merely a shorter one. With more
-     than one riser the farthest-first rule is applied with RISER_GAP between
-     picks, and the tie broken by the seeded RNG, so four risers are four corners
+     than one pipe the farthest-first rule is applied with PIPE_GAP between
+     picks, and the tie broken by the seeded RNG, so four pipes are four corners
      of the building rather than four faces of the same wall. */
   const faceTiles = [];
   for (let y=1;y<MAP_H-1;y++) for (let x=1;x<MAP_W-1;x++){
@@ -1318,32 +1318,32 @@ function genLevel(rng, floorNum=0){
     }
     return null;
   };
-  /* The room a standing spot sits in, for the pickup guarantee below. A riser is
+  /* The room a standing spot sits in, for the pickup guarantee below. A pipe is
      a wall tile and belongs to no rect; the floor you stand on to reach it does,
      and that is the cell you want beside it. */
   const roomAt = (tx,ty) =>
     maze.rooms.find(r=>tx>=r.rx&&tx<r.rx+r.rw&&ty>=r.ry&&ty<r.ry+r.rh) || null;
 
-  /* The risers for THIS level. How many is a fixed property of the level, not a
+  /* The pipes for THIS level. How many is a fixed property of the level, not a
      tuning knob — see LEVELS. */
   const spec = LEVELS[Math.min(floorNum, LEVELS_N-1)];
   const want = spec.leaks;
   const leaks = [];
-  const reach = RISER_FAR[Math.min(want, RISER_FAR.length)-1];
+  const reach = PIPE_FAR[Math.min(want, PIPE_FAR.length)-1];
   const capped = faceTiles.filter(c=>c.d <= reach);
   const shortlist = (capped.length ? capped : faceTiles);
-  /* Shallow-to-deep scan of the far half of the level: the first RISER_GAP-
-     separated pick wins, so the risers come out spread across the building
+  /* Shallow-to-deep scan of the far half of the level: the first PIPE_GAP-
+     separated pick wins, so the pipes come out spread across the building
      while each is still comfortably out of sight of the door.
 
      The gap is measured between the two STANDING SPOTS, not between the two
      wall tiles. They are not the same question: the wall tile decides where
      the pipe is, and the standing spot is where the player's collision disc
-     has to be for the repair to fire at all. Two risers three wall tiles apart
+     has to be for the repair to fire at all. Two pipes three wall tiles apart
      can have standing spots 1.0 tile apart, which is inside REPAIR_REACH — and
      then a single five-second hold seals both of them, which is the one thing
      four separate repairs must never be. */
-  for (let gap of [RISER_GAP, Math.max(4, RISER_GAP>>1), 0]){
+  for (let gap of [PIPE_GAP, Math.max(4, PIPE_GAP>>1), 0]){
     for (const c of shortlist){
       if (leaks.length >= want) break;
       const spot = standSpot(c);
@@ -1414,8 +1414,8 @@ function genLevel(rng, floorNum=0){
 
   /* --- battery pickups ---
      One is GUARANTEED inside the room the door is in, and one inside the room
-     each riser stands in. The riser is what the water leads you to, so the cell
-     that powers the radar is standing next to the work — with four risers and
+     each pipes stands in. The pipe is what the water leads you to, so the cell
+     that powers the radar is standing next to the work — with four pipes and
      three minutes you will sweep more than once, and a budget that can run dry
      between the pipe and the pipe is a budget you cannot plan around. */
   const batteries = [];
@@ -1424,12 +1424,12 @@ function genLevel(rng, floorNum=0){
   for (const b of [{room:entryRoom, away:spawn, d:3}, ...leaks.map(L=>({room:L.room, away:{x:L.sx+0.5,y:L.sy+0.5}, d:1.5}))]){
     const r = b.room;
     if (!r || r.rw<5 || r.rh<5) continue;
-    /* Two risers can share a room, and a stacked pair of cells reads as a bug
+    /* Two pipes can share a room, and a stacked pair of cells reads as a bug
        rather than as generosity. One per room. */
     if (battRooms.has(r)) continue;
     battRooms.add(r);
     /* Never within reach of the spawn, and never sitting on the repair spot of
-       the riser this cell belongs to: both are battery you did not have to walk
+       the pipe this cell belongs to: both are battery you did not have to walk
        for, and the clock is the point of the level. */
     const sp = floorTileIn(r, 1, b.away, b.d);
     if (!sp) continue;
@@ -1465,7 +1465,7 @@ function genLevel(rng, floorNum=0){
     'the wet floor runs downhill. it runs AWAY from the break.',
     'wrench takes five seconds. it is the loudest thing you will do here.',
     'don\'t stand still anywhere except the pipe',
-    'seal every riser. the door does not open for a wet floor.',
+    'seal every pipe. the door does not open for a wet floor.',
     'three minutes. then the water has the room you are standing in.',
     'the door is behind you. it will still be behind you.'
   ];
@@ -1812,8 +1812,8 @@ function spawnAgents(level){
   for (let i=0; coilRooms.length && agents.length<spec.forms; i++){
     const r = coilRooms[(rng()*coilRooms.length)|0];
     const cx = r.rx+r.rw/2, cy = r.ry+r.rh/2;
-    /* Not in the spawn room, and not on top of a riser: a coil sharing a tile
-       with the only place you can stand to repair would make that riser's five
+    /* Not in the spawn room, and not on top of a pipe: a coil sharing a tile
+       with the only place you can stand to repair would make that pipe's five
        seconds unsurvivable by accident rather than by choice. */
     if (Math.hypot(cx-spawn.x, cy-spawn.y) < 9) continue;
     if (level.leaks.some(L=>Math.hypot(cx-(L.sx+0.5), cy-(L.sy+0.5)) < 4)) continue;
@@ -1871,7 +1871,7 @@ function buildFloor(floorNum, seed){
     /* The three numbers the HUD and the door gate read, derived once here so
        nothing has to walk the array to answer "is this level finished". */
     leaksOpen: level.leaks.length,
-    risers: level.leaks.length,
+    pipes: level.leaks.length,
     lightArr: new Float32Array(MAP_W*MAP_H),
     lightCv: null, lightCtx: null, lightImg: null,
     visArr: new Float32Array(MAP_W*MAP_H).fill(DARK_ROOM),
@@ -1936,7 +1936,7 @@ function buildFloor(floorNum, seed){
 
 /* ============================================================
    THE FLOOD
-   Water spreads from every open riser at a fixed rate along walkable floor.
+   Water spreads from every open pipe at a fixed rate along walkable floor.
    Nothing else: no pressure model, no pooling, no per-tile diffusion. A distance
    field is the whole physics because water runs downhill, and re-deriving it
    on every state change (rather than advancing a front every frame) means the
@@ -1947,12 +1947,12 @@ function buildFloor(floorNum, seed){
    rewrite: the field is distance to the NEAREST burst, seeded from all of them
    at once, so a tile's target wetness is still exactly `dist <= front` and
    everything downstream — the ordering, the incremental sum, the waterline
-   bound — is untouched. Four risers do not mean four overlapping floods with
+   bound — is untouched. Four pipes do not mean four overlapping floods with
    four fronts to reconcile; they mean one flood that started in four places,
-   which is what standing water in a building with four burst risers does.
+   which is what standing water in a building with four burst pipes does.
    ============================================================ */
 
-/* BFS distance in tiles from the NEAREST riser across walkable floor. Derived
+/* BFS distance in tiles from the NEAREST pipe across walkable floor. Derived
    once at level build; during play it is read-only. */
 function floodField(){
   const d = new Int32Array(MAP_W*MAP_H).fill(-1);
@@ -2099,7 +2099,7 @@ function floodCover(){
 /* Is the player close enough to an OPEN pipe to work on it? Measured against
    the standing spot, not the tile the face was picked from, because the whole
    interaction is "put your hands on the pipe" and a repair you can trigger
-   from a diagonal tile away is not that. Returns the riser itself so the
+   from a diagonal tile away is not that. Returns the pipe itself so the
    caller does not have to search again. */
 function leakAt(x, y){
   for (const L of G.leaks){
@@ -2112,27 +2112,27 @@ function leakReach(x, y){
   return !!leakAt(x, y);
 }
 
-/* Seal one pipe. Permanent, once per riser — the flag is checked before the
+/* Seal one pipe. Permanent, once per pipe — the flag is checked before the
    progress bar is ever allowed to advance, so this cannot be double-applied
-   and cannot leave the riser flooded with a full progress bar. */
+   and cannot leave the pipe flooded with a full progress bar. */
 function sealLeak(L){
   if (!L || L.fixed) return;
   L.fixed = true;
   L.fixedAt = G.time;
-  /* The bar goes with it. Leaving a full progress bar on a sealed riser is
+  /* The bar goes with it. Leaving a full progress bar on a sealed pipe is
      harmless today because the ring is gated on !fixed — but it is a number
      that means "work in progress" sitting at 100% forever, and the first thing
      that reads it as something else will be wrong. */
   L.repair = 0;
   G.leaksOpen = Math.max(0, G.leaksOpen-1);
   Audio_.seal();
-  /* The recession only starts when the LAST riser is closed, so the water keeps
+  /* The recession only starts when the LAST pipe is closed, so the water keeps
      advancing between the first repair and the fourth. That is deliberate: it
      means sealing one pipe out of four is progress and not relief, and the floor
      does not stop drowning the moment you feel good about yourself. */
   flash(G.leaksOpen
-    ? `RISER SEALED \u2014 ${G.leaksOpen} STILL OPEN`
-    : 'EVERY RISER SEALED \u2014 GET BACK TO THE DOOR');
+    ? `PIPE SEALED \u2014 ${G.leaksOpen} STILL OPEN`
+    : 'EVERY PIPE SEALED \u2014 GET BACK TO THE DOOR');
   G.stat.sealed++;
   runStat.sealed++;
   /* Recompute the distance field from the seal point so the recession runs
@@ -2159,7 +2159,7 @@ function sealLeak(L){
 function tickFlood(dt){
   if (!G.leaks.length || !G.wetArr) return;
 
-  /* RISING while any riser is open, FALLING once all are sealed — AT THE SAME
+  /* RISING while any pipe is open, FALLING once all are sealed — AT THE SAME
      PACE. The waterline goes back out at exactly one tile per LEAK_SPREAD
      second, the rate it came in at, and that symmetry is the point: the floor
      un-floods in the time it took to flood, so the tide you watched arrive is
@@ -2208,7 +2208,7 @@ function tickFlood(dt){
   if (hi < 0) return;
   const tau = G.leaksOpen>0 ? WET_RISE : WET_FALL;
   const k = 1 - Math.exp(-dt/tau);
-  /* A front sitting at zero is no water at all — including on the riser's own
+  /* A front sitting at zero is no water at all — including on the pipe's own
      standing spot. `dist <= front` says otherwise for distance 0, which pinned
      one tile at full wetness for the rest of the level: a permanent damp patch
      under the pipe you just fixed, in the one place on the floor where the
@@ -2889,7 +2889,7 @@ window.addEventListener('keydown', e=>{
     return;
   }
 
-  /* ESC walks the splash chain backwards: from the work order to the riser.
+  /* ESC walks the splash chain backwards: from the work order to the pipe.
      It does nothing on splash 03, which is the first frame — there is nothing
      behind it, and a key that silently does nothing is worse than no key. */
   if (e.key==='Escape'){
@@ -3054,7 +3054,7 @@ function tickMovement(dt){
   return { moving, bumped, sprinting, wet };
 }
 
-/* --- the risers ---
+/* --- the pipes ---
    Every open one is a continuous emitter at the pipe, not a repeating one-shot.
    sustainedNoise rather than emitNoise: a burst every few frames would inflate
    the noise stats and fight the meter decay, and what this needs to be is a
@@ -3068,7 +3068,7 @@ function tickLeakNoise(dt){
        hunt trigger, and the repair would have nothing left to be tense
        against.
 
-       FOUR OPEN RISERS MUST NOT BE FOUR LOUD RISERS. The share each one gets is
+       FOUR OPEN PIPES MUST NOT BE FOUR LOUD PIPES. The share each one gets is
        divided by how many are open, so the building's total background hiss
        still tops out under LOUD: it stays a lure you can hide behind rather than
        a hunt trigger you cannot switch off, and it keeps the wrench the single
@@ -3146,7 +3146,7 @@ function tickRepair(dt, moving, bumped){
     }
     if (L.repair > 0) p.stepT = Math.min(p.stepT, dt);
   } else {
-    /* Off the pipe entirely: every bar still on any riser starts bleeding. */
+    /* Off the pipe entirely: every bar still on any pipe starts bleeding. */
     for (const o of G.leaks){
       if (o.fixed || o.repair <= 0) continue;
       o.repair = Math.max(0, o.repair - dt*REPAIR_DECAY*REPAIR_TIME);
@@ -3156,7 +3156,7 @@ function tickRepair(dt, moving, bumped){
 
 /* --- the radar reveals ---
    The agent loop plus the sight check that feeds G.seenBy and G.nearest:
-   what can see you, how close the nearest riser of it is, and whether
+   what can see you, how close the nearest pipe of it is, and whether
    anything is allowed to start hunting this frame. */
 function tickAgents(dt){
   const p = G.player;
@@ -3232,7 +3232,7 @@ function tickDoor(dt){
       G.descend = Math.max(0, G.descend - dt*2.5);
     }
   } else if (G.descend > 0){
-    /* Backing off: if the door was open and a riser is still open, the cycle
+    /* Backing off: if the door was open and a pipe is still open, the cycle
        drains rather than holding. You cannot sit in a doorway with the
        progress bar frozen waiting for something that has not happened. */
     G.descend = Math.max(0, G.descend - dt*2.5);
@@ -3342,15 +3342,15 @@ function updateAgent(a, dt, p){
   if (a.state==='SEARCH'){
     a.t -= dt;
 
-    /* THE LURE. An open riser is a standing noise source, and something already
+    /* THE LURE. An open pipe is a standing noise source, and something already
        searching will go and stand next to it. This is what makes the leak a
        shield as well as a hazard: while one is open, anything curious in the
        building is being pulled to a pipe rather than to you, so the five seconds
-       at the riser are not spent with a hunter closing from wherever it
+       at the pipe are not spent with a hunter closing from wherever it
        happened to be — they are spent with one closing from a known place.
 
        With four of them the NEAREST open one takes it, which is the correct
-       reading: a thing standing at a riser you have not reached yet is a shield
+       reading: a thing standing at a pipe you have not reached yet is a shield
        you have not got yet, and it should not walk across the building to a pipe
        four rooms away just to be somewhere else.
 
@@ -3390,7 +3390,7 @@ function randomFloorNear(x,y,rad){
 
 /* ============================================================
    THE SPLASH SCREENS
-   Two frames before the run: 03 RISER (title, rising water) then
+   Two frames before the run: 03 PIPE (title, rising water) then
    04 WORK ORDER 88-D (the ticket, which is also the controls list).
    One advance function drives both, so ENTER, any key, and a click
    all land in the same place and cannot disagree with each other.
@@ -3432,7 +3432,7 @@ function backSplash(){
    the same RUN_SEED. It is faded to the point of being unreadable on purpose:
    a splash that handed over a legible map would be a tutorial, and a tutorial
    here would give away the only thing the player earns, which is finding the
-   risers by following water downhill.
+   pipes by following water downhill.
    ------------------------------------------------------------ */
 function paintSplashPlan(){
   const cv = document.getElementById('splash-plan');
@@ -3475,7 +3475,7 @@ function paintSplashPlan(){
     for (let y=0; y<=MAP_W; y+=4){
       ctx.beginPath(); ctx.moveTo(ox, px(y)+0.5); ctx.lineTo(ox+W, px(y)+0.5); ctx.stroke();
     }
-    /* the marks that are the run: the door you came in by, and every riser.
+    /* the marks that are the run: the door you came in by, and every pipe.
        Water-blue, because water is the only hue in this place and these two
        things are both water problems. */
     ctx.fillStyle = 'rgba(143,196,204,1)';
@@ -3541,7 +3541,7 @@ function renderLives(){
 function nextFloor(){
   floorIdx++;
   if (floorIdx >= FLOORS){ STATE='win'; show('win'); document.getElementById('win-stats').innerHTML =
-      `You sealed <b>${runStat.sealed}</b> risers and got back through the door on all <b>${FLOORS}</b> levels.<br>Deaths: <b>${runStat.deaths}</b> &nbsp; Noise made: <b>${runStat.noises}</b><br>Time: <b>${Math.floor(runTime/60)}:${String(Math.floor(runTime%60)).padStart(2,'0')}</b>`;
+      `You sealed <b>${runStat.sealed}</b> pipes and got back through the door on all <b>${FLOORS}</b> levels.<br>Deaths: <b>${runStat.deaths}</b> &nbsp; Noise made: <b>${runStat.noises}</b><br>Time: <b>${Math.floor(runTime/60)}:${String(Math.floor(runTime%60)).padStart(2,'0')}</b>`;
     document.getElementById('hud').classList.remove('on');
     return;
   }
@@ -3820,15 +3820,15 @@ function outOfTime(){ lose('THE CLOCK RAN OUT'); }
      never zeroed anything while it was on. */
   ctx.globalCompositeOperation='source-over';
 
-  /* ---------- 6b. the risers ----------
+  /* ---------- 6b. the pipes ----------
      The one thing in the world that is not gated by the cone, and deliberately
      so. Drawn as part of the scene it would be multiplied by the mask along
      with everything else, which is correct from the next room and wrong from
      the doorway: the mechanic is that the WATER tells you where the leak is,
      and a cue that stops working the moment you arrive has taken the mechanic
-     away at the only point it matters. Each riser is drawn on its own tile's
+     away at the only point it matters. Each pipe is drawn on its own tile's
      mask value, so the rule is per-pipe and not "nearest one wins" — you can be
-     standing at a sealed riser with another one still gushing a room away.
+     standing at a sealed pipe with another one still gushing a room away.
 
      It is still not the radar. It reveals one tile you are already standing
      next to, it costs no battery, and it does nothing at all while you are two
@@ -4302,7 +4302,7 @@ const HUD = {
   vNoise: document.getElementById('val-noise'),
   vClock: document.getElementById('val-clock'),
   clockWrap: document.getElementById('clock'),
-  vRisers: document.getElementById('val-leaks'),
+  vPipes: document.getElementById('val-pipes'),
   vLeak: document.getElementById('val-leak'),
   vFlood: document.getElementById('val-flood'),
   barFlood: document.getElementById('bar-flood'),
@@ -4458,17 +4458,17 @@ function togglePause(){
     STATE='pause';
     show('pause');
     /* The pause screen is splash 04 with the run's own numbers written on it,
-       so pausing costs no bearings: depth, risers left, clock, battery, lives,
+       so pausing costs no bearings: depth, pipes left, clock, battery, lives,
        and the next move — all in the places a clerk would have written them.
        SCOPE OF WORK answers "what am I here for" and STATUS answers "where
        does that stand"; the ticket has a line for each because they are
        different questions. */
     const set = (id, html)=>{ const el = document.getElementById(id); if (el) el.innerHTML = html; };
-    const sealed = G.risers - G.leaksOpen;
+    const sealed = G.pipes - G.leaksOpen;
 
     set('pause-level',   `${G.floor+1} / ${FLOORS}`);
     set('pause-clock',   clockText(G.clock));
-    set('pause-risers',  `${sealed}/${G.risers}`);
+    set('pause-pipes',  `${sealed}/${G.pipes}`);
     set('pause-batt',    String(Math.ceil(G.batt)));
     set('pause-lives', livesHTML());
     set('pause-seed',    '#88D-' + (RUN_SEED>>>0).toString(16).toUpperCase().slice(-4));
@@ -4495,14 +4495,14 @@ function updateHUD(){
   HUD.vNoise.textContent = String(Math.round(G.noise/BATT_MAX*100)).padStart(2,'0');
   HUD.noiseWrap.classList.toggle('hot', G.noise>0.45);
   G.noisePeak = Math.max(G.noise, G.noisePeak - 0.004);
-  /* Three riser readouts, because they answer three different questions and a
-     single "OPEN/SEALED" cannot answer any of them. RISERS is the tally you are
+  /* Three pipe readouts, because they answer three different questions and a
+     single "OPEN/SEALED" cannot answer any of them. PIPES is the tally you are
      working down. DOOR is whether the level can end at all — it stays shut until
      the last one is closed. FLOOD is a gauge of how much of the floor is under
      water: it keeps climbing while you are still working, and it drains after
      the last seal, so it is both the pressure and the proof the repair worked. */
-  if (HUD.vRisers) HUD.vRisers.textContent = `${G.risers-G.leaksOpen}/${G.risers}`;
-  /* The door. OPEN means every riser is sealed and the level can be ended, so
+  if (HUD.vPipes) HUD.vPipes.textContent = `${G.pipes-G.leaksOpen}/${G.pipes}`;
+  /* The door. OPEN means every pipe is sealed and the level can be ended, so
      OPEN is the good state and gets no colour; SEALED is the only one that
      shouts. The old version injected <span class="ok">OPEN</span> with ok being
      water-blue, next to a flood gauge also in water-blue — so the word that
@@ -4565,12 +4565,12 @@ document.getElementById('btn-start').onclick = ()=>{
      The extra two conditions are what stop the reuse from handing back a
      PLAYED floor: a run that died on floor 1 and came back through CLOCK IN
      (lives spent, btn-retry forwards to here) has the same seed and the same
-     floor number, but its risers are sealed and its clock has run. A floor
-     that has never ticked and still has every riser open is the only floor
+     floor number, but its pipes are sealed and its clock has run. A floor
+     that has never ticked and still has every pipe open is the only floor
      worth keeping. The clock check also catches a difficulty change made
      after boot, whose FLOOR_CLOCK the boot floor was never built with. */
   const reuse = G && G.floor===0 && G.seed===RUN_SEED
-                && G.clock >= FLOOR_CLOCK && G.leaksOpen === G.risers;
+                && G.clock >= FLOOR_CLOCK && G.leaksOpen === G.pipes;
   if (!reuse) buildFloor(0, RUN_SEED);
   else {
     G.clock = FLOOR_CLOCK; G.time = 0; G.batt = BATT_MAX;
@@ -4594,7 +4594,7 @@ document.getElementById('btn-retry').onclick = ()=>{
   }
   buildFloor(floorIdx, RUN_SEED);
   G.batt = Math.max(G.batt, 55);
-  /* The retry keeps the same seed, so the risers are where you left them and
+  /* The retry keeps the same seed, so the pipes are where you left them and
      the flood restarts. Dying costs you a life and the work you did on them,
      but not the knowledge — which is the split that matters, because where the
      pipes are is the thing you spent the level learning and a re-roll would
