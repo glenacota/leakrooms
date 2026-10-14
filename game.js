@@ -1639,9 +1639,13 @@ function buildFloor(floorNum, seed){
   lightCv.width = MAP_W*LS; lightCv.height = MAP_H*LS;
   lightCtx = lightCv.getContext('2d');
   lightImg = lightCtx.createImageData(lightCv.width, lightCv.height);
-  for (let y=0;y<lightCv.height;y++){
+  /* The canvas dimensions and the pixel buffer are DOM-backed reads: they are
+     resolved once here instead of per iteration, and every write below goes
+     through the local buffer reference. Same pixels, same order. */
+  const LW = lightCv.width, LH = lightCv.height, LD = lightImg.data;
+  for (let y=0;y<LH;y++){
     const ty=(y/LS)|0, row=ty*MAP_W;
-    for (let x=0;x<lightCv.width;x++){
+    for (let x=0;x<LW;x++){
       /* NEUTRAL, not mono-yellow. This used to be tinted (255,246,186) plus a
          warm +18 lift, which existed to stop unlit floor going black. Now that
          darkness is the mask's job, tinting the bake would double-count it:
@@ -1650,9 +1654,9 @@ function buildFloor(floorNum, seed){
          brightness, and the hue comes from the surfaces themselves. */
       const b = Math.min(1, lightArr[row + ((x/LS)|0)]);
       const v = Math.round(255*b);
-      const k=(y*lightCv.width+x)*4;
-      lightImg.data[k]=v; lightImg.data[k+1]=v; lightImg.data[k+2]=v;
-      lightImg.data[k+3] = 255;
+      const k=(y*LW+x)*4;
+      LD[k]=v; LD[k+1]=v; LD[k+2]=v;
+      LD[k+3] = 255;
     }
   }
   lightCtx.putImageData(lightImg, 0, 0);
