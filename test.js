@@ -196,14 +196,19 @@ const seededRNG = vm.runInContext('mulberry32(0xC0FFEE)', ctxObj);
 vm.runInContext(`
 globalThis.__api = {
   get G(){ return G; },
-  get lightArr(){ return lightArr; },
-  get visArr(){ return visArr; },
-  get visTgt(){ return visTgt; },
-  get maskArr(){ return maskArr; },
-  get coneArr(){ return coneArr; },
-  get regionOf(){ return regionOf; },
-  get regionAdj(){ return regionAdj; },
-  get visRegion(){ return visRegion; },
+  /* The floor's scratch state moved onto G wholesale — one internals object
+     instead of a getter per array, so the suite reads each buffer through the
+     floor it belongs to. */
+  get internals(){ return {
+    lightArr: G.lightArr, lightCv: G.lightCv, lightImg: G.lightImg, lightCtx: G.lightCtx,
+    visArr: G.visArr, visTgt: G.visTgt, visFrom: G.visFrom, visScratch: G.visScratch,
+    maskArr: G.maskArr, maskTgt: G.maskTgt, coneArr: G.coneArr, maskCv: G.maskCv,
+    regionOf: G.regionOf, regionAdj: G.regionAdj, visRegion: G.visRegion,
+    wetArr: G.wetArr, waterDist: G.waterDist, wetFront: G.wetFront,
+    wetByDist: G.wetByDist, wetMaxDist: G.wetMaxDist, wetEdgeD: G.wetEdgeD,
+    wetIndexAtDist: G.wetIndexAtDist, wetCv: G.wetCv,
+    cvs, ctxRef: ctx, SCALE
+  }; },
   get DARK_ROOM(){ return DARK_ROOM; },
   get HOP_FALL(){ return HOP_FALL; },
   get VIEW_FADE_NEAR(){ return VIEW_FADE_NEAR; },
@@ -232,10 +237,7 @@ globalThis.__api = {
   get keys(){ return keys; },
   get HAND_OFF(){ return HAND_OFF; }, get R(){ return R; }, drawAgent,
   get cvs(){ return cvs; }, get ctxRef(){ return ctx; }, get SCALE(){ return SCALE; },
-  get lightCv(){ return lightCv; }, get wetCv(){ return wetCv; },
   get TILE(){ return TILE; },
-  get wetArr(){ return wetArr; }, get waterDist(){ return waterDist; },
-  get wetFront(){ return wetFront; },
   get WET_DRAW(){ return WET_DRAW; },
   get LOUD(){ return LOUD; },
   LEVELS, LEVELS_N, get FLOOR_CLOCK(){ return FLOOR_CLOCK; },
@@ -254,7 +256,6 @@ globalThis.__api = {
   get WALK(){ return WALK; }, get SPRINT(){ return SPRINT; },
   tickFlood, wetAt, floodCover, sealLeak, leakReach, leakAt, initFlood, packWet,
   Audio_,
-  get wetCv(){ return wetCv; },
   get SETTINGS(){ return SETTINGS; },
   get SETTINGS_DEFAULTS(){ return SETTINGS_DEFAULTS; },
   get SETTINGS_SCHEMA(){ return SETTINGS_SCHEMA; },
@@ -445,7 +446,7 @@ console.log('\n[1] maze generation — 400 floors');
     // light bake sane
     let lit=0, maxL=0, nan=0;
     for (let i=0;i<g.length;i++){
-      const v=A.lightArr[i];
+      const v=A.internals.lightArr[i];
       if (Number.isNaN(v)) nan++;
       if (v>0.25) lit++;
       maxL=Math.max(maxL,v);
@@ -457,8 +458,8 @@ console.log('\n[1] maze generation — 400 floors');
     for (let i=0;i<g.length;i++){
       if (g[i]!==1) continue;
       floorTiles++;
-      if (A.lightArr[i] >= 0.115) visible++;
-      if (A.lightArr[i] >= 0.42) bright++;
+      if (A.internals.lightArr[i] >= 0.115) visible++;
+      if (A.internals.lightArr[i] >= 0.42) bright++;
     }
     const vf=visible/floorTiles, bf=bright/floorTiles;
     assert(vf>0.99, `seed ${s}: only ${(vf*100).toFixed(0)}% of floor is visible (want 100% — never pitch black)`);
@@ -469,7 +470,7 @@ console.log('\n[1] maze generation — 400 floors');
       let best=0;
       for(let y=rm.ry;y<rm.ry+rm.rh;y++)
         for(let x=rm.rx;x<rm.rx+rm.rw;x++)
-          best=Math.max(best, A.lightArr[y*76+x]);
+          best=Math.max(best, A.internals.lightArr[y*76+x]);
       if (best>0.5) litRooms++; else darkRooms++;
     }
     globalThis.__lit=globalThis.__lit||0; globalThis.__dark=globalThis.__dark||0;
@@ -940,8 +941,8 @@ console.log('[7] camera mapping — player centred, world not inverted');
   for (const c of calls.list){
     if (c[0]==='setTransform' && SCALE===1 && c[1]!==1) SCALE = c[1];   // FIRST one is the camera
     if (c[0]==='translate' && tx===null){ tx = c[1]; ty = c[2]; }
-    if (c[0]==='drawImage' && c[1]===A.lightCv) lightDraw = c;
-    if (c[0]==='drawImage' && c[1]===A.wetCv) wetDraw = c;
+    if (c[0]==='drawImage' && c[1]===A.internals.lightCv) lightDraw = c;
+    if (c[0]==='drawImage' && c[1]===A.internals.wetCv) wetDraw = c;
   }
   assert(SCALE>0, 'no setTransform captured');
   assert(tx!==null, 'no translate captured');
@@ -1270,7 +1271,7 @@ console.log('[12] room-scoped light — your room is lit, the rest is dark');
   const W=76, H=76, DARK=A.DARK_ROOM, HOP=A.HOP_FALL;
 
   const hopsFrom = (start)=>{
-    const adj=A.regionAdj, hops=new Int32Array(adj.length).fill(-1);
+    const adj=A.internals.regionAdj, hops=new Int32Array(adj.length).fill(-1);
     const q=[start]; hops[start]=0;
     for (let h=0; h<q.length; h++){
       for (const nb of adj[q[h]]) if (hops[nb]<0){ hops[nb]=hops[q[h]]+1; q.push(nb); }
@@ -1285,7 +1286,7 @@ console.log('[12] room-scoped light — your room is lit, the rest is dark');
     for (let y=r.ry;y<r.ry+r.rh;y++)
       for (let x=r.rx;x<r.rx+r.rw;x++){
         const i=y*W+x;
-        if (G.grid[i]!==1 || A.regionOf[i]!==ri) continue;
+        if (G.grid[i]!==1 || A.internals.regionOf[i]!==ri) continue;
         G.player.x=x+0.5; G.player.y=y+0.5;
         A.scopeRoomLight(0, true);
         return true;
@@ -1307,7 +1308,7 @@ console.log('[12] room-scoped light — your room is lit, the rest is dark');
   for (let s=0; s<120; s++){
     buildFloor(s%5, s*7717+31);
     floors++;
-    const regOf=A.regionOf, vis=A.visArr, bake=A.lightArr;
+    const regOf=A.internals.regionOf, vis=A.internals.visArr, bake=A.internals.lightArr;
 
     // every floor tile must belong to SOME region, or scoping has a hole in
     // its coverage and part of the maze can never light up
@@ -1323,7 +1324,7 @@ console.log('[12] room-scoped light — your room is lit, the rest is dark');
     if (!standIn(homeRi)) continue;
     placed++;
 
-    const here = A.visRegion;
+    const here = A.internals.visRegion;
     assert(here>=0, `seed ${s}: player region is -1 while standing on floor`);
     const hops = hopsFrom(here);
 
@@ -1379,7 +1380,7 @@ console.log('[12] room-scoped light — your room is lit, the rest is dark');
        delete it. */
     const otherRi = (s*13+7)%rooms.length;
     if (otherRi!==homeRi && standIn(otherRi)){
-      if (A.regionAt(G.player.x, G.player.y) !== A.visRegion) noFollow++;
+      if (A.regionAt(G.player.x, G.player.y) !== A.internals.visRegion) noFollow++;
       const oldR=rooms[homeRi];
       const newScope = vis[Math.floor(G.player.y)*W+Math.floor(G.player.x)];
       for (let y=oldR.ry;y<oldR.ry+oldR.rh && !noFollow;y++)
@@ -1425,29 +1426,29 @@ console.log('[12] room-scoped light — your room is lit, the rest is dark');
       const tileOf = (ri)=>{
         const r=G.rooms[ri];
         for (let y=r.ry;y<r.ry+r.rh;y++) for (let x=r.rx;x<r.rx+r.rw;x++)
-          if (G.grid[y*W+x]===1 && A.regionOf[y*W+x]===ri) return y*W+x;
+          if (G.grid[y*W+x]===1 && A.internals.regionOf[y*W+x]===ri) return y*W+x;
         return -1;
       };
       const ai=tileOf(aRi), bi=tileOf(bRi);
 
       standIn(aRi);
-      const litBefore = A.visArr[ai];
+      const litBefore = A.internals.visArr[ai];
 
       // land on a real tile of B, then begin the fade (non-instant)
       let placedB=false;
       for (let y=b.ry;y<b.ry+b.rh && !placedB;y++)
         for (let x=b.rx;x<b.rx+b.rw;x++){
-          if (G.grid[y*W+x]!==1 || A.regionOf[y*W+x]!==bRi) continue;
+          if (G.grid[y*W+x]!==1 || A.internals.regionOf[y*W+x]!==bRi) continue;
           G.player.x=x+0.5; G.player.y=y+0.5; placedB=true; break;
         }
       assert(placedB, 'room B had no standable floor tile');
       A.scopeRoomLight(0, false);
-      const during = A.visArr[ai];
+      const during = A.internals.visArr[ai];
       assert(during > litBefore - 1e-6,
         'the room you left went dark on the same frame you entered the new one — no crossfade');
       for (let i=0;i<600;i++) update(1/60);            // 10s: far past LIGHT_FADE
-      const settled = A.visArr[ai];
-      const nowLit  = A.visArr[bi];
+      const settled = A.internals.visArr[ai];
+      const nowLit  = A.internals.visArr[bi];
       assert(settled < HOP[1]+1e-6, `the room you left settled at ${settled.toFixed(3)}, want <= ${HOP[1]}`);
       assert(nowLit  > 0.999, `the room you entered settled at ${nowLit.toFixed(3)}, want 1`);
       console.log(`  crossfade settles: left room ${settled.toFixed(2)}, entered room ${nowLit.toFixed(2)}`);
@@ -1478,7 +1479,7 @@ console.log('[12] room-scoped light — your room is lit, the rest is dark');
       G.player.x=best.x+0.5; G.player.y=best.y+0.5; G.player.face=0;
       G.radar=false;                                  // isolate the cone + scope
       A.snapMask();   // traces + combines + uploads, no easing
-      const at=(d)=>{ const i=best.y*W+best.x+d; return {d, mask:A.maskArr[i], scope:A.visArr[i], cone:A.coneArr[i]}; };
+      const at=(d)=>{ const i=best.y*W+best.x+d; return {d, mask:A.internals.maskArr[i], scope:A.internals.visArr[i], cone:A.internals.coneArr[i]}; };
       const far = at(Math.min(18, best.run-1));
       const near= at(2);
       console.log(`  straight ${best.run}-tile run: mask at 2 tiles ${near.mask.toFixed(2)}, `+
@@ -1495,7 +1496,7 @@ console.log('[12] room-scoped light — your room is lit, the rest is dark');
         'the corridor gets brighter toward the far end');
     }
   }
-  function regionOfIdx(i){ return A.regionOf[i]; }
+  function regionOfIdx(i){ return A.internals.regionOf[i]; }
 }
 
 /* ============ TEST 13: cone of vision ==============================
@@ -1578,7 +1579,7 @@ console.log('[13] cone of vision — 200 degrees, occluded by walls');
   const probes=[0, Math.PI/2, Math.PI, -Math.PI/2];
   const seenAt = probes.map(face=>{
     set(spot.x, spot.y, face);
-    const v = Array.from(A.coneArr);
+    const v = Array.from(A.internals.coneArr);
     return {face, v};
   });
   let maxDiff=0;
@@ -1599,10 +1600,10 @@ console.log('[13] cone of vision — 200 degrees, occluded by walls');
     const iF=Math.floor(spot.y)*W + (Math.floor(spot.x)+d);
     const iB=Math.floor(spot.y)*W + (Math.floor(spot.x)-d);
     if (iF>=0 && iF<W*W && G.grid[iF]===1 && seesTile(ex1,ey1,iF%W,Math.floor(iF/W))){
-      eastTot++; if (A.coneArr[iF]>0.5) eastLit++;
+      eastTot++; if (A.internals.coneArr[iF]>0.5) eastLit++;
     }
     if (iB>=0 && G.grid[iB]===1 && seesTile(ex1,ey1,iB%W,Math.floor(iB/W))){
-      westTot++; if (A.coneArr[iB]>0.5) westLit++;
+      westTot++; if (A.internals.coneArr[iB]>0.5) westLit++;
     }
   }
   console.log(`  facing east: ${eastLit}/${eastTot} floor tiles lit ahead, ${westLit}/${westTot} behind`);
@@ -1626,14 +1627,14 @@ console.log('[13] cone of vision — 200 degrees, occluded by walls');
     if (G.grid[i]!==1) continue;
     if (seesTile(ex2,ey2,x,y)) continue;      // reachable: not a pocket
     occludedTotal++;
-    if (A.maskArr[i] > 0.02) occludedVisible++;
+    if (A.internals.maskArr[i] > 0.02) occludedVisible++;
     const ang=Math.atan2(y+0.5-spot.y, x+0.5-spot.x);
     let d=Math.abs(ang); if (d>Math.PI) d=Math.abs(d-Math.PI*2);
     if (d>HALF) continue;                 // outside the cone: irrelevant either way
-    if (A.visArr[i] <= 0) continue;       // dark room: the scope hides it regardless
+    if (A.internals.visArr[i] <= 0) continue;       // dark room: the scope hides it regardless
     inLitRegion++;
     worstAngle=Math.max(worstAngle,d);
-    if (A.maskArr[i] > 0.02) occludedVisible++;
+    if (A.internals.maskArr[i] > 0.02) occludedVisible++;
   }
   console.log(`  ${occludedTotal} floor tiles behind a wall; ${occludedVisible} of them visible. `+
               `${inLitRegion} sit inside the cone's angle AND a lit room `+
@@ -1655,7 +1656,7 @@ console.log('[13] cone of vision — 200 degrees, occluded by walls');
     for (let d=1; d<=16; d++){
       const x=Math.floor(spot.x)+d, y=Math.floor(spot.y);
       if (x>=W || G.grid[y*W+x]!==1) break;
-      if (G.los(spot.x,spot.y,x+0.5,y+0.5)){ ahead++; if (A.maskArr[y*W+x]>0.5) aheadLit++; }
+      if (G.los(spot.x,spot.y,x+0.5,y+0.5)){ ahead++; if (A.internals.maskArr[y*W+x]>0.5) aheadLit++; }
     }
     if (ahead>0) console.log(`  ${aheadLit}/${ahead} clear tiles ahead are visible with the radar off`);
   }
@@ -1664,9 +1665,9 @@ console.log('[13] cone of vision — 200 degrees, occluded by walls');
   {
     let lit=0, wall=0, tiles=0;
     for (let i=0;i<W*W;i++){
-      if (A.maskArr[i] > 0.999) lit++;
+      if (A.internals.maskArr[i] > 0.999) lit++;
       tiles++;
-      if (G.grid[i]===0 && A.maskArr[i] > 0.999) wall++;
+      if (G.grid[i]===0 && A.internals.maskArr[i] > 0.999) wall++;
     }
     assert(lit === tiles,
       `radar on leaves ${tiles-lit} tiles dark — a sweep has no dark spots`);
@@ -1682,10 +1683,10 @@ console.log('[13] cone of vision — 200 degrees, occluded by walls');
   {
     let outOfScopeLit=0, zeroViolations=0, nan=0;
     for (let i=0;i<W*W;i++){
-      const m=A.maskArr[i];
+      const m=A.internals.maskArr[i];
       if (Number.isNaN(m)){ nan++; continue; }
       if (m<0 || m>1+1e-6){ nan++; continue; }
-      const scope=A.visArr[i], cone=A.coneArr[i];
+      const scope=A.internals.visArr[i], cone=A.internals.coneArr[i];
       if (m > scope*cone + 1e-6) outOfScopeLit++;
       if (scope<=0 && cone<=0 && m > 1e-6) zeroViolations++;
     }
@@ -1703,10 +1704,10 @@ console.log('[13] cone of vision — 200 degrees, occluded by walls');
     let dimmed=0, checked=0;
     for (let y=1;y<75;y++) for (let x=1;x<75;x++){
       const i=y*W+x;
-      if (G.grid[i]!==1 || A.visArr[i] < 0.999) continue;
-      if (A.coneArr[i] <= 0.02) continue;             // not in view: nothing to judge
+      if (G.grid[i]!==1 || A.internals.visArr[i] < 0.999) continue;
+      if (A.internals.coneArr[i] <= 0.02) continue;             // not in view: nothing to judge
       checked++;
-      if (A.maskArr[i] < 0.999) dimmed++;
+      if (A.internals.maskArr[i] < 0.999) dimmed++;
     }
     assert(checked>0, 'no visible tiles in the player\'s own room to check');
     assert(dimmed===0, `${dimmed}/${checked} visible tiles in your own room are dimmed — the room must not fade with distance`);
@@ -1722,9 +1723,9 @@ console.log('[13] cone of vision — 200 degrees, occluded by walls');
       let nb=0;
       for (const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
         const ni=(y+dy)*W+(x+dx);
-        if (G.grid[ni]===1) nb=Math.max(nb, A.maskArr[ni]);
+        if (G.grid[ni]===1) nb=Math.max(nb, A.internals.maskArr[ni]);
       }
-      if (nb>0.5 && A.maskArr[i] < nb-1e-6) holes++;
+      if (nb>0.5 && A.internals.maskArr[i] < nb-1e-6) holes++;
     }
     assert(holes===0, `${holes} walls are darker than the floor in front of them — they read as holes`);
   }
@@ -1781,14 +1782,14 @@ console.log('[14] the radar — off by default, total while on, expensive');
   A.snapMask();
   {
     let dark=0, behind=0;
-    for (let i=0;i<W*W;i++) if (A.maskArr[i] < 0.999) dark++;
+    for (let i=0;i<W*W;i++) if (A.internals.maskArr[i] < 0.999) dark++;
     // specifically: a tile directly behind the character, which is the one
     // thing the cone is certain to hide when the radar is off
     const px=Math.floor(G.player.x), py=Math.floor(G.player.y);
     for (const [dx,dy] of [[-3,0],[0,3],[3,0],[0,-3],[-6,-6],[7,5]]){
       const x=px+dx, y=py+dy;
       if (x<0||y<0||x>=W||y>=W) continue;
-      if (A.maskArr[y*W+x] < 0.999) behind++;
+      if (A.internals.maskArr[y*W+x] < 0.999) behind++;
     }
     assert(dark===0, `${dark} tiles are still dark with the radar on — it has to have no dark spots`);
     assert(behind===0, `${behind} tiles around the player are dark with the radar on`);
@@ -1809,14 +1810,14 @@ console.log('[14] the radar — off by default, total while on, expensive');
       if (x<0||y<0||x>=W||y>=W) continue;
       const i=y*W+x;
       if (G.grid[i]!==1) continue;
-      if (A.visArr[i] >= 0.999) continue;      // same lit region, not a scope test
+      if (A.internals.visArr[i] >= 0.999) continue;      // same lit region, not a scope test
       checked++;
-      if (A.maskArr[i] > 0.02){
+      if (A.internals.maskArr[i] > 0.02){
         assert(false, `a tile ${d} tiles behind the character is still lit with the radar off`);
       }
     }
     let dark=0;
-    for (let i=0;i<W*W;i++) if (A.maskArr[i] < 0.02) dark++;
+    for (let i=0;i<W*W;i++) if (A.internals.maskArr[i] < 0.02) dark++;
     assert(checked>0 || dark>200,
       'with the radar off the cone restores no darkness anywhere');
     assert(dark>200, `only ${dark} tiles dark with the radar off — the cone is not doing anything`);
@@ -1936,8 +1937,8 @@ console.log('[15] the risers — placement, reachability, and the flood field');
   {
     let bad=0, unreachableWet=0;
     for (let i=0;i<W*W;i++){
-      if (G.grid[i]===0 && A.waterDist[i] >= 0) bad++;
-      if (G.grid[i]===1 && A.waterDist[i] < 0) unreachableWet++;
+      if (G.grid[i]===0 && A.internals.waterDist[i] >= 0) bad++;
+      if (G.grid[i]===1 && A.internals.waterDist[i] < 0) unreachableWet++;
     }
     assert(bad===0, `${bad} wall tiles are inside the water field — water can flow through rock`);
     assert(unreachableWet===0, `${unreachableWet} floor tiles the water can never reach`);
@@ -1955,7 +1956,7 @@ console.log('[15] the risers — placement, reachability, and the flood field');
     let missing=0, jumps=0;
     for (const L of G.leaks){
       const li = L.sy*W + L.sx;
-      if (A.waterDist[li]!==0) missing++;
+      if (A.internals.waterDist[li]!==0) missing++;
     }
     assert(missing===0,
       `${missing}/${G.leaks.length} risers do not sit at distance 0 — the field is not seeded from all of them`);
@@ -1964,11 +1965,11 @@ console.log('[15] the risers — placement, reachability, and the flood field');
        arriving in a distant room before a nearer one. */
     for (let y=1;y<W-1;y++) for (let x=1;x<W-1;x++){
       const i=y*W+x;
-      if (G.grid[i]!==1 || A.waterDist[i]<0) continue;
+      if (G.grid[i]!==1 || A.internals.waterDist[i]<0) continue;
       for (const [nx,ny] of [[x+1,y],[x-1,y],[x,y+1],[x,y-1]]){
         const n=ny*W+nx;
-        if (G.grid[n]!==1 || A.waterDist[n]<0) continue;
-        if (A.waterDist[n] < A.waterDist[i]-1) jumps++;
+        if (G.grid[n]!==1 || A.internals.waterDist[n]<0) continue;
+        if (A.internals.waterDist[n] < A.internals.waterDist[i]-1) jumps++;
       }
     }
     assert(jumps===0, `${jumps} neighbour pairs violate |d(n)-d(i)|<=1 — the front can skip tiles`);
@@ -1985,7 +1986,7 @@ console.log('[15] the risers — placement, reachability, and the flood field');
     for (let s=0;s<40;s++){
       buildFloor(s%A.LEVELS_N, s*1543+3);
       let wet=0;
-      for (let i=0;i<76*76;i++) if (G.grid[i]===1 && A.wetArr[i]>0.5) wet++;
+      for (let i=0;i<76*76;i++) if (G.grid[i]===1 && A.internals.wetArr[i]>0.5) wet++;
       if (wet>0) floorsWithTrail++; else dryAtStart++;
       assert(G.floodCover>0, `level ${s} starts with a flood gauge reading zero`);
     }
@@ -1999,7 +2000,7 @@ console.log('[15] the risers — placement, reachability, and the flood field');
     for (let i=0;i<600;i++) update(1/30);      // 20 seconds
     let over=0, wallWet=0, nan=0;
     for (let i=0;i<W*W;i++){
-      const v=A.wetArr[i];
+      const v=A.internals.wetArr[i];
       if (Number.isNaN(v)) nan++;
       if (v>1.0001 || v<-0.0001) over++;
       if (G.grid[i]===0 && v>0.02) wallWet++;
@@ -2046,7 +2047,7 @@ console.log('[15] the risers — placement, reachability, and the flood field');
   {
     let inverted=0;
     for (let i=0;i<W*W;i++){
-      const d=A.waterDist[i], w=A.wetArr[i];
+      const d=A.internals.waterDist[i], w=A.internals.wetArr[i];
       if (d<0) continue;
       /* every tile is wetter than every strictly further tile's distance band:
          aggregate it — mean wetness must strictly decrease with distance. */
@@ -2055,10 +2056,10 @@ console.log('[15] the risers — placement, reachability, and the flood field');
     const band=6;
     const sum=new Float64Array(64), cnt=new Float64Array(64);
     for (let i=0;i<W*W;i++){
-      const d=A.waterDist[i];
+      const d=A.internals.waterDist[i];
       if (d<0) continue;
       const b=Math.min(63,(d/band)|0);
-      sum[b]+=A.wetArr[i]; cnt[b]++;
+      sum[b]+=A.internals.wetArr[i]; cnt[b]++;
     }
     let prev=Infinity;
     for (let b=0;b<64;b++){
@@ -2090,10 +2091,10 @@ console.log('[15] the risers — placement, reachability, and the flood field');
     A.setHeadless(true, false);
     buildFloor(0, 20250812);
     const N = 76*76;
-    const wetCount = ()=>{ let n=0; for(let i=0;i<N;i++) if (A.wetArr[i] > A.WET_DRAW) n++; return n; };
+    const wetCount = ()=>{ let n=0; for(let i=0;i<N;i++) if (A.internals.wetArr[i] > A.WET_DRAW) n++; return n; };
     const drawnTiles = ()=>{
       A.packWet();
-      const d = A.wetCv.getContext('2d').getImageData(0,0,76,76).data;
+      const d = A.internals.wetCv.getContext('2d').getImageData(0,0,76,76).data;
       let n=0; for(let i=0;i<N;i++) if (d[i*4+3] > 8) n++;
       return n;
     };
@@ -2102,9 +2103,9 @@ console.log('[15] the risers — placement, reachability, and the flood field');
        for nothing. The wiring is proved separately, below. */
     const run = (secs)=>{ for (let i=0;i<secs*4;i++) A.tickFlood(0.25); };
 
-    const adv0 = A.wetFront;
+    const adv0 = A.internals.wetFront;
     run(60);
-    const adv = A.wetFront - adv0;
+    const adv = A.internals.wetFront - adv0;
     const cover0 = G.floodCover, wet0 = wetCount(), px0 = drawnTiles();
     assert(wet0 > 200 && px0 > 200 && cover0 > 0.05,
       `the level never actually flooded (${wet0} tiles, ${px0} drawn) — there is nothing to recede`);
@@ -2113,9 +2114,9 @@ console.log('[15] the risers — placement, reachability, and the flood field');
     assert(G.leaksOpen===0, 'the level still has open risers — nothing to recede from');
 
     /* 1. the waterline is symmetric */
-    const f0 = A.wetFront;
+    const f0 = A.internals.wetFront;
     run(60);
-    const rec = f0 - A.wetFront;
+    const rec = f0 - A.internals.wetFront;
     assert(Math.abs(adv - 60/A.LEAK_SPREAD) < 0.5,
       `the flood advanced ${adv.toFixed(2)} tiles in 60s, want ${(60/A.LEAK_SPREAD).toFixed(2)}`);
     assert(Math.abs(rec - adv) < 0.5,
@@ -2136,17 +2137,17 @@ console.log('[15] the risers — placement, reachability, and the flood field');
        old bound dropped on the frame it was passed, and it is the single tile
        whose behaviour distinguishes "receding" from "the front moved". */
     let outer=-1;
-    for (let i=0;i<N;i++) if (A.waterDist[i] > 0 && A.waterDist[i] <= f0-3 && A.wetArr[i] > 0.5){ outer=i; break; }
+    for (let i=0;i<N;i++) if (A.internals.waterDist[i] > 0 && A.internals.waterDist[i] <= f0-3 && A.internals.wetArr[i] > 0.5){ outer=i; break; }
     assert(outer>=0, 'no wet tile outside the front to watch — the test cannot see the bug');
-    const wOuter = A.wetArr[outer];
+    const wOuter = A.internals.wetArr[outer];
     run(20);
-    assert(A.wetArr[outer] < wOuter*0.7,
-      `a tile the waterline abandoned is still at ${A.wetArr[outer].toFixed(2)} — `+
+    assert(A.internals.wetArr[outer] < wOuter*0.7,
+      `a tile the waterline abandoned is still at ${A.internals.wetArr[outer].toFixed(2)} — `+
       'it was dropped from the pass and never dried');
 
     /* 4. and it ends up dry */
     run(600);
-    assert(A.wetFront===0, `the front stopped at ${A.wetFront} instead of returning to the pipes`);
+    assert(A.internals.wetFront===0, `the front stopped at ${A.internals.wetFront} instead of returning to the pipes`);
     const wetEnd = wetCount(), pxEnd = drawnTiles();
     assert(wetEnd < Math.max(4, wet0*0.02),
       `${wetEnd} of ${wet0} tiles are still wet long after the water should be gone`);
@@ -2157,9 +2158,9 @@ console.log('[15] the risers — placement, reachability, and the flood field');
     /* the whole thing is reachable through the real update(), not only by
        calling the flood directly */
     A.STATE='play'; vm.runInContext('lives=3;', ctxObj);
-    const before = A.wetFront;
+    const before = A.internals.wetFront;
     update(1/30);
-    assert(A.wetFront < before || A.wetFront===0, 'update() no longer drives the flood');
+    assert(A.internals.wetFront < before || A.internals.wetFront===0, 'update() no longer drives the flood');
     A.setHeadless(false, false);
     console.log(`  waterline +${adv.toFixed(1)}/-${rec.toFixed(1)} tiles per 60s; `+
       `${wet0} wet tiles -> ${wet1} -> ${wetEnd}, ${px0} drawn -> ${px1} -> ${pxEnd}`);
@@ -2414,7 +2415,7 @@ console.log('[17] the water as a cue — legible, free, and it actually leads');
   for (let i=0;i<3600;i++) update(1/30);        // 2 minutes: a lot of floor wet
   A.packWet();
   {
-    const d = A.wetCv.getContext('2d').getImageData(0,0,W,W).data;
+    const d = A.internals.wetCv.getContext('2d').getImageData(0,0,W,W).data;
     let painted=0, blue=0;
     for (let i=0;i<W*W;i++){
       const k=i*4;
@@ -2448,13 +2449,13 @@ console.log('[17] the water as a cue — legible, free, and it actually leads');
 
   /* --- and the trail LEADS: wetness is strictly higher nearer the pipes --- */
   {
-    const d0 = A.waterDist[G.leaks[0].sy*W+G.leaks[0].sx];
+    const d0 = A.internals.waterDist[G.leaks[0].sy*W+G.leaks[0].sx];
     let near=0, nearN=0, far=0, farN=0;
     for (let i=0;i<W*W;i++){
-      const d=A.waterDist[i];
+      const d=A.internals.waterDist[i];
       if (d<0) continue;
-      if (d <= d0+3){ near += A.wetArr[i]; nearN++; }
-      else if (d >= d0+16){ far += A.wetArr[i]; farN++; }
+      if (d <= d0+3){ near += A.internals.wetArr[i]; nearN++; }
+      else if (d >= d0+16){ far += A.internals.wetArr[i]; farN++; }
     }
     assert(nearN>0 && farN>0, 'not enough tiles near/far to compare the front');
     const nm=near/nearN, fm=far/farN;
@@ -2688,8 +2689,8 @@ console.log('[19] the leak is drawn where it is, not just where it is computed')
 
   assert(A.onScreen(L.x+0.5, L.y+0.5),
     'the pipe is not on screen while standing on it — the test cannot check what it cannot see');
-  assert(A.maskArr[L.y*W+L.x] > 0.9,
-    `the pipe tile is masked to ${A.maskArr[L.y*W+L.x]} while the player stands on it`);
+  assert(A.internals.maskArr[L.y*W+L.x] > 0.9,
+    `the pipe tile is masked to ${A.internals.maskArr[L.y*W+L.x]} while the player stands on it`);
 
   /* the camera has to be ON the player before a pixel comparison means
      anything; render() smooths it, so settle it the way the game does */
@@ -3028,9 +3029,9 @@ console.log('[22] the run — five levels, three minutes, one door');
     /* measured, not asserted from the constant: 20 seconds of play must not
        move the waterline more than a few tiles. */
     buildFloor(0, 6161);
-    const wet0 = A.wetArr.reduce((a,b)=>a+(b>0.5?1:0),0);
+    const wet0 = A.internals.wetArr.reduce((a,b)=>a+(b>0.5?1:0),0);
     A.updateReal(20);
-    const wet1 = A.wetArr.reduce((a,b)=>a+(b>0.5?1:0),0);
+    const wet1 = A.internals.wetArr.reduce((a,b)=>a+(b>0.5?1:0),0);
     const tiles = (wet1-wet0)/3700;
     assert(tiles < 0.10, `20 seconds grew the flood by ${(tiles*100).toFixed(1)}% of the floor — too fast to read`);
     console.log(`  20s of play spreads the water ${(tiles*100).toFixed(1)}% of the floor`);

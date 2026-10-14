@@ -1097,16 +1097,7 @@ function genMaze(rng){
 /* ============================================================
    FLOOR STATE
    ============================================================ */
-let G = null;                // everything below belongs to one floor (null until the first buildFloor)
-let lightArr, lightCv, postCv;  // postCv = VHS composite scratch
-let lightImg, lightCtx;      // the packed lightmap, repacked as visArr fades
-let regionOf, regionAdj, regionCount;  // lit spaces and how they connect
-let visArr, visFrom, visTgt;          // per-tile visibility: bake x room scope
-let visScratch;                       // preallocated, so scoping never allocates
-let maskArr, maskTgt;                     // the mask, and where it is heading
-let coneArr;                              // per-tile cone of vision
-let maskCv, maskCtx, maskImg;             // its own 1-sample-per-tile canvas
-let coneX=NaN, coneY=NaN, coneFace=NaN, coneRadar=null;  // last traced pose
+let G = null;                // the whole floor lives on G — null until the first buildFloor
 
 /* ---- HEADLESS SWITCHES ------------------------------------------------
    Two subsystems exist only to feed pixels to a canvas: packing the mask
@@ -1117,29 +1108,24 @@ let coneX=NaN, coneY=NaN, coneFace=NaN, coneRadar=null;  // last traced pose
 
    Both default ON. The game never turns them off; only the test harness
    does, and only for the stretches that assert on neither. A test that
-   reads maskArr or wetCv pixels re-enables them, which is why the flags
+   reads G.maskArr or G.wetCv pixels re-enables them, which is why the flags
    are settable at runtime rather than baked in at load. */
 let wantPixels = true;      // packMask / packWet write an image nobody will read
 let wantVision = true;      // traceViewCone + smoothMask retrace per frame
 function setHeadless(px, vis){ wantPixels = !!px; wantVision = !!vis; }
-let scopeDirty = false;       // the room crossfade moved visArr; recombine
-let visRegion = -1;                   // the region the player is lighting
-let visStep = 0, visFadeT = 0;        // quantised crossfade between two regions
 
 /* ---------- THE FLOOD ----------
-   wetArr is per TILE, 0..1, exactly like maskArr: it is state the simulation
+   G.wetArr is per TILE, 0..1, exactly like G.maskArr: it is state the simulation
    reads and the renderer reads, so there is one number and the wet patch you
    can see is the wet patch that slows your footsteps.
 
-   waterDist is a BFS from the leak over walkable floor, recomputed when the
+   G.waterDist is a BFS from the leak over walkable floor, recomputed when the
    leak is sealed, and it is the ONLY thing that decides how fast water spreads.
    Derived once per state change rather than simulated per tile per frame:
    water runs downhill, it does not meander, so distance-from-source is exactly
    the physics and a diffusion model would only add a parameter to get wrong. */
-let wetArr, waterDist;               // waterDist = distance to the NEAREST riser
-let wetCv, wetCtx, wetImg;            // the packed water field, drawn as one image
-/* wetByDist is every reachable tile ORDERED BY DISTANCE FROM THE LEAK, and
-   wetFront is how many of them are currently under water.
+/* G.wetByDist is every reachable tile ORDERED BY DISTANCE FROM THE LEAK, and
+   G.wetFront is how many of them are currently under water.
 
    This exists for a measured reason. The first version scanned all 5776 tiles
    every frame, which is correct and cheap-looking and made the headless suite
@@ -1152,11 +1138,11 @@ let wetCv, wetCtx, wetImg;            // the packed water field, drawn as one im
    are contiguous in this ordering, which turns an O(map) pass into an
    O(perimeter of the waterline) pass — a handful of tiles a frame instead of
    six thousand. The ordering is stable because the leak does not move. */
-let wetByDist = [], wetFront = 0, wetMaxDist = 0, wetSum = 0;
-/* wetEdgeD is the furthest distance from the nearest riser at which ANY tile is
+
+/* G.wetEdgeD is the furthest distance from the nearest riser at which ANY tile is
    still visibly wet — and it is the bound the per-frame pass actually uses.
 
-   It is not `wetFront`, and the difference is the whole recession. `wetFront` is
+   It is not `G.wetFront`, and the difference is the whole recession. `G.wetFront` is
    where the waterline is; the moment the line starts coming back in, every ring
    it has already vacated is still soaking and drying, and those rings are OUTSIDE
    the front. Iterating to the front leaves them stranded at full wetness —
@@ -1178,24 +1164,15 @@ let wetByDist = [], wetFront = 0, wetMaxDist = 0, wetSum = 0;
    so they cannot drift apart. */
 const WET_DRAW = 0.015;          // packWet: below this a tile is fully transparent
 const WET_EDGE = WET_DRAW*0.8;    // ...so below THIS the simulation may stop caring
-let wetEdgeD = -1;
-/* waterDirty means "the packed water image may not match wetArr any more". The
+/* waterDirty means "the packed water image may not match G.wetArr any more". The
    image used to be repacked on EVERY draw, which is a 5776-tile write plus a
    putImageData per frame whether or not the water had moved — the single most
    expensive thing in the renderer. Now only the three places that can change
-   wetArr (initFlood, seedSplash, tickFlood) and the one setting that changes
+   G.wetArr (initFlood, seedSplash, tickFlood) and the one setting that changes
    what a tile packs to (the tint) raise it, and the update loop packs once and
-   clears it. Rendering still reads wetArr directly for the sheen, so a frame
+   clears it. Rendering still reads G.wetArr directly for the sheen, so a frame
    with no repack is still a frame that draws the water correctly. */
 let waterDirty = false;
-/* wetIndexAtDist[d] = the first index in wetByDist whose distance is >= d.
-   Without it, "iterate the tiles inside the waterline" has to guess, and the
-   obvious guess — treating the loop index AS the distance — is wrong because
-   wetByDist is BFS order: a hundred tiles can share distance 17, so index 107
-   is distance 17. That mistake truncated the flood to the first hundred tiles
-   of a 3700-tile floor and left the game looking like it had a very small
-   leak. This is a lookup table so the bound is exact and O(1). */
-let wetIndexAtDist = null;
 
 function buildFloor(floorNum, seed){
   const rng = mulberry32(seed + floorNum*7919);
@@ -1220,6 +1197,39 @@ function buildFloor(floorNum, seed){
     }
     return false;
   }
+
+  /* The floor object is created HERE, before the bakes below write into it.
+     Every per-floor buffer — light, vision, mask, cone, regions, flood — is a
+     field of G, so building the next floor replaces them all at once and
+     nothing floor-scoped can outlive the floor it describes. The buffers are
+     preallocated because the bakes write through G from their first line;
+     the fields the placement code decides are assigned after it runs. */
+  G = {
+    floor: floorNum,
+    seed,
+    grid, at, inB, los,
+    rooms: maze.rooms,
+    lightArr: new Float32Array(MAP_W*MAP_H),
+    lightCv: null, lightCtx: null, lightImg: null,
+    visArr: new Float32Array(MAP_W*MAP_H).fill(DARK_ROOM),
+    visFrom: new Float32Array(MAP_W*MAP_H).fill(DARK_ROOM),
+    visTgt: new Float32Array(MAP_W*MAP_H).fill(DARK_ROOM),
+    visScratch: new Float32Array(MAP_W*MAP_H),
+    maskArr: new Float32Array(MAP_W*MAP_H),
+    maskTgt: new Float32Array(MAP_W*MAP_H),
+    coneArr: new Float32Array(MAP_W*MAP_H),
+    maskCv: null, maskCtx: null, maskImg: null,
+    regionOf: new Int32Array(MAP_W*MAP_H).fill(-1),
+    regionAdj: null, regionCount: 0,
+    visRegion: -1, visStep: 0, visFadeT: 0,
+    coneX: NaN, coneY: NaN, coneFace: NaN, coneRadar: null,
+    scopeDirty: false,
+    wetArr: new Float32Array(MAP_W*MAP_H),
+    waterDist: null, wetByDist: [], wetFront: 0, wetMaxDist: 0, wetSum: 0,
+    wetEdgeD: -1, wetIndexAtDist: null,
+    wetCv: null, wetCtx: null, wetImg: null,
+    postCv: null
+  };
 
   /* --- the spawn, and the ONE door that matters --- */
   const candidates = maze.rooms.filter(r=>r.rw>=6 && r.rh>=6);
@@ -1507,7 +1517,7 @@ function buildFloor(floorNum, seed){
   }
 
   /* --- bake ambient light --- */
-  lightArr = new Float32Array(MAP_W*MAP_H);
+  G.lightArr = new Float32Array(MAP_W*MAP_H);
   for (const f of fixtures){
     const R2 = f.r*f.r;
     const x0=Math.max(0,Math.floor(f.x-f.r)), x1=Math.min(MAP_W-1,Math.ceil(f.x+f.r));
@@ -1520,12 +1530,12 @@ function buildFloor(floorNum, seed){
       const fall = 1 - Math.sqrt(d2)/f.r;
       const v = Math.min(1, f.i * fall * fall * 1.95);
       const i0 = y*MAP_W+x;
-      if (v > lightArr[i0]) lightArr[i0] = v;
+      if (v > G.lightArr[i0]) G.lightArr[i0] = v;
     }
   }
   // 3x3 blur for soft falloff (a wider kernel dilutes single lit tiles
   // into nothing, which leaves the floor pitch black between fixtures)
-  const tmp = new Float32Array(lightArr);
+  const tmp = new Float32Array(G.lightArr);
   for (let y=0;y<MAP_H;y++) for (let x=0;x<MAP_W;x++){
     let s=0,n=0;
     for (let dy=-1;dy<=1;dy++) for (let dx=-1;dx<=1;dx++){
@@ -1533,7 +1543,7 @@ function buildFloor(floorNum, seed){
       if (nx<0||ny<0||nx>=MAP_W||ny>=MAP_H) continue;
       s+=tmp[ny*MAP_W+nx]; n++;
     }
-    lightArr[y*MAP_W+x] = s/n;
+    G.lightArr[y*MAP_W+x] = s/n;
   }
   /* The ambient floor is high, and that is a change of what this number
      MEANS. It used to be 0.42 because the bake was the only thing deciding
@@ -1545,14 +1555,14 @@ function buildFloor(floorNum, seed){
      with the fixtures as bright pools on top rather than as the only light. */
   for (let y=0;y<MAP_H;y++) for (let x=0;x<MAP_W;x++){
     const i=y*MAP_W+x;
-    if (at(x,y)===FLOOR && lightArr[i] < BAKE_FLOOR) lightArr[i] = BAKE_FLOOR;
+    if (at(x,y)===FLOOR && G.lightArr[i] < BAKE_FLOOR) G.lightArr[i] = BAKE_FLOOR;
   }
   // walls catch light from adjacent floor (their face is visible).
   // This MUST read the post-blur, post-floor values. It used to read `tmp`
   // (pre-blur and pre-ambient-floor), so a wall beside unlit floor got ~0
   // light, multiplied to near-black, and every partition read as a hole in
   // the ground rather than a wall.
-  const wallSrc = new Float32Array(lightArr);
+  const wallSrc = new Float32Array(G.lightArr);
   for (let y=0;y<MAP_H;y++) for (let x=0;x<MAP_W;x++){
     const i=y*MAP_W+x;
     if (at(x,y)!==WALL) continue;
@@ -1562,7 +1572,7 @@ function buildFloor(floorNum, seed){
     if (inB(x,y+1)&&at(x,y+1)===FLOOR) m=Math.max(m,wallSrc[i+MAP_W]);
     if (inB(x,y-1)&&at(x,y-1)===FLOOR) m=Math.max(m,wallSrc[i-MAP_W]);
     // a wall deep inside a block still catches some bounce from its room
-    lightArr[i] = Math.max(m*0.95, BAKE_FLOOR*0.80);
+    G.lightArr[i] = Math.max(m*0.95, BAKE_FLOOR*0.80);
   }
 
   /* --- room regions -------------------------------------------------
@@ -1577,7 +1587,7 @@ function buildFloor(floorNum, seed){
      flood filled into their own regions: a gate tunnel is a lit space of its
      own, which is exactly right — standing in a doorway lights the doorway,
      not the room behind you. */
-  regionOf = new Int32Array(MAP_W*MAP_H).fill(-1);
+  G.regionOf = new Int32Array(MAP_W*MAP_H).fill(-1);
   maze.rooms.forEach((r, ri)=>{
     /* FLOOR TILES ONLY. Labelling the whole rect swept up the stub
        partitions that rooms are carved with, and a stub wall then carried its
@@ -1589,21 +1599,21 @@ function buildFloor(floorNum, seed){
        furniture, not a doorway. */
     for (let y=r.ry; y<r.ry+r.rh; y++)
       for (let x=r.rx; x<r.rx+r.rw; x++)
-        if (at(x,y) === FLOOR) regionOf[y*MAP_W+x] = ri;
+        if (at(x,y) === FLOOR) G.regionOf[y*MAP_W+x] = ri;
   });
   let nRegions = maze.rooms.length;
   for (let y=0;y<MAP_H;y++) for (let x=0;x<MAP_W;x++){
     const i0=y*MAP_W+x;
-    if (at(x,y)!==FLOOR || regionOf[i0]>=0) continue;
+    if (at(x,y)!==FLOOR || G.regionOf[i0]>=0) continue;
     const id = nRegions++;
-    const stack=[i0]; regionOf[i0]=id;
+    const stack=[i0]; G.regionOf[i0]=id;
     while (stack.length){
       const c=stack.pop(), cx=c%MAP_W, cy=(c/MAP_W)|0;
       for (const [nx,ny] of [[cx+1,cy],[cx-1,cy],[cx,cy+1],[cx,cy-1]]){
         if (nx<0||ny<0||nx>=MAP_W||ny>=MAP_H) continue;
         const ni=ny*MAP_W+nx;
-        if (at(nx,ny)!==FLOOR || regionOf[ni]>=0) continue;
-        regionOf[ni]=id; stack.push(ni);
+        if (at(nx,ny)!==FLOOR || G.regionOf[ni]>=0) continue;
+        G.regionOf[ni]=id; stack.push(ni);
       }
     }
   }
@@ -1614,11 +1624,11 @@ function buildFloor(floorNum, seed){
   const regAdj = Array.from({length:nRegions}, ()=>[]);
   const regSeen = new Set();
   for (let y=0;y<MAP_H;y++) for (let x=0;x<MAP_W;x++){
-    const a=regionOf[y*MAP_W+x];
+    const a=G.regionOf[y*MAP_W+x];
     if (a<0) continue;
     for (const [nx,ny] of [[x+1,y],[x,y+1]]){
       if (nx>=MAP_W||ny>=MAP_H) continue;
-      const b=regionOf[ny*MAP_W+nx];
+      const b=G.regionOf[ny*MAP_W+nx];
       if (b<0 || a===b) continue;
       const key = a<b ? a+','+b : b+','+a;
       if (regSeen.has(key)) continue;
@@ -1626,21 +1636,21 @@ function buildFloor(floorNum, seed){
       regAdj[a].push(b); regAdj[b].push(a);
     }
   }
-  regionAdj = regAdj;
-  regionCount = nRegions;
+  G.regionAdj = regAdj;
+  G.regionCount = nRegions;
 
   /* Pack the BAKE — pure, unchanged. Every viewer-side term (room scope, cone of
      vision, radar) is folded into a single mask on a separate canvas, so there
      is exactly one multiply and the mask can only ever remove light the bake
      put there. */
-  lightCv = document.createElement('canvas');
-  lightCv.width = MAP_W*LS; lightCv.height = MAP_H*LS;
-  lightCtx = lightCv.getContext('2d');
-  lightImg = lightCtx.createImageData(lightCv.width, lightCv.height);
+  G.lightCv = document.createElement('canvas');
+  G.lightCv.width = MAP_W*LS; G.lightCv.height = MAP_H*LS;
+  G.lightCtx = G.lightCv.getContext('2d');
+  G.lightImg = G.lightCtx.createImageData(G.lightCv.width, G.lightCv.height);
   /* The canvas dimensions and the pixel buffer are DOM-backed reads: they are
      resolved once here instead of per iteration, and every write below goes
      through the local buffer reference. Same pixels, same order. */
-  const LW = lightCv.width, LH = lightCv.height, LD = lightImg.data;
+  const LW = G.lightCv.width, LH = G.lightCv.height, LD = G.lightImg.data;
   for (let y=0;y<LH;y++){
     const ty=(y/LS)|0, row=ty*MAP_W;
     for (let x=0;x<LW;x++){
@@ -1650,33 +1660,33 @@ function buildFloor(floorNum, seed){
          a lit room would come out green-yellow a second time on top of a
          palette that is already the right colour. The bake is now a pure
          brightness, and the hue comes from the surfaces themselves. */
-      const b = Math.min(1, lightArr[row + ((x/LS)|0)]);
+      const b = Math.min(1, G.lightArr[row + ((x/LS)|0)]);
       const v = Math.round(255*b);
       const k=(y*LW+x)*4;
       LD[k]=v; LD[k+1]=v; LD[k+2]=v;
       LD[k+3] = 255;
     }
   }
-  lightCtx.putImageData(lightImg, 0, 0);
+  G.lightCtx.putImageData(G.lightImg, 0, 0);
 
-  visArr  = new Float32Array(MAP_W*MAP_H).fill(DARK_ROOM);
-  visFrom = new Float32Array(MAP_W*MAP_H).fill(DARK_ROOM);
-  visTgt  = new Float32Array(MAP_W*MAP_H).fill(DARK_ROOM);
-  visScratch = new Float32Array(MAP_W*MAP_H);
-  visStep = 0;
-  visRegion = -1;
+  G.visArr  = new Float32Array(MAP_W*MAP_H).fill(DARK_ROOM);
+  G.visFrom = new Float32Array(MAP_W*MAP_H).fill(DARK_ROOM);
+  G.visTgt  = new Float32Array(MAP_W*MAP_H).fill(DARK_ROOM);
+  G.visScratch = new Float32Array(MAP_W*MAP_H);
+  G.visStep = 0;
+  G.visRegion = -1;
 
   /* The mask is a SEPARATE canvas at 1 sample per tile rather than another
      term folded into the light bake. It changes every frame the character
      turns, and folding it into the lightmap would mean repacking 116k pixels
      on every small movement instead of 5.8k. */
-  maskArr  = new Float32Array(MAP_W*MAP_H);
-  maskTgt  = new Float32Array(MAP_W*MAP_H);
-  coneArr  = new Float32Array(MAP_W*MAP_H);
-  maskCv = document.createElement('canvas');
-  maskCv.width = MAP_W; maskCv.height = MAP_H;
-  maskCtx = maskCv.getContext('2d');
-  maskImg = maskCtx.createImageData(MAP_W, MAP_H);
+  G.maskArr  = new Float32Array(MAP_W*MAP_H);
+  G.maskTgt  = new Float32Array(MAP_W*MAP_H);
+  G.coneArr  = new Float32Array(MAP_W*MAP_H);
+  G.maskCv = document.createElement('canvas');
+  G.maskCv.width = MAP_W; G.maskCv.height = MAP_H;
+  G.maskCtx = G.maskCv.getContext('2d');
+  G.maskImg = G.maskCtx.createImageData(MAP_W, MAP_H);
 
   const spawn = spawn0;
   /* the room farthest from the door — where the walker starts, so nothing is
@@ -1729,36 +1739,35 @@ function buildFloor(floorNum, seed){
     });
   }
 
-  G = {
-    floor: floorNum,
-    seed,
-    grid, at, inB, los,
-    rooms: maze.rooms,
-    fixtures, batteries, graffiti, exitTiles,
-    leaks,
-    /* The three numbers the HUD and the door gate read, derived once here so
-       nothing has to walk the array to answer "is this level finished". */
-    leaksOpen: leaks.length,
-    risers: leaks.length,
-    agents,
-    player: { x: spawn.x, y: spawn.y, face:-Math.PI/2, stepT:0, stepDur:0.46, moving:false },
-    batt: BATT_MAX,
-    radar: false,
-    noise: 0, noisePeak: 0,
-    descend: 0,
-    /* THE CLOCK. Full at the moment you step through the door, counting down
-       the whole level, and the only reason the level has a shape. */
-    clock: FLOOR_CLOCK,
-    time: 0,
-    seenBy: 0,
-    nearest: 99,
-    stat: { noises:0, deaths:0, sealed:0 },
-    /* how many floor tiles the water can ever reach — the denominator for
-       "how flooded is this level". Counted from the distance field rather than
-       guessed, so it is exactly the set of tiles that can ever go wet. */
-    wetFloor: 0,
-    wet: 0, floodCover: 0, atLeak: false, leakPower: 0
-  };
+  /* What the placement code above decided. G itself was created before the
+     bakes; these fields only exist once the risers, fixtures and cast do. */
+  G.fixtures = fixtures;
+  G.batteries = batteries;
+  G.graffiti = graffiti;
+  G.exitTiles = exitTiles;
+  G.leaks = leaks;
+  /* The three numbers the HUD and the door gate read, derived once here so
+     nothing has to walk the array to answer "is this level finished". */
+  G.leaksOpen = leaks.length;
+  G.risers = leaks.length;
+  G.agents = agents;
+  G.player = { x: spawn.x, y: spawn.y, face:-Math.PI/2, stepT:0, stepDur:0.46, moving:false };
+  G.batt = BATT_MAX;
+  G.radar = false;
+  G.noise = 0; G.noisePeak = 0;
+  G.descend = 0;
+  /* THE CLOCK. Full at the moment you step through the door, counting down
+     the whole level, and the only reason the level has a shape. */
+  G.clock = FLOOR_CLOCK;
+  G.time = 0;
+  G.seenBy = 0;
+  G.nearest = 99;
+  G.stat = { noises:0, deaths:0, sealed:0 };
+  /* how many floor tiles the water can ever reach — the denominator for
+     "how flooded is this level". Counted from the distance field rather than
+     guessed, so it is exactly the set of tiles that can ever go wet. */
+  G.wetFloor = 0;
+  G.wet = 0; G.floodCover = 0; G.atLeak = false; G.leakPower = 0;
   /* Light the room the player spawned in. After this point it follows them:
      G exists, so regionAt(G.player) is meaningful. */
   scopeRoomLight(0, true);
@@ -1797,7 +1806,7 @@ function floodField(){
     q.push(s);
   }
   /* q comes out of a BFS in non-decreasing distance order already — that is
-     what a BFS is — so it IS the wetByDist ordering and there is no reason to
+     what a BFS is — so it IS the G.wetByDist ordering and there is no reason to
      sort it. Carrying that out of the traversal instead of rediscovering it
      later is the whole optimisation. */
   for (let h=0; h<q.length; h++){
@@ -1814,30 +1823,30 @@ function floodField(){
 }
 
 function initFlood(){
-  wetArr = new Float32Array(MAP_W*MAP_H);      // 0 dry .. 1 standing water
+  G.wetArr = new Float32Array(MAP_W*MAP_H);      // 0 dry .. 1 standing water
   const ff = floodField();
-  waterDist = ff.dist;
-  wetByDist = ff.order;                      // BFS order == sorted by distance
-  wetMaxDist = wetByDist.length ? waterDist[wetByDist[wetByDist.length-1]] : 0;
+  G.waterDist = ff.dist;
+  G.wetByDist = ff.order;                      // BFS order == sorted by distance
+  G.wetMaxDist = G.wetByDist.length ? G.waterDist[G.wetByDist[G.wetByDist.length-1]] : 0;
   /* Distance -> first index at or past it. BFS order is sorted, so this is one
      linear pass, and afterwards the waterline bound is an array read. */
-  wetIndexAtDist = new Int32Array(wetMaxDist+2).fill(wetByDist.length);
-  for (let n=wetByDist.length-1; n>=0; n--){
-    const d = waterDist[wetByDist[n]];
-    if (d < wetIndexAtDist.length) wetIndexAtDist[d] = n;
+  G.wetIndexAtDist = new Int32Array(G.wetMaxDist+2).fill(G.wetByDist.length);
+  for (let n=G.wetByDist.length-1; n>=0; n--){
+    const d = G.waterDist[G.wetByDist[n]];
+    if (d < G.wetIndexAtDist.length) G.wetIndexAtDist[d] = n;
   }
-  for (let d=wetMaxDist-1; d>=0; d--){
-    if (wetIndexAtDist[d] > wetIndexAtDist[d+1]) wetIndexAtDist[d] = wetIndexAtDist[d+1];
+  for (let d=G.wetMaxDist-1; d>=0; d--){
+    if (G.wetIndexAtDist[d] > G.wetIndexAtDist[d+1]) G.wetIndexAtDist[d] = G.wetIndexAtDist[d+1];
   }
-  wetFront = 0;
-  wetSum = 0;
-  wetEdgeD = -1;
-  G.wetFloor = wetByDist.length;
-  wetCv = document.createElement('canvas');
-  wetCv.width = MAP_W; wetCv.height = MAP_H;
-  wetCtx = wetCv.getContext('2d');
-  wetImg = wetCtx.createImageData(MAP_W, MAP_H);
-  for (let i=0;i<MAP_W*MAP_H;i++) wetImg.data[i*4+3] = 255;
+  G.wetFront = 0;
+  G.wetSum = 0;
+  G.wetEdgeD = -1;
+  G.wetFloor = G.wetByDist.length;
+  G.wetCv = document.createElement('canvas');
+  G.wetCv.width = MAP_W; G.wetCv.height = MAP_H;
+  G.wetCtx = G.wetCv.getContext('2d');
+  G.wetImg = G.wetCtx.createImageData(MAP_W, MAP_H);
+  for (let i=0;i<MAP_W*MAP_H;i++) G.wetImg.data[i*4+3] = 255;
   /* Start the room the player spawns in already damp. Otherwise the first
      seconds of a floor are a pristine yellow carpet with no cue at all, and
      the water reads as a thing that switched on rather than a thing that has
@@ -1848,32 +1857,32 @@ function initFlood(){
      This is a direct assignment rather than a simulated fast-forward because
      the alternative is stepping tickFlood thousands of times per floor at
      floor build, and the end state is exactly "everything inside the front is
-     fully wet", which is what the integration converges to anyway. wetSum is
+     fully wet", which is what the integration converges to anyway. G.wetSum is
      computed from the same pass, so the incremental sum and the array cannot
      disagree about where they started. */
   {
-    const front = Math.min(wetMaxDist, LEAK_HEADSTART/LEAK_SPREAD);
-    wetFront = front;
+    const front = Math.min(G.wetMaxDist, LEAK_HEADSTART/LEAK_SPREAD);
+    G.wetFront = front;
     let sum = 0;
     /* Every wet tile is at distance <= front, so the edge is known exactly here
        rather than by scanning: this pass is walking them anyway. */
-    const hi  = Math.min(wetByDist.length-1,
-                  wetIndexAtDist[Math.min(Math.ceil(front), wetIndexAtDist.length-1)]);
+    const hi  = Math.min(G.wetByDist.length-1,
+                  G.wetIndexAtDist[Math.min(Math.ceil(front), G.wetIndexAtDist.length-1)]);
     for (let n=0; n<=hi; n++){
-      const i = wetByDist[n];
-      if (waterDist[i] <= front){ wetArr[i] = 1; sum += 1; }
+      const i = G.wetByDist[n];
+      if (G.waterDist[i] <= front){ G.wetArr[i] = 1; sum += 1; }
     }
-    wetSum = sum;
+    G.wetSum = sum;
     /* seedSplash already ran, so the spawn puddle may reach past the pre-warmed
        front — take whichever reaches further. */
-    wetEdgeD = Math.max(wetEdgeD, Math.floor(front));
+    G.wetEdgeD = Math.max(G.wetEdgeD, Math.floor(front));
   }
 
-  G.floodCover = G.wetFloor ? wetSum/G.wetFloor : 0;
+  G.floodCover = G.wetFloor ? G.wetSum/G.wetFloor : 0;
   /* Packed HERE as well as flagged. initFlood runs inside buildFloor, and
      buildFloor can run in the MIDDLE of a frame — the door rebuilds the floor
      from update() — so the render that follows in that same frame has no pack
-     of its own any more, and the fresh wetImg (alpha 255, RGB 0) would paint
+     of its own any more, and the fresh G.wetImg (alpha 255, RGB 0) would paint
      black over the new carpet for one frame. */
   packWet();
   waterDirty = true;
@@ -1883,7 +1892,7 @@ function initFlood(){
    exists as a function — to ripple outward from the player while they wade,
    so moving through water leaves something behind them. */
 function seedSplash(wx, wy, amount){
-  if (!wetArr) return;
+  if (!G.wetArr) return;
   const cx = Math.floor(wx), cy = Math.floor(wy);
   for (let y=cy-1;y<=cy+1;y++) for (let x=cx-1;x<=cx+1;x++){
     if (x<0||y<0||x>=MAP_W||y>=MAP_H) continue;
@@ -1891,15 +1900,15 @@ function seedSplash(wx, wy, amount){
     if (G.grid[i]!==FLOOR) continue;
     const dd = Math.hypot(x+0.5-wx, y+0.5-wy);
     const w = Math.min(1, Math.max(0, amount * (1 - dd/1.8)));
-    if (w > wetArr[i]){
-      wetSum += w - wetArr[i]; wetArr[i] = w;
+    if (w > G.wetArr[i]){
+      G.wetSum += w - G.wetArr[i]; G.wetArr[i] = w;
       waterDirty = true;
       /* A splash can wet a tile further out than the flood has reached — the
          player wading a puddle throws it a tile or two past the waterline. The
          pass is bounded by the wet edge, so a tile raised without moving the
          edge would be one the next tickFlood never looks at: a permanent wet
          spot the player made and cannot dry. */
-      if (w > WET_EDGE && waterDist[i] > wetEdgeD) wetEdgeD = waterDist[i];
+      if (w > WET_EDGE && G.waterDist[i] > G.wetEdgeD) G.wetEdgeD = G.waterDist[i];
     }
   }
 }
@@ -1907,10 +1916,10 @@ function seedSplash(wx, wy, amount){
 /* Wetness under a world point, 0..1. Sampled by the movement code and the
    renderer so "how deep is the water here" is one number, not two. */
 function wetAt(wx, wy){
-  if (!wetArr) return 0;
+  if (!G.wetArr) return 0;
   const x=Math.floor(wx), y=Math.floor(wy);
   if (x<0||y<0||x>=MAP_W||y>=MAP_H) return 0;
-  return wetArr[y*MAP_W+x];
+  return G.wetArr[y*MAP_W+x];
 }
 
 /* How much of the reachable floor is currently wet, 0..1. Divided by a FLOOR
@@ -1923,9 +1932,9 @@ function wetAt(wx, wy){
    ORACLE that the incremental sum is checked against in the test suite, which
    is the only way to know the incremental version has not quietly drifted. */
 function floodCover(){
-  if (!wetArr || !G.wetFloor) return 0;
+  if (!G.wetArr || !G.wetFloor) return 0;
   let s=0;
-  for (let i=0;i<wetArr.length;i++) s += wetArr[i];
+  for (let i=0;i<G.wetArr.length;i++) s += G.wetArr[i];
   return s/G.wetFloor;
 }
 
@@ -1983,14 +1992,14 @@ function sealLeak(L){
 
 /* Advance the water one frame.
    The front is at (elapsed / LEAK_SPREAD) tiles from the sources, so a tile's
-   target wetness is exactly `dist <= front`. wetByDist is sorted by distance,
+   target wetness is exactly `dist <= front`. G.wetByDist is sorted by distance,
    so "every tile at or inside the front" is a PREFIX of it.
 
    Wetness is integrated toward the target with a time constant rather than
    assigned, so the waterline creeps rather than teleporting a tile at a time,
    and a tile the front has just passed is only part wet. */
 function tickFlood(dt){
-  if (!G.leaks.length || !wetArr) return;
+  if (!G.leaks.length || !G.wetArr) return;
 
   /* RISING while any riser is open, FALLING once all are sealed — AT THE SAME
      PACE. The waterline goes back out at exactly one tile per LEAK_SPREAD
@@ -2005,11 +2014,11 @@ function tickFlood(dt){
      keeps it radial — water recedes from the edges inward, away from the pipes,
      which is what you would see on a real level and not what a uniform fade
      would give you. */
-  const prev = wetFront;
+  const prev = G.wetFront;
   const front = G.leaksOpen > 0
-    ? Math.min(wetMaxDist, prev + dt/LEAK_SPREAD)
+    ? Math.min(G.wetMaxDist, prev + dt/LEAK_SPREAD)
     : Math.max(0, prev - dt/LEAK_SPREAD);
-  wetFront = front;
+  G.wetFront = front;
   /* A STILL FRONT IS NOT SETTLED WATER. The fade is a time constant, so it
      approaches zero without ever arriving, and the only true "nothing to do" is
      an empty edge. Gating the pass on the front alone ended the simulation the
@@ -2018,10 +2027,10 @@ function tickFlood(dt){
      the front had stopped, nothing would ever come back for them.
 
      It cost nothing while the water was RISING: the front only stands still
-     once it has hit wetMaxDist, and by then the whole floor is under water
+     once it has hit G.wetMaxDist, and by then the whole floor is under water
      anyway. It costs one pass over a shrinking prefix while the floor drains,
      and then the edge empties and this is a single comparison again. */
-  if (front === prev && wetEdgeD < 0) return;
+  if (front === prev && G.wetEdgeD < 0) return;
 
   /* Every tile at or inside the front still has to integrate toward its
      target — a tile keeps darkening for WET_RISE seconds AFTER the front has
@@ -2032,12 +2041,12 @@ function tickFlood(dt){
      than flooded. The target changes in the band; the approach to it does not.
 
      What IS worth exploiting is the ordering: everything wet is a contiguous
-     PREFIX of wetByDist, and nothing past its edge can change. Iterating the
+     PREFIX of G.wetByDist, and nothing past its edge can change. Iterating the
      prefix is bounded by how flooded the level is, and an unflooded one costs
-     one iteration. The edge is `wetEdgeD` — see the note there for why it is
+     one iteration. The edge is `G.wetEdgeD` — see the note there for why it is
      not the front, and what it cost to get that wrong. */
-  const boundD = Math.max(wetEdgeD, Math.ceil(Math.max(prev, front)));
-  const hi = wetIndexAtDist[Math.min(boundD+1, wetIndexAtDist.length-1)] - 1;
+  const boundD = Math.max(G.wetEdgeD, Math.ceil(Math.max(prev, front)));
+  const hi = G.wetIndexAtDist[Math.min(boundD+1, G.wetIndexAtDist.length-1)] - 1;
   if (hi < 0) return;
   const tau = G.leaksOpen>0 ? WET_RISE : WET_FALL;
   const k = 1 - Math.exp(-dt/tau);
@@ -2047,7 +2056,7 @@ function tickFlood(dt){
      under the pipe you just fixed, in the one place on the floor where the
      player has spent five seconds looking at it. */
   const anyWater = front > 0;
-  let sum = wetSum;
+  let sum = G.wetSum;
   let changed = false;
   /* The new edge, computed in the pass that is already walking the tiles rather
      than by a second scan. This is the only place the edge moves, and it moves
@@ -2055,9 +2064,9 @@ function tickFlood(dt){
      next frame's prefix be smaller than this one's. */
   let edge = -1;
   for (let n=0; n<=hi; n++){
-    const i = wetByDist[n];
-    const cur = wetArr[i];
-    const target = (anyWater && waterDist[i] <= front) ? 1 : 0;
+    const i = G.wetByDist[n];
+    const cur = G.wetArr[i];
+    const target = (anyWater && G.waterDist[i] <= front) ? 1 : 0;
     /* Deliberately not `continue`d on an unchanged tile: the edge has to be
        re-derived from every tile in the prefix, not only from the ones that
        moved this frame. */
@@ -2069,20 +2078,20 @@ function tickFlood(dt){
          and a floor that has finished draining would sit at "01" for ever. */
       const snapped = target===0 ? (next <= WET_EDGE ? 0 : next)
                                  : ((1-next) < 0.004 ? 1 : next);
-      /* wetSum is maintained INCREMENTALLY rather than by re-summing the array
+      /* G.wetSum is maintained INCREMENTALLY rather than by re-summing the array
          every frame. It is the numerator of the flood gauge, which is read by
          the leak's own noise level and by the HUD, so it is read a lot; summing
          5776 floats to answer it each time is the same mistake as the scan this
          function used to do, wearing a different hat. */
       sum += snapped - cur;
-      wetArr[i] = snapped;
+      G.wetArr[i] = snapped;
       changed = true;
     }
-    if (wetArr[i] > WET_EDGE) edge = waterDist[i];
+    if (G.wetArr[i] > WET_EDGE) edge = G.waterDist[i];
   }
-  wetEdgeD = edge;
+  G.wetEdgeD = edge;
   if (!changed) return;
-  wetSum = sum;
+  G.wetSum = sum;
   waterDirty = true;
   G.floodCover = G.wetFloor ? Math.max(0, sum/G.wetFloor) : 0;
 }
@@ -2115,9 +2124,9 @@ function packWet(){
   if (!wantPixels) return;
   const T = WATER_TINTS[SETTINGS.waterHue] || WATER_TINTS.slate;
   const contrast = SETTINGS.waterContrast;
-  const d = wetImg.data;
+  const d = G.wetImg.data;
   for (let i=0;i<MAP_W*MAP_H;i++){
-    const a = wetArr[i];
+    const a = G.wetArr[i];
     const k = i*4;
     if (a <= WET_DRAW){ d[k+3] = 0; continue; }
     const t = Math.min(1, a);
@@ -2127,7 +2136,7 @@ function packWet(){
     d[k+2] = Math.round(T.damp[2] + (T.deep[2]-T.damp[2])*blue);
     d[k+3] = Math.round(255*Math.min(0.94, (0.34 + t*0.48)*contrast));
   }
-  wetCtx.putImageData(wetImg, 0, 0);
+  G.wetCtx.putImageData(G.wetImg, 0, 0);
 }
 
 /* ============================================================
@@ -2154,7 +2163,7 @@ function scopeFor(hops){
 function regionAt(x,y){
   const tx=Math.floor(x), ty=Math.floor(y);
   if (tx<0||ty<0||tx>=MAP_W||ty>=MAP_H) return -1;
-  return regionOf[ty*MAP_W+tx];
+  return G.regionOf[ty*MAP_W+tx];
 }
 
 /* Is this world point inside the rectangle the renderer is drawing?
@@ -2180,7 +2189,7 @@ function onScreen(wx, wy){
 function fixtureVis(f){
   const tx=Math.floor(f.x), ty=Math.floor(f.y);
   if (tx<0||ty<0||tx>=MAP_W||ty>=MAP_H) return 0;
-  return maskArr[ty*MAP_W+tx];
+  return G.maskArr[ty*MAP_W+tx];
 }
 
 /* ============================================================
@@ -2264,7 +2273,7 @@ function castFan(out, ox, oy, facing, halfAngle, range, rays, gain, fall){
   }
 }
 
-/* Rebuild coneArr, then fold everything into maskTarget.
+/* Rebuild G.coneArr, then fold everything into maskTarget.
    Called only when the pose moved, so standing still costs nothing at all.
 
    The pose test is on the player's POSITION, not their tile. It used to be on
@@ -2278,11 +2287,11 @@ function traceViewCone(force){
   const tx=Math.floor(p.x), ty=Math.floor(p.y);
   /* Radar state is part of the pose: pressing R while standing still must
      retrace, or the sweep only appears once you next move. */
-  if (!force && p.x===coneX && p.y===coneY && p.face===coneFace && G.radar===coneRadar)
+  if (!force && p.x===G.coneX && p.y===G.coneY && p.face===G.coneFace && G.radar===G.coneRadar)
     return false;
-  coneX=p.x; coneY=p.y; coneFace=p.face; coneRadar=G.radar;
+  G.coneX=p.x; G.coneY=p.y; G.coneFace=p.face; G.coneRadar=G.radar;
 
-  coneArr.fill(0);
+  G.coneArr.fill(0);
 
   const ex = p.x + Math.cos(p.face)*HAND_OFF;
   const ey = p.y + Math.sin(p.face)*HAND_OFF;
@@ -2293,12 +2302,12 @@ function traceViewCone(force){
      at 0.6 while the tile underfoot was at 1.0 — so the room you are standing
      in was a gradient from bright to dim, which is the one thing this feature
      must never do. What you can see is bright; what you cannot is black. */
-  castFan(coneArr, ex, ey, p.face, VIEW_HALF, VIEW_RANGE, VIEW_RAYS, 1, 0);
+  castFan(G.coneArr, ex, ey, p.face, VIEW_HALF, VIEW_RANGE, VIEW_RAYS, 1, 0);
 
   /* One tile of guaranteed visibility under the player. Without it the avatar
      can back into a corner where every ray exits before reaching its own tile
      and the figure renders inside a black hole. */
-  if (tx>=0&&ty>=0&&tx<MAP_W&&ty<MAP_H) coneArr[ty*MAP_W+tx]=1;
+  if (tx>=0&&ty>=0&&tx<MAP_W&&ty<MAP_H) G.coneArr[ty*MAP_W+tx]=1;
 
   /* Walls: a wall you can see the face of is visible, and it takes the
      brightest floor it touches — no dimming factor. The mask dimmed walls by
@@ -2313,11 +2322,11 @@ function traceViewCone(force){
     const i=y*MAP_W+x;
     if (G.grid[i]!==WALL) continue;
     let m = 0;
-    if (x+1<MAP_W   && G.grid[i+1]===FLOOR)   m=Math.max(m, coneArr[i+1]);
-    if (x>0        && G.grid[i-1]===FLOOR)   m=Math.max(m, coneArr[i-1]);
-    if (y+1<MAP_H  && G.grid[i+MAP_W]===FLOOR) m=Math.max(m, coneArr[i+MAP_W]);
-    if (y>0        && G.grid[i-MAP_W]===FLOOR) m=Math.max(m, coneArr[i-MAP_W]);
-    coneArr[i] = Math.max(coneArr[i], m);
+    if (x+1<MAP_W   && G.grid[i+1]===FLOOR)   m=Math.max(m, G.coneArr[i+1]);
+    if (x>0        && G.grid[i-1]===FLOOR)   m=Math.max(m, G.coneArr[i-1]);
+    if (y+1<MAP_H  && G.grid[i+MAP_W]===FLOOR) m=Math.max(m, G.coneArr[i+MAP_W]);
+    if (y>0        && G.grid[i-MAP_W]===FLOOR) m=Math.max(m, G.coneArr[i-MAP_W]);
+    G.coneArr[i] = Math.max(G.coneArr[i], m);
   }
 
   /* Fold the three terms into the target mask. The radar short-circuits all of
@@ -2341,10 +2350,10 @@ function traceViewCone(force){
    tool. It is handled here rather than at draw time so there is exactly one
    place in the program where "what can the player see" is decided. */
 function combineMask(){
-  if (G.radar){ maskTgt.fill(1); return; }
+  if (G.radar){ G.maskTgt.fill(1); return; }
   const px2=G.player.x, py2=G.player.y;
-  for (let i=0; i<maskTgt.length; i++){
-    const sc = visArr[i], cn = coneArr[i];
+  for (let i=0; i<G.maskTgt.length; i++){
+    const sc = G.visArr[i], cn = G.coneArr[i];
     let v = 0;
     if (sc > 0 && cn > 0){
       if (sc >= 0.999){
@@ -2358,7 +2367,7 @@ function combineMask(){
         v = sc*f*cn;
       }
     }
-    maskTgt[i] = v;
+    G.maskTgt[i] = v;
   }
   /* Deliberately NOT blurred. There was a 3x3 pass here and it quietly broke
      the centre of vision: an average of the player's own fully-lit tile with
@@ -2374,29 +2383,29 @@ function combineMask(){
 function scopeRoomLight(dt, instant){
   const p = G.player;
   const here = regionAt(p.x, p.y);
-  if (here === visRegion && !instant) return false;
+  if (here === G.visRegion && !instant) return false;
 
   // snapshot the current field so the change crossfades instead of popping
-  visFrom.set(visArr);
-  visRegion = here;
-  visFadeT  = instant ? 1 : 0;
-  visStep   = instant ? LIGHT_FADE_STEPS : 0;
+  G.visFrom.set(G.visArr);
+  G.visRegion = here;
+  G.visFadeT  = instant ? 1 : 0;
+  G.visStep   = instant ? LIGHT_FADE_STEPS : 0;
 
   if (here < 0){
     // off the map (only possible in a degenerate state): everything dark,
     // walls included — there is nothing to borrow light from
-    visTgt.fill(DARK_ROOM);
+    G.visTgt.fill(DARK_ROOM);
   } else {
-    const hops = new Int32Array(regionCount).fill(-1);
+    const hops = new Int32Array(G.regionCount).fill(-1);
     const q = [here];
     hops[here] = 0;
     for (let h=0; h<q.length; h++){
       const r = q[h];
-      for (const nb of regionAdj[r]) if (hops[nb] < 0){ hops[nb] = hops[r]+1; q.push(nb); }
+      for (const nb of G.regionAdj[r]) if (hops[nb] < 0){ hops[nb] = hops[r]+1; q.push(nb); }
     }
-    for (let i=0; i<regionOf.length; i++){
-      const r = regionOf[i];
-      visTgt[i] = r < 0 ? -1 : scopeFor(hops[r] < 0 ? 99 : hops[r]);
+    for (let i=0; i<G.regionOf.length; i++){
+      const r = G.regionOf[i];
+      G.visTgt[i] = r < 0 ? -1 : scopeFor(hops[r] < 0 ? 99 : hops[r]);
     }
     /* Solid rock has no region, so scoping by region alone would multiply
        every partition down to DARK_ROOM — including the wall you are standing
@@ -2404,8 +2413,8 @@ function scopeRoomLight(dt, instant){
        a lit room. The bake already lights walls from adjacent floor; scope
        them the same way, brightest neighbour wins. A wall deep inside a block
        with no lit neighbour stays dark, which is correct. */
-    const src = visScratch;
-    src.set(visTgt);
+    const src = G.visScratch;
+    src.set(G.visTgt);
     for (let y=0; y<MAP_H; y++) for (let x=0; x<MAP_W; x++){
       const i = y*MAP_W+x;
       if (src[i] >= 0) continue;
@@ -2414,11 +2423,11 @@ function scopeRoomLight(dt, instant){
       if (x>0        && src[i-1]   >= 0) m = Math.max(m, src[i-1]);
       if (y+1<MAP_H  && src[i+MAP_W]>= 0) m = Math.max(m, src[i+MAP_W]);
       if (y>0        && src[i-MAP_W]>= 0) m = Math.max(m, src[i-MAP_W]);
-      visTgt[i] = m;
+      G.visTgt[i] = m;
     }
   }
   if (instant){
-    visArr.set(visTgt);
+    G.visArr.set(G.visTgt);
     snapMask();
   }
   return true;
@@ -2430,16 +2439,16 @@ function scopeRoomLight(dt, instant){
 /* Advance the crossfade. Quantised: LIGHT_FADE_STEPS repacks over LIGHT_FADE
    seconds, so a room change costs 10 repacks and not one per frame forever. */
 function fadeRoomLight(dt){
-  if (visStep >= LIGHT_FADE_STEPS) return;
-  visFadeT = Math.min(1, visFadeT + dt/LIGHT_FADE);
-  const step = Math.max(visStep, Math.ceil(visFadeT*LIGHT_FADE_STEPS));
-  if (step !== visStep){
-    visStep = step;
+  if (G.visStep >= LIGHT_FADE_STEPS) return;
+  G.visFadeT = Math.min(1, G.visFadeT + dt/LIGHT_FADE);
+  const step = Math.max(G.visStep, Math.ceil(G.visFadeT*LIGHT_FADE_STEPS));
+  if (step !== G.visStep){
+    G.visStep = step;
     const k = step/LIGHT_FADE_STEPS;
-    for (let i=0; i<visArr.length; i++) visArr[i] = visFrom[i] + (visTgt[i]-visFrom[i])*k;
+    for (let i=0; i<G.visArr.length; i++) G.visArr[i] = G.visFrom[i] + (G.visTgt[i]-G.visFrom[i])*k;
     /* The mask bakes in the room scope, so it has to be recombined — but only
        on fade steps, not every frame. The easing in smoothMask then tracks it. */
-    scopeDirty = true;
+    G.scopeDirty = true;
   }
 }
 
@@ -2447,13 +2456,13 @@ function fadeRoomLight(dt){
    Pure luminance: this is a visibility gate, not a colour. */
 function packMask(){
   if (!wantPixels) return;
-  const d = maskImg.data;
+  const d = G.maskImg.data;
   for (let i=0; i<MAP_W*MAP_H; i++){
-    const b = Math.min(255, maskArr[i]*255);
+    const b = Math.min(255, G.maskArr[i]*255);
     const k = i*4;
     d[k]=b; d[k+1]=b; d[k+2]=b; d[k+3]=255;
   }
-  maskCtx.putImageData(maskImg, 0, 0);
+  G.maskCtx.putImageData(G.maskImg, 0, 0);
 }
 
 /* Ease the drawn mask toward the freshly traced one.
@@ -2463,7 +2472,7 @@ function packMask(){
    into motion — the edge slides rather than flickers.
 
    MASK_TAU is deliberately much shorter than LIGHT_FADE. The room crossfade
-   is a deliberate 0.3s and is animated in visArr; this is only here to take
+   is a deliberate 0.3s and is animated in G.visArr; this is only here to take
    the stair-stepping out of a per-frame quantity, so at 55ms it tracks the
    scope closely instead of lagging behind it by a visible amount.
 
@@ -2471,10 +2480,10 @@ function packMask(){
 function smoothMask(dt){
   const k = 1 - Math.exp(-dt/MASK_TAU);
   let moved = false;
-  for (let i=0; i<maskArr.length; i++){
-    const d = maskTgt[i]-maskArr[i];
-    if (d > 0.0025 || d < -0.0025){ maskArr[i] += d*k; moved = true; }
-    else if (d !== 0){ maskArr[i] = maskTgt[i]; moved = true; }
+  for (let i=0; i<G.maskArr.length; i++){
+    const d = G.maskTgt[i]-G.maskArr[i];
+    if (d > 0.0025 || d < -0.0025){ G.maskArr[i] += d*k; moved = true; }
+    else if (d !== 0){ G.maskArr[i] = G.maskTgt[i]; moved = true; }
   }
   return moved;
 }
@@ -2484,7 +2493,7 @@ function smoothMask(dt){
    behind. */
 function snapMask(){
   traceViewCone(true);
-  maskArr.set(maskTgt);
+  G.maskArr.set(G.maskTgt);
   packMask();
 }
 
@@ -2876,12 +2885,12 @@ function update(dt){
      retrace alone still steps a tile at a time, and the easing alone still
      quantises to when the retrace happens.
 
-     Skipped wholesale when the harness has switched vision off. scopeDirty is
+     Skipped wholesale when the harness has switched vision off. G.scopeDirty is
      deliberately left alone: it is pending work, not stale state, so the first
      frame after vision comes back on recombines whatever the room crossfade
      moved while it was off rather than dropping it. */
   if (wantVision){
-    if (traceViewCone(false) || scopeDirty){ combineMask(); scopeDirty = false; }
+    if (traceViewCone(false) || G.scopeDirty){ combineMask(); G.scopeDirty = false; }
     if (smoothMask(dt)) packMask();
   }
 
@@ -3003,7 +3012,7 @@ function update(dt){
            bake alone. Reading the bake would let it see you standing in a
            room whose lights are, as far as the screen is concerned, off. */
         const pi = Math.floor(p.y)*MAP_W+Math.floor(p.x);
-        const amb = (lightArr[pi] || 0) * (visArr[pi] || 0);
+        const amb = (G.lightArr[pi] || 0) * (G.visArr[pi] || 0);
         if (amb > 0.30){
           seenBy = Math.max(seenBy, 1);
           if (a.born<=0){ a.state='HUNT'; a.target={x:p.x,y:p.y}; a.t=0; }
@@ -3439,11 +3448,11 @@ function outOfTime(){ lose('THE CLOCK RAN OUT'); }
      the obvious alternative and would have been both slower (5776 draw calls)
      and worse — hard tile-aligned water edges, the same quantised boundary the
      vision cone has, on a feature whose entire job is a legible front. */
-  /* The packed image is refreshed where wetArr changes, not here — see
+  /* The packed image is refreshed where G.wetArr changes, not here — see
      waterDirty. Drawing it is still one drawImage. */
-  if (wetArr){
+  if (G.wetArr){
     ctx.globalAlpha = 1;
-    ctx.drawImage(wetCv, 0, 0, MAP_W*TILE, MAP_H*TILE);
+    ctx.drawImage(G.wetCv, 0, 0, MAP_W*TILE, MAP_H*TILE);
 
     /* Specular sheen on the deep water. Without it a flooded room is a flat
        tinted region and reads as "a blue filter is on" rather than as water;
@@ -3454,9 +3463,9 @@ function outOfTime(){ lose('THE CLOCK RAN OUT'); }
     const shx0=Math.max(0,x0), shy0=Math.max(0,y0);
     for (let y=shy0;y<=y1;y++) for (let x=shx0;x<=x1;x++){
       const i=y*MAP_W+x;
-      const w = wetArr[i];
+      const w = G.wetArr[i];
       if (w < 0.55) continue;
-      if (maskArr[i] < 0.05) continue;
+      if (G.maskArr[i] < 0.05) continue;
       const n = hash2(x*7+3, y*11+5);
       const ph = (t*0.0011 + n*6.28);
       const a = (w-0.55)/0.45 * 0.05 * (0.5+0.5*Math.sin(ph));
@@ -3576,12 +3585,12 @@ function outOfTime(){ lose('THE CLOCK RAN OUT'); }
   // ambient bake (multiply) — mono-yellow, and only where the character can see
   ctx.globalCompositeOperation='multiply';
   ctx.imageSmoothingEnabled = true;
-  ctx.drawImage(lightCv, dx, dy, MAP_W*TILE*SCALE, MAP_H*TILE*SCALE);
+  ctx.drawImage(G.lightCv, dx, dy, MAP_W*TILE*SCALE, MAP_H*TILE*SCALE);
 
   /* The visibility mask: room scope x distance x cone, or everything at once
      while the radar sweeps. One multiply. Multiplicative, not additive, so it
      can only ever REMOVE light the bake put there — which is the whole point. */
-  ctx.drawImage(maskCv, dx, dy, MAP_W*TILE*SCALE, MAP_H*TILE*SCALE);
+  ctx.drawImage(G.maskCv, dx, dy, MAP_W*TILE*SCALE, MAP_H*TILE*SCALE);
 
   /* flickering fluorescents (additive, above the bake).
      GATED BY VISIBILITY. The bake is a multiply, so an unlit room is already
@@ -3646,7 +3655,7 @@ function outOfTime(){ lose('THE CLOCK RAN OUT'); }
 
      It is still not the radar. It reveals one tile you are already standing
      next to, it costs no battery, and it does nothing at all while you are two
-     rooms away — the maskArr lookup is a plain tile read and the radar's
+     rooms away — the G.maskArr lookup is a plain tile read and the radar's
      contract ("everything, full brightness, while the battery lasts") is not
      touched anywhere near this code. */
   for (const L of G.leaks){
@@ -3659,10 +3668,10 @@ function outOfTime(){ lose('THE CLOCK RAN OUT'); }
        pixels, which is why the flood (drawn earlier, inside the world
        transform) does not need this and the leak does. */
     const lt = L.y*MAP_W + L.x;
-    if (!wetArr || maskArr[lt] <= 0.02) continue;
+    if (!G.wetArr || G.maskArr[lt] <= 0.02) continue;
     const U  = TILE*SCALE;                 // one tile, in device pixels
     const fx = w2sx(L.x+0.5), fy = w2sy(L.y+0.5);
-    const vis = maskArr[lt];
+    const vis = G.maskArr[lt];
     ctx.save();
     ctx.globalAlpha = vis;
 
@@ -3745,11 +3754,11 @@ function outOfTime(){ lose('THE CLOCK RAN OUT'); }
      could not honestly offer a middle. The snapshot is taken before the passes
      that read it. */
   const vhs = VHS_PASS;
-  if (!postCv || postCv.width!==cvs.width || postCv.height!==cvs.height){
-    postCv = document.createElement('canvas');
-    postCv.width = cvs.width; postCv.height = cvs.height;
+  if (!G.postCv || G.postCv.width!==cvs.width || G.postCv.height!==cvs.height){
+    G.postCv = document.createElement('canvas');
+    G.postCv.width = cvs.width; G.postCv.height = cvs.height;
   }
-  const pg = postCv.getContext('2d');
+  const pg = G.postCv.getContext('2d');
   pg.globalCompositeOperation='copy';
   pg.drawImage(cvs,0,0);
   pg.globalCompositeOperation='source-over';
@@ -3783,8 +3792,8 @@ function outOfTime(){ lose('THE CLOCK RAN OUT'); }
   ctx.globalCompositeOperation='lighter';
   ctx.globalAlpha=0.03*vhs;
   const ca = 1 + Math.round(Math.random()*2);
-  ctx.drawImage(postCv, -ca, 0);
-  ctx.drawImage(postCv,  ca, 0);
+  ctx.drawImage(G.postCv, -ca, 0);
+  ctx.drawImage(G.postCv,  ca, 0);
   ctx.globalAlpha=1;
   ctx.globalCompositeOperation='source-over';
 
@@ -4193,7 +4202,7 @@ function setOption(key, value){
   if (!settingsValid(key, value)) return false;
   SETTINGS[key] = value;
   /* packWet bakes the tint into the pixels, so a new tint is a stale image even
-     though wetArr has not moved. */
+     though G.wetArr has not moved. */
   if (key==='waterHue' || key==='waterContrast') waterDirty = true;
   applySettings();
   saveSettings();
