@@ -392,6 +392,9 @@ function saveSettings(){
 
 function resetSettings(){
   SETTINGS = Object.assign({}, SETTINGS_DEFAULTS);
+  /* Same reason as setOption's water keys: the default tint may differ from the
+     one on screen, and reset writes SETTINGS without going through setOption. */
+  waterDirty = true;
   applySettings();
   saveSettings();
 }
@@ -1163,6 +1166,15 @@ let wetByDist = [], wetFront = 0, wetMaxDist = 0, wetSum = 0;
 const WET_DRAW = 0.015;          // packWet: below this a tile is fully transparent
 const WET_EDGE = WET_DRAW*0.8;    // ...so below THIS the simulation may stop caring
 let wetEdgeD = -1;
+/* waterDirty means "the packed water image may not match wetArr any more". The
+   image used to be repacked on EVERY draw, which is a 5776-tile write plus a
+   putImageData per frame whether or not the water had moved — the single most
+   expensive thing in the renderer. Now only the three places that can change
+   wetArr (initFlood, seedSplash, tickFlood) and the one setting that changes
+   what a tile packs to (the tint) raise it, and the update loop packs once and
+   clears it. Rendering still reads wetArr directly for the sheen, so a frame
+   with no repack is still a frame that draws the water correctly. */
+let waterDirty = false;
 /* wetIndexAtDist[d] = the first index in wetByDist whose distance is >= d.
    Without it, "iterate the tiles inside the waterline" has to guess, and the
    obvious guess — treating the loop index AS the distance — is wrong because
@@ -1743,7 +1755,7 @@ function buildFloor(floorNum, seed){
        "how flooded is this level". Counted from the distance field rather than
        guessed, so it is exactly the set of tiles that can ever go wet. */
     wetFloor: 0,
-    wet: 0, floodCover: 0, atLeak: false, leakPower: 0, floodDirty: false
+    wet: 0, floodCover: 0, atLeak: false, leakPower: 0
   };
   /* Light the room the player spawned in. After this point it follows them:
      G exists, so regionAt(G.player) is meaningful. */
@@ -1856,7 +1868,13 @@ function initFlood(){
   }
 
   G.floodCover = G.wetFloor ? wetSum/G.wetFloor : 0;
-  G.floodDirty = true;
+  /* Packed HERE as well as flagged. initFlood runs inside buildFloor, and
+     buildFloor can run in the MIDDLE of a frame — the door rebuilds the floor
+     from update() — so the render that follows in that same frame has no pack
+     of its own any more, and the fresh wetImg (alpha 255, RGB 0) would paint
+     black over the new carpet for one frame. */
+  packWet();
+  waterDirty = true;
 }
 
 /* Drop a blob of water. Used to seed the floor at spawn and — the reason this
@@ -1873,6 +1891,7 @@ function seedSplash(wx, wy, amount){
     const w = Math.min(1, Math.max(0, amount * (1 - dd/1.8)));
     if (w > wetArr[i]){
       wetSum += w - wetArr[i]; wetArr[i] = w;
+      waterDirty = true;
       /* A splash can wet a tile further out than the flood has reached — the
          player wading a puddle throws it a tile or two past the waterline. The
          pass is bounded by the wet edge, so a tile raised without moving the
@@ -1999,7 +2018,7 @@ function tickFlood(dt){
      once it has hit wetMaxDist, and by then the whole floor is under water
      anyway. It costs one pass over a shrinking prefix while the floor drains,
      and then the edge empties and this is a single comparison again. */
-  if (front === prev && wetEdgeD < 0){ G.floodDirty = false; return; }
+  if (front === prev && wetEdgeD < 0) return;
 
   /* Every tile at or inside the front still has to integrate toward its
      target — a tile keeps darkening for WET_RISE seconds AFTER the front has
@@ -2016,7 +2035,7 @@ function tickFlood(dt){
      not the front, and what it cost to get that wrong. */
   const boundD = Math.max(wetEdgeD, Math.ceil(Math.max(prev, front)));
   const hi = wetIndexAtDist[Math.min(boundD+1, wetIndexAtDist.length-1)] - 1;
-  if (hi < 0){ G.floodDirty = false; return; }
+  if (hi < 0) return;
   const tau = G.leaksOpen>0 ? WET_RISE : WET_FALL;
   const k = 1 - Math.exp(-dt/tau);
   /* A front sitting at zero is no water at all — including on the riser's own
@@ -2059,9 +2078,9 @@ function tickFlood(dt){
     if (wetArr[i] > WET_EDGE) edge = waterDist[i];
   }
   wetEdgeD = edge;
-  if (!changed){ G.floodDirty = false; return; }
+  if (!changed) return;
   wetSum = sum;
-  G.floodDirty = true;
+  waterDirty = true;
   G.floodCover = G.wetFloor ? Math.max(0, sum/G.wetFloor) : 0;
 }
 
@@ -2875,7 +2894,7 @@ function update(dt){
      cannot be further than LEAK_SPREAD seconds of travel from the source, so
      the outer ring is skipped entirely instead of being tested and rejected. */
   tickFlood(dt);
-  if (G.floodDirty) { packWet(); G.floodDirty = false; }
+  if (waterDirty){ packWet(); waterDirty = false; }
 
   /* --- the risers ---
      Every open one is a continuous emitter at the pipe, not a repeating one-shot.
@@ -3415,8 +3434,9 @@ function outOfTime(){ lose('THE CLOCK RAN OUT'); }
      the obvious alternative and would have been both slower (5776 draw calls)
      and worse — hard tile-aligned water edges, the same quantised boundary the
      vision cone has, on a feature whose entire job is a legible front. */
+  /* The packed image is refreshed where wetArr changes, not here — see
+     waterDirty. Drawing it is still one drawImage. */
   if (wetArr){
-    packWet();
     ctx.globalAlpha = 1;
     ctx.drawImage(wetCv, 0, 0, MAP_W*TILE, MAP_H*TILE);
 
@@ -4169,6 +4189,9 @@ function closeSettings(){
 function setOption(key, value){
   if (!settingsValid(key, value)) return false;
   SETTINGS[key] = value;
+  /* packWet bakes the tint into the pixels, so a new tint is a stale image even
+     though wetArr has not moved. */
+  if (key==='waterHue' || key==='waterContrast') waterDirty = true;
   applySettings();
   saveSettings();
   syncSettingsUI();
