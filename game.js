@@ -27,6 +27,25 @@ function mulberry32(a){
 
 /* ---------- tuning ---------- */
 const TILE   = 40;
+/* The lit face of a wall: how tall the wallpaper band is, as a fraction of a
+   tile. It is drawn into the carpet tile BELOW each wall that has floor to its
+   south (bakeTiles), and it is the surface the door is painted on — so the
+   number lives here, once, rather than as a local in one function and a guess in
+   another. A door that is taller than this is not painted on the wall, it is
+   standing in front of it.
+
+   DO NOT RAISE IT WITHOUT RAISING THE FLOOR WITH IT. The face is drawn into the
+   tile BELOW the wall, so it eats that tile's floor. At 0.74 the band took 74% of
+   every edge tile, leaving 10px of carpet — and the Rigger's body occupies the
+   top ~8px above their feet, which lands squarely on the wallpaper, so anyone
+   standing along a wall appeared to hover in front of it. The face is not free
+   to grow: it is carved out of the floor the characters walk on.
+
+   Related and also not free: the contact shadow is drawn from the TOP of that
+   same tile for TILE*0.5, so the face covers all but the last 1.6px of it and
+   the height cue it exists to sell is very nearly gone already. Anything that
+   makes the face taller finishes it off. */
+const WALL_FACE = TILE*0.46;
 const LS     = 4;                 // light samples per tile
 const MAP_W  = 76;
 const MAP_H  = 76;
@@ -1219,12 +1238,34 @@ function genLevel(rng, floorNum=0){
     for (const [dir,dx,dy] of FACINGS)
       if (inB(tx+dx,ty+dy) && at(tx+dx,ty+dy)===FLOOR) open.push({dir,dx,dy});
     if (!open.length) return 'S';            // unreachable: the slot touches floor
+    /* South is not merely a tie-break winner, it is the answer whenever south is
+       on the list. A wall with floor both south and east of it is a pillar
+       corner that satisfies the slot rule, and the door art has to agree with
+       the wall the renderer painted — which is always the south face. Reading
+       the corner as an east-facing door put the leaf ninety degrees out of step
+       with the lit band behind it. The room-centre sort stays for the case the
+       slot rule cannot reach. */
+    if (open.some(o=>o.dir==='S')) return 'S';
     if (open.length>1 && r){
       const cx=r.rx+r.rw/2, cy=r.ry+r.rh/2;
       open.sort((a,b)=>Math.hypot(tx+a.dx-cx, ty+a.dy-cy)-Math.hypot(tx+b.dx-cx, ty+b.dy-cy));
     }
     return open[0].dir;
   }
+
+  /* A slot is only usable if it is a wall with floor DIRECTLY SOUTH of it.
+     That is not an aesthetic preference with a geometry excuse attached: it is
+     the one orientation the building actually lights. bakeTiles paints a single
+     face per wall tile — the south one, sitting in the carpet tile below it
+     (game.js:1674) — so a door anywhere else is a door standing on a dark
+     ceiling top with no lit wall behind it, which reads as a frame painted on
+     the floor rather than as a door in a wall. Restricting the slot keeps every
+     door in the one place the renderer already knows how to light.
+
+     touchesFloor alone is not enough. A ring tile on the east side of a room
+     touches floor to its west, satisfies it, and has no face at all. */
+  const southFacing = (tx,ty)=> INTERIOR(tx,ty) && at(tx,ty)===WALL
+                                     && INTERIOR(tx,ty+1) && at(tx,ty+1)===FLOOR;
 
   /* With a dense BSP the ring just outside a room is often another room's floor
      rather than wall, so the ring alone is not enough — hence three escalating
@@ -1234,23 +1275,24 @@ function genLevel(rng, floorNum=0){
     const ring = [];
     for (let x=r.rx; x<r.rx+r.rw; x++){ ring.push([x,r.ry-1]); ring.push([x,r.ry+r.rh]); }
     for (let y=r.ry; y<r.ry+r.rh; y++){ ring.push([r.rx-1,y]); ring.push([r.rx+r.rw,y]); }
-    let cand = ring.filter(([tx,ty]) => INTERIOR(tx,ty) && at(tx,ty)===WALL && touchesFloor(tx,ty));
+    let cand = ring.filter(([tx,ty]) => southFacing(tx,ty));
 
-    // 2. any interior wall tile touching THIS room's floor
+    // 2. any interior wall tile with floor south of it, near THIS room
     if (!cand.length){
       const near = [];
-      for (let y=r.ry; y<r.ry+r.rh; y++) for (let x=r.rx; x<r.rx+r.rw; x++){
-        for (const [tx,ty] of [[x,y-1],[x,y+1],[x-1,y],[x+1,y]])
-          if (INTERIOR(tx,ty) && at(tx,ty)===WALL && touchesFloor(tx,ty)) near.push([tx,ty]);
+      for (let y=r.ry-1; y<=r.ry+r.rh; y++) for (let x=r.rx-1; x<=r.rx+r.rw; x++){
+        if (southFacing(x,y)) near.push([x,y]);
       }
       cand = near;
     }
-    // 3. any interior wall tile touching floor anywhere — keeps the level
-    //    winnable even if the room is fully walled in by other rooms
+    // 3. any such wall tile anywhere — keeps the level winnable even if the room
+    //    is fully walled in by other rooms. Sorted before the slice, so the cap
+    //    keeps the nearest USABLE tiles rather than the nearest wall tiles, which
+    //    under this rule are not interchangeable.
     if (!cand.length){
       const any = [];
       for (let y=1;y<MAP_H-1 && any.length<4000;y++) for (let x=1;x<MAP_W-1;x++){
-        if (at(x,y)===WALL && touchesFloor(x,y)) any.push([x,y]);
+        if (southFacing(x,y)) any.push([x,y]);
       }
       // prefer one reasonably near the room it belongs to
       const cx=r.rx+r.rw/2, cy=r.ry+r.rh/2;
@@ -1285,8 +1327,23 @@ function genLevel(rng, floorNum=0){
   }
   /* Unreachable in practice on a 76x76 BSP: every room has interior wall around
      it. It is here because the alternative is a crash on the level the player
-     cannot finish, and there is a clock on that now. */
-  if (!exitTiles.length) exitTiles.push({x:1, y:1, open:0, facing:'S'});
+     cannot finish, and there is a clock on that now.
+
+     The old version was a hardcoded (1,1). Under the south-facing rule that tile
+     is not guaranteed to be a wall any more — and a door on carpet is worse than
+     no door, because everything downstream (the descent, the prompt, the leaf)
+     would then be operating on a tile that is not a doorway. So the last resort
+     is a whole-map scan for a tile that satisfies the same rule the slot does,
+     and only if that comes back empty — which on a map this size cannot happen —
+     does the hardcoded tile stand in. */
+  if (!exitTiles.length){
+    let fb = null;
+    outer: for (let y=1; y<MAP_H-1 && !fb; y++)
+      for (let x=1; x<MAP_W-1; x++)
+        if (southFacing(x,y)){ fb = [x,y]; break outer; }
+    if (!fb) fb = [1,1];
+    exitTiles.push({x:fb[0], y:fb[1], open:0, facing:'S'});
+  }
 
   /* --- the pipes ------------------------------------------------------
      Each is a single wall tile, as far from the spawn as the floor allows. It
@@ -1671,7 +1728,7 @@ function bakeTiles(){
     // below it. A soft shadow on the carpet under it sells the height, which is
     // what makes a top-down maze read as a photographed room instead of a
     // colour-coded grid.
-    const FACE = TILE*0.46;
+    const FACE = WALL_FACE;
     for (let y=0;y<MAP_H;y++) for (let x=0;x<MAP_W;x++){
       if (G.grid[y*MAP_W+x]!==WALL) continue;
       if (y+1>=MAP_H || G.grid[(y+1)*MAP_W+x]!==FLOOR) continue;
@@ -4303,17 +4360,39 @@ function drawStalker(g, S) {
    room on the way back, and is what a building with a functioning door system
    would actually have fitted. */
 const DOOR_ROT = { S:0, N:Math.PI, E:-Math.PI/2, W:Math.PI/2 };
+/* How far south of its own tile the door is PAINTED, and where in that tile.
+   This is not a nudge, it is the difference between a frame lying on the floor
+   and a door in a wall. The door tile is masonry: the renderer paints its
+   ceiling top dark, and the lit face — the wallpaper band with the hard ceiling
+   line above it — lives in the carpet tile BELOW, filling WALL_FACE of that
+   tile's height (bakeTiles). So the door is painted there, centred on the band
+   itself rather than on the tile, because the band is the wall and the rest of
+   that tile is floor.
+
+   Drawn in section 4, which is after both the flood and the wall bake, so
+   landing here paints straight over the lit face. The Rigger draws later still
+   (section 5), so standing in the doorway puts them in front of the frame,
+   which is where a person in a doorway is. */
 function drawDoor(e, t){
   const armed = G.leaksOpen === 0;
   const open  = Math.max(0, Math.min(1, e.open));     // the swing, written by tickDoor
-  const OW = TILE*0.66, OH = TILE*0.74;                // the opening
+  /* Sized to the face it is painted on. A door wider or taller than the band
+     stops being a door in the wall and becomes a free-standing frame standing
+     on the carpet in front of it — which is what the first version looked like
+     at 0.74 of a tile against a face of 0.46.
+
+     0.60 rather than something rounder because the opening is not the whole
+     object: the casing strokes sit 3px outside it on every side, and the door
+     only fits the face if the opening plus its own frame does. At 0.60 the
+     assembly spans exactly the band's height, which is the constraint. */
+  const OW = TILE*0.40, OH = WALL_FACE*0.60;
   const hw = OW/2, hh = OH/2;
   const cycling = G.descend>0.02 && G.descend<DOOR_HOLD;
 
   const rot = DOOR_ROT[e.facing] !== undefined ? DOOR_ROT[e.facing] : 0;
 
   ctx.save();
-  ctx.translate((e.x+0.5)*TILE, (e.y+0.5)*TILE);
+  ctx.translate((e.x+0.5)*TILE, (e.y+1)*TILE + WALL_FACE/2);
   ctx.save();
   ctx.rotate(rot);
 
@@ -4335,13 +4414,20 @@ function drawDoor(e, t){
   ctx.fillStyle = 'rgba(16,20,12,0.88)';
   ctx.fillRect(-hw, -hh, OW, OH);
 
-  /* the frame: a lintel and two jambs, filling the rest of the tile */
-  ctx.fillStyle = '#b9b884';
-  ctx.fillRect(-TILE/2, -TILE/2, TILE, TILE/2-hh);
-  ctx.fillRect(-TILE/2, -hh, TILE/2-hw, OH);
-  ctx.fillRect(hw,   -hh, TILE/2-hw, OH);
+  /* THE FRAME, as an outline rather than a fill.
+     This used to paint its own wall colour into the lintel and the jambs, which
+     was right when the door sat on the wall tile and had to bring its masonry
+     with it. Painted on the lit face there is nothing to bring: the wallpaper
+     band is already there, under us, and filling over it erased the one lit
+     surface the door was placed to be on. So the frame is now the casing — two
+     jambs and a head, stroked — and the wall face reads straight through the
+     gaps the way a real door frame sits in a real wall. */
+  ctx.strokeStyle = '#9c9a68'; ctx.lineWidth = 2.5;
+  ctx.strokeRect(-hw-1.5, -hh-1.5, OW+3, OH+3);
+  ctx.strokeStyle = 'rgba(40,38,24,0.5)'; ctx.lineWidth = 1;
+  ctx.strokeRect(-hw-3, -hh-3, OW+6, OH+6);
   ctx.fillStyle = 'rgba(120,118,70,0.55)';
-  ctx.fillRect(-TILE/2, TILE/2-hh-2, TILE, 2);        // the sill, catching the room light
+  ctx.fillRect(-hw-1.5, hh+1.5, OW+3, 1.5);            // the sill, catching the room light
 
   /* THE LEAF. Hinged on the left jamb, so the free edge is the one that
      travels: toward the hinge, and down toward the viewer, because a door in a
@@ -4359,40 +4445,32 @@ function drawDoor(e, t){
   lg.addColorStop(0,'#cdc98f'); lg.addColorStop(1,'#a8a473');
   ctx.fillStyle = lg; ctx.fill();
   ctx.strokeStyle = 'rgba(28,26,20,0.55)'; ctx.lineWidth = 1; ctx.stroke();
-  if (fx-hx > 8){                                     // the recessed panel
+  if (fx-hx > 6){                                     // the recessed panel
     ctx.strokeStyle = 'rgba(28,26,20,0.22)';
     ctx.beginPath();
-    ctx.moveTo(hx+4, -hh+4); ctx.lineTo(fx-4, top+4);
-    ctx.lineTo(fx-4, top+OH-4); ctx.lineTo(hx+4, hh-4);
+    ctx.moveTo(hx+2.5, -hh+2.5); ctx.lineTo(fx-2.5, top+2.5);
+    ctx.lineTo(fx-2.5, top+OH-2.5); ctx.lineTo(hx+2.5, hh-2.5);
     ctx.stroke();
   }
   if (armed){
     ctx.fillStyle = '#7d8288';                         // the handle, on the swinging edge
-    ctx.fillRect(fx-5, top+OH/2-8, 3.5, 16);
-  }else{
-    /* SHUT: bars across the opening. The bars are the reason a door with a
-       lamp on it can still read as LOCKED at a glance — the lamp is a state,
-       the bars are a physical fact, and the two agree. They rotate with the
-       door, because a bar across a west-facing door lies across it. */
-    ctx.fillStyle = 'rgba(28,26,20,0.72)';
-    ctx.fillRect(-hw+2, -hh+OH*0.30, OW-4, 4.5);
-    ctx.fillRect(-hw+2, -hh+OH*0.66, OW-4, 4.5);
+    ctx.fillRect(fx-3.5, top+OH/2-4.5, 2.5, 9);
   }
   /* hinges — on the JAMB, not the leaf, so there is something fixed for the
      crank to swing around */
   ctx.fillStyle = '#6f6c47';
-  ctx.fillRect(-hw-5, -hh+6, 4, 8); ctx.fillRect(-hw-5, hh-14, 4, 8);
+  ctx.fillRect(-hw-3.5, -hh+3, 2.5, 4.5); ctx.fillRect(-hw-3.5, hh-7.5, 2.5, 4.5);
 
   /* THE CRANK. Drawn only while the door is actually cycling, which is the
      one piece of feedback the 1.5s hold did not have at all: before this, the
      whole descent existed as the prompt string and nothing in the world. */
   if (cycling){
-    const cx = -hw-3, cy = 0, r = 12, p = G.descend/DOOR_HOLD;
-    ctx.strokeStyle = 'rgba(28,26,20,0.4)'; ctx.lineWidth = 3;
+    const cx = -hw-2, cy = 0, r = 8, p = G.descend/DOOR_HOLD;
+    ctx.strokeStyle = 'rgba(28,26,20,0.4)'; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(cx, cy, r, Math.PI*0.5, Math.PI*1.5); ctx.stroke();
     ctx.strokeStyle = '#8fd07a';
     ctx.beginPath(); ctx.arc(cx, cy, r, Math.PI*0.5, Math.PI*0.5+Math.PI*p); ctx.stroke();
-    ctx.strokeStyle = '#7d8288'; ctx.lineWidth = 2.2;   // the handle, turning
+    ctx.strokeStyle = '#7d8288'; ctx.lineWidth = 1.6;   // the handle, turning
     ctx.beginPath(); ctx.moveTo(cx, cy);
     ctx.lineTo(cx+Math.cos(2.2+t*0.006)*r, cy+Math.sin(2.2+t*0.006)*r);
     ctx.stroke();
@@ -4401,35 +4479,20 @@ function drawDoor(e, t){
   /* THE LAMP. Green means the level can end; red means it cannot. No word on
      the door anywhere — the word is on the HUD, where the other four readings
      are, and one label in one place is a label a player learns to read. */
-  const lx = hw + (TILE/2-hw)/2, ly = -(TILE/2 - (TILE/2-hh))/2 - 1;
+  const lx = hw + 5, ly = -hh + 1;
   const lit = armed ? (0.6 + 0.4*Math.sin(t*0.010)) : 0.5;
   const col = armed ? '#cdf3bd' : '#d8503c';
-  const lg2 = ctx.createRadialGradient(lx, ly, 0.5, lx, ly, 12);
+  const lg2 = ctx.createRadialGradient(lx, ly, 0.5, lx, ly, 7);
   lg2.addColorStop(0, col); lg2.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.globalAlpha = 0.45*lit; ctx.fillStyle = lg2;
-  ctx.beginPath(); ctx.arc(lx, ly, 12, 0, TAU); ctx.fill();
+  ctx.beginPath(); ctx.arc(lx, ly, 7, 0, TAU); ctx.fill();
   ctx.globalAlpha = 1;
   ctx.fillStyle = col;
-  ctx.beginPath(); ctx.arc(lx, ly, 4, 0, TAU); ctx.fill();
+  ctx.beginPath(); ctx.arc(lx, ly, 2.4, 0, TAU); ctx.fill();
   ctx.strokeStyle = 'rgba(28,26,20,0.65)'; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.arc(lx, ly, 4, 0, TAU); ctx.stroke();
+  ctx.beginPath(); ctx.arc(lx, ly, 2.4, 0, TAU); ctx.stroke();
 
   ctx.restore();          // pops the rotation, keeps the translate to the door
-
-  /* THE PADLOCK, drawn after the rotation is popped.
-     Everything else here belongs to the door and turns with it, but a padlock
-     is a symbol and a symbol stays upright: this is a top-down game in which
-     the Rigger is upright on every wall and so is everything he can read. A
-     padlock lying on its side in a door in the west wall reads as a rendering
-     fault, which is the one thing a lock is not allowed to do. */
-  if (!armed){
-    const py = -hh + OH*0.52;                          // its place on the door
-    const pxp = -py*Math.sin(rot), pyp = py*Math.cos(rot);
-    ctx.strokeStyle = '#d8503c'; ctx.lineWidth = 2.2;
-    ctx.beginPath(); ctx.arc(pxp, pyp-2, 4, Math.PI, 0); ctx.stroke();
-    ctx.fillStyle = '#d8503c';
-    ctx.fillRect(pxp-5.5, pyp-2, 11, 8);
-  }
 
   ctx.restore();
 }

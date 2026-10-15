@@ -2621,7 +2621,14 @@ console.log('[18] end-to-end — the bot seals every riser, then walks back out'
       if (stale){ fromX=px; fromY=py; path=bfsPath(Math.floor(px),Math.floor(py),goal.x,goal.y); wi=0; }
       if (!path){ noPath++; break; }
       while (wi<path.length-1 && Math.hypot(path[wi][0]+0.5-px, path[wi][1]+0.5-py) < 0.45) wi++;
-      const wp=path[Math.min(wi,path.length-1)];
+      /* bfsPath returns [] when the player is ALREADY on the goal tile. That is
+         arrival, not failure, and `path[Math.min(wi, -1)]` used to dereference
+         undefined on it — a crash the door placement change exposed, because the
+         bot now parks exactly on the tile below the door, which is the goal.
+         Standing still is the right move here anyway: both arrival checks, the
+         leak reach and the 1.25-tile door proximity, run at the top of the next
+         frame. */
+      const wp = path.length ? path[Math.min(wi,path.length-1)] : [goal.x, goal.y];
       const dx=(wp[0]+0.5)-px, dy=(wp[1]+0.5)-py;
 
       /* The steering from test 4, which is the version that actually walks a
@@ -2938,7 +2945,13 @@ console.log('[22] the run — five levels, three minutes, one door');
 {
   /* --- the level table is exactly the design --- */
   assert(A.LEVELS_N===5, `the run has ${A.LEVELS_N} levels, want 5`);
-  const want = [[1,1],[2,1],[3,2],[4,3],[4,4]];
+  /* Level 2 was one thing in the building and became two — the committed table
+     in game.js says so, and its own comment says why ("twice the work, the
+     building starts paying attention"). This literal was not moved with it, so
+     the assertion that exists to pin the design was the thing disagreeing with
+     the design. Pin what the game actually does; if the intent really is one
+     lifeform on level 2, change game.js and this together, not one. */
+  const want = [[1,1],[2,2],[3,2],[4,3],[4,4]];
   assert(A.LEVELS.length===want.length, `the level table has ${A.LEVELS.length} entries`);
   for (let i=0;i<want.length;i++){
     assert(A.LEVELS[i].leaks===want[i][0],
@@ -4238,6 +4251,17 @@ console.log('[30] the level stages — genLevel is pure and well-formed');
       const [dx,dy] = DIR[e.facing];
       assert(floor(e.x+dx, e.y+dy),
         `${tag}: exit at ${e.x},${e.y} faces ${e.facing} but there is no floor on that side`);
+      /* South only, and this is a rendering contract rather than a taste one:
+         bakeTiles paints exactly one face per wall tile, the south one, so a
+         door anywhere else is drawn on an unlit ceiling top. Slot selection
+         (wallSlotFor) and wallFacing both have to agree on this, and the only
+         way that stays true as either is edited is for it to be asserted here.
+         Test 32 proves the leaf follows the hold; this proves the door is on a
+         wall that exists to be painted. */
+      assert(e.facing === 'S',
+        `${tag}: exit at ${e.x},${e.y} faces ${e.facing}, but only a south-facing wall has a lit face to sit on`);
+      assert(floor(e.x, e.y+1),
+        `${tag}: exit at ${e.x},${e.y} has no floor south of it, so no face is painted there`);
     }
 
     // leaks: exactly spec.leaks, each a wall tile with a legal stand spot in a real room
