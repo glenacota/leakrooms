@@ -55,6 +55,13 @@ const LEVELS_N = LEVELS.length;
    clock's excuse, the walk back is what it actually spends. */
 let FLOOR_CLOCK = 180;      // seconds; NORMAL
 
+/* --- the door ---
+   The one door on the floor is a leaf on a hinge, not a rectangle of colour,
+   so these are the three numbers that describe how it behaves. */
+const DOOR_HOLD = 1.5;      // seconds standing at it
+const DOOR_AJAR = 0.34;     // the swing it rests at once the pipes are sealed
+const DOOR_EASE = 6;        // per second; leaves the frame looking at a door
+
 /* These are `let` rather than `const` because the settings modal drives
    them. Their initialisers are the NORMAL preset and are the documented
    tuning; applySettings() overwrites them at load. The noise table below is
@@ -1205,6 +1212,20 @@ function genLevel(rng, floorNum=0){
     (inB(tx+1,ty)&&at(tx+1,ty)===FLOOR)||(inB(tx-1,ty)&&at(tx-1,ty)===FLOOR)||
     (inB(tx,ty+1)&&at(tx,ty+1)===FLOOR)||(inB(tx,ty-1)&&at(tx,ty-1)===FLOOR);
 
+  /* Which way the door opens. */
+  const FACINGS = [['S',0,1],['N',0,-1],['E',1,0],['W',-1,0]];
+  function wallFacing(tx, ty, r){
+    const open = [];
+    for (const [dir,dx,dy] of FACINGS)
+      if (inB(tx+dx,ty+dy) && at(tx+dx,ty+dy)===FLOOR) open.push({dir,dx,dy});
+    if (!open.length) return 'S';            // unreachable: the slot touches floor
+    if (open.length>1 && r){
+      const cx=r.rx+r.rw/2, cy=r.ry+r.rh/2;
+      open.sort((a,b)=>Math.hypot(tx+a.dx-cx, ty+a.dy-cy)-Math.hypot(tx+b.dx-cx, ty+b.dy-cy));
+    }
+    return open[0].dir;
+  }
+
   /* With a dense BSP the ring just outside a room is often another room's floor
      rather than wall, so the ring alone is not enough — hence three escalating
      fallbacks before we give up on a slot. */
@@ -1259,13 +1280,13 @@ function genLevel(rng, floorNum=0){
     if (!cand.length) cand = wallSlotFor(maze.rooms[(rng()*maze.rooms.length)|0] || entryRoom);
     if (cand.length){
       const [bx,by] = cand[(rng()*cand.length)|0];
-      exitTiles.push({x:bx, y:by, open:0});
+      exitTiles.push({x:bx, y:by, open:0, facing:wallFacing(bx,by,entryRoom)});
     }
   }
   /* Unreachable in practice on a 76x76 BSP: every room has interior wall around
      it. It is here because the alternative is a crash on the level the player
      cannot finish, and there is a clock on that now. */
-  if (!exitTiles.length) exitTiles.push({x:1, y:1, open:0});
+  if (!exitTiles.length) exitTiles.push({x:1, y:1, open:0, facing:'S'});
 
   /* --- the pipes ------------------------------------------------------
      Each is a single wall tile, as far from the spawn as the floor allows. It
@@ -3291,8 +3312,8 @@ function tickRadarReveal(){
 function tickDoor(dt){
   const p = G.player;
   const leakDone = G.leaksOpen === 0;
+  let onExit=false;
   if (leakDone){
-    let onExit=false;
     for (const e of G.exitTiles){
       // 1.25 tiles: a door in a 1-wide alcove is still reachable with the
       // player's 0.33 collision radius, without demanding pixel precision.
@@ -3302,7 +3323,7 @@ function tickDoor(dt){
       if (G.descend===0) Audio_.door();
       G.descend += dt;
       sustainedNoise(1.8, p.x, p.y);
-      if (G.descend>=1.5){ nextFloor(); return false; }
+      if (G.descend>=DOOR_HOLD){ nextFloor(); return false; }
     } else {
       G.descend = Math.max(0, G.descend - dt*2.5);
     }
@@ -3312,6 +3333,23 @@ function tickDoor(dt){
        progress bar frozen waiting for something that has not happened. */
     G.descend = Math.max(0, G.descend - dt*2.5);
   }
+
+  /* THE LEAF.
+     `e.open` was set to 0 when the door was placed and never written again, so
+     every door on every floor rendered permanently shut: the renderer read a
+     value that could not change, and the entire open/shut difference was
+     stroke alpha on the word DOOR. This is the field it was always waiting
+     for — the swing itself, derived from the same two facts the HUD reads.
+
+     It runs even when the frame is about to end (nextFloor above returns
+     before this, and that is correct: the floor is being torn down, not
+     rendered one more time). Eased rather than assigned, because a leaf that
+     teleports between three positions is an animation, and this is a door. */
+  const swing = leakDone
+    ? (onExit ? DOOR_AJAR + (1-DOOR_AJAR)*(G.descend/DOOR_HOLD) : DOOR_AJAR)
+    : 0;
+  for (const e of G.exitTiles)
+    e.open += (swing - e.open) * Math.min(1, dt*DOOR_EASE);
   return true;
 }
 
@@ -3799,33 +3837,7 @@ function outOfTime(){ lose('THE CLOCK RAN OUT'); }
      It is the one object in the world that is not gated by the cone, and the
      reason is written where it is drawn. */
 
-  for (const e of G.exitTiles){
-    const ex=(e.x+0.5)*TILE, ey=(e.y+0.5)*TILE;
-    /* The door is drawn whether or not it has been cycled. It is drawn BEFORE
-       the lighting multiply, so it is only there when you can actually see the
-       wall it is in — which is the right amount of help for a thing whose
-       whole point is that you already know where it is. It needs no reveal,
-       not because it is exempt from the darkness, but because you start standing
-       in front of it and you come back to the room you started in. */
-    const open = e.open>0 ? 1 : 0;
-    const armed = G.leaksOpen===0;
-    ctx.fillStyle = open ? 'rgba(30,44,26,0.92)' : 'rgba(16,26,16,0.86)';
-    ctx.fillRect(e.x*TILE+3, e.y*TILE+2, TILE-6, TILE-3);
-    ctx.strokeStyle = open ? '#8fd07a'
-                   : (armed ? 'rgba(143,208,122,0.75)' : 'rgba(143,208,122,0.28)');
-    ctx.lineWidth = 2;
-    ctx.strokeRect(e.x*TILE+4, e.y*TILE+3, TILE-8, TILE-6);
-    // glow
-    const gr=ctx.createRadialGradient(ex,ey,2,ex,ey,TILE*2.4);
-    gr.addColorStop(0, open?'rgba(143,208,122,0.34)':'rgba(143,208,122,0.15)');
-    gr.addColorStop(1,'rgba(143,208,122,0)');
-    ctx.fillStyle=gr;
-    ctx.fillRect(ex-TILE*2.4, ey-TILE*2.4, TILE*4.8, TILE*4.8);
-    ctx.fillStyle= armed ? '#cdf3bd' : 'rgba(205,243,189,0.4)';
-    ctx.font='9px "Courier New",monospace';
-    ctx.textAlign='center';
-    ctx.fillText('DOOR', ex, ey+TILE+16);
-  }
+  for (const e of G.exitTiles) drawDoor(e, t);
 
   /* ---------- 5. entities + player, y-sorted ---------- */
   const draws = [];
@@ -4268,6 +4280,158 @@ function drawStalker(g, S) {
      it, which is every frame in the bottom half of a floor. */
   g.restore();
   g.globalAlpha = 1;
+}
+
+/* THE DOOR.
+   Drawn before the lighting multiply, like everything else on this pass, so it
+   is there exactly when the wall it is in is — which is the right amount of help
+   for the one object whose position you already know to the tile. It needs no
+   reveal because you start the level standing in front of it and you finish the
+   level walking back into the room it is in.
+
+   LOCAL SPACE. The origin is the centre of the door's own tile and +y points
+   INTO the room, so everything below is written once, in the one orientation
+   where the wall is above and the opening faces the viewer. `facing` rotates
+   that into whichever wall the placement actually landed in, which is why the
+   hinge, the swing and the frame are correct in all four of them.
+
+   The lamp is the whole state read. It was text once — LOCKED above, LATCH
+   CLEAR below — and text on a door is a label stuck to a rectangle: it says
+   what the door is, not what it is doing, and it is only legible when the
+   multiply has already let enough light through to read small type. A lamp in
+   the frame corner survives the lighting, survives the distance across a dark
+   room on the way back, and is what a building with a functioning door system
+   would actually have fitted. */
+const DOOR_ROT = { S:0, N:Math.PI, E:-Math.PI/2, W:Math.PI/2 };
+function drawDoor(e, t){
+  const armed = G.leaksOpen === 0;
+  const open  = Math.max(0, Math.min(1, e.open));     // the swing, written by tickDoor
+  const OW = TILE*0.66, OH = TILE*0.74;                // the opening
+  const hw = OW/2, hh = OH/2;
+  const cycling = G.descend>0.02 && G.descend<DOOR_HOLD;
+
+  const rot = DOOR_ROT[e.facing] !== undefined ? DOOR_ROT[e.facing] : 0;
+
+  ctx.save();
+  ctx.translate((e.x+0.5)*TILE, (e.y+0.5)*TILE);
+  ctx.save();
+  ctx.rotate(rot);
+
+  /* The lamp's own light, thrown onto the wall before anything is drawn over
+     it — the glow is how the state reads from the next room, which is the only
+     time you are far enough away for it to matter. */
+  const gr = ctx.createRadialGradient(0, 0, 2, 0, 0, TILE*2.4);
+  if (armed){
+    const p = 0.5 + 0.5*Math.sin(t*0.010);            // READY breathes
+    gr.addColorStop(0, `rgba(143,208,122,${0.16+0.14*p})`);
+  } else {
+    gr.addColorStop(0, 'rgba(143,208,122,0.10)');     // LOCKED barely registers
+  }
+  gr.addColorStop(1,'rgba(143,208,122,0)');
+  ctx.fillStyle = gr;
+  ctx.fillRect(-TILE*2.4, -TILE*2.4, TILE*4.8, TILE*4.8);
+
+  /* the opening — somewhere darker than the wall it is cut into */
+  ctx.fillStyle = 'rgba(16,20,12,0.88)';
+  ctx.fillRect(-hw, -hh, OW, OH);
+
+  /* the frame: a lintel and two jambs, filling the rest of the tile */
+  ctx.fillStyle = '#b9b884';
+  ctx.fillRect(-TILE/2, -TILE/2, TILE, TILE/2-hh);
+  ctx.fillRect(-TILE/2, -hh, TILE/2-hw, OH);
+  ctx.fillRect(hw,   -hh, TILE/2-hw, OH);
+  ctx.fillStyle = 'rgba(120,118,70,0.55)';
+  ctx.fillRect(-TILE/2, TILE/2-hh-2, TILE, 2);        // the sill, catching the room light
+
+  /* THE LEAF. Hinged on the left jamb, so the free edge is the one that
+     travels: toward the hinge, and down toward the viewer, because a door in a
+     wall on a floor plan swings out into the room it opens onto. The far edge
+     cannot rise — it would leave its own frame — so the trapezoid is built from
+     the hinge edge, which never moves. */
+  const hx = -hw;
+  const fx = hx + OW*(1 - 0.52*open);
+  const top = -hh + OH*0.26*open;
+  ctx.beginPath();
+  ctx.moveTo(hx, -hh); ctx.lineTo(fx, top);
+  ctx.lineTo(fx, top+OH); ctx.lineTo(hx, hh);
+  ctx.closePath();
+  const lg = ctx.createLinearGradient(hx, 0, fx, 0);
+  lg.addColorStop(0,'#cdc98f'); lg.addColorStop(1,'#a8a473');
+  ctx.fillStyle = lg; ctx.fill();
+  ctx.strokeStyle = 'rgba(28,26,20,0.55)'; ctx.lineWidth = 1; ctx.stroke();
+  if (fx-hx > 8){                                     // the recessed panel
+    ctx.strokeStyle = 'rgba(28,26,20,0.22)';
+    ctx.beginPath();
+    ctx.moveTo(hx+4, -hh+4); ctx.lineTo(fx-4, top+4);
+    ctx.lineTo(fx-4, top+OH-4); ctx.lineTo(hx+4, hh-4);
+    ctx.stroke();
+  }
+  if (armed){
+    ctx.fillStyle = '#7d8288';                         // the handle, on the swinging edge
+    ctx.fillRect(fx-5, top+OH/2-8, 3.5, 16);
+  }else{
+    /* SHUT: bars across the opening. The bars are the reason a door with a
+       lamp on it can still read as LOCKED at a glance — the lamp is a state,
+       the bars are a physical fact, and the two agree. They rotate with the
+       door, because a bar across a west-facing door lies across it. */
+    ctx.fillStyle = 'rgba(28,26,20,0.72)';
+    ctx.fillRect(-hw+2, -hh+OH*0.30, OW-4, 4.5);
+    ctx.fillRect(-hw+2, -hh+OH*0.66, OW-4, 4.5);
+  }
+  /* hinges — on the JAMB, not the leaf, so there is something fixed for the
+     crank to swing around */
+  ctx.fillStyle = '#6f6c47';
+  ctx.fillRect(-hw-5, -hh+6, 4, 8); ctx.fillRect(-hw-5, hh-14, 4, 8);
+
+  /* THE CRANK. Drawn only while the door is actually cycling, which is the
+     one piece of feedback the 1.5s hold did not have at all: before this, the
+     whole descent existed as the prompt string and nothing in the world. */
+  if (cycling){
+    const cx = -hw-3, cy = 0, r = 12, p = G.descend/DOOR_HOLD;
+    ctx.strokeStyle = 'rgba(28,26,20,0.4)'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(cx, cy, r, Math.PI*0.5, Math.PI*1.5); ctx.stroke();
+    ctx.strokeStyle = '#8fd07a';
+    ctx.beginPath(); ctx.arc(cx, cy, r, Math.PI*0.5, Math.PI*0.5+Math.PI*p); ctx.stroke();
+    ctx.strokeStyle = '#7d8288'; ctx.lineWidth = 2.2;   // the handle, turning
+    ctx.beginPath(); ctx.moveTo(cx, cy);
+    ctx.lineTo(cx+Math.cos(2.2+t*0.006)*r, cy+Math.sin(2.2+t*0.006)*r);
+    ctx.stroke();
+  }
+
+  /* THE LAMP. Green means the level can end; red means it cannot. No word on
+     the door anywhere — the word is on the HUD, where the other four readings
+     are, and one label in one place is a label a player learns to read. */
+  const lx = hw + (TILE/2-hw)/2, ly = -(TILE/2 - (TILE/2-hh))/2 - 1;
+  const lit = armed ? (0.6 + 0.4*Math.sin(t*0.010)) : 0.5;
+  const col = armed ? '#cdf3bd' : '#d8503c';
+  const lg2 = ctx.createRadialGradient(lx, ly, 0.5, lx, ly, 12);
+  lg2.addColorStop(0, col); lg2.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.globalAlpha = 0.45*lit; ctx.fillStyle = lg2;
+  ctx.beginPath(); ctx.arc(lx, ly, 12, 0, TAU); ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = col;
+  ctx.beginPath(); ctx.arc(lx, ly, 4, 0, TAU); ctx.fill();
+  ctx.strokeStyle = 'rgba(28,26,20,0.65)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.arc(lx, ly, 4, 0, TAU); ctx.stroke();
+
+  ctx.restore();          // pops the rotation, keeps the translate to the door
+
+  /* THE PADLOCK, drawn after the rotation is popped.
+     Everything else here belongs to the door and turns with it, but a padlock
+     is a symbol and a symbol stays upright: this is a top-down game in which
+     the Rigger is upright on every wall and so is everything he can read. A
+     padlock lying on its side in a door in the west wall reads as a rendering
+     fault, which is the one thing a lock is not allowed to do. */
+  if (!armed){
+    const py = -hh + OH*0.52;                          // its place on the door
+    const pxp = -py*Math.sin(rot), pyp = py*Math.cos(rot);
+    ctx.strokeStyle = '#d8503c'; ctx.lineWidth = 2.2;
+    ctx.beginPath(); ctx.arc(pxp, pyp-2, 4, Math.PI, 0); ctx.stroke();
+    ctx.fillStyle = '#d8503c';
+    ctx.fillRect(pxp-5.5, pyp-2, 11, 8);
+  }
+
+  ctx.restore();
 }
 
 /* The avatar. Every part drawn INSIDE the collision disc (R = 0.33 tiles).
