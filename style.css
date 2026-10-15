@@ -534,7 +534,7 @@ button.danger:hover{ background:var(--danger); color:var(--ink); border-color:va
 
 .order .field{ margin:12px 0; }
 .order .field span{
-  display:block; font-size:12px; font-weight: 900; line-height:2; letter-spacing:.22em; margin-bottom:4px; color:var(--yellow);
+  font-size:12px; font-weight: 900; line-height:2; letter-spacing:.22em; margin-bottom:4px; color:var(--yellow);
 }
 .order .field b{ font-size:15px; line-height:1.5; font-weight:400; color:var(--yellow-dim); }
 

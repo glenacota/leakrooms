@@ -4483,11 +4483,30 @@ function setPausePage(page){
    ============================================================ */
 let termsOpen = false;
 
+/* The work order is prose, and prose needs prose numbers: 240 is "4 minutes",
+   150 is "2 minutes 30 seconds", 90 is "90 seconds". The briefing used to say
+   "3 minutes" and "5 seconds" whatever the terms — a lie on two of the three. */
+function proseClock(s){
+  const m = Math.floor(s/60), r = Math.round(s%60);
+  const mins = m ? `${m} minute${m===1?'':'s'}` : '';
+  const secs = r ? `${r} second${r===1?'':'s'}` : '';
+  return [mins, secs].filter(Boolean).join(' ') || 'no time at all';
+}
+
 function paintTerms(){
   const d = DIFFICULTIES[SETTINGS.difficulty] || DIFFICULTIES.normal;
   const set = (id, txt)=>{ const el = document.getElementById(id); if (el) el.textContent = txt; };
-  set('order-terms',        d.label);
-  set('pause-terms',        d.label);
+  set('order-terms', d.label);
+  set('pause-terms', d.label);
+  /* The work order and the pause reprint of it are one document written
+     twice, so the numbers on both come from here: how long the shift is and
+     how long a pipe takes, in the terms' own numbers. */
+  const ret = proseClock(d.clock);
+  const fix = `${d.repairTime} second${d.repairTime===1?'':'s'}`;
+  set('order-return', ret);
+  set('brief-return', ret);
+  set('order-repair', fix);
+  set('brief-repair', fix);
   const note = document.getElementById('note-difficulty');
   if (note){
     note.textContent = `${d.lives} lives \u00b7 ${LEVELS_N} levels \u00b7 ${Math.round(d.clock)}s on the clock \u00b7 ${d.repairTime}s at the pipe`;

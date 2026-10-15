@@ -3738,6 +3738,8 @@ console.log('[26] the pause screen — the work order, with the run written on i
     'the work order has no terms chooser inside the ticket');
   assert(/id="order-terms"/.test(order) && /id="btn-terms-change"/.test(order),
     'the work order has no SHIFT TERMS stamp or no CHANGE link');
+  assert(/id="pause-terms"/.test(pause),
+    'the pause ticket does not print the shift terms the run is on');
   
   /* --- and SPLASH 02 is a page of the ticket too --- */
   assert(/data-pause-page="briefing"/.test(pause), 'the pause ticket has no briefing page');
@@ -3783,10 +3785,12 @@ console.log('[26] the pause screen — the work order, with the run written on i
   const notesOf = (s)=> [...s.matchAll(/<li>([\s\S]*?)<\/li>/g)].map(m=>m[1].trim());
   const splashNotes = notesOf(order);
   assert(splashNotes.length>0, 'the splash ticket has no notes to reprint');
-  /* The apostrophe may be encoded on one ticket and typed on the other, so
-     the comparison flattens the common entities first — checking the words,
-     not the escaping. */
-  const flat = (s)=> s.replace(/&rsquo;/g,"'").replace(/&lsquo;/g,"'")
+  /* The apostrophe may be encoded on one ticket and typed on the other, and
+     the numbers on it are wrapped in spans now, so the comparison flattens
+     the entities and strips the tags first — checking the words the player
+     reads, not the markup that carries them. */
+  const flat = (s)=> s.replace(/<[^>]+>/g,'')
+                      .replace(/&rsquo;/g,"'").replace(/&lsquo;/g,"'")
                       .replace(/&#39;/g,"'").replace(/&amp;/g,"&");
   for (const n of splashNotes){
     assert(flat(body).includes(flat(n)), `the briefing page dropped a splash note: ${n.slice(0,44)}…`);
@@ -3844,10 +3848,10 @@ console.log('[26] the pause screen — the work order, with the run written on i
   press('Enter');
   assert(A.STATE==='play', 'ENTER did not resume from the settings page');
 
-  /* --- the run is built with the stamped terms, and the pause prints them ---
-     The whole move in three asserts: the chooser moves the constants the run
-     is built with, clocking in reads them, and the ticket says which shift
-     you are on. */
+  /* --- the run is built with the stamped terms, and the ticket says so -----
+     The whole move in a few asserts: the chooser moves the constants the run
+     is built with, clocking in reads them, and the work order's stamp names
+     the shift. */
   A.setOption('difficulty','hard');
   assert(A.FLOOR_CLOCK===A.DIFFICULTIES.hard.clock,
     'choosing HARD did not move the clock the run is built with');
@@ -3855,7 +3859,29 @@ console.log('[26] the pause screen — the work order, with the run written on i
   assert(A.runLives===1, 'clocking in on HARD did not set the attempts to 1');
   assert(G.clock===A.DIFFICULTIES.hard.clock, 'the floor was not built with the HARD clock');
   A.togglePause();
-  assert(txt('pause-terms')==='HARD', `the pause stamp reads "${txt('pause-terms')}"`);
+  const stamp = els['order-terms'] ? els['order-terms'].textContent : '';
+  assert(stamp==='HARD', `the work order stamp reads "${stamp}" on HARD`);
+  assert(txt('pause-terms')==='HARD',
+    `the pause stub reads "${txt('pause-terms')}" — the run is on terms the ticket never names`);
+
+  /* --- the briefing is written for the terms, not for NORMAL ----------------
+     The work order used to say "3 minutes" and "5 seconds" whatever the
+     terms, which is a lie on two of the three. Both copies of the document —
+     the work order and the pause reprint — follow the choice. */
+  const prose = (id)=> (els[id] ? els[id].textContent : '');
+  A.setOption('difficulty','hard');
+  assert(prose('order-return')==='2 minutes 30 seconds',
+    `the work order reads "${prose('order-return')}" on HARD`);
+  assert(prose('order-repair')==='4 seconds',
+    `the repair note reads "${prose('order-repair')}" on HARD`);
+  assert(prose('brief-return')==='2 minutes 30 seconds' && prose('brief-repair')==='4 seconds',
+    'the pause reprint of the work order did not follow the terms');
+  A.setOption('difficulty','relaxed');
+  assert(prose('order-return')==='4 minutes' && prose('order-repair')==='7 seconds',
+    `the work order reads "${prose('order-return')}" and "${prose('order-repair')}" on RELAXED`);
+  A.setOption('difficulty','normal');
+  assert(prose('order-return')==='3 minutes' && prose('order-repair')==='5 seconds',
+    'the work order did not return to the NORMAL numbers');
 
   /* leave the store as the next test expects to find it */
   A.setOption('difficulty','normal');
