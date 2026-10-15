@@ -318,6 +318,30 @@ button.ghost{
 }
 button.ghost:hover{ background:rgba(228,230,168,.10); color:var(--yellow); }
 
+/* ------------------------------------------------------------
+   THE PAUSE TICKET'S PAGES
+   The settings used to be their own screen; now they are the lower half of
+   the ticket, under a two-tab row. The tabs take the pressed style from the
+   segmented settings buttons, so "which page am I on" is answered the same
+   way everywhere on the ticket: the one that is filled in.
+   ------------------------------------------------------------ */
+.order-body .pause-page.hidden{ display:none; }
+.pause-tabs{ display:flex; gap:6px; margin-bottom: 50px; }
+.pause-tabs button{
+  padding:6px 14px; font-size:11px; font-weight:900; letter-spacing:.2em;
+  background:transparent; color:var(--yellow-deep);
+  border:1px solid rgba(228,230,168,.28); cursor:pointer;
+}
+.pause-tabs button:hover{ background:rgba(228,230,168,.10); color:var(--yellow); }
+.pause-tabs button[aria-selected="true"]{
+  background:var(--yellow); color:var(--ink); border-color:var(--yellow);
+}
+/* The briefing page is the longest thing on the ticket — SPLASH 02 whole,
+   backstory and controls list — so on a short window it is the one page that
+   scrolls, and it says so with a visible thumb rather than a mystery. */
+.pause-page{ scrollbar-width:thin; }
+.pause-page[data-pause-page="briefing"]{ max-height:52vh; overflow-y:auto; padding-right:6px; }
+
 
 /* ------------------------------------------------------------
    prompts / found notes
@@ -506,8 +530,8 @@ button.ghost:hover{ background:rgba(228,230,168,.10); color:var(--yellow); }
 }
 .order-side small:not(:first-child){ margin-top:16px; }
 .order-side .big{ font-size:36px; line-height:1; color:#8fc4cc; margin-bottom:2px; }
-.order-side .badge{ font-size:22px; letter-spacing:.3em; color:var(--yellow); }
-.order-side .seed{ font-size:16px; color:var(--yellow-dim); letter-spacing:.1em; }
+.order-side .badge{ font-size:22px; letter-spacing:.3em; color:#8fc4cc; }
+.order-side .seed{ font-size:16px; color:#8fc4cc; letter-spacing:.1em; }
 /* The life pips read exactly as they do in the HUD, spent ones included, so the
    count on the ticket is the count the player has been watching all along. */
 .order-side .seed.lives-row{ color:var(--danger); letter-spacing:.3em; }

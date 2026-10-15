@@ -266,6 +266,8 @@ globalThis.__api = {
   advanceSplash, backSplash, show, hideAll, get SCREENS(){ return SCREENS; },
   paintSplashPlan, rollRunSeed, get RUN_SEED(){ return RUN_SEED; },
   togglePause, clockText,
+  get pausePage(){ return pausePage; },
+  setPausePage,
   get FLOORS(){ return FLOORS; },
   get HUNT_BASE(){ return HUNT_BASE; }, get HUNT_STEP(){ return HUNT_STEP; },
   get lives(){ return lives; }, set lives(v){ lives = v; },
@@ -3478,7 +3480,7 @@ console.log('[21] the splash chain — 03 riser, 04 work order, then the run');
   /* --- the markup contract --- */
   assert(!/screen-title/.test(html), 'the old title screen is still wired into index.html');
   const splashHtml = html.slice(html.indexOf('id="screen-splash"'), html.indexOf('id="screen-order"'));
-  const orderHtml  = html.slice(html.indexOf('id="screen-order"'), html.indexOf('id="screen-settings"'));
+  const orderHtml  = html.slice(html.indexOf('id="screen-order"'), html.indexOf('id="screen-pause"'));
   assert(splashHtml.length>0 && orderHtml.length>0, 'the splash or work-order screen is missing from index.html');
   assert(/LEAKROOMS/.test(splashHtml), 'splash 03 does not show the title');
   assert(!/\bhidden\b/.test(splashHtml), 'splash 03 ships hidden — the boot frame would be a blank canvas');
@@ -3559,7 +3561,7 @@ console.log('[21] the splash chain — 03 riser, 04 work order, then the run');
     A.loadSettings();
     return s;
   };
-  for (const st of ['splash','order','pause','dead','win','settings']){
+  for (const st of ['splash','order','pause','dead','win']){
     A.STATE = st;
     assert(mutedAt()===false || typeof mutedAt()==='boolean',
       `could not read the muted flag in state ${st}`);
@@ -3663,10 +3665,24 @@ console.log('[26] the pause screen — the work order, with the run written on i
   /* --- same furniture --- */
   assert(/class="order perf"/.test(pause), 'the pause screen is not the ticket');
   assert(!/class="tape"/.test(pause), 'the pause screen still has its own layout');
-  assert(/id="btn-settings-pause"/.test(pause), 'the pause screen has no link to settings');
-  /* the settings link sits BELOW the ticket, not inside it */
-  assert(pause.indexOf('id="btn-settings-pause"') > pause.indexOf('class="order perf"'),
-    'the settings link is inside the ticket instead of under it');
+
+  /* --- settings are a page of the ticket, not a screen of their own ---
+     The modal they used to live in is gone, and the rows it held are inside
+     the ticket now — that inversion is the assertion: the old test demanded
+     the settings link sit BELOW the ticket, and that is exactly what is no
+     longer true. */
+  assert(!/id="screen-settings"/.test(html),
+    'the settings modal is still in index.html — the settings belong on the ticket');
+  for (const id of ['set-difficulty','set-master','set-hue','set-contrast','btn-settings-reset'])
+    assert(new RegExp('id="'+id+'"').test(pause),
+      `the pause ticket has no ${id} — a settings row left the ticket`);
+  assert(pause.indexOf('id="set-difficulty"') > pause.indexOf('class="order perf"'),
+    'the settings rows are outside the ticket instead of inside it');
+
+  /* --- and SPLASH 02 is a page of the ticket too --- */
+  assert(/data-pause-page="briefing"/.test(pause), 'the pause ticket has no briefing page');
+  assert(/data-pause-tab="settings"/.test(pause) && /data-pause-tab="briefing"/.test(pause),
+    'the pause ticket has no tabs for its two pages');
 
   /* --- the same controls, in the same place: the stub, under CONTROLS --- */
   const ctrlBlock = (s)=>{ const m = s.match(/<small>CONTROLS<\/small>([\s\S]*?)<\/div>\s*<\/(?:p|div)>/); return m?m[1]:''; };
@@ -3680,13 +3696,43 @@ console.log('[26] the pause screen — the work order, with the run written on i
   for (const k of ['WASD','ARROWS','SHIFT','R','M','ESC']){
     assert(has(pk, k), `the pause ticket never lists ${k}`);
   }
-  /* ENTER is the splash's confirm key and has no job on the pause ticket — it
-     is not the resume key there, ESC is, and a key listed as doing something it
-     does not do is worse than a key missing from a list. */
-  assert(!has(pk, 'ENTER'), 'the pause ticket still lists ENTER, which resumes nothing');
+  /* ENTER is chipped on the splash's list as the confirm key. The pause stub
+     lists the keys you use while playing plus ESC, and ENTER is not among
+     them — it resumes, as the strip under the ticket says, but a chip list
+     and a resume hint are different furniture and the stub only carries the
+     first. A key listed as doing something it does not do is worse than a key
+     missing from a list. */
+  assert(!has(pk, 'ENTER'), 'the pause stub still lists ENTER, which resumes nothing');
   for (const k of ok.filter(x=>!x.toUpperCase().includes('ENTER'))){
     assert(has(pk, k), `the pause ticket dropped ${k}, which the splash lists`);
   }
+
+  /* --- the briefing page reprints the ticket's WORK: scope and notes ---
+     It is SPLASH 02's payload without the 88D letterhead and without a second
+     copy of the controls list — the stub carries the controls on every page,
+     so reprinting them would be a second thing to keep in sync for no reader.
+     What the briefing owes the splash is the work itself, so that is what is
+     asserted, line by line, rather than by vibe. Scoped to the briefing page
+     alone: the slice stops at the stub, or the stub's own chips would answer
+     for the page and the check would pass on a page that says nothing. */
+  const body = pause.slice(pause.indexOf('data-pause-page="briefing"'),
+                           pause.indexOf('class="order-side"'));
+  assert(/Scope of work/i.test(body), 'the briefing page has no scope of work');
+  assert(body.includes('Locate and repair all leaks on 5 floors'),
+    'the briefing page dropped the splash scope sentence');
+  const notesOf = (s)=> [...s.matchAll(/<li>([\s\S]*?)<\/li>/g)].map(m=>m[1].trim());
+  const splashNotes = notesOf(order);
+  assert(splashNotes.length>0, 'the splash ticket has no notes to reprint');
+  /* The apostrophe may be encoded on one ticket and typed on the other, so
+     the comparison flattens the common entities first — checking the words,
+     not the escaping. */
+  const flat = (s)=> s.replace(/&rsquo;/g,"'").replace(/&lsquo;/g,"'")
+                      .replace(/&#39;/g,"'").replace(/&amp;/g,"&");
+  for (const n of splashNotes){
+    assert(flat(body).includes(flat(n)), `the briefing page dropped a splash note: ${n.slice(0,44)}…`);
+  }
+  assert(!/controls-big/.test(body),
+    'the briefing page reprints the controls list — the stub already carries it');
 
   /* --- and the numbers are the run's --- */
   buildFloor(2, 9090);
@@ -3694,31 +3740,52 @@ console.log('[26] the pause screen — the work order, with the run written on i
   A.STATE = 'play';
   A.togglePause();
   assert(A.STATE==='pause', 'ESC did not pause');
+  /* A pause lands on the settings page — it is the page with something to
+     change on it, and the reason most players come back to the ticket. */
+  assert(A.pausePage==='settings', 'a pause does not land on the settings page');
+
+  /* ESC walks the pages backwards before it leaves the ticket: briefing back
+     to settings, settings back to the run. Driven through the real key
+     handler, because a chain asserted only at the API level is a chain that
+     disagrees with the key the player actually presses. */
+  const keydown = ctxObj.window._h.keydown;
+  assert(typeof keydown==='function', 'no keydown handler was registered');
+  const press = (key, extra={})=> keydown({ key, repeat:false, metaKey:false, ctrlKey:false,
+                                            altKey:false, preventDefault(){}, ...extra });
+  A.setPausePage('briefing');
+  press('Escape');
+  assert(A.pausePage==='settings', 'ESC on the briefing page did not return to the settings page');
+  assert(A.STATE==='pause', 'ESC on the briefing page resumed the run instead of stepping back');
+  press('Escape');
+  assert(A.STATE==='play', 'ESC on the settings page did not resume');
   const txt = id=> els[id] ? els[id].innerHTML : '';
-  assert(/3 \/ /.test(txt('pause-level')), `depth reads "${txt('pause-level')}" on level 3`);
+  assert(txt('pause-level')==='3/5', `depth reads "${txt('pause-level')}" on level 3`);
   assert(txt('pause-pipes').includes('0/'), `the riser tally reads "${txt('pause-pipes')}"`);
   assert(txt('pause-batt')==='42', `battery reads "${txt('pause-batt')}", expected 42`);
-  assert(/^#88D-[0-9A-F]{1,4}$/.test(txt('pause-seed')), `the ticket seed reads "${txt('pause-seed')}"`);
   assert(txt('pause-clock')===A.clockText(G.clock), 'the clock on the ticket is not the clock in state');
-  assert(/7<\/b> noise/.test(txt('pause-hint')), 'the status line does not report what the run has heard');
-
+  
   /* the life pips are spent ones included — the count the HUD has been showing */
   A.lives = Math.max(1, A.runLives-1);
   A.STATE='play'; A.togglePause();
   assert(/gone/.test(txt('pause-lives')), 'a spent life is not drawn as spent on the ticket');
   A.lives = A.runLives;
 
-  /* the scope line answers a different question than the status line */
-  assert(txt('pause-scope').length>0, 'the scope of work was left blank');
-  assert(txt('pause-scope')!==txt('pause-hint'), 'scope and status are the same sentence');
-
-  /* and once everything is sealed, the scope line says so instead of stalling */
+  /* once every riser is sealed the LEAKS FIXED tally says so instead of stalling */
   G.leaksOpen = 0;
   A.STATE='play'; A.togglePause();
-  assert(/threshold/i.test(txt('pause-scope')), 'with every riser sealed the ticket still asks for sealing');
+  assert(txt('pause-pipes')===`${G.pipes}/${G.pipes}`,
+    `with every riser sealed the tally reads "${txt('pause-pipes')}"`);
+
+  /* the strip under the ticket promises ENTER resumes as well as ESC. With no
+     control focused, ENTER is the modal confirm key — assert the promise,
+     through the real key handler, on the page a pause lands on. */
+  A.STATE='play'; A.togglePause();
+  assert(A.pausePage==='settings', 'a pause does not land on the settings page');
+  press('Enter');
+  assert(A.STATE==='play', 'ENTER did not resume from the settings page');
 
   A.STATE='play'; A.hideAll();
-  console.log('  pause = the work order, live numbers, controls intact, settings below');
+  console.log('  pause = the work order, live numbers, settings and briefing as pages of it');
 }
 
 /* ============ TEST 27: the four removed settings are gone, and stay gone

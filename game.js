@@ -2849,17 +2849,13 @@ const keys = {};
 const MODAL_ACTION = {
   splash: ()=>advanceSplash(),
   order:  ()=>advanceSplash(),
-  /* The pause ticket has no resume button — ESC is the resume, and the one
-     thing under it is the settings link. Pointing ENTER at a button that is not
-     on the screen is how a modal ends up with a dead confirm key. */
+  /* The pause ticket has no resume button — ESC is the resume, and the things
+     under it are the ticket's own pages and controls. Pointing ENTER at a
+     button that is not on the screen is how a modal ends up with a dead
+     confirm key. */
   pause:  ()=>togglePause(),
   dead:   ()=>document.getElementById('btn-retry').click(),
   win:    ()=>document.getElementById('btn-again').click(),
-  /* Enter closes the settings the same way it closes every other modal. It
-     returns to wherever it was opened from rather than to the title, because
-     opening settings from a pause and being dropped on the title screen is the
-     kind of small betrayal that makes a menu feel hostile. */
-  settings: ()=>document.getElementById('btn-settings-back').click(),
 };
 
 window.addEventListener('keydown', e=>{
@@ -2896,6 +2892,17 @@ window.addEventListener('keydown', e=>{
     if (backSplash()){ delete keys[k]; return; }
   }
 
+  /* ESC steps the pause ticket's pages backwards before it leaves the ticket:
+     the briefing page returns to the settings page, and only the settings
+     page resumes. Same shape as backSplash, applied to the pages instead of
+     the screens, so a player who opened the briefing to re-read a control
+     cannot lose the run to one mistimed press. */
+  if (e.key==='Escape' && STATE==='pause' && pausePage!=='settings'){
+    setPausePage('settings');
+    delete keys[k];
+    return;
+  }
+
   if (k==='enter'){
     const act = STATE==='splash' ? MODAL_ACTION.splash
               : STATE==='order'  ? MODAL_ACTION.order
@@ -2908,6 +2915,11 @@ window.addEventListener('keydown', e=>{
     if (act && !e.repeat){
       const focused = document.activeElement;
       const onButton = focused && focused.tagName === 'BUTTON';
+      /* The ticket carries real controls now. A focused tab or button answers
+         ENTER itself: the key falls through to the browser and activates the
+         control, instead of resuming the run over the top of the click. */
+      if (STATE==='pause' && onButton
+          && focused.closest && focused.closest('#screen-pause')) return;
       act();                                  // close the modal
       if (onButton) focused.blur();           // no second activation via Enter
       /* The key that dismissed the splash must not carry into the run: the
@@ -2938,8 +2950,18 @@ window.addEventListener('keydown', e=>{
     else { G.radar = true; Audio_.rattle(0.4); }
   }
   if (e.key==='Escape' && (STATE==='play'||STATE==='pause')) togglePause();
-  else if (e.key==='Escape' && STATE==='settings') closeSettings();
-  if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key)) e.preventDefault();
+  if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key)){
+    /* One exception: the ticket's own controls. Arrows drag the focused slider
+       and SPACE activates a focused button, so those keys belong to the pause
+       screen while the pause screen has focus. Everywhere else they are
+       movement, and a held arrow through the splash must not scroll anything. */
+    if (STATE==='pause'){
+      const el = document.activeElement;
+      if (el && el.closest && el.closest('#screen-pause')
+          && (el.tagName==='INPUT' || el.tagName==='BUTTON')) return;
+    }
+    e.preventDefault();
+  }
 });
 window.addEventListener('keyup', e=>{
   const k=e.key.toLowerCase();
@@ -3397,9 +3419,9 @@ function randomFloorNear(x,y,rad){
    ============================================================ */
 
 /* The bed follows STATE, not the individual screens. It is keyed off the two
-   names rather than off `show()` because `show()` is also how the pause and
-   settings screens come up, and a title drone leaking into a pause menu is the
-   sort of thing nobody reports and everybody notices. */
+   names rather than off `show()` because `show()` is also how the pause screen
+   comes up, and a title drone leaking into a pause menu is the sort of thing
+   nobody reports and everybody notices. */
 function syncAmbience(){
   Audio_.ambience(STATE==='splash' || STATE==='order');
 }
@@ -3511,11 +3533,12 @@ function rollRunSeed(){
 /* ============================================================
    FLOW
    ============================================================ */
-let STATE='splash';      // splash | order | play | pause | dead | win | settings
-/* Every screen the shell can show, in one list, because show()/hideAll() and
-   the settings return path all enumerate them and they used to drift apart
-   the moment a screen was added. */
-const SCREENS = ['splash','order','pause','dead','win','settings'];
+let STATE='splash';      // splash | order | play | pause | dead | win
+/* Every screen the shell can show, in one list, because show()/hideAll() all
+   enumerate them and they used to drift apart the moment a screen was added.
+   The settings had a screen in this list once; they are pages of the pause
+   ticket now, so the ticket is the only menu and there is no second list. */
+const SCREENS = ['splash','order','pause','dead','win'];
 let RUN_SEED = (Math.random()*1e9)|0;
 let lives = 3, floorIdx = 0, runTime = 0;
 /* The life pips are drawn from this, not from a hardcoded three. The naive
@@ -4348,31 +4371,36 @@ function toggleMute(){
 }
 
 /* ============================================================
-   THE SETTINGS SCREEN
+   THE PAUSE TICKET — SETTINGS AND BRIEFING ARE PAGES OF IT
    Every control writes straight into SETTINGS, then calls applySettings() and
    saveSettings(). There is no "apply" button and no pending copy: a slider
    that only commits on OK makes people wonder whether it saved, and these
    values are all cheap and reversible.
+
+   They are not a screen of their own any more. They are the lower half of the
+   ticket the player is already looking at, because a pause is the one moment
+   the player has stopped to read a document — and a modal over that document
+   hides the very thing the player paused to check. pausePage is the only state
+   this adds: which page of the ticket is showing. STATE never leaves 'pause',
+   so the clock stays frozen and the game behind the ticket stays stopped the
+   way it always did, with no second state machine to keep in step.
    ============================================================ */
-let settingsPrevState = 'pause';
+let pausePage = 'settings';      // 'settings' | 'briefing'
 
-function openSettings(){
-  /* STATE has to actually become 'settings' or the keydown dispatcher — which
-     keys MODAL_ACTION off STATE — never sees this screen, and Enter does
-     nothing. It also stops the game updating behind the menu, which is what we
-     want: opening the settings mid-run should not let a Lifeform eat you. */
-  settingsPrevState = STATE;
-  STATE = 'settings';
-  show('settings');
-  syncSettingsUI();
-}
-
-function closeSettings(){
-  STATE = settingsPrevState;
-  /* 'play' has no screen, and the splash states are named differently from
-     the settings screen, so the return path is mapped rather than guessed. */
-  if (STATE==='play'){ hideAll(); return; }
-  show(STATE);
+/* SETTINGS is where a pause lands: it is the page with something to change on
+   it. BRIEFING is SPLASH 02 reprinted — the work order, the backstory and the
+   controls list — for the player who clicked through it once and remembers
+   none of it. It is a reprint rather than the order screen itself, because a
+   reprint cannot start a run: the "any key advances" branch on the splash
+   chain would fire behind the player's back otherwise, and a second copy of
+   one hundred words is a cheaper thing to own than a second way to lose a
+   floor. */
+function setPausePage(page){
+  pausePage = page;
+  for (const b of document.querySelectorAll('[data-pause-page]'))
+    b.classList.toggle('hidden', b.dataset.pausePage !== page);
+  for (const t of document.querySelectorAll('[data-pause-tab]'))
+    t.setAttribute('aria-selected', String(t.dataset.pauseTab === page));
 }
 
 function setOption(key, value){
@@ -4403,7 +4431,7 @@ function syncSettingsUI(){
   const note = document.getElementById('note-difficulty');
   if (note){
     const d = DIFFICULTIES[SETTINGS.difficulty] || DIFFICULTIES.normal;
-    note.textContent = `${d.lives} attempts · ${LEVELS_N} levels · ${Math.round(d.clock)}s on the clock · ${d.repairTime}s at the pipe`;
+    note.textContent = `${d.lives} lives · ${LEVELS_N} levels · ${Math.round(d.clock)}s on the clock · ${d.repairTime}s at the pipe`;
   }
 }
 
@@ -4415,11 +4443,12 @@ const SEGMENTS = {
 };
 
 function buildSettingsUI(){
-  /* Settings are only reachable from the pause screen now, so BACK always has
-     somewhere real to go: the pause screen itself. openSettings() does not
-     change STATE, so returning from the pause menu is just "show the pause
-     screen again" — no state juggling, and Escape out of a submenu cannot
-     strand the player in a state with no way back. */
+  /* The controls used to live in a modal they shared with a BACK button, and
+     the return path was state juggling: remember where you were, swap STATE,
+     map it back on the way out. Now the ticket's pages ARE the menu, so the
+     return path is one line: the tab that is not pressed. Escape out of the
+     briefing page cannot strand the player anywhere, because there is only
+     ever the ticket. */
   for (const row of document.querySelectorAll('.seg[data-opt]')){
     const key = row.dataset.opt;
     const opts = (SEGMENTS[key] || (()=>[]))();
@@ -4436,12 +4465,14 @@ function buildSettingsUI(){
     const key = el.dataset.opt;
     el.addEventListener('input', ()=> setOption(key, parseFloat(el.value)));
   }
-  const back = document.getElementById('btn-settings-back');
-  if (back) back.onclick = closeSettings;
   const reset = document.getElementById('btn-settings-reset');
   if (reset) reset.onclick = ()=>{ resetSettings(); syncSettingsUI(); };
-  const p = document.getElementById('btn-settings-pause');
-  if (p) p.onclick = ()=> openSettings();
+  /* No BACK on the settings page: it is the page a pause lands on, so BACK
+     would mean ESC, and a second control that does what the key under the
+     player's hand already does is a control nobody needs. The briefing's BACK
+     is different — it goes somewhere, back to the settings page. */
+  for (const t of document.querySelectorAll('[data-pause-tab]'))
+    t.onclick = ()=> setPausePage(t.dataset.pauseTab);
 }
 
 /* Click anywhere on either splash advances it, so a player who never reads
@@ -4457,6 +4488,11 @@ function togglePause(){
   if (STATE==='play'){
     STATE='pause';
     show('pause');
+    /* Every pause lands on the settings page. It is the one page of the ticket
+       with something to change on it, and the page a player who came back to
+       adjust the tint needs; the briefing is one click deeper for the player
+       who wants to re-read the work order. */
+    setPausePage('settings');
     /* The pause screen is splash 04 with the run's own numbers written on it,
        so pausing costs no bearings: depth, pipes left, clock, battery, lives,
        and the next move — all in the places a clerk would have written them.
@@ -4466,23 +4502,12 @@ function togglePause(){
     const set = (id, html)=>{ const el = document.getElementById(id); if (el) el.innerHTML = html; };
     const sealed = G.pipes - G.leaksOpen;
 
-    set('pause-level',   `${G.floor+1} / ${FLOORS}`);
+    set('pause-level',   `${G.floor+1}/${FLOORS}`);
     set('pause-clock',   clockText(G.clock));
     set('pause-pipes',  `${sealed}/${G.pipes}`);
     set('pause-batt',    String(Math.ceil(G.batt)));
     set('pause-lives', livesHTML());
     set('pause-seed',    '#88D-' + (RUN_SEED>>>0).toString(16).toUpperCase().slice(-4));
-
-    set('pause-scope', G.leaksOpen===0
-      ? 'Every leak is sealed. Walk back through the Threshold you came in by.'
-      : `Seal the remaining ${G.leaksOpen} leak${G.leaksOpen===1?'':'s'}. The Threshold won't open until then.`);
-
-    set('pause-hint',
-      `<b>${Math.round(G.floodCover*100)}%</b> of the floor is under water`+
-      (G.leaksOpen===0 ? ' and draining' : ' and still rising')+'. '+
-      (G.leaksOpen===0 ? '' :
-        `Follow the wet floor downhill to the wall, then hold still for <b>${REPAIR_TIME} seconds</b>. It is loud.<br>`)+
-      `It has heard you make <b>${G.stat.noises}</b> noise${G.stat.noises===1?'':'s'} so far.`);
   }
   else if (STATE==='pause'){ STATE='play'; hideAll(); }
 }

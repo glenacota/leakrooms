@@ -82,7 +82,7 @@
       <div class="hud-div"></div>
 
       <div class="stat lives">
-        <span class="lbl">ATTEMPTS</span>
+        <span class="lbl">LIVES</span>
         <span class="val lives" id="val-lives">&#9679;&#9679;&#9679;</span>
       </div>
 
@@ -152,86 +152,87 @@
       </div>
 
       <div class="order-cta">
-        <button id="btn-start"><b>CLICK HERE</b></button>
+        <button id="btn-start"><b>CLICK TO BEGIN</b></button>
         <span class="cta-hint">OR PRESS <b>ANY KEY</b> &nbsp;&middot;&nbsp; (ESC GOES BACK)</span>
       </div>
     </div>
   </div>
 
-  <!-- ============ SETTINGS ============ -->
-  <div id="screen-settings" class="screen hidden">
-    <div class="tape wide">
-      <h1>SETTINGS</h1>
-      <p class="sub">PREFERENCES ARE STORED ON THIS MACHINE</p>
-
-      <div class="settings-grid">
-
-        <div class="setrow">
-          <span class="lbl">DIFFICULTY</span>
-          <div class="seg" id="set-difficulty" data-opt="difficulty" role="group" aria-label="DIFFICULTY"></div>
-          <p class="note" id="note-difficulty"></p>
-        </div>
-
-        <div class="setrow">
-          <label for="set-master">VOLUME</label>
-          <input type="range" id="set-master" min="0" max="1" step="0.05" data-opt="master">
-        </div>
-
-        <div class="setrow">
-          <span class="lbl">WATER TINT</span>
-          <div class="seg" id="set-hue" data-opt="waterHue" role="group" aria-label="WATER TINT"></div>
-          <p class="note">The leak is the only colour in the building. Pick the one you can actually see.</p>
-        </div>
-
-        <div class="setrow">
-          <label for="set-contrast">WATER CONTRAST</label>
-          <input type="range" id="set-contrast" min="0.4" max="2" step="0.1" data-opt="waterContrast">
-        </div>
-
-        </div>
-
-      <div class="setrow buttons">
-        <button id="btn-settings-reset" class="ghost">RESET</button>
-        <button id="btn-settings-back">BACK</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ---- PAUSE -->
+  <!-- ============ PAUSE ============ -->
   <div id="screen-pause" class="screen hidden">
     <div class="order-wrap">
       <div class="order perf">
         <div class="order-body">
           <div class="order-head">
-            <h2>(PAUSE)</h2>
-            <p class="meta">LEVEL <b id="pause-level">1 / 5</b></p>
+            <h2>MISSION PAUSED</h2>
           </div>
 
-          <div class="field">
-            <span>WORKLOG: ORDER 88-D</span>
+          <div class="pause-tabs" role="tablist" aria-label="PAUSE PAGES">
+            <button id="tab-pause-settings" data-pause-tab="settings" role="tab" aria-selected="true">SETTINGS</button>
+            <button id="tab-pause-briefing" data-pause-tab="briefing" role="tab" aria-selected="false">BRIEFING</button>
+          </div>
+
+          <div class="pause-page" data-pause-page="settings">
+            <div class="settings-grid">
+
+              <div class="setrow">
+                <span class="lbl">DIFFICULTY</span>
+                <div class="seg" id="set-difficulty" data-opt="difficulty" role="group" aria-label="DIFFICULTY"></div>
+                <p class="note" id="note-difficulty"></p>
+              </div>
+
+              <div class="setrow">
+                <label for="set-master">VOLUME</label>
+                <input type="range" id="set-master" min="0" max="1" step="0.05" data-opt="master">
+              </div>
+
+              <div class="setrow">
+                <span class="lbl">WATER TINT</span>
+                <div class="seg" id="set-hue" data-opt="waterHue" role="group" aria-label="WATER TINT"></div>
+                <p class="note">The leak is the only colour in the building. Pick the one you can actually see.</p>
+              </div>
+
+              <div class="setrow">
+                <label for="set-contrast">WATER CONTRAST</label>
+                <input type="range" id="set-contrast" min="0.4" max="2" step="0.1" data-opt="waterContrast">
+              </div>
+
+            </div>
+
+            <div class="setrow buttons">
+              <button id="btn-settings-reset" class="ghost">RESET SETTINGS</button>
+            </div>
+          </div>
+
+          <div class="pause-page hidden" data-pause-page="briefing">
+            <div class="field">
+              <span>Scope of work</span>
+              Locate and repair all leaks on 5 floors. Return to the entry point within 3 minutes per floor. Hostile lifeforms detected.
+            </div>
+
+            <div class="field"><span>NOTES FROM THE LAST REPARATIONS</span></div>
             <ul class="notes">
-              <li><b id="pause-scope">&nbsp;</b></li>
-              <li><b id="pause-hint">&nbsp;</b></li>
+              <li><b>Follow the wet floor to find the leaks.</b></li>
+              <li><b>Stand still in front of a leak for 5 seconds to repair it.</b></li>
+              <li><b>Lifeforms roam the floor and hunt by sound.</b> Running attracts them. Water makes it worse. Fixing pipes is loudest. If seen: run.</li>
+              <li><b>The radar reveals the entire floor map, but drains power fast.</b> Look for spare batteries throughout the floor.</li>
+              <li><b>The door won&rsquo;t reopen until every leak is fixed.</b></li>
+              <li>No refunds for lost equipment. <b>Or personnel.</b></li>
             </ul>
           </div>
-
-          <div class="field"><span>NOTES FROM THE LAST REPARATIONS</span></div>
-          <ul class="notes">
-            <li><b>The clock does not move while you are here.</b></li>
-          </ul>
         </div>
 
         <div class="order-side">
           <small>ON THE CLOCK</small>
           <div class="big" id="pause-clock">3:00</div>
-          <small>RISERS SEALED</small>
+          <small>LEVEL</small>
+          <div class="badge" id="pause-level">1/5</div>
+          <small>LEAKS FIXED</small>
           <div class="badge" id="pause-pipes">0/1</div>
           <small>BATTERY</small>
           <div class="seed" id="pause-batt">100</div>
-          <small>ATTEMPTS</small>
+          <small>LIVES</small>
           <div class="seed lives-row" id="pause-lives">&#9679;&#9679;&#9679;</div>
-          <small>RUN SEED</small>
-          <div class="seed" id="pause-seed">#88D-0000</div>
           <div class="stub-note">
             <small>CONTROLS</small>
             <div class="controls controls-big">
@@ -246,8 +247,7 @@
       </div>
 
       <div class="order-cta">
-        <button id="btn-settings-pause" class="ghost">SETTINGS</button>
-        <span class="cta-hint">OR PRESS <b>ESC</b> TO KEEP GOING</span>
+        <span class="cta-hint">PRESS <b>ESC</b> OR <b>ENTER</b> TO RESUME THE MISSION</span>
       </div>
     </div>
   </div>

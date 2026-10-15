@@ -6,7 +6,7 @@ LEAKROOMS — 2D top-down puzzle/stealth. Vanilla JS + canvas, zero dependencies
 
 ## Files
 
-- `index.html` — markup, HUD, screens (title/pause/dead/win), settings modal
+- `index.html` — markup, HUD, screens (splash/order/pause/dead/win); settings live as a page of the pause ticket, not a screen
 - `game.js` — entire game: sim, render, audio, input, state machine, and the cast
 - `style.css` — CRT shell, mono-yellow palette, tape UI
 - `test.js` — headless regression suite (`node test.js`, ~80s, exit 0 = pass)
