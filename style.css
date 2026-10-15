@@ -358,9 +358,9 @@ button.danger:hover{ background:var(--danger); color:var(--ink); border-color:va
 .stamp-terms .v{ font-size:14px; letter-spacing:.2em; color:#8fc4cc; font-weight:900; }
 .stamp-terms .sub{ font-size:10px; letter-spacing:.12em; color:var(--yellow-deep); }
 .stamp-terms .chg{
-  margin-left:auto; padding:0; font-size:10px; font-weight:900; letter-spacing:.16em;
-  background:none; border:none; color:var(--yellow-deep);
-  text-decoration:underline; cursor:pointer;
+  margin-left:auto; padding:10px 15px; border: 1px solid rgba(228,230,168,.25); font-size:10px; font-weight:900; letter-spacing:.16em;
+  background:none; color:var(--yellow-deep);
+  cursor:pointer;
 }
 .stamp-terms .chg:hover{ color:var(--yellow); }
 .terms-fold{ overflow:hidden; max-height:0; transition:max-height .3s ease; }
