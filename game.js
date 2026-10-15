@@ -96,7 +96,7 @@ const RADAR_DRAIN = 5.6;          // per second while sweeping
    loop — which always takes the farthest candidate — stacks every burst in the
    same far corner of the floor, and four pipes become one pipes you seal four
    times in the same five seconds. The floor has to be a tour. */
-const PIPE_GAP = 9;
+const PIPE_GAP = 12;
 
 /* ---------- THE LEAK ----------
    You are not here to hunt. You are here because a pipe is burst somewhere in
@@ -172,7 +172,7 @@ const LEAK_LURE    = 0.42;   // tiles: a SEARCHING entity drifts this close
    only the best possible route survives. So each extra pipe pulls the reach in
    — the work stays a tour, and the tour stays inside the clock. Indexed by
    (pipes - 1); the last entry repeats for any count past the table. */
-const PIPE_FAR = [46, 38, 32, 28];
+const PIPE_FAR = [56, 48, 42, 38];
 /* The pipe has been open for a while before you got here. Without this the
    floor starts bone dry and the first half-minute has no cue in it at all —
    you would have to wander blindly until water happened to reach you, which
