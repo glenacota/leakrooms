@@ -268,7 +268,7 @@ body{ display:flex; align-items:center; justify-content:center; }
    ------------------------------------------------------------ */
 .settings-grid{
   display:grid; grid-template-columns:1fr 1fr; gap: 26px;
-  margin:22px 0 6px; text-align:left;
+  margin:24px 0 6px; text-align:left; padding-top: 20px;
 }
 .setrow{ display:flex; flex-direction:column; gap:6px; }
 .setrow label, .setrow .lbl{
@@ -326,7 +326,7 @@ button.ghost:hover{ background:rgba(228,230,168,.10); color:var(--yellow); }
    way everywhere on the ticket: the one that is filled in.
    ------------------------------------------------------------ */
 .order-body .pause-page.hidden{ display:none; }
-.pause-tabs{ display:flex; gap:6px; margin-bottom: 50px; }
+.pause-tabs{ display:flex; gap:6px; margin-bottom: 20px; }
 .pause-tabs button{
   padding:6px 14px; font-size:11px; font-weight:900; letter-spacing:.2em;
   background:transparent; color:var(--yellow-deep);
@@ -336,6 +336,35 @@ button.ghost:hover{ background:rgba(228,230,168,.10); color:var(--yellow); }
 .pause-tabs button[aria-selected="true"]{
   background:var(--yellow); color:var(--ink); border-color:var(--yellow);
 }
+/* ------------------------------------------------------------
+   THE TERMS OF THE SHIFT — stamp + fold-out chooser on the work order
+   The stamp is a fact the building printed, so it gets the dashed border of
+   a correction, not the filled border of a control. CHANGE is the only
+   interactive part, and the chooser folds out of it: max-height rather than
+   display, so opening it reads as paper unfolding instead of a box popping.
+   ------------------------------------------------------------ */
+.stamp-terms{
+  display:flex; align-items:baseline; gap:10px; flex-wrap:wrap;
+  border:1px dashed rgba(228,230,168,.4); padding:8px 12px; margin:30px 0 0;
+  background:rgba(228,230,168,.03);
+}
+.stamp-terms .k{ font-size:12px; letter-spacing:.22em; color:var(--yellow-dim); font-weight:900; }
+.stamp-terms .v{ font-size:14px; letter-spacing:.2em; color:#8fc4cc; font-weight:900; }
+.stamp-terms .sub{ font-size:10px; letter-spacing:.12em; color:var(--yellow-deep); }
+.stamp-terms .chg{
+  margin-left:auto; padding:0; font-size:10px; font-weight:900; letter-spacing:.16em;
+  background:none; border:none; color:var(--yellow-deep);
+  text-decoration:underline; cursor:pointer;
+}
+.stamp-terms .chg:hover{ color:var(--yellow); }
+.terms-fold{ overflow:hidden; max-height:0; transition:max-height .3s ease; }
+.terms-fold.open{ max-height:240px; }
+.terms{
+  border:1px solid rgba(228,230,168,.25); border-top:none; font-weight: 900; font-size:12px;
+  padding:10px 12px; background:rgba(228,230,168,.04);
+}
+.terms .seg button { font-weight: 900; font-size:12px; }
+.terms .note{ line-height:1.6; color:var(--yellow-dim); margin-top:8px; min-height:2.6em; }
 /* The briefing page is the longest thing on the ticket — SPLASH 02 whole,
    backstory and controls list — so on a short window it is the one page that
    scrolls, and it says so with a visible thumb rather than a mystery. */

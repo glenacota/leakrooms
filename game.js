@@ -2885,6 +2885,17 @@ window.addEventListener('keydown', e=>{
     return;
   }
 
+  /* ESC on the work order dismisses the terms chooser before it walks the
+     splash chain. The chooser is the top layer of the order screen, and a
+     player who folded it open to change the terms should not fall out of the
+     ticket and onto the riser for one mistimed press. This has to run BEFORE
+     backSplash, or the chain claims the key first. */
+  if (e.key==='Escape' && STATE==='order' && termsOpen){
+    setTermsOpen(false);
+    delete keys[k];
+    return;
+  }
+
   /* ESC walks the splash chain backwards: from the work order to the pipe.
      It does nothing on splash 03, which is the first frame — there is nothing
      behind it, and a key that silently does nothing is worse than no key. */
@@ -2915,6 +2926,17 @@ window.addEventListener('keydown', e=>{
     if (act && !e.repeat){
       const focused = document.activeElement;
       const onButton = focused && focused.tagName === 'BUTTON';
+      /* ENTER folds the terms chooser shut rather than clocking in. The pick
+         is already made — every term button commits on click — so starting
+         the run from the key that dismissed the chooser is how a player clocks
+         in on terms they were still reading. preventDefault keeps the browser
+         from also activating the focused term button. */
+      if (STATE==='order' && termsOpen){
+        setTermsOpen(false);
+        delete keys[k];
+        e.preventDefault();
+        return;
+      }
       /* The ticket carries real controls now. A focused tab or button answers
          ENTER itself: the key falls through to the browser and activates the
          control, instead of resuming the run over the top of the click. */
@@ -2935,13 +2957,44 @@ window.addEventListener('keydown', e=>{
      keys are movement, so holding one through the splash should move the
      player the instant the run starts — advance once per press, not per
      repeat, and drop the key state with it. Escape is excluded: it walks
-     backwards, and on splash 03 it means "stay here". */
+     backwards, and on splash 03 it means "stay here".
+
+     One exception, and it is the work order while the terms chooser is open:
+     the frame is a form at that moment, and a form that starts a run on a
+     stray keystroke is a form nobody fills in. */
   if ((STATE==='splash'||STATE==='order') && e.key!=='Escape'
-      && !e.metaKey && !e.ctrlKey && !e.altKey && !e.repeat){
+      && !e.metaKey && !e.ctrlKey && !e.altKey && !e.repeat
+      && !(STATE==='order' && termsOpen)){
     advanceSplash();
     delete keys[k];
     if (STATE==='play') e.preventDefault();
     return;
+  }
+
+  /* A key the open chooser swallowed is dropped, not held: it did nothing on
+     this screen, and a key that did nothing must not walk the player out of
+     the door the moment the run starts. The splash chain already drops the
+     key that advances it; this is the same discipline for the one branch that
+     does not advance. */
+  if (STATE==='order' && termsOpen) delete keys[k];
+
+  /* The chooser owns the number row and the left/right arrows while it is
+     open: 1-3 are the three terms in DIFFICULTIES order, and the arrows cycle
+     the same way the segmented row does with a mouse. */
+  if (STATE==='order' && termsOpen){
+    const list = Object.keys(DIFFICULTIES);
+    const at = Math.max(0, list.indexOf(String(SETTINGS.difficulty)));
+    if (['1','2','3'].includes(k) && +k <= list.length){
+      setOption('difficulty', list[+k-1]);
+      e.preventDefault();
+      return;
+    }
+    if (e.key==='ArrowLeft' || e.key==='ArrowRight'){
+      const step = e.key==='ArrowRight' ? 1 : -1;
+      setOption('difficulty', list[(at + step + list.length) % list.length]);
+      e.preventDefault();
+      return;
+    }
   }
 
   if (k==='r' && G && STATE==='play'){
@@ -3437,6 +3490,10 @@ function advanceSplash(){
     if (seedEl) seedEl.textContent = '#88D-' + (RUN_SEED>>>0).toString(16).toUpperCase().slice(-4);
     show('order');
   } else if (STATE==='order'){
+    /* The chooser folds itself shut on the way in: the next time this ticket
+       is seen — after a death, or a finished run — it should show the stamped
+       terms, not last boot's open fold. */
+    setTermsOpen(false);
     document.getElementById('btn-start').click();
   }
   syncAmbience();
@@ -4403,6 +4460,49 @@ function setPausePage(page){
     t.setAttribute('aria-selected', String(t.dataset.pauseTab === page));
 }
 
+/* ============================================================
+   THE TERMS OF THE SHIFT
+   The difficulty used to be a settings row the player could flip from the
+   pause ticket, mid-run — which rewrote FLOOR_CLOCK, REPAIR_TIME and the
+   hunt constants under a floor already being played, while runLives had
+   been read at clock-in and stayed where it was. Now it is chosen at the
+   door: the work order carries a stamp, CHANGE folds the chooser open on
+   the ticket, and whatever the stamp says when CLOCK IN lands is what the
+   run is built with. There is no difficulty control on the pause screen at
+   all — a run is on its terms from its first frame.
+
+   The value still lives in SETTINGS and still persists, so a returning
+   player's stamp is the run they always play; a fresh machine reads NORMAL,
+   the schema default, and is never unset. paintTerms is the one place the
+   stamp is written, and syncSettingsUI calls it, so every path that can
+   change the value — the chooser, the digits, RESET SETTINGS, a reloaded
+   store — leaves the three stamps and the note saying the same thing.
+   ============================================================ */
+let termsOpen = false;
+
+function paintTerms(){
+  const d = DIFFICULTIES[SETTINGS.difficulty] || DIFFICULTIES.normal;
+  const set = (id, txt)=>{ const el = document.getElementById(id); if (el) el.textContent = txt; };
+  set('order-terms',        d.label);
+  set('pause-terms',        d.label);
+  const note = document.getElementById('note-difficulty');
+  if (note){
+    note.textContent = `${d.lives} lives \u00b7 ${LEVELS_N} levels \u00b7 ${Math.round(d.clock)}s on the clock \u00b7 ${d.repairTime}s at the pipe`;
+  }
+}
+
+function setTermsOpen(v){
+  termsOpen = v;
+  const fold = document.getElementById('terms-fold');
+  if (fold) fold.classList.toggle('open', v);
+  if (!v){
+    /* The order screen has no movement, so a key held while the chooser was
+       open must not carry into the run: closing the fold is the moment the
+       frame goes back to being a splash, and splashes drop held keys. */
+    for (const kk in keys) keys[kk] = false;
+  }
+}
+
 function setOption(key, value){
   if (!settingsValid(key, value)) return false;
   SETTINGS[key] = value;
@@ -4428,11 +4528,10 @@ function syncSettingsUI(){
       b.setAttribute('aria-pressed', String(b.dataset.value === cur));
     }
   }
-  const note = document.getElementById('note-difficulty');
-  if (note){
-    const d = DIFFICULTIES[SETTINGS.difficulty] || DIFFICULTIES.normal;
-    note.textContent = `${d.lives} lives · ${LEVELS_N} levels · ${Math.round(d.clock)}s on the clock · ${d.repairTime}s at the pipe`;
-  }
+  /* The stamp on the work order, on its stub, and on the pause stub are the
+     same fact as the segmented row, so they are painted from the same place
+     the row is synced — one writer, three stamps, the note line. */
+  paintTerms();
 }
 
 /* Button label sets per segmented row. Declared here rather than in markup so
@@ -4473,15 +4572,31 @@ function buildSettingsUI(){
      is different — it goes somewhere, back to the settings page. */
   for (const t of document.querySelectorAll('[data-pause-tab]'))
     t.onclick = ()=> setPausePage(t.dataset.pauseTab);
+  /* The terms chooser: the front door. CHANGE folds it out of the stamp on
+     the work order; the segmented row inside it is built by the loop above,
+     exactly as it was when it was a settings row. */
+  const change = document.getElementById('btn-terms-change');
+  if (change) change.onclick = ()=> setTermsOpen(!termsOpen);
 }
 
 /* Click anywhere on either splash advances it, so a player who never reads
    the keyboard prompt is not stuck. The advance function keys off STATE, so
    the click that lands on CLOCK IN and then bubbles up to the screen a second
-   time finds STATE already 'play' and does nothing. */
+   time finds STATE already 'play' and does nothing.
+
+   Two guards, both for the work order now that it carries controls. A click
+   that lands on a control — a term button, a slider, CHANGE, CLOCK IN itself —
+   is a choice, not an advance: bubbling it up to the screen is how a player
+   who meant to read the terms starts a run on BRUTAL. And while the chooser
+   is open, a click on the frame dismisses it the way ESC does, because an
+   open chooser is the top layer of the screen. */
 for (const id of ['screen-splash','screen-order']){
   const el = document.getElementById(id);
-  if (el) el.addEventListener('click', advanceSplash);
+  if (el) el.addEventListener('click', (e)=>{
+    if (e.target.closest && e.target.closest('button, input, .terms-fold')) return;
+    if (STATE==='order' && termsOpen){ setTermsOpen(false); return; }
+    advanceSplash();
+  });
 }
 
 function togglePause(){
@@ -4507,6 +4622,8 @@ function togglePause(){
     set('pause-pipes',  `${sealed}/${G.pipes}`);
     set('pause-batt',    String(Math.ceil(G.batt)));
     set('pause-lives', livesHTML());
+    /* The terms the run is on. Not a control — a fact, like the clock. */
+    set('pause-terms',  (DIFFICULTIES[SETTINGS.difficulty] || DIFFICULTIES.normal).label);
     set('pause-seed',    '#88D-' + (RUN_SEED>>>0).toString(16).toUpperCase().slice(-4));
   }
   else if (STATE==='pause'){ STATE='play'; hideAll(); }

@@ -268,6 +268,8 @@ globalThis.__api = {
   togglePause, clockText,
   get pausePage(){ return pausePage; },
   setPausePage,
+  get termsOpen(){ return termsOpen; },
+  setTermsOpen,
   get FLOORS(){ return FLOORS; },
   get HUNT_BASE(){ return HUNT_BASE; }, get HUNT_STEP(){ return HUNT_STEP; },
   get lives(){ return lives; }, set lives(v){ lives = v; },
@@ -3533,6 +3535,46 @@ console.log('[21] the splash chain — 03 riser, 04 work order, then the run');
   press('q');
   assert(A.STATE==='order', 'an ordinary key did not advance the splash');
 
+  /* --- the terms chooser on the work order --------------------------------
+     The order screen is a form while the chooser is open: the any-key advance
+     has to stop clocking the player in, the number row picks a term, the
+     arrows cycle, and both dismiss keys fold the chooser shut before they do
+     anything else. Driven through the real handler, because the any-key
+     advance is exactly the branch a chooser has to survive. */
+  A.setTermsOpen(true);
+  assert(A.termsOpen, 'the terms chooser did not open');
+
+  press('w');
+  assert(A.STATE==='order', 'a key with the terms chooser open clocked the player in');
+  assert(!A.keys['w'], 'a key swallowed by the chooser stayed held — the player walks on spawn');
+
+  const at = ()=> vm.runInContext('SETTINGS.difficulty', ctxObj);
+  press('1');
+  assert(at()==='relaxed', 'the 1 key did not pick the first term');
+  press('3');
+  assert(at()==='brutal', 'the 3 key did not pick the last term');
+  press('ArrowRight');
+  assert(at()==='relaxed', 'the arrow keys did not cycle the terms');
+  press('ArrowLeft');
+  assert(at()==='brutal', 'the arrow keys did not cycle back');
+
+  press('Enter');
+  assert(A.STATE==='order', 'ENTER with the chooser open clocked the player in instead of folding it shut');
+  assert(!A.termsOpen, 'ENTER did not fold the terms chooser shut');
+
+  A.setTermsOpen(true);
+  press('Escape');
+  assert(A.STATE==='order', 'ESC with the chooser open left the ticket instead of folding it shut');
+  assert(!A.termsOpen, 'ESC did not fold the terms chooser shut');
+
+  /* ESC on a shut chooser still walks the chain — the guard is only for the
+     open fold */
+  press('Escape');
+  assert(A.STATE==='splash', 'ESC with the chooser shut did not walk back to the riser');
+  press('q');
+
+  /* and with the chooser shut the frame is a splash again */
+  A.setOption('difficulty','normal');
   press('w');
   assert(A.STATE==='play', `the clock-in did not start the run (STATE=${A.STATE})`);
   assert(!A.keys['w'], 'the key that dismissed the splash is still held — the player walks before they can react');
@@ -3666,19 +3708,35 @@ console.log('[26] the pause screen — the work order, with the run written on i
   assert(/class="order perf"/.test(pause), 'the pause screen is not the ticket');
   assert(!/class="tape"/.test(pause), 'the pause screen still has its own layout');
 
-  /* --- settings are a page of the ticket, not a screen of their own ---
+  /* --- the settings that remain are pages of the ticket ---
      The modal they used to live in is gone, and the rows it held are inside
-     the ticket now — that inversion is the assertion: the old test demanded
-     the settings link sit BELOW the ticket, and that is exactly what is no
+     the ticket — that inversion is the assertion: the old test demanded the
+     settings link sit BELOW the ticket, and that is exactly what is no
      longer true. */
   assert(!/id="screen-settings"/.test(html),
     'the settings modal is still in index.html — the settings belong on the ticket');
-  for (const id of ['set-difficulty','set-master','set-hue','set-contrast','btn-settings-reset'])
+  for (const id of ['set-master','set-hue','set-contrast','btn-settings-reset'])
     assert(new RegExp('id="'+id+'"').test(pause),
       `the pause ticket has no ${id} — a settings row left the ticket`);
-  assert(pause.indexOf('id="set-difficulty"') > pause.indexOf('class="order perf"'),
+  assert(pause.indexOf('id="set-master"') > pause.indexOf('class="order perf"'),
     'the settings rows are outside the ticket instead of inside it');
 
+  /* --- and the difficulty is not one of them. The terms are taken at the
+     door: the chooser lives on the work order, the run is built with whatever
+     the stamp says at clock-in, and the pause screen prints the terms as a
+     fact. A difficulty control on the pause ticket is the mid-run rewrite
+     this move exists to kill — applySettings() would move FLOOR_CLOCK and
+     REPAIR_TIME under a floor already being played. --- */
+  assert(!/id="set-difficulty"/.test(pause),
+    'the difficulty chooser is still on the pause ticket — the terms belong at the door');
+  assert(!/id="note-difficulty"/.test(pause),
+    'the difficulty note is still on the pause ticket');
+  assert(/id="set-difficulty"/.test(order)
+         && order.indexOf('id="set-difficulty"') > order.indexOf('class="order perf"'),
+    'the work order has no terms chooser inside the ticket');
+  assert(/id="order-terms"/.test(order) && /id="btn-terms-change"/.test(order),
+    'the work order has no SHIFT TERMS stamp or no CHANGE link');
+  
   /* --- and SPLASH 02 is a page of the ticket too --- */
   assert(/data-pause-page="briefing"/.test(pause), 'the pause ticket has no briefing page');
   assert(/data-pause-tab="settings"/.test(pause) && /data-pause-tab="briefing"/.test(pause),
@@ -3784,8 +3842,24 @@ console.log('[26] the pause screen — the work order, with the run written on i
   press('Enter');
   assert(A.STATE==='play', 'ENTER did not resume from the settings page');
 
+  /* --- the run is built with the stamped terms, and the pause prints them ---
+     The whole move in three asserts: the chooser moves the constants the run
+     is built with, clocking in reads them, and the ticket says which shift
+     you are on. */
+  A.setOption('difficulty','brutal');
+  assert(A.FLOOR_CLOCK===A.DIFFICULTIES.brutal.clock,
+    'choosing BRUTAL did not move the clock the run is built with');
+  document.getElementById('btn-start').click();
+  assert(A.runLives===1, 'clocking in on BRUTAL did not set the attempts to 1');
+  assert(G.clock===A.DIFFICULTIES.brutal.clock, 'the floor was not built with the BRUTAL clock');
+  A.togglePause();
+  assert(txt('pause-terms')==='BRUTAL', `the pause stamp reads "${txt('pause-terms')}"`);
+
+  /* leave the store as the next test expects to find it */
+  A.setOption('difficulty','normal');
+  document.getElementById('btn-start').click();
   A.STATE='play'; A.hideAll();
-  console.log('  pause = the work order, live numbers, settings and briefing as pages of it');
+  console.log('  pause = the work order, live numbers, settings and briefing as pages of it; terms taken at the door');
 }
 
 /* ============ TEST 27: the four removed settings are gone, and stay gone

@@ -130,6 +130,24 @@
             <li><b>The door won't reopen until every leak is fixed.</b></li>
             <li>No refunds for lost equipment. <b>Or personnel.</b></li>
           </ul>
+
+          <!-- The terms of the shift, taken at the door. The stamp is what
+               CLOCK IN builds the run with — the last terms worked, persisted,
+               NORMAL on a fresh machine — and CHANGE folds the chooser open on
+               the ticket itself. There is no difficulty setting anywhere else:
+               a run is on its terms from the first frame, and the pause screen
+               has nothing to change. -->
+          <div class="stamp-terms">
+            <span class="k">DIFFICULTY:</span>
+            <span class="v" id="order-terms">NORMAL</span>
+            <button class="chg" id="btn-terms-change">CHANGE</button>
+          </div>
+          <div class="terms-fold" id="terms-fold">
+            <div class="terms">
+              <div class="seg" id="set-difficulty" data-opt="difficulty" role="group" aria-label="DIFFICULTY"></div>
+              <p class="note" id="note-difficulty"></p>
+            </div>
+          </div>
         </div>
 
         <div class="order-side">
@@ -176,9 +194,8 @@
             <div class="settings-grid">
 
               <div class="setrow">
-                <span class="lbl">DIFFICULTY</span>
-                <div class="seg" id="set-difficulty" data-opt="difficulty" role="group" aria-label="DIFFICULTY"></div>
-                <p class="note" id="note-difficulty"></p>
+                <label for="set-contrast">WATER CONTRAST</label>
+                <input type="range" id="set-contrast" min="0.4" max="2" step="0.1" data-opt="waterContrast">
               </div>
 
               <div class="setrow">
@@ -190,11 +207,6 @@
                 <span class="lbl">WATER TINT</span>
                 <div class="seg" id="set-hue" data-opt="waterHue" role="group" aria-label="WATER TINT"></div>
                 <p class="note">The leak is the only colour in the building. Pick the one you can actually see.</p>
-              </div>
-
-              <div class="setrow">
-                <label for="set-contrast">WATER CONTRAST</label>
-                <input type="range" id="set-contrast" min="0.4" max="2" step="0.1" data-opt="waterContrast">
               </div>
 
             </div>
@@ -229,8 +241,6 @@
           <div class="badge" id="pause-level">1/5</div>
           <small>LEAKS FIXED</small>
           <div class="badge" id="pause-pipes">0/1</div>
-          <small>BATTERY</small>
-          <div class="seed" id="pause-batt">100</div>
           <small>LIVES</small>
           <div class="seed lives-row" id="pause-lives">&#9679;&#9679;&#9679;</div>
           <div class="stub-note">
