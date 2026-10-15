@@ -4673,7 +4673,7 @@ function paintTerms(){
   set('brief-repair', fix);
   const note = document.getElementById('note-difficulty');
   if (note){
-    note.textContent = `${d.lives} lives \u00b7 ${LEVELS_N} levels \u00b7 ${Math.round(d.clock)}s on the clock \u00b7 ${d.repairTime}s at the pipe`;
+    note.textContent = `${d.lives} lives \u00b7 ${Math.round(d.clock)}s on the clock \u00b7 ${d.repairTime}s at the pipe`;
   }
 }
 
