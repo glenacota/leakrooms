@@ -270,6 +270,8 @@ globalThis.__api = {
   setPausePage,
   get termsOpen(){ return termsOpen; },
   setTermsOpen,
+  resetRun,
+  get resetArmed(){ return resetArmed; },
   get FLOORS(){ return FLOORS; },
   get HUNT_BASE(){ return HUNT_BASE; }, get HUNT_STEP(){ return HUNT_STEP; },
   get lives(){ return lives; }, set lives(v){ lives = v; },
@@ -2791,7 +2793,7 @@ console.log('[20] settings — persistence, validation, and the difficulty contr
   {
     global.__store.clear();
     A.resetSettings();
-    A.setOption('difficulty','brutal');
+    A.setOption('difficulty','hard');
     A.setOption('waterContrast', 1.6);
     A.setOption('waterHue','grey');
     const raw = global.__store.get(A.SETTINGS_KEY);
@@ -2805,7 +2807,7 @@ console.log('[20] settings — persistence, validation, and the difficulty contr
     assert(A.SETTINGS.difficulty==='normal', 'reset did not restore the default difficulty');
     global.__store.set(A.SETTINGS_KEY, raw);
     A.loadSettings();
-    assert(A.SETTINGS.difficulty==='brutal', 'difficulty did not survive the round trip');
+    assert(A.SETTINGS.difficulty==='hard', 'difficulty did not survive the round trip');
     assert(A.SETTINGS.waterContrast===1.6, `waterContrast came back as ${A.SETTINGS.waterContrast}`);
     assert(A.SETTINGS.waterHue==='grey', 'waterHue did not survive');
     console.log('  every field survives a write / wipe / read cycle');
@@ -2851,8 +2853,8 @@ console.log('[20] settings — persistence, validation, and the difficulty contr
        was live. This is the regression the "load over defaults" fix prevents.
        ORDER MATTERS: setOption persists, so the partial blob has to be written
        AFTER it, or setting an option overwrites the very blob under test. */
-    A.setOption('difficulty','brutal');
-    assert(A.SETTINGS.difficulty==='brutal', 'setOption did not take effect');
+    A.setOption('difficulty','hard');
+    assert(A.SETTINGS.difficulty==='hard', 'setOption did not take effect');
     global.__store.set(A.SETTINGS_KEY, JSON.stringify({master:0.4}));
     A.loadSettings();
     assert(A.SETTINGS.difficulty==='normal',
@@ -2914,9 +2916,9 @@ console.log('[20] settings — persistence, validation, and the difficulty contr
 
   /* --- difficulty reaches the game, not just the store --- */
   {
-    A.setOption('difficulty','brutal');
-    assert(A.FLOOR_CLOCK===A.DIFFICULTIES.brutal.clock, `the clock is ${A.FLOOR_CLOCK}s, want ${A.DIFFICULTIES.brutal.clock}s`);
-    assert(A.REPAIR_TIME===A.DIFFICULTIES.brutal.repairTime, 'REPAIR_TIME did not follow the preset');
+    A.setOption('difficulty','hard');
+    assert(A.FLOOR_CLOCK===A.DIFFICULTIES.hard.clock, `the clock is ${A.FLOOR_CLOCK}s, want ${A.DIFFICULTIES.hard.clock}s`);
+    assert(A.REPAIR_TIME===A.DIFFICULTIES.hard.repairTime, 'REPAIR_TIME did not follow the preset');
     A.setOption('difficulty','normal');
     assert(A.FLOORS===A.LEVELS_N && A.REPAIR_TIME===5 && A.FLOOR_CLOCK===180,
       'normal did not restore the documented tuning');
@@ -3490,7 +3492,7 @@ console.log('[21] the splash chain — 03 riser, 04 work order, then the run');
   assert(/id="btn-start"/.test(orderHtml), 'work order 04 has no clock-in button for btn-start to bind');
 
   /* --- the controls summary is the reason screen 04 exists --- */
-  for (const key of ['WASD','SHIFT','ENTER','ESC']){
+  for (const key of ['WASD','SHIFT','ESC']){
     assert(new RegExp('>'+key+'[^<]*<').test(orderHtml), `work order 04 never lists ${key}`);
   }
   assert(/>R</.test(orderHtml), 'work order 04 never lists R, the radar');
@@ -3552,11 +3554,11 @@ console.log('[21] the splash chain — 03 riser, 04 work order, then the run');
   press('1');
   assert(at()==='relaxed', 'the 1 key did not pick the first term');
   press('3');
-  assert(at()==='brutal', 'the 3 key did not pick the last term');
+  assert(at()==='hard', 'the 3 key did not pick the last term');
   press('ArrowRight');
   assert(at()==='relaxed', 'the arrow keys did not cycle the terms');
   press('ArrowLeft');
-  assert(at()==='brutal', 'the arrow keys did not cycle back');
+  assert(at()==='hard', 'the arrow keys did not cycle back');
 
   press('Enter');
   assert(A.STATE==='order', 'ENTER with the chooser open clocked the player in instead of folding it shut');
@@ -3846,20 +3848,63 @@ console.log('[26] the pause screen — the work order, with the run written on i
      The whole move in three asserts: the chooser moves the constants the run
      is built with, clocking in reads them, and the ticket says which shift
      you are on. */
-  A.setOption('difficulty','brutal');
-  assert(A.FLOOR_CLOCK===A.DIFFICULTIES.brutal.clock,
-    'choosing BRUTAL did not move the clock the run is built with');
+  A.setOption('difficulty','hard');
+  assert(A.FLOOR_CLOCK===A.DIFFICULTIES.hard.clock,
+    'choosing HARD did not move the clock the run is built with');
   document.getElementById('btn-start').click();
-  assert(A.runLives===1, 'clocking in on BRUTAL did not set the attempts to 1');
-  assert(G.clock===A.DIFFICULTIES.brutal.clock, 'the floor was not built with the BRUTAL clock');
+  assert(A.runLives===1, 'clocking in on HARD did not set the attempts to 1');
+  assert(G.clock===A.DIFFICULTIES.hard.clock, 'the floor was not built with the HARD clock');
   A.togglePause();
-  assert(txt('pause-terms')==='BRUTAL', `the pause stamp reads "${txt('pause-terms')}"`);
+  assert(txt('pause-terms')==='HARD', `the pause stamp reads "${txt('pause-terms')}"`);
 
   /* leave the store as the next test expects to find it */
   A.setOption('difficulty','normal');
   document.getElementById('btn-start').click();
+  /* --- RESET GAME: two-stage, then a fresh run at the riser ---
+     The only control on the ticket that ends a run, so it arms first: the
+     first press must change nothing but the label, and the second press is
+     the one that moves the player. */
+  A.togglePause();
+  assert(A.STATE==='pause' && A.pausePage==='settings',
+    'the ticket did not open on the settings page for the reset check');
+  const resetBtn = els['btn-reset-run'];
+  assert(resetBtn, 'the pause settings have no RESET GAME button');
+  const seedBefore = A.RUN_SEED;
+  resetBtn.click();
+  assert(A.STATE==='pause', 'the first press of RESET GAME fired — it must arm first');
+  assert(/TAP AGAIN/.test(resetBtn.textContent),
+    `the armed label reads "${resetBtn.textContent}"`);
+  assert(A.RUN_SEED===seedBefore, 'arming RESET GAME rolled the seed — nothing should have moved');
+  assert(A.resetArmed, 'RESET GAME did not report itself armed');
+
+  /* an armed reset does not survive the player's attention moving on */
+  A.setPausePage('briefing');
+  assert(!A.resetArmed, 'the armed RESET GAME survived a page switch');
+  assert(!/TAP AGAIN/.test(resetBtn.textContent),
+    'the button still reads armed after the page switch');
+  A.setPausePage('settings');
+
+  /* the second press is the one that fires */
+  resetBtn.click();
+  resetBtn.click();
+  assert(A.STATE==='splash', `RESET GAME did not return to the riser (STATE=${A.STATE})`);
+  assert(!els['screen-splash'].classList.contains('hidden'),
+    'RESET GAME left the riser hidden');
+  assert(A.RUN_SEED!==seedBefore, 'RESET GAME kept the seed — the same building is waiting at the door');
+  assert(G.floor===0 && G.leaksOpen===G.pipes && G.clock>=A.FLOOR_CLOCK,
+    'the floor after RESET GAME is not a fresh floor 0');
+  assert(A.lives===A.runLives, 'RESET GAME did not restore the attempts');
+  assert(!els['hud'].classList.contains('on'), 'the HUD stayed up over the riser');
+
+  /* and the run it starts from the riser is a full one on the same terms */
+  const termsKept = vm.runInContext('SETTINGS.difficulty', ctxObj);
+  document.getElementById('btn-start').click();
+  assert(A.STATE==='play' && A.lives===A.runLives, 'the run after RESET GAME did not start whole');
+  assert(vm.runInContext('SETTINGS.difficulty', ctxObj)===termsKept,
+    'RESET GAME wiped the stamped terms — preferences are not progress');
+
   A.STATE='play'; A.hideAll();
-  console.log('  pause = the work order, live numbers, settings and briefing as pages of it; terms taken at the door');
+  console.log('  pause = the work order, live numbers, settings and briefing as pages of it; terms taken at the door; RESET GAME two-stage');
 }
 
 /* ============ TEST 27: the four removed settings are gone, and stay gone

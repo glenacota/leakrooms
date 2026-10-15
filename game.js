@@ -331,8 +331,8 @@ const DIFFICULTIES = {
              label:'RELAXED' },
   normal:  { lives:3, clock:180, repairTime:5.0, huntBase:3.45, huntStep:0.34,
              label:'NORMAL' },
-  brutal:  { lives:1, clock:150, repairTime:4.0, huntBase:4.05, huntStep:0.42,
-             label:'BRUTAL' },
+  hard:  { lives:1, clock:150, repairTime:4.0, huntBase:4.05, huntStep:0.42,
+             label:'HARD' },
 };
 
 const SETTINGS_DEFAULTS = {
@@ -382,7 +382,7 @@ function loadSettings(){
      version overlaid onto the current SETTINGS, which meant the result
      depended on WHEN it was called: a field absent from the blob kept
      whatever value it happened to hold, so loading a partial blob after a
-     Brutal run left you Brutal. Loading is a total function of the blob and
+     Hard run left you Hard. Loading is a total function of the blob and
      nothing else. */
   SETTINGS = Object.assign({}, SETTINGS_DEFAULTS);
   let raw = null;
@@ -3600,7 +3600,7 @@ let RUN_SEED = (Math.random()*1e9)|0;
 let lives = 3, floorIdx = 0, runTime = 0;
 /* The life pips are drawn from this, not from a hardcoded three. The naive
    version maps over [0,1,2], so RELAXED would render five pips with the fifth
-   always spent and BRUTAL would render three for a one-life run. */
+   always spent and HARD would render three for a one-life run. */
 let runLives = 3;
 /* The run's own totals. G.stat is thrown away and rebuilt by buildFloor, so
    everything it counted died with the floor it was counted on: the win card
@@ -4454,6 +4454,9 @@ let pausePage = 'settings';      // 'settings' | 'briefing'
    floor. */
 function setPausePage(page){
   pausePage = page;
+  /* An armed RESET GAME does not survive the player's attention moving to
+     another page of the ticket. */
+  disarmReset();
   for (const b of document.querySelectorAll('[data-pause-page]'))
     b.classList.toggle('hidden', b.dataset.pausePage !== page);
   for (const t of document.querySelectorAll('[data-pause-tab]'))
@@ -4501,6 +4504,61 @@ function setTermsOpen(v){
        frame goes back to being a splash, and splashes drop held keys. */
     for (const kk in keys) keys[kk] = false;
   }
+}
+
+/* ============================================================
+   RESET GAME
+   The run is the only progress the game keeps — there are no unlocks and no
+   meta, the floor dies with the run — so resetting is one honest act: a new
+   seed, a fresh floor zero, the attempts restored, and the player back on
+   the riser with the same ticket and the same terms they clocked in on. The
+   store is NOT wiped: volume, tint and the stamped terms are preferences,
+   not progress, and a player who resets to escape a bad floor did not ask
+   for the building to forget how they like their water.
+
+   Two-stage, because it is the only control on the ticket that ends a run.
+   The first press arms it and says so on the button; the second press fires.
+   It disarms itself after five seconds, on a page switch, and on resume — an
+   armed reset must never survive the player's attention moving elsewhere,
+   or the next pause fires it by accident.
+   ============================================================ */
+let resetArmed = false;
+let resetArmTimer = 0;
+const RESET_LABEL  = 'RESET GAME';
+const RESET_ARMED  = 'TAP AGAIN — LOSES THE RUN';
+
+function paintResetButton(){
+  const b = document.getElementById('btn-reset-run');
+  if (b) b.textContent = resetArmed ? RESET_ARMED : RESET_LABEL;
+}
+function disarmReset(){
+  resetArmed = false;
+  clearTimeout(resetArmTimer);
+  paintResetButton();
+}
+function armReset(){
+  resetArmed = true;
+  clearTimeout(resetArmTimer);
+  resetArmTimer = setTimeout(disarmReset, 5000);
+  paintResetButton();
+}
+function resetRun(){
+  /* The same path boot walks: a new seed, the floor built from it, the plan
+     painted from the same seed — so the riser shows the building the next
+     run is actually about to be, not a picture of the one just abandoned. */
+  rollRunSeed();
+  floorIdx = 0;
+  runTime = 0;
+  runLives = (DIFFICULTIES[SETTINGS.difficulty] || DIFFICULTIES.normal).lives;
+  lives = runLives;
+  runStat = { noises:0, deaths:0, sealed:0 };
+  renderLives();
+  /* The HUD belongs to a run; the riser is not one. */
+  document.getElementById('hud').classList.remove('on');
+  STATE = 'splash';
+  show('splash');
+  syncAmbience();
+  disarmReset();
 }
 
 function setOption(key, value){
@@ -4577,6 +4635,12 @@ function buildSettingsUI(){
      exactly as it was when it was a settings row. */
   const change = document.getElementById('btn-terms-change');
   if (change) change.onclick = ()=> setTermsOpen(!termsOpen);
+  /* RESET GAME: arm on the first press, fire on the second. */
+  const resetRunBtn = document.getElementById('btn-reset-run');
+  if (resetRunBtn) resetRunBtn.onclick = ()=>{
+    if (!resetArmed){ armReset(); return; }
+    resetRun();
+  };
 }
 
 /* Click anywhere on either splash advances it, so a player who never reads
@@ -4587,7 +4651,7 @@ function buildSettingsUI(){
    Two guards, both for the work order now that it carries controls. A click
    that lands on a control — a term button, a slider, CHANGE, CLOCK IN itself —
    is a choice, not an advance: bubbling it up to the screen is how a player
-   who meant to read the terms starts a run on BRUTAL. And while the chooser
+   who meant to read the terms starts a run on HARD. And while the chooser
    is open, a click on the frame dismisses it the way ESC does, because an
    open chooser is the top layer of the screen. */
 for (const id of ['screen-splash','screen-order']){
@@ -4626,7 +4690,7 @@ function togglePause(){
     set('pause-terms',  (DIFFICULTIES[SETTINGS.difficulty] || DIFFICULTIES.normal).label);
     set('pause-seed',    '#88D-' + (RUN_SEED>>>0).toString(16).toUpperCase().slice(-4));
   }
-  else if (STATE==='pause'){ STATE='play'; hideAll(); }
+  else if (STATE==='pause'){ disarmReset(); STATE='play'; hideAll(); }
 }
 
 function updateHUD(){
@@ -4771,7 +4835,7 @@ function frame(now){
    runs before the first buildFloor so the opening floor is generated with the
    player's depth and repair time already in place. Building the floor first
    and applying after would mean the first floor of a run quietly used NORMAL
-   while the menu said BRUTAL. */
+   while the menu said HARD. */
 resize();
 buildPatterns();
 loadSettings();

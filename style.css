@@ -279,8 +279,9 @@ body{ display:flex; align-items:center; justify-content:center; }
 }
 .setrow.buttons{
   flex-direction:row; gap:12px; justify-content:flex-end;
-  margin-top:18px;
+  margin-top:40px;
 }
+.setrow.buttons button {  font-weight: 900; padding:10px 15px}
 /* auto-fit rather than flex-wrap: a wrapped flex row stretches its lone
    last button to full width, so a 4-option row rendered as 3 + 1 enormous.
    auto-fit collapses the empty tracks, so 2-, 3- and 4-option rows each fill
@@ -317,6 +318,11 @@ button.ghost{
   border:1px solid rgba(228,230,168,.35);
 }
 button.ghost:hover{ background:rgba(228,230,168,.10); color:var(--yellow); }
+/* RESET GAME is the one control on the ticket that ends a run, so it wears
+   the danger accent — the same off-palette red the death screen uses. It is
+   the only red on the ticket apart from a spent life. */
+button.danger{ color:var(--danger); border-color:rgba(216,80,48,.45); }
+button.danger:hover{ background:var(--danger); color:var(--ink); border-color:var(--danger); }
 
 /* ------------------------------------------------------------
    THE PAUSE TICKET'S PAGES
