@@ -44,8 +44,8 @@ const VIEW_T = 27;                // tiles across the viewport
    differ only in what is walking around while you do it. */
 const LEVELS = [
   { leaks:1, forms:1 },   // 1 — one pipe, one thing, learn the round trip
-  { leaks:2, forms:1 },   // 2 — twice the work, still alone with it
-  { leaks:3, forms:2 },   // 3 — the building starts paying attention
+  { leaks:2, forms:2 },   // 2 — twice the work, the building starts paying attention
+  { leaks:3, forms:2 },
   { leaks:4, forms:3 },
   { leaks:4, forms:4 }
 ];
