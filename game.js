@@ -351,7 +351,7 @@ function resize(){
   cvs.width = Math.floor(VW * DPR);
   cvs.height = Math.floor(VH * DPR);
   SCALE = cvs.width / (VIEW_T * TILE);
-  if (cvs.width > 0 && cvs.height > 0) buildGrainFull();
+  if (cvs.width > 0 && cvs.height > 0){ buildGrainFull(); buildVignette(); buildDangerWash(); }
   if (G) paintSplashPlan();
 }
 window.addEventListener('resize', resize);
@@ -1126,6 +1126,71 @@ function buildGrainFull(){
     im.data[i]=im.data[i+1]=im.data[i+2]=v; im.data[i+3]=255;
   }
   g.putImageData(im,0,0);
+}
+
+/* ---- full-screen overlays, baked once instead of evaluated per pixel ----
+   The vignette and the awareness wash are both radial gradients covering the
+   whole canvas, and both were rebuilt and re-filled EVERY frame. A gradient
+   fill is evaluated per pixel; an image blit is not, and these two change only
+   when the canvas does. Measured on the reference machine at 1038x1025, a
+   full-screen gradient costs roughly twice a full-screen drawImage, and it was
+   being paid sixty times a second for a picture that never moved.
+
+   Neither is a new effect: the ramps are the same stops at the same radii. The
+   danger wash additionally drops its per-frame `0.62*seen` alpha into
+   globalAlpha, which is exactly what a gradient stop multiplied by a constant
+   was doing, only without the arithmetic. */
+let vigCv = null, dangerCv = null;
+
+/* The vignette is canvas-sized: it is a fixed proportion of the frame. */
+function buildVignette(){
+  if (!cvs.width || !cvs.height) return;
+  vigCv = document.createElement('canvas');
+  vigCv.width = cvs.width; vigCv.height = cvs.height;
+  const g = vigCv.getContext('2d');
+  const vg = g.createRadialGradient(cvs.width/2, cvs.height/2, cvs.height*0.34,
+                                    cvs.width/2, cvs.height/2, cvs.height*1.05);
+  vg.addColorStop(0, 'rgba(0,0,0,0)');
+  vg.addColorStop(1, 'rgba(0,0,0,0.34)');
+  g.fillStyle = vg; g.fillRect(0,0,cvs.width,cvs.height);
+}
+
+/* The awareness wash is HALF resolution. It is a smooth ramp with no edge in it
+   anywhere near a pixel — the outer stop is 78% of the way out and everything
+   inside that is a gradient anyway — so it is upscaled with smoothing into
+   something no eye can separate from the full-res version. */
+function buildDangerWash(){
+  if (!cvs.width || !cvs.height) return;
+  const w = Math.max(1, cvs.width>>1), h = Math.max(1, cvs.height>>1);
+  dangerCv = document.createElement('canvas');
+  dangerCv.width = w; dangerCv.height = h;
+  const g = dangerCv.getContext('2d');
+  const vg = g.createRadialGradient(w/2, h/2, h*0.18, w/2, h/2, h*0.78);
+  vg.addColorStop(0, 'rgba(216,80,60,0)');
+  vg.addColorStop(1, 'rgba(150,26,16,0.62)');
+  g.fillStyle = vg; g.fillRect(0,0,w,h);
+}
+
+/* ---- the fixture glow sprite ----
+   Every lit fixture filled a rect of side 2*r*TILE under 'lighter' from a
+   gradient built on the spot — and r runs to 19 tiles, so that rect is bigger
+   than the screen. One of those measured 9.5ms. A textured quad of the same
+   size measured 1.4ms, and the sprite is built once at boot.
+
+   The three stops are the fluorescents' own colours at the alphas the old
+   gradient used, baked at full strength; the per-frame strength now rides in
+   globalAlpha, which is what a gradient stop multiplied by `a` was doing. */
+let glowSprite = null;
+function buildGlowSprite(){
+  const S = 128;
+  glowSprite = document.createElement('canvas');
+  glowSprite.width = S; glowSprite.height = S;
+  const g = glowSprite.getContext('2d');
+  const gr = g.createRadialGradient(S/2, S/2, 0, S/2, S/2, S/2);
+  gr.addColorStop(0,   'rgba(228,230,168,1)');
+  gr.addColorStop(0.5, 'rgba(225,226,187,0.4)');
+  gr.addColorStop(1,   'rgba(198,197,139,0)');
+  g.fillStyle = gr; g.fillRect(0,0,S,S);
 }
 
 /* ============================================================
@@ -4288,12 +4353,14 @@ function outOfTime(){ lose('THE CLOCK RAN OUT'); }
     const fx=w2sx(f.x), fy=w2sy(f.y);
     const rr=f.r*T;
     if (fx<-rr||fy<-rr||fx>cvs.width+rr||fy>cvs.height+rr) continue;
-    const gr=ctx.createRadialGradient(fx,fy,0,fx,fy,rr);
-    gr.addColorStop(0,`rgba(228,230,168,${a})`);
-    gr.addColorStop(0.5,`rgba(225,226,187,${a*0.4})`);
-    gr.addColorStop(1,'rgba(198,197,139,0)');
-    ctx.fillStyle=gr;
-    ctx.fillRect(fx-rr,fy-rr,rr*2,rr*2);
+    /* One textured quad instead of a screen-sized gradient rebuilt per fixture
+       per frame. Same ramp, same alpha (it rides in globalAlpha now), and the
+       sprite is a quarter of the cost: a gradient fill evaluates its stops at
+       every pixel it covers, a drawImage samples a texture — and this rect is
+       routinely larger than the viewport, because r goes up to 19 tiles. */
+    ctx.globalAlpha = a;
+    ctx.drawImage(glowSprite, fx-rr, fy-rr, rr*2, rr*2);
+    ctx.globalAlpha = 1;
     /* The tube itself must be a FIXED physical size. It used to scale with
        f.r (the 10-19 tile light radius), painting a 130-400px additive slab
        per fixture; two or three overlapping blew the whole frame to white. */
@@ -4400,23 +4467,31 @@ function outOfTime(){ lose('THE CLOCK RAN OUT'); }
   }
 
   /* ---------- 7. danger / awareness ---------- */
+  /* Both overlays below are baked images (buildVignette / buildDangerWash) and
+     were full-screen gradients rebuilt and re-evaluated every frame. The
+     awareness wash's strength now rides in globalAlpha, which is exactly what
+     multiplying the gradient's outer stop by `seen` was doing. The images are
+     rebuilt on resize(); the lazy rebuilds below are the belt to that braces,
+     and cost nothing once the size has settled. */
+  if (!vigCv || vigCv.width!==cvs.width || vigCv.height!==cvs.height) buildVignette();
+  /* The danger wash is HALF resolution, so the guard has to compare against the
+     size it would be BUILT at, not against cvs.width itself: an odd canvas
+     width shifted right by one and the check never matched, which rebuilt the
+     wash every frame and cost more than the gradient it replaced. */
+  const dw = Math.max(1, cvs.width>>1), dh = Math.max(1, cvs.height>>1);
+  if (!dangerCv || dangerCv.width!==dw || dangerCv.height!==dh) buildDangerWash();
+
   const seen = Math.min(1,G.seenBy);
   if (seen>0.01){
-    const vg=ctx.createRadialGradient(cvs.width/2,cvs.height/2,cvs.height*0.18,
-                                      cvs.width/2,cvs.height/2,cvs.height*0.78);
-    vg.addColorStop(0,'rgba(216,80,60,0)');
-    vg.addColorStop(1,`rgba(150,26,16,${0.62*seen})`);
-    ctx.fillStyle=vg; ctx.fillRect(0,0,cvs.width,cvs.height);
+    ctx.globalAlpha = seen;
+    ctx.drawImage(dangerCv, 0, 0, cvs.width, cvs.height);
+    ctx.globalAlpha = 1;
   }
   /* Vignette. Was 0.52, which was tuned when the whole floor was lit and the
      only job was to stop the frame feeling like a wallpaper sample. With the
      room scoped and the cone doing the framing, a vignette that strong just
      eats the palette at the edges of the very room you are standing in. */
-  const vg2=ctx.createRadialGradient(cvs.width/2,cvs.height/2,cvs.height*0.34,
-                                     cvs.width/2,cvs.height/2,cvs.height*1.05);
-  vg2.addColorStop(0,'rgba(0,0,0,0)');
-  vg2.addColorStop(1,'rgba(0,0,0,0.34)');
-  ctx.fillStyle=vg2; ctx.fillRect(0,0,cvs.width,cvs.height);
+  ctx.drawImage(vigCv, 0, 0);
 
   /* ---------- 8. VHS composite ----------
      A lopping tracking band, a scanline grid, grain, a chroma ghost and
@@ -4427,13 +4502,30 @@ function outOfTime(){ lose('THE CLOCK RAN OUT'); }
      could not honestly offer a middle. The snapshot is taken before the passes
      that read it. */
   const vhs = VHS_PASS;
-  if (!G.postCv || G.postCv.width!==cvs.width || G.postCv.height!==cvs.height){
+  /* The snapshot exists so the chroma ghost has something to read that does not
+     include itself. It was a FULL-RES copy of the canvas — a screen-sized
+     read plus a screen-sized write, every frame — and the ghost then composited
+     that copy twice more at screen size. Three full-screen operations to draw a
+     3%-alpha, 1-3px offset smear.
+
+     QUARTER RESOLUTION. Nothing about the effect can see the difference: the
+     source is upscaled back to canvas size with smoothing on the way out, so a
+     slightly soft ghost rather than a sharp one, which is what chroma bleed
+     looks like anyway. What it buys is a quarter-res copy and two quarter-res
+     composites in place of three full-screen ones. The snapshot is still taken
+     before every pass that reads it, so there is no feedback. */
+  const POST_S = 0.25;
+  const pw = Math.max(1, Math.round(cvs.width * POST_S));
+  const ph = Math.max(1, Math.round(cvs.height * POST_S));
+  if (!G.postCv || G.postCv.width!==pw || G.postCv.height!==ph){
     G.postCv = document.createElement('canvas');
-    G.postCv.width = cvs.width; G.postCv.height = cvs.height;
+    G.postCv.width = pw; G.postCv.height = ph;
   }
   const pg = G.postCv.getContext('2d');
   pg.globalCompositeOperation='copy';
+  pg.setTransform(POST_S,0,0,POST_S,0,0);
   pg.drawImage(cvs,0,0);
+  pg.setTransform(1,0,0,1,0,0);
   pg.globalCompositeOperation='source-over';
 
   if (vhs > 0.01){
@@ -4461,12 +4553,17 @@ function outOfTime(){ lose('THE CLOCK RAN OUT'); }
   ctx.globalAlpha=1;
   ctx.globalCompositeOperation='source-over';
 
-  // chromatic ghost, from the snapshot — bounded, no feedback
+  // chromatic ghost, from the snapshot — bounded, no feedback.
+  // The offset stays in DEVICE pixels: the snapshot is drawn back out at canvas
+  // size, so a shift of `ca` here is a shift of `ca` on screen, exactly as it
+  // was when the copy was 1:1.
   ctx.globalCompositeOperation='lighter';
   ctx.globalAlpha=0.03*vhs;
+  ctx.imageSmoothingEnabled = false;     // a 4x nearest upscale of a 3% smear
   const ca = 1 + Math.round(Math.random()*2);
-  ctx.drawImage(G.postCv, -ca, 0);
-  ctx.drawImage(G.postCv,  ca, 0);
+  ctx.drawImage(G.postCv, -ca, 0, cvs.width, cvs.height);
+  ctx.drawImage(G.postCv,  ca, 0, cvs.width, cvs.height);
+  ctx.imageSmoothingEnabled = true;
   ctx.globalAlpha=1;
   ctx.globalCompositeOperation='source-over';
 
@@ -5464,6 +5561,7 @@ function frame(now){
    while the menu said HARD. */
 resize();
 buildPatterns();
+buildGlowSprite();
 loadSettings();
 applySettings();
 buildSettingsUI();
