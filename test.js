@@ -12,7 +12,11 @@
    circle-vs-tile-AABB) rather than calling the game's own blocked(), so the
    two have to agree independently.
    ============================================================ */
-const fs = require('fs');
+import fs from 'node:fs';
+import vm from 'node:vm';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
 const calls = { pattern:0, imageData:0, gradient:0, list:[] };
 
@@ -194,7 +198,6 @@ global.localStorage = {
 
 /* ---- load game.js into this context ---- */
 const src = fs.readFileSync(__dirname + '/game.js','utf8');
-const vm = require('vm');
 const ctxObj = vm.createContext(global);
 vm.runInContext(src, ctxObj, { filename:'game.js' });
 

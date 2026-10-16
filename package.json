@@ -1,0 +1,9 @@
+{
+  "name": "leakrooms",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node test.js",
+    "serve": "node tools/serve.mjs"
+  }
+}
