@@ -260,6 +260,7 @@ globalThis.__api = {
   get LEAK_NOISE_BASE(){ return LEAK_NOISE_BASE; },
   get LEAK_NOISE_GAIN(){ return LEAK_NOISE_GAIN; },
   get LEAK_SPREAD(){ return LEAK_SPREAD; },
+  get LEAK_RETREAT(){ return LEAK_RETREAT; },
   get WET_RISE(){ return WET_RISE; },
   get LEAK_LURE(){ return LEAK_LURE; },
   get WALK(){ return WALK; }, get SPRINT(){ return SPRINT; },
@@ -2129,37 +2130,49 @@ console.log('[15] the pipes — placement, reachability, and the flood field');
     for (const L of G.leaks) A.sealLeak(L);
     assert(G.leaksOpen===0, 'the level still has open pipes — nothing to recede from');
 
-    /* 1. the waterline is symmetric */
+    /* 1. the waterline goes out faster than it came in, at the stated rate.
+
+       Twenty seconds, not sixty: the front starts about 32 tiles out on this
+       seed, so a full minute of recession would walk it back past the pipes and
+       clamp at zero — which reads as a pass at any rate at all. Short enough
+       that the front is still moving and the measurement is of the RATE. */
     const f0 = A.internals.wetFront;
-    run(60);
+    const T = 20;
+    run(T);
     const rec = f0 - A.internals.wetFront;
     assert(Math.abs(adv - 60/A.LEAK_SPREAD) < 0.5,
       `the flood advanced ${adv.toFixed(2)} tiles in 60s, want ${(60/A.LEAK_SPREAD).toFixed(2)}`);
-    assert(Math.abs(rec - adv) < 0.5,
-      `the flood receded ${rec.toFixed(2)} tiles in 60s but advanced ${adv.toFixed(2)} — `+
-      'the waterline is not symmetric');
-    assert(Math.abs(rec - 60/A.WET_FALL) > 1,
+    assert(Math.abs(rec - T/A.LEAK_RETREAT) < 0.5,
+      `the flood receded ${rec.toFixed(2)} tiles in ${T}s, want ${(T/A.LEAK_RETREAT).toFixed(2)}`);
+    assert(A.LEAK_RETREAT < A.LEAK_SPREAD,
+      `the recession (${A.LEAK_RETREAT}s/tile) is not outrunning the arrival `+
+      `(${A.LEAK_SPREAD}s/tile) — the drain is a mop-up again`);
+    assert(Math.abs(rec - T/A.WET_FALL) > 1,
       'the recession is still running at the old WET_FALL pace');
 
-    /* 2. and the water is actually going with it — checked on the array AND on
-       the packed image, because "the flood recedes" and "the flood is visible
-       receding" are different claims and only one of them is the game. */
-    const cover1 = G.floodCover, wet1 = wetCount(), px1 = drawnTiles();
-    assert(cover1 < cover0*0.7, `coverage only fell ${(cover0*100).toFixed(0)}% -> ${(cover1*100).toFixed(0)}%`);
-    assert(wet1 < wet0*0.7, `${wet0} wet tiles became ${wet1} — the water is not going anywhere`);
-    assert(px1 < px0*0.8, `${px0} wet tiles still draw as ${px1} — the image is not drying`);
-
-    /* 3. no stranded ring. The tile the waterline abandons FIRST is the one the
-       old bound dropped on the frame it was passed, and it is the single tile
-       whose behaviour distinguishes "receding" from "the front moved". */
+    /* 2. no stranded ring, measured while there is still a waterline. The tile
+       the front abandons FIRST is the one the old bound dropped on the frame it
+       was passed, and it is the single tile whose behaviour distinguishes
+       "receding" from "the front moved". This has to run before the floor is
+       fully drained — once the front hits the pipes every tile is outside it and
+       there is no longer anything to compare. */
     let outer=-1;
     for (let i=0;i<N;i++) if (A.internals.waterDist[i] > 0 && A.internals.waterDist[i] <= f0-3 && A.internals.wetArr[i] > 0.5){ outer=i; break; }
     assert(outer>=0, 'no wet tile outside the front to watch — the test cannot see the bug');
     const wOuter = A.internals.wetArr[outer];
-    run(20);
+    run(T);
     assert(A.internals.wetArr[outer] < wOuter*0.7,
       `a tile the waterline abandoned is still at ${A.internals.wetArr[outer].toFixed(2)} — `+
       'it was dropped from the pass and never dried');
+
+    /* 3. and the water is actually going with it — checked on the array AND on
+       the packed image, because "the flood recedes" and "the flood is visible
+       receding" are different claims and only one of them is the game. */
+    run(20);   // 60s of recession in total, enough to be a flood on the floor
+    const cover1 = G.floodCover, wet1 = wetCount(), px1 = drawnTiles();
+    assert(cover1 < cover0*0.7, `coverage only fell ${(cover0*100).toFixed(0)}% -> ${(cover1*100).toFixed(0)}%`);
+    assert(wet1 < wet0*0.7, `${wet0} wet tiles became ${wet1} — the water is not going anywhere`);
+    assert(px1 < px0*0.8, `${px0} wet tiles still draw as ${px1} — the image is not drying`);
 
     /* 4. and it ends up dry */
     run(600);
@@ -3069,6 +3082,32 @@ console.log('[22] the run — five levels, three minutes, one door');
          floor was a lake inside half a minute and following it downhill stopped
          being something a player does. --- */
   assert(A.LEAK_SPREAD >= 3, `the water front is ${A.LEAK_SPREAD}s per tile — that is the old, unreadable speed`);
+  /* ...and the recession has to clear the building inside the clock it is
+     played against. The flood reaches G.wetMaxDist, which is 82-148 tiles out
+     depending on the floor, so the drain is measured against the largest of
+     those rather than against the arrival pace. */
+  assert(A.LEAK_RETREAT < A.LEAK_SPREAD,
+    `the recession is ${A.LEAK_RETREAT}s/tile against an arrival of ${A.LEAK_SPREAD} — the drain is a mop-up`);
+  /* A TYPICAL floor, not the worst one. G.wetMaxDist runs 82-148 tiles out
+     depending on the floor and the seed, and a floor flooded all the way to its
+     far corner SHOULD still be draining when the clock goes — that is what a
+     drowned level costs you. What must not happen is a normal floor still
+     soaking on the walk home, so the bound is the mid-range floor (about 110
+     tiles) plus the tail after the front reaches the pipes: the last tiles fade
+     from 1 to the WET_EDGE snap in roughly ln(1/0.012) time constants. */
+  assert(110*A.LEAK_RETREAT + 25 < A.FLOOR_CLOCK,
+    `a typical floor (110 tiles at ${A.LEAK_RETREAT}s plus the tail) does not drain inside the ${A.FLOOR_CLOCK}s clock`);
+  /* The wet band between dry carpet and open flood, in tiles, on both sides.
+     It is what makes the waterline read as a shore rather than a hard edge,
+     and it is only a band while the two directions agree. */
+  {
+    const bandUp   = A.WET_RISE / A.LEAK_SPREAD;
+    const bandDown = A.WET_FALL / A.LEAK_RETREAT;
+    assert(bandDown >= bandUp*0.9,
+      `the wet band going out is ${bandDown.toFixed(1)} tiles against ${bandUp.toFixed(1)} coming in — `+
+      'the recession dries faster than the waterline leaves and the edge goes hard');
+    console.log(`  soak band: ${bandUp.toFixed(1)} tiles in, ${bandDown.toFixed(1)} tiles out`);
+  }
   {
     /* measured, not asserted from the constant: 20 seconds of play must not
        move the waterline more than a few tiles. */

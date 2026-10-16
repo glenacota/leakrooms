@@ -151,19 +151,41 @@ const PIPE_GAP = 12;
    readable set of "tiles the water has got to" stays a set you can hold in your
    head for the length of a journey. The flood is a cue and a clock, not an
    event. */
-const LEAK_SPREAD  = 3.2;    // s of travel per tile — the water front's speed
+const LEAK_SPREAD  = 3.2;    // s of travel per tile — the water front's speed, going OUT
+/* The recession walks back at its OWN speed, and it is nearly three times
+   faster than the arrival. It used to be tied to LEAK_SPREAD on purpose, on the
+   argument that a floor should un-flood in the time it took to flood and the
+   tide you watched arrive is the tide you watch leave. The argument is wrong
+   about the size of the thing: water spreads until it reaches the far side of
+   the building — G.wetMaxDist is 82 to 148 tiles out there depending on the
+   floor — so a symmetric recession is a five to eight minute mop-up, longer
+   than the 180s clock the whole level is played against, and the player walks
+   home through a wet building for minutes after the objective is done.
+
+   The symmetry was legible; the length was not. Draining three times faster
+   keeps the recession radial and readable — the waterline still pulls back
+   from the edges inward, away from the pipes — and hands the player back a
+   dry-ish floor inside the time they are still playing. */
+const LEAK_RETREAT = 0.5;   // s of travel per tile — the water front's speed, going IN
 /* The two SOAK constants, not the front. They answer "how long does one tile
    take to darken once the waterline reaches it, and how long to fade once the
    waterline has left it" — which is a different question from how fast the
    waterline itself moves, and it was conflated with it until the recession was
    tied to the arrival pace.
 
-   WET_FALL being half of WET_RISE is what makes the shoreline read as a shore:
-   the waterline pulls away at LEAK_SPREAD and the tiles it uncovers take longer
-   to fade than it took to reach them, so there is always a wet band between dry
-   carpet and open flood. Reverse the two and the edge goes hard. */
+   WET_FALL being at least half of WET_RISE, and the recession outrunning the
+   arrival, is what makes the shoreline read as a shore: the waterline pulls
+   away faster than the tiles it uncovers take to fade, so there is always a
+   wet band between dry carpet and open flood. Move them together and the edge
+   goes hard.
+
+   The ratio that actually holds the band open is fade-time over retreat-speed,
+   measured against rise-time over spread-speed: 14/3.2 = 4.4 tiles of soak
+   arriving, 5.0/1.1 = 4.5 tiles on the way out. Same width, both directions.
+   Drop WET_FALL below that and the last tiles pop from dry to flooded with
+   nothing soft in between. */
 const WET_RISE     = 14.0;   // s for a soaked tile to go 0 -> 1
-const WET_FALL     = 7.0;    // s for an abandoned tile to go 1 -> 0
+const WET_FALL     = 5.0;    // s for an abandoned tile to go 1 -> 0
 const LEAK_NOISE_BASE = 0.16;   // a quiet drip, heard ~6 tiles
 const LEAK_NOISE_GAIN = 0.26;   // added as the floor drowns; still under LOUD
 const LEAK_LURE    = 0.42;   // tiles: a SEARCHING entity drifts this close
@@ -2357,23 +2379,24 @@ function sealLeak(L){
 function tickFlood(dt){
   if (!G.leaks.length || !G.wetArr) return;
 
-  /* RISING while any pipe is open, FALLING once all are sealed — AT THE SAME
-     PACE. The waterline goes back out at exactly one tile per LEAK_SPREAD
-     second, the rate it came in at, and that symmetry is the point: the floor
-     un-floods in the time it took to flood, so the tide you watched arrive is
-     the tide you watch leave, and the recession is legible as a recession.
+  /* RISING while any pipe is open, FALLING once all are sealed — and NOT at the
+     same pace. The waterline goes back out at one tile per LEAK_RETREAT second,
+     nearly three times the rate it came in at. That asymmetry is deliberate: the
+     flood runs to the far side of the building (G.wetMaxDist is 82-148 tiles out
+     depending on the floor), so a symmetric recession is a five to eight minute
+     mop-up — longer than FLOOR_CLOCK, and it means walking home through standing
+     water for minutes after the objective is already done.
 
-     It used to run at one tile per WET_FALL (7s against an arrival of 3.2), so
-     the water went out at less than half the speed it came in and the two halves
-     of the same event looked like different events. Deriving the retreat from
-     the front rather than from a separate "drain everything" pass is also what
-     keeps it radial — water recedes from the edges inward, away from the pipes,
-     which is what you would see on a real level and not what a uniform fade
-     would give you. */
+     It used to run at one tile per WET_FALL (7s against an arrival of 3.2), and
+     then at exactly LEAK_SPREAD once the two were unified. Both were slower than
+     the clock allows. What has to survive any of that is that the recession stays
+     RADIAL — derived from the front, not a separate "drain everything" pass — so
+     water recedes from the edges inward, away from the pipes, which is what you
+     would see on a real level and not what a uniform fade gives you. */
   const prev = G.wetFront;
   const front = G.leaksOpen > 0
     ? Math.min(G.wetMaxDist, prev + dt/LEAK_SPREAD)
-    : Math.max(0, prev - dt/LEAK_SPREAD);
+    : Math.max(0, prev - dt/LEAK_RETREAT);
   G.wetFront = front;
   /* A STILL FRONT IS NOT SETTLED WATER. The fade is a time constant, so it
      approaches zero without ever arriving, and the only true "nothing to do" is
