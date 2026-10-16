@@ -2139,18 +2139,35 @@ console.log('[15] the pipes — placement, reachability, and the flood field');
 
     /* 1. the waterline goes out faster than it came in, at the stated rate.
 
-       Twenty seconds, not sixty: the front starts about 32 tiles out on this
-       seed, so a full minute of recession would walk it back past the pipes and
-       clamp at zero — which reads as a pass at any rate at all. Short enough
-       that the front is still moving and the measurement is of the RATE. */
+       The window has to be short enough that the front is STILL MOVING when
+       the clock stops. A recession long enough to walk the front back past the
+       pipes clamps at zero, and a clamped measurement passes at any rate at
+       all — it is a tautology, not a test.
+
+       So the window is DERIVED from where the front actually is on this seed
+       rather than written down: 60% of the way back to the pipes. Long enough
+       to measure a rate, never long enough to clamp, and correct for any value
+       of LEAK_RETREAT.
+
+       It used to be a hard-coded 20 seconds, and the reasoning written beside
+       it ("the front starts about 32 tiles out, so a full minute would clamp")
+       was sound — at LEAK_RETREAT of 1.0, where 20 seconds is 20 tiles and the
+       front is still 12 out afterwards. Dropping the constant to 0.5 asked the
+       same 20 seconds for 40 tiles of recession from a front 32 tiles out, so
+       every run clamped at the pipes and the rate assertion below went on
+       reporting the clamp instead of the rate. The comment was right and the
+       number went stale under it; deriving it is what keeps the claim honest
+       the next time the drain is retuned. */
     const f0 = A.internals.wetFront;
-    const T = 20;
+    const T = Math.max(2, Math.min(20, Math.floor(f0 * A.LEAK_RETREAT * 0.6)));
     run(T);
     const rec = f0 - A.internals.wetFront;
     assert(Math.abs(adv - 60/A.LEAK_SPREAD) < 0.5,
       `the flood advanced ${adv.toFixed(2)} tiles in 60s, want ${(60/A.LEAK_SPREAD).toFixed(2)}`);
     assert(Math.abs(rec - T/A.LEAK_RETREAT) < 0.5,
       `the flood receded ${rec.toFixed(2)} tiles in ${T}s, want ${(T/A.LEAK_RETREAT).toFixed(2)}`);
+    assert(A.internals.wetFront > 0,
+      `the front reached the pipes after ${T}s — the window is too long to measure a rate`);
     assert(A.LEAK_RETREAT < A.LEAK_SPREAD,
       `the recession (${A.LEAK_RETREAT}s/tile) is not outrunning the arrival `+
       `(${A.LEAK_SPREAD}s/tile) — the drain is a mop-up again`);
@@ -2162,10 +2179,25 @@ console.log('[15] the pipes — placement, reachability, and the flood field');
        was passed, and it is the single tile whose behaviour distinguishes
        "receding" from "the front moved". This has to run before the floor is
        fully drained — once the front hits the pipes every tile is outside it and
-       there is no longer anything to compare. */
+       there is no longer anything to compare.
+
+       The tile is picked from the band the front crosses in THIS window —
+       outside where the front is now, inside it by the time the window ends.
+       Picking it by "some wet tile nearer than the front was" instead put the
+       choice at the mercy of the scan order: the lowest flat index in the map
+       can be a tile the front has not reached yet, which is still inside the
+       waterline and is supposed to be wet. Naming the band makes the claim
+       independent of both the seed and the row order. */
+    const f1 = A.internals.wetFront;
+    const lo = Math.max(0, f1 - T/A.LEAK_RETREAT), hi = f1 - 1;
     let outer=-1;
-    for (let i=0;i<N;i++) if (A.internals.waterDist[i] > 0 && A.internals.waterDist[i] <= f0-3 && A.internals.wetArr[i] > 0.5){ outer=i; break; }
-    assert(outer>=0, 'no wet tile outside the front to watch — the test cannot see the bug');
+    for (let i=0;i<N;i++){
+      const d = A.internals.waterDist[i];
+      if (d > lo && d <= hi && A.internals.wetArr[i] > 0.5){ outer=i; break; }
+    }
+    assert(outer>=0,
+      `no wet tile in the band the front crosses next (${lo.toFixed(1)}..${hi.toFixed(1)} tiles) `+
+      '— the test cannot see the bug');
     const wOuter = A.internals.wetArr[outer];
     run(T);
     assert(A.internals.wetArr[outer] < wOuter*0.7,
@@ -2175,7 +2207,7 @@ console.log('[15] the pipes — placement, reachability, and the flood field');
     /* 3. and the water is actually going with it — checked on the array AND on
        the packed image, because "the flood recedes" and "the flood is visible
        receding" are different claims and only one of them is the game. */
-    run(20);   // 60s of recession in total, enough to be a flood on the floor
+    run(20);   // long past the point where the front is home, which is the point
     const cover1 = G.floodCover, wet1 = wetCount(), px1 = drawnTiles();
     assert(cover1 < cover0*0.7, `coverage only fell ${(cover0*100).toFixed(0)}% -> ${(cover1*100).toFixed(0)}%`);
     assert(wet1 < wet0*0.7, `${wet0} wet tiles became ${wet1} — the water is not going anywhere`);
