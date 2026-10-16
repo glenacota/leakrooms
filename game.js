@@ -15,18 +15,20 @@
      It RISES when it hears you. That 1.4s animation is your window.
    ============================================================ */ 
 
+import { mulberry32 } from './util/rng.js';
+import { hash2 } from './util/hash.js';
+import { LEVELS, LEVELS_N } from './config/levels.js';
+import { PAL } from './config/palette.js';
+import * as _C from './config/constants.js';
+const { BAKE_FLOOR, BATT_MAX, BRUSH_NOISE, CATCH_R, DARK_ROOM, DIFFICULTIES, DOOR_AJAR, DOOR_EASE, DOOR_HOLD, DOOR_NOISE, FLICKER_DEPTH, HAND_OFF, HOP_FALL, LEAK_HEADSTART, LEAK_LURE, LEAK_NOISE_BASE, LEAK_NOISE_GAIN, LEAK_RETREAT, LEAK_SPREAD, LIGHT_FADE, LIGHT_FADE_STEPS, LOUD, LS, MAP_H, MAP_W, MASK_TAU, NOISE_FS, PIPE_FAR, PIPE_GAP, R, RA, RADAR_DRAIN, RENDER_SCALES, REPAIR_DECAY, REPAIR_NOISE, REPAIR_REACH, SCALE_BAD_FRAMES, SCALE_DROP_MS, SCALE_GOOD_FRAMES, SCALE_RECOVER_MS, SETTINGS_DEFAULTS, SETTINGS_KEY, SETTINGS_SCHEMA, SHEEN_STEPS, SPRINT, SPRINT_NOISE, TILE, VHS_PASS, VIEW_DEG, VIEW_FADE_FAR, VIEW_FADE_NEAR, VIEW_HALF, VIEW_MID, VIEW_RANGE, VIEW_RAYS, VIEW_T, WALK, WALL, WALL_FACE, WATER_TINTS, WET_DRAW, WET_EDGE, WET_FALL, WET_RISE, FLOOR } = _C;
+const cvs = document.getElementById('game');
+const ctx = cvs.getContext('2d', { alpha:false });
+const sheenBuckets = Array.from({length:SHEEN_STEPS},
+  ()=>({ n:0, x0:0, y0:0, x1:0, y1:0 }));
+
 /* ---------- deterministic RNG ---------- */
-function mulberry32(a){
-  return function(){
-    a |= 0; a = (a + 0x6D2B79F5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
 
 /* ---------- tuning ---------- */
-const TILE   = 40;
 /* The lit face of a wall: how tall the wallpaper band is, as a fraction of a
    tile. It is drawn into the carpet tile BELOW each wall that has floor to its
    south (bakeTiles), and it is the surface the door is painted on — so the
@@ -45,77 +47,26 @@ const TILE   = 40;
    same tile for TILE*0.5, so the face covers all but the last 1.6px of it and
    the height cue it exists to sell is very nearly gone already. Anything that
    makes the face taller finishes it off. */
-const WALL_FACE = TILE*0.46;
-const LS     = 4;                 // light samples per tile
-const MAP_W  = 76;
-const MAP_H  = 76;
-const VIEW_T = 27;                // tiles across the viewport
-/* ---------- THE FIVE LEVELS ----------
-   Fixed content, not a difficulty curve the presets tune: this is the shape of
-   the run. Each level is a floor you enter through one door, a set of burst
-   pipes to find and seal, and a set of things in the building with you.
-
-   `leaks` is the work — how many bursts to find, seal and then walk back from.
-   `forms` is the pressure, and it deliberately does NOT track `leaks`: level 2
-   has twice the work of level 1 and exactly the same number of things hunting
-   for you, so the second level teaches the round trip (seal, then get back)
-   before the building ever gets crowded. Levels 4 and 5 share four pipes and
-   differ only in what is walking around while you do it. */
-const LEVELS = [
-  { leaks:1, forms:1 },   // 1 — one pipe, one thing, learn the round trip
-  { leaks:2, forms:2 },   // 2 — twice the work, the building starts paying attention
-  { leaks:3, forms:2 },
-  { leaks:4, forms:3 },
-  { leaks:4, forms:4 }
-];
-const LEVELS_N = LEVELS.length;
 /* How long you have on each level to seal every pipe and get back to the door
    you came in through. This is the whole pressure of a floor: the water is the
    clock's excuse, the walk back is what it actually spends. */
 let FLOOR_CLOCK = 180;      // seconds; NORMAL
+let HUNT_BASE   = 3.45;           // tiles/sec, a committed Lifeform on level 1
+let HUNT_STEP   = 0.34;           // extra per level
+let REPAIR_TIME = 5.0;    // seconds of unbroken contact to seal the pipe
 
 /* --- the door ---
    The one door on the floor is a leaf on a hinge, not a rectangle of colour,
    so these are the three numbers that describe how it behaves. */
-const DOOR_HOLD = 1.5;      // seconds standing at it
-const DOOR_AJAR = 0.34;     // the swing it rests at once the pipes are sealed
-const DOOR_EASE = 6;        // per second; leaves the frame looking at a door
-
-/* These are `let` rather than `const` because the settings modal drives
-   them. Their initialisers are the NORMAL preset and are the documented
-   tuning; applySettings() overwrites them at load. The noise table below is
-   NOT among them, and deliberately so — see the difficulty note. */
-let FLOORS      = LEVELS_N;       // every preset plays all five; see DIFFICULTIES
-let HUNT_BASE   = 3.45;           // tiles/sec, a committed Lifeform on level 1
-let HUNT_STEP   = 0.34;           // extra per level
-
-const WALK   = 3.3;               // tiles/sec
-const SPRINT = 6.0;
-const R      = 0.33;              // player collision radius (tiles)
-const RA     = 0.34;              // Lifeform collision radius (bulkier)
-
-/* THE HIT ZONE. brush() kills at this distance, and the Stalker draws a disc
-   of exactly this radius under itself, so the thing that can touch you is
-   visible rather than implied. One constant, two readers: if the radius ever
-   moves, the picture moves with it. */
-const CATCH_R = 0.52;
 /* How far in front of the body the character holds their gear, in tiles. This
    is both where the vision cone originates and where the device is drawn on
    the avatar, so the two can never disagree. */
-const HAND_OFF = 0.135;
 
-const BATT_MAX   = 100;
 /* The radar is the only tool, and it is expensive. At 5.6/s a full battery is
    under 18 seconds of sweep — long enough to cross a floor or two, never long
    enough to leave it running. The torch it replaced drained 2.4/s and could be
    held indefinitely, which made the budget a formality rather than a decision;
    this one has to be switched off and thought about. */
-const RADAR_DRAIN = 5.6;          // per second while sweeping
-/* How far apart two pipes may be placed, in tiles. Without it the placement
-   loop — which always takes the farthest candidate — stacks every burst in the
-   same far corner of the floor, and four pipes become one pipes you seal four
-   times in the same five seconds. The floor has to be a tour. */
-const PIPE_GAP = 12;
 
 /* ---------- THE LEAK ----------
    You are not here to hunt. You are here because a pipe is burst somewhere in
@@ -151,69 +102,6 @@ const PIPE_GAP = 12;
    readable set of "tiles the water has got to" stays a set you can hold in your
    head for the length of a journey. The flood is a cue and a clock, not an
    event. */
-const LEAK_SPREAD  = 3.2;    // s of travel per tile — the water front's speed, going OUT
-/* The recession walks back at its OWN speed, and it is nearly three times
-   faster than the arrival. It used to be tied to LEAK_SPREAD on purpose, on the
-   argument that a floor should un-flood in the time it took to flood and the
-   tide you watched arrive is the tide you watch leave. The argument is wrong
-   about the size of the thing: water spreads until it reaches the far side of
-   the building — G.wetMaxDist is 82 to 148 tiles out there depending on the
-   floor — so a symmetric recession is a five to eight minute mop-up, longer
-   than the 180s clock the whole level is played against, and the player walks
-   home through a wet building for minutes after the objective is done.
-
-   The symmetry was legible; the length was not. Draining three times faster
-   keeps the recession radial and readable — the waterline still pulls back
-   from the edges inward, away from the pipes — and hands the player back a
-   dry-ish floor inside the time they are still playing. */
-const LEAK_RETREAT = 0.5;   // s of travel per tile — the water front's speed, going IN
-/* The two SOAK constants, not the front. They answer "how long does one tile
-   take to darken once the waterline reaches it, and how long to fade once the
-   waterline has left it" — which is a different question from how fast the
-   waterline itself moves, and it was conflated with it until the recession was
-   tied to the arrival pace.
-
-   WET_FALL being at least half of WET_RISE, and the recession outrunning the
-   arrival, is what makes the shoreline read as a shore: the waterline pulls
-   away faster than the tiles it uncovers take to fade, so there is always a
-   wet band between dry carpet and open flood. Move them together and the edge
-   goes hard.
-
-   The ratio that actually holds the band open is fade-time over retreat-speed,
-   measured against rise-time over spread-speed: 14/3.2 = 4.4 tiles of soak
-   arriving, 5.0/1.1 = 4.5 tiles on the way out. Same width, both directions.
-   Drop WET_FALL below that and the last tiles pop from dry to flooded with
-   nothing soft in between. */
-const WET_RISE     = 14.0;   // s for a soaked tile to go 0 -> 1
-const WET_FALL     = 5.0;    // s for an abandoned tile to go 1 -> 0
-const LEAK_NOISE_BASE = 0.16;   // a quiet drip, heard ~6 tiles
-const LEAK_NOISE_GAIN = 0.26;   // added as the floor drowns; still under LOUD
-const LEAK_LURE    = 0.42;   // tiles: a SEARCHING entity drifts this close
-/* PIPE_FAR is the STRAIGHT-LINE CAP, indexed by pipe count: how far from the
-   spawn a break is allowed to be, measured in a straight line — and the cap is
-   the whole point.
-
-   Sorting by Euclidean distance and taking the extreme corner looks right on
-   paper and is wrong in a maze: a tile 70 tiles away in a straight line can
-   be 200 tiles of corridor to actually walk, because a BSP level is a tree
-   and the winding is the point. The first version did exactly that and the
-   repair became a two-minute trudge across half the building — which is not
-   tension, it is a commute, and it made the headless playthrough take longer
-   than the entire rest of the suite put together.
-
-   Capping the straight-line distance keeps it a genuine hunt — enough tiles
-   that you cannot see the pipe when you spawn — without turning the
-   objective into a marathon. Anything within the cap is a candidate and the
-   farthest of those wins; the uncapped list is still the fallback.
-
-   The cap is also a BUDGET, and the budget is three minutes for the whole
-   level, not for one pipe. One pipe can afford to be in the far corner of the
-   building; four cannot, because a level that asks for four crossings of the
-   map and then the walk home is not a hard level, it is an arithmetic one that
-   only the best possible route survives. So each extra pipe pulls the reach in
-   — the work stays a tour, and the tour stays inside the clock. Indexed by
-   (pipes - 1); the last entry repeats for any count past the table. */
-const PIPE_FAR = [56, 48, 42, 38];
 /* The pipe has been open for a while before you got here. Without this the
    floor starts bone dry and the first half-minute has no cue in it at all —
    you would have to wander blindly until water happened to reach you, which
@@ -221,30 +109,7 @@ const PIPE_FAR = [56, 48, 42, 38];
    is a puddle about thirteen tiles across already standing around the break —
    enough to see from the next room, small enough that you are reading a
    waterline rather than surveying a lake. */
-const LEAK_HEADSTART = 42;   // seconds of flood pre-warmed at level start
 
-/* The repair itself. Five seconds is long enough that standing there is a
-   commitment, and the commitment is the whole point of the mechanic: you are
-   choosing to be immobile and loud in a building with something in it. */
-let REPAIR_TIME    = 5.0;    // seconds of unbroken contact to seal the pipe
-const REPAIR_REACH = 1.25;   // tiles from the pipe face
-const REPAIR_DECAY = 2.6;    // whole-bars lost per second once you move
-const REPAIR_NOISE = 0.85;   // LOUD. Louder than running. That is the point.
-
-/* SPRINT_NOISE is the loudest thing you can do while MOVING, and it is below
-   the wrench — which is what the line above has claimed since the noise table
-   was written, and what the HUD has to be able to show. It used to be a bare
-   1.0, louder than the wrench at 0.85: a sprint both out-shouted the repair and
-   pegged the meter, so the bar could not say which of the two loud decisions
-   you were making, and the comment was simply untrue.
-
-   0.72 keeps everything the sprint is for — 3.3x a walk at 0.22, well over LOUD,
-   so it still wakes a sleeping coil and still commits a hunter to a full hunt —
-   and gives the meter a top end it can actually name. hearRadius() is 12.6
-   tiles, against 6.6 for a walk and 14.2 for the wrench. */
-const SPRINT_NOISE = 0.72;
-
-const WALL = 0, FLOOR = 1;
 
 /* Room-scoped light.
    The bake below is per FIXTURE: how bright a tile would be if its fluorescents
@@ -262,7 +127,6 @@ const WALL = 0, FLOOR = 1;
    that was wrong twice over — it revealed geometry the character cannot see
    (which reads as the game drawing a map), and it hid the fact that the scope
    itself was a cliff. */
-const DARK_ROOM      = 0.0;
 
 /* How visible a region is, by how many gates you must look through to reach
    it. This USED to be a cliff: your room 1.0, one gate away 0.30, everything
@@ -275,65 +139,9 @@ const DARK_ROOM      = 0.0;
    rooms are dark" rule survivable: a room two gates away down a clear line is
    dim, and one four gates away is nearly black, but the light arrives
    continuously instead of stopping at a boundary you cannot see. */
-const HOP_FALL = [1.0, 0.85, 0.50, 0.26, 0.17, 0.11];   // index = gates passed
 
-/* Distance attenuation, applied ONLY to regions that are not your own. Without
-   it a 40-tile corridor stays at 11% all the way to the far wall and reads as
-   a lit tube rather than a corridor receding into the dark. Your own room gets
-   no distance falloff at all: it is at most 12 tiles across, and dimming the
-   far corner of the room you are standing in is the one thing this whole
-   feature must never do. */
-const VIEW_FADE_NEAR = 13;    // tiles, full brightness up to here
-const VIEW_FADE_FAR  = 31;    // tiles, black from here
-
-/* How fast the drawn mask chases the freshly traced one. The mask is per
-   TILE, so even retraced every frame it is quantised — tiles enter and leave
-   the fan one at a time as you walk and the boundary of vision chatters.
-   Approaching the target exponentially turns that into sliding motion. */
-const MASK_TAU = 0.055;       // s; much shorter than LIGHT_FADE on purpose
-
-/* BAKE_FLOOR is how dimmest a LIT surface is allowed to get. With darkness
-   moved onto the mask this can sit at 1.0: a surface you can see is the
-   palette at full strength, unmodified, because that is the whole look — the
-   walls are a sickly yellow and they are always on. Anything you cannot see
-   is multiplied by zero and this number is irrelevant to it. The variation
-   within a room comes from the additive fixture pass (bright pools under the
-   tubes) rather than from the bake dimming everything else, which is what lets
-   the flat floor value coexist with a lit-looking room.
-
-   At 0.82 the same room measured 172 against a carpet palette of 195 — close,
-   but every lit surface was quietly 12% off the colour it was supposed to be,
-   and the walls another 18% off that. */
-const BAKE_FLOOR     = 1.0;
-
-const LIGHT_FADE     = 0.30;   // s, fluorescents coming up as you cross a threshold
-const LIGHT_FADE_STEPS = 10;   // the fade is quantised: a repack per frame is 116k writes
-
-/* ---- cone of vision ----
-   A 200 degree cone, so there is always 80 degrees of blindness behind you and
-   turning is how you check behind you. It is NOT a light: it decides what the
-   character can SEE, and it stops dead at a wall, so a partition hides the
-   room behind it however open the doorway is.
-
-   Cast as a fan of rays from the eye and stopped by geometry, rather than a
-   per-tile angle test. A per-tile test is O(5776) every frame and is also
-   wrong: it lights the floor on the far side of a one-tile partition stub,
-   which is exactly the case the ray cast gets right and the angle test does
-   not. */
-const VIEW_DEG   = 200;
-const VIEW_HALF  = VIEW_DEG*Math.PI/360;      // radians either side of facing
-const VIEW_RAYS  = 240;                        // angular fan resolution
-const VIEW_RANGE = 34;                         // hard stop; the distance fade ends first
-/* VIEW_MID is how close a ray must pass to a tile's CENTRE for that tile to
-   count as seen. It is a radius in tiles: 0.5 is the inscribed circle, 0.71
-   the circumscribed one. Below 0.5 the tile goes black before its edge, which
-   makes vision look eaten away at the walls; at 0.71 a corner sliver counts as
-   seeing the tile, which is the leak this exists to stop. */
-const VIEW_MID   = 0.48;
 
 /* ---------- canvas ---------- */
-const cvs = document.getElementById('game');
-const ctx = cvs.getContext('2d', { alpha:false });
 let VW = 0, VH = 0, DPR = 1, SCALE = 1;
 
 /* VHS_PASS and FLICKER_DEPTH used to be slider positions. They are constants
@@ -342,17 +150,12 @@ let VW = 0, VH = 0, DPR = 1, SCALE = 1;
    honour without becoming a different game. Everything that reads them reads
    these, so restoring a slider later is a matter of wiring the control, not
    of hunting the values back out of the renderer. */
-const VHS_PASS = 0.7;
-const FLICKER_DEPTH = 0.65;
 
 /* The specular sheen on deep water is quantised into this many alpha steps and
    drawn as one path per step. Four is chosen because the whole range is 0 to
    0.05 of alpha: four steps puts 0.0125 between them, which is under the
    banding a `lighter` pass shows. Scratch, so the sheen allocates nothing per
    frame — see the sheen pass in render(). */
-const SHEEN_STEPS = 4;
-const sheenBuckets = Array.from({length:SHEEN_STEPS},
-  ()=>({ n:0, x0:0, y0:0, x1:0, y1:0 }));
 
 /* ADAPTIVE RESOLUTION.
 
@@ -376,14 +179,10 @@ const sheenBuckets = Array.from({length:SHEEN_STEPS},
    camera, the geometry, the light bake and the visibility mask all follow the
    new backing store automatically, and test 7 — which asserts the camera, the
    lightmap and the flood image all share one origin — keeps holding. */
-const RENDER_SCALES = [1, 0.8, 0.65, 0.5];
-const SCALE_DROP_MS  = 20;      // sustained frame time that costs a step
-const SCALE_RECOVER_MS= 12;     // sustained frame time that earns one back
-const SCALE_BAD_FRAMES = 45;    // frames over threshold before acting on it
-const SCALE_GOOD_FRAMES = 180;  // and a much longer run before recovering
-let renderScaleIdx = 0;
 let frameMsAvg = 16.7;
-let badRun = 0, goodRun = 0;
+let waterDirty = false;
+let badRun = 0, goodRun = 0, renderScaleIdx = 0;
+let FLOORS = LEVELS_N;
 
 function resize(){
   DPR = Math.min(window.devicePixelRatio || 1, 2) * RENDER_SCALES[renderScaleIdx];
@@ -444,12 +243,6 @@ function adaptResolution(ms){
 
    `grey` is the accessibility option: no hue at all, just a hard value
    difference, for anyone who cannot separate slate from olive. */
-const WATER_TINTS = {
-  slate:  { damp:[54,50,40],  deep:[32,76,112] },
-  teal:   { damp:[44,52,46],  deep:[24,88,98]  },
-  violet: { damp:[54,44,58],  deep:[78,50,114] },
-  grey:   { damp:[40,40,40],  deep:[104,104,108] },
-};
 
 /* Difficulty. PRESETS, not a slider, and they move COUNTS AND SPACING only:
    lives, how long you get on the clock, how long the repair takes, and how fast
@@ -462,41 +255,14 @@ const WATER_TINTS = {
    not a setting — a preset that gave you four of them meant the game had five
    endings depending on which menu you picked, and there is only one of those
    worth designing. */
-const DIFFICULTIES = {
-  relaxed: { lives:5, clock:240, repairTime:7.0, huntBase:2.90, huntStep:0.26,
-             label:'RELAXED' },
-  normal:  { lives:3, clock:180, repairTime:5.0, huntBase:3.45, huntStep:0.34,
-             label:'NORMAL' },
-  hard:  { lives:1, clock:150, repairTime:4.0, huntBase:4.05, huntStep:0.42,
-             label:'HARD' },
-};
 
-const SETTINGS_DEFAULTS = {
-  difficulty: 'normal',
-  master: 0.7,
-  /* M is a toggle, not a slider position, so it is stored as a bool and has no
-     control in the modal — it is a hotkey, and the only place it is visible is
-     the toast it raises when you press it. Persisted like everything else: a
-     player who muted the game once is a player who has muted it five times. */
-  muted: false,
-  waterHue: 'slate',
-  waterContrast: 1.0,
-};
 
 /* Every field, its type, and its allowed range. The store validates against
    this rather than trusting whatever is in localStorage: a stale blob from an
    older build, a hand-edited value, or a half-written one must degrade to the
    default for THAT FIELD and leave the rest alone. Validating per field is
    what makes that true. */
-const SETTINGS_SCHEMA = {
-  difficulty:     { type:'enum', values:Object.keys(DIFFICULTIES) },
-  master:         { type:'range', min:0, max:1 },
-  muted:          { type:'bool' },
-  waterHue:       { type:'enum', values:Object.keys(WATER_TINTS) },
-  waterContrast:  { type:'range', min:0.4, max:2 },
-};
 
-const SETTINGS_KEY = 'leakrooms.settings.v1';
 let SETTINGS = Object.assign({}, SETTINGS_DEFAULTS);
 
 function settingsValid(key, v){
@@ -1110,7 +876,6 @@ const Audio_ = {
 /* ============================================================
    TEXTURE PATTERNS — carpet speckle + wallpaper
    ============================================================ */
-function hash2(x,y){ let h = x*374761393 + y*668265263; h = (h ^ (h>>13))*1274126177; return ((h ^ (h>>16))>>>0)/4294967296; }
 
 let carpetPat, wallPat, ceilPat, scanPat;
 /* The grain, pre-composited to the size of the viewport. The live loop tiled a
@@ -1133,13 +898,6 @@ let grainFull;
                 it is the colour the place is named for.
      WALL_FACE  the pale end. The vertical face of a partition catches the
                 fluorescents, so it is the brightest thing in the room. */
-const PAL = {
-  bright:  '#e4e6a8',   // (228,230,168)
-  pale:    '#e1e2bb',   // (225,226,187)
-  mid:     '#d6dea7',   // (214,222,167)
-  carpet:  '#c3cb6e',   // (195,203,110)
-  wallTop: '#c6c58b',   // (198,197,139)
-};
 
 function buildPatterns(){
   // --- carpet: 64x64 speckled, seamless-ish ---
@@ -1536,17 +1294,6 @@ function setHeadless(px, vis){ wantPixels = !!px; wantVision = !!vis; }
    either — a tile approaching zero asymptotically would hold the bound open for
    ever — so it is the draw cut times a margin, and the two are written together
    so they cannot drift apart. */
-const WET_DRAW = 0.015;          // packWet: below this a tile is fully transparent
-const WET_EDGE = WET_DRAW*0.8;    // ...so below THIS the simulation may stop caring
-/* waterDirty means "the packed water image may not match G.wetArr any more". The
-   image used to be repacked on EVERY draw, which is a 5776-tile write plus a
-   putImageData per frame whether or not the water had moved — the single most
-   expensive thing in the renderer. Now only the three places that can change
-   G.wetArr (initFlood, seedSplash, tickFlood) and the one setting that changes
-   what a tile packs to (the tint) raise it, and the update loop packs once and
-   clears it. Rendering still reads G.wetArr directly for the sheen, so a frame
-   with no repack is still a frame that draws the water correctly. */
-let waterDirty = false;
 
 /* WHICH PART of the image is stale, not just that some of it is. packWet walks
    5776 tiles and writes four bytes each, and it ran that in full on every frame
@@ -3313,7 +3060,6 @@ function sustainedNoise(power, x, y, mine){
    commits it to a full hunt. That is what makes walking survivable and
    sprinting a real decision, and it means you can walk right past a sleeping
    coil pile, while sprinting near one makes it stand up. */
-const LOUD = 0.5;
 
 /* NOISE_FS is what a full HUD bar means: the loudest sustained thing you can do
    on a floor, which is the WRENCH. It is the number that makes the meter read,
@@ -3327,14 +3073,11 @@ const LOUD = 0.5;
    standing hiss of four open pipes -> 14-56%, the wrench -> 100%, LOUD at 59%.
    The door clamps, which is correct: past full scale is past the end of the
    instrument, and the audio bed keeps reporting the unclamped level. */
-const NOISE_FS = REPAIR_NOISE;
 
 /* The two powers that live outside the normal range, named so the meter, the mix
    and the AI all read the same number: the door is the loudest thing in the
    building and the bar clamps on it, and being brushed is loud enough to be
    heard across the floor. */
-const DOOR_NOISE = 1.8;
-const BRUSH_NOISE = 1.2;
 
 /* Contact. Dying to something you never saw, in a corridor, because it
    happened to be idling there is a gotcha rather than tension. Brushing a
@@ -4120,6 +3863,7 @@ function paintSplashPlan(){
   const cv = document.getElementById('splash-plan');
   if (!cv || !G || !G.grid || !cv.getContext) return;
   const far = document.getElementById('splash-plan-far');
+  const ctx = cv.getContext('2d');
   const W = Math.max(320, Math.floor(cv.clientWidth  || VW || 1280));
   const H = Math.max(240, Math.floor(cv.clientHeight || VH || 720));
   /* One period of the painting has to be exactly the frame width, or the -50%
@@ -4131,7 +3875,6 @@ function paintSplashPlan(){
     if (!c) continue;
     c.width = pw; c.height = ph;
   }
-  const ctx = cv.getContext('2d');
   if (!ctx) return;
   ctx.clearRect(0, 0, pw, ph);
 

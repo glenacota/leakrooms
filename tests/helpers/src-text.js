@@ -15,10 +15,12 @@ const root = path.join(__dirname, '..', '..');
 
 export function readSrc(){
   let out = fs.readFileSync(path.join(root, 'game.js'), 'utf8');
-  const srcDir = path.join(root, 'src');
-  if (fs.existsSync(srcDir)) {
-    for (const f of fs.readdirSync(srcDir).filter(f => f.endsWith('.js')).sort())
-      out += '\n' + fs.readFileSync(path.join(srcDir, f), 'utf8');
+  for (const dir of ['src', 'config', 'util']) {
+    const d = path.join(root, dir);
+    if (fs.existsSync(d)) {
+      for (const f of fs.readdirSync(d).filter(f => f.endsWith('.js')).sort())
+        out += '\n' + fs.readFileSync(path.join(d, f), 'utf8');
+    }
   }
   return out;
 }
