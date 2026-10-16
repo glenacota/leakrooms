@@ -189,9 +189,39 @@ body{ display:flex; align-items:center; justify-content:center; }
   transition:width .12s linear;
 }
 .bar.noise i{ background:linear-gradient(90deg,var(--yellow-dim),#e4e6a8); }
-/* Past 45% the noise meter goes red, which is the same red the door uses to
-   say "this is what is stopping you". Deliberate: both mean a hunter. */
-.bar.noise.hot i{ background:linear-gradient(90deg,var(--danger),#ff8f6b); }
+/* Past LOUD — the halfway line, marked below — the noise meter goes red, which
+   is the same red the door uses to say "this is what is stopping you".
+   Deliberate: both mean a hunter. */
+/* Only YOUR fill goes red. The pipes under it stay water-blue even when you are
+   over LOUD — red means "this is about you", and colouring the building's own
+   noise red would put the one cue that separates the two back in doubt. */
+.bar.noise.hot i:not(.leak){ background:linear-gradient(90deg,var(--danger),#ff8f6b); }
+
+/* --- what is on the noise bar ---
+   One bar, two fills and two marks, because the column is capped at three bars
+   and both of these are answers about the same reading. */
+.bar.noise u{
+  position:absolute; top:0; bottom:0; width:2px;
+  text-decoration:none; transition:left .12s linear;
+}
+/* LOUD — placed from the constant at runtime, not typed in here. It is the
+   threshold the Lifeform actually reads, and a threshold with no mark on the
+   instrument is one the player has to remember instead of see. */
+.bar.noise u.loud{ left:59%; width:1px; background:rgba(228,230,168,.5); }
+/* where the last loud moment peaked; decays slowly so a quarter-second sprint
+   is still on screen long enough to be read */
+.bar.noise u.peak{ background:#ff8f6b; opacity:0; }
+/* THE PIPES, under the yellow. Water-blue, because water is the only other hue
+   in the palette and it is the only other thing making noise here. It is a fill
+   and not a tick: a standing noise source has a level, and standing still next
+   to it should show a bar of somebody else's noise and none of your own. */
+.bar.noise i.leak{
+  background:linear-gradient(90deg,#3c5a60,#8fc4cc);
+  opacity:.9;
+}
+@media (prefers-reduced-motion: reduce){
+  .bar.noise u{ transition:none; }
+}
 .bar.flood i{ background:linear-gradient(90deg,#3c5a60,#8fc4cc); }
 
 /* --- the door ---

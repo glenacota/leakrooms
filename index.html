@@ -55,7 +55,13 @@
       </div>
       <div class="stat">
         <span class="lbl">NOISE</span>
-        <div class="bar noise"><i id="bar-noise"></i></div>
+        <!-- Two fills and two marks inside the ONE bar, none of them a bar of its
+             own: blue underlay is what the open pipes are making everywhere (the
+             level the Lifeform steers by), the yellow fill is what YOU are
+             making, the orange tick is where the last loud moment peaked, and
+             the hairline is LOUD — the threshold the AI reads, placed from the
+             constant at runtime. -->
+        <div class="bar noise"><i class="leak" id="bar-noise-leak"></i><i id="bar-noise"></i><u class="peak" id="bar-noise-peak"></u><u class="loud"></u></div>
         <span class="val val-bar" id="val-noise">00</span>
       </div>
       <div class="stat">

@@ -106,11 +106,15 @@ global.__audioNodes = [];
    schedule, not an assignment — so a test that reads `.value` to find out where
    a gain is going is reading the wrong number in the browser and in here. */
 function fakeParam(v){
-  return { value:v, _scheduled:null,
-    setValueAtTime(x){ this._scheduled=x; },
-    setTargetAtTime(x){ this._scheduled=x; },
-    linearRampToValueAtTime(x){ this._scheduled=x; },
-    exponentialRampToValueAtTime(x){ this._scheduled=x; },
+  /* _hist keeps EVERY value the param was told, in order. _scheduled alone is
+     the last one, which is the right answer for "where is this gain going" and
+     the wrong answer for "how loud did this voice peak" — a one-shot schedules
+     attack then decay, so its last value is always silence. */
+  return { value:v, _scheduled:null, _hist:[],
+    setValueAtTime(x){ this._scheduled=x; this._hist.push(x); },
+    setTargetAtTime(x){ this._scheduled=x; this._hist.push(x); },
+    linearRampToValueAtTime(x){ this._scheduled=x; this._hist.push(x); },
+    exponentialRampToValueAtTime(x){ this._scheduled=x; this._hist.push(x); },
     cancelScheduledValues(){ this._scheduled=null; }, setValueCurveAtTime(){} };
 }
 function fakeAudioNode(kind){
@@ -240,6 +244,10 @@ globalThis.__api = {
   get TILE(){ return TILE; },
   get WET_DRAW(){ return WET_DRAW; },
   get LOUD(){ return LOUD; },
+  get NOISE_FS(){ return NOISE_FS; },
+  get DOOR_NOISE(){ return DOOR_NOISE; },
+  get BRUSH_NOISE(){ return BRUSH_NOISE; },
+  updateHUD, HUD,
   LEVELS, LEVELS_N, get FLOOR_CLOCK(){ return FLOOR_CLOCK; },
   get WET_FALL(){ return WET_FALL; },
   get LEAK_HEADSTART(){ return LEAK_HEADSTART; },
@@ -248,6 +256,7 @@ globalThis.__api = {
   get REPAIR_TIME(){ return REPAIR_TIME; },
   get REPAIR_REACH(){ return REPAIR_REACH; },
   get REPAIR_NOISE(){ return REPAIR_NOISE; },
+  get SPRINT_NOISE(){ return SPRINT_NOISE; },
   get LEAK_NOISE_BASE(){ return LEAK_NOISE_BASE; },
   get LEAK_NOISE_GAIN(){ return LEAK_NOISE_GAIN; },
   get LEAK_SPREAD(){ return LEAK_SPREAD; },
@@ -255,6 +264,7 @@ globalThis.__api = {
   get LEAK_LURE(){ return LEAK_LURE; },
   get WALK(){ return WALK; }, get SPRINT(){ return SPRINT; },
   tickFlood, wetAt, floodCover, sealLeak, leakReach, leakAt, initFlood, packWet,
+  hearRadius, sustainedNoise,
   Audio_,
   get SETTINGS(){ return SETTINGS; },
   get SETTINGS_DEFAULTS(){ return SETTINGS_DEFAULTS; },
@@ -2203,6 +2213,21 @@ console.log('[15] the pipes — placement, reachability, and the flood field');
   {
     assert(A.REPAIR_NOISE >= A.LOUD,
       `wrenching at ${A.REPAIR_NOISE} is under LOUD — the repair must be the loud decision`);
+    /* THE ORDERING, which the comment above REPAIR_NOISE has claimed since the
+       noise table was written and which was never true: the wrench is louder
+       than a sprint. It used to be 0.85 against a bare 1.0, so the loudest
+       thing on the floor was a run at it — which also meant the meter had no
+       top end it could name, and the sprint pegged the bar while the repair,
+       the decision the whole stealth layer is built around, sat under it. */
+    assert(A.SPRINT_NOISE < A.REPAIR_NOISE,
+      `sprinting at ${A.SPRINT_NOISE} is louder than the wrench at ${A.REPAIR_NOISE} — `+
+      'the repair is not the loud decision');
+    assert(A.SPRINT_NOISE >= A.LOUD,
+      `sprinting at ${A.SPRINT_NOISE} is under LOUD — running past a sleeping coil has to wake it`);
+    assert(A.SPRINT_NOISE > 0.30,
+      `sprinting at ${A.SPRINT_NOISE} is quieter than wading — the sprint stops being a decision`);
+    assert(A.NOISE_FS === A.REPAIR_NOISE,
+      `the meter tops out at ${A.NOISE_FS}, which is not the loudest sustained thing you can do (${A.REPAIR_NOISE})`);
     assert(A.LEAK_NOISE_BASE < A.LOUD, 'the base leak noise is already LOUD');
     /* wading must stay UNDER loud or following the trail would be strictly
        worse than sweeping, and the trail has to be the cheap option */
@@ -3193,7 +3218,11 @@ console.log('[23] audio — the graph reaches the destination');
      named out, because those move gains and start timers rather than making a
      sound, and "built no nodes" is the correct answer for all of them. */
   const SHELL = ['init','setMaster','setMuted','unlock','ambience',
-                 '_ambStart','_ambTick','_ambStop','_ambNote'];
+                 '_ambStart','_ambTick','_ambStop','_ambNote',
+                 /* the two continuous noise beds, their silencer, and the
+                    gain curve they share with the one-shots: all four move gains
+                    that already exist, so "built no nodes" is the right answer */
+                 'noiseFloor','leakBed','silenceBeds','powerVol'];
   const oneShots = Object.keys(A.Audio_).filter(k=>typeof A.Audio_[k]==='function'
                                                && !SHELL.includes(k));
   assert(oneShots.length>=9, `only found ${oneShots.length} voices on Audio_`);
@@ -3209,6 +3238,58 @@ console.log('[23] audio — the graph reaches the destination');
     assert(continuous || made>0, `Audio_.${name} built no nodes — it is inaudible`);
     const dead = global.__audioNodes.slice(n0).filter(n=>!reaches(n, ctx.destination));
     assert(dead.length===0, `Audio_.${name} built ${dead.length} nodes that reach nothing`);
+  }
+
+  /* ---------- THE MIX FOLLOWS THE METER ----------
+     Every voice in the game is a one-shot with a fixed peak, so the bar could
+     fill to its top and the speakers would not move: a sprint (1.0) and a walk
+     (0.22) were 2x and 1x of the same hand-picked number, while the HUD read a
+     percentage of the BATTERY maximum. Three claims here — the bed's gain
+     rises with the level it is handed, the leak bed rises with the pipes and
+     falls with distance, and a louder action is a louder voice. */
+  {
+    const gainOf = n => n.gain._scheduled;
+    A.Audio_.noiseFloor(0);   const quiet = gainOf(A.Audio_.floorGain);
+    A.Audio_.noiseFloor(0.5); const mid   = gainOf(A.Audio_.floorGain);
+    A.Audio_.noiseFloor(1);   const full  = gainOf(A.Audio_.floorGain);
+    assert(quiet===0, 'the noise floor is not silent at zero');
+    assert(mid>quiet && full>mid,
+      `the noise bed does not follow the bar (${quiet}, ${mid}, ${full}) — the HUD and the mix are two instruments`);
+
+    A.Audio_.leakBed(0.5, 0);   const near = gainOf(A.Audio_.leakGain);
+    A.Audio_.leakBed(0.5, 15);  const midD = gainOf(A.Audio_.leakGain);
+    A.Audio_.leakBed(0.5, 40);  const far  = gainOf(A.Audio_.leakGain);
+    A.Audio_.leakBed(0, 0);     const none = gainOf(A.Audio_.leakGain);
+    assert(near>midD && midD>far && far===0,
+      `the leak bed ignores distance (${near}, ${midD}, ${far}) — an open pipe has to be somewhere you can walk toward`);
+    assert(none===0, 'a building with no water in it still has water noise in the mix');
+
+    A.Audio_.silenceBeds();
+    assert(gainOf(A.Audio_.floorGain)===0 && gainOf(A.Audio_.leakGain)===0,
+      'silenceBeds left a bed open — update() has stopped, so nothing will close it');
+  }
+
+  /* ...and the one-shots are louder when they are making more noise. The peak
+     is the MAX of what the gain was told, not its last value: a one-shot
+     schedules an attack and then a decay to silence, so the last number is
+     always 0.0001 and every voice would tie. */
+  {
+    const peak = (fn, ...args) => {
+      const n0 = global.__audioNodes.length;
+      fn(...args);
+      let hi = 0;
+      for (const n of global.__audioNodes.slice(n0))
+        for (const v of (n.gain._hist||[])) if (v>hi) hi=v;
+      return hi;
+    };
+    const walk   = peak(()=>A.Audio_.step(1, 0.22));
+    const sprint = peak(()=>A.Audio_.step(1, A.SPRINT_NOISE));
+    assert(sprint > walk*1.5,
+      `a sprinting footstep peaks at ${(sprint/walk).toFixed(2)}x a walking one — the mix does not know you are running`);
+    const wrench = peak(()=>A.Audio_.wrench(A.REPAIR_NOISE));
+    const door   = peak(()=>A.Audio_.door(A.DOOR_NOISE));
+    assert(wrench > walk, 'the wrench is quieter than a footstep');
+    assert(door >= wrench, 'cycling the door is quieter than the wrench');
   }
 
   /* ---------- the splash bed ----------
@@ -4404,6 +4485,221 @@ console.log('[32] the door — the leaf, the facing, and the state that drives b
   }
   console.log('  shut on a wet floor, ajar on the latch, cranking on the hold, shut again after');
   console.log('  the new floor, and the facing names the side with floor on it');
+}
+
+/* ============ TEST 33: the noise meter ==========================
+   The NOISE bar was drawn as G.noise/BATT_MAX — a sprint at 1.0 filled 1% of it
+   and the door at 1.8 filled 1.8%, while the `hot` class fired on the raw level
+   and turned the bar red at a level it could not show. Every value in the game
+   is between 0 and 1.8, and the bar is divided by 100.
+
+   Nothing in the sim noticed: the level is played by a bot, the HUD is read by
+   a human, and a bar nobody in the suite looks at can be wrong forever. These
+   are the numbers on the instrument, and the instrument is what tells the player
+   what the Lifeform is hearing. */
+console.log('[33] the noise meter — the scale, the marks, and the pipe that emits');
+{
+  vm.runInContext('lives=3; floorIdx=0;', ctxObj);
+  buildFloor(1, 60606);
+  const W = 76;
+  const H = A.HUD;
+  const show = (n, leakTotal) => {
+    G.noise = n; G.selfNoise = n; G.noisePeak = n; G.leakTotal = leakTotal||0;
+    A.updateHUD();
+  };
+  const bar = () => parseFloat(H.noise.style.width);
+  const val = () => parseInt(H.vNoise.textContent, 10);
+  const pct = p => p/A.NOISE_FS*100;          // exact, not rounded: the bar is
+  const near = (got, want, what) =>           // drawn from the same division
+    assert(Math.abs(got-want) < 0.01,
+      `${what} is ${got.toFixed(2)}%, expected ${want.toFixed(2)}%`);
+
+  /* the scale itself: each number the game can produce, at its own value */
+  show(0.22); const walk = bar();
+  show(0.30); const wade = bar();
+  show(A.LOUD); const loud = bar();
+  show(A.SPRINT_NOISE); const sprint = bar();
+  show(A.REPAIR_NOISE); const wrench = bar();
+  show(A.DOOR_NOISE); const door = bar();
+
+  near(walk, pct(0.22), 'walking');
+  near(wade, pct(0.30), 'wading');
+  near(loud, pct(A.LOUD), 'LOUD — the threshold has no position on the instrument');
+  /* 0.72 of 0.85 is 84.7%: the bar says 85, which is the whole claim. Asserted
+     at the rounding the player actually sees, not at a number picked to make a
+     test tidy. */
+  assert(Math.abs(sprint-85) < 0.5, `a sprint fills the bar to ${sprint.toFixed(1)}%, expected 85`);
+  near(wrench, 100, 'the wrench, the loudest sustained thing you do');
+  near(door, 100, 'the door — past full scale is clamped, not overflowing');
+  assert(val()===100, `the number beside the bar reads ${val()} at the wrench`);
+  assert(walk < wade && wade < loud && loud < sprint && sprint < wrench,
+    `the bar does not rank the actions the AI ranks (${walk}, ${wade}, ${loud}, ${sprint}, ${wrench})`);
+  /* and the threshold is marked where it actually is, from the constant */
+  near(parseFloat(H.noiseLoud.style.left), pct(A.LOUD), 'the LOUD hairline');
+
+  /* and the red is LOUD, on YOUR noise, not a stale copy of it. 0.45 was
+     hard-coded next to a threshold that lives at 0.5. */
+  show(0.46);
+  assert(!H.noiseWrap.classList.contains('hot'),
+    'the bar goes red below LOUD — it is still testing the old 0.45');
+  show(A.LOUD);
+  assert(H.noiseWrap.classList.contains('hot'), 'LOUD does not turn the bar red');
+
+  /* the standing hiss of the open pipes, as its own fill UNDER yours. It is the
+     number the agents steer by, and it is not about you. */
+  show(0.22, 0.24);
+  near(parseFloat(H.noiseLeak.style.width), pct(0.24), 'the leak fill');
+  show(0.22, 0);
+  assert(H.noiseLeak.style.width==='0%', 'the leak fill is still drawn with every pipe sealed');
+
+  /* --- and the thing this whole split exists for: standing still ---
+     Standing beside a burst pipe used to fill the bar to the top, which reads as
+     "you are screaming" when you are standing perfectly still and something is
+     on its way to the PIPE. Your share has to be zero when you have done
+     nothing, and the building's has to still be there. */
+  {
+    buildFloor(1, 60606);
+    const L = G.leaks.find(l=>!l.fixed);
+    /* two tiles from the pipe, not ON it: standing inside REPAIR_REACH starts a
+       repair, and a repair is the loudest thing you can do — which is the whole
+       point of it, and not what this block is about */
+    let spot = null;
+    for (let r=2; r<=4 && !spot; r++)
+      for (const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,-1],[1,-1],[-1,1]]){
+        const nx=L.sx+dx*r, ny=L.sy+dy*r;
+        if (nx<0||ny<0||nx>=W||ny>=W) continue;
+        if (G.grid[ny*W+nx]===1 && !A.leakReach(nx+0.5, ny+0.5)){ spot={x:nx+0.5,y:ny+0.5}; break; }
+      }
+    assert(spot, 'no walkable tile outside repair reach near the pipe on this floor');
+    G.player.x = spot.x; G.player.y = spot.y;
+    keys['d']=keys['w']=keys['a']=keys['s']=false; keys['shift']=false;
+    for (let i=0;i<180;i++) update(1/60);
+    A.updateHUD();
+    assert(G.selfNoise===0,
+      `standing still for three seconds left ${G.selfNoise.toFixed(2)} of your own noise on the meter`);
+    assert(bar()===0, `your fill reads ${bar()}% while standing still`);
+    assert(G.leakTotal>0 && parseFloat(H.noiseLeak.style.width)>0,
+      'the pipes are open and the bar shows no building noise either — it is showing nothing at all');
+    const seen = parseInt(H.vNoise.textContent, 10);
+    assert(seen>0, `the number reads ${seen} next to an open pipe — the loudest thing in earshot is silent`);
+    console.log(`  standing still two tiles from an open pipe: your fill 0%, the pipes' `+
+      `${parseFloat(H.noiseLeak.style.width).toFixed(0)}%, the number reads ${seen}`);
+
+    /* ...and it is there the moment you move, and gone when you stop */
+    keys['d'] = true;
+    for (let i=0;i<20;i++) update(1/60);
+    A.updateHUD();
+    /* wet boots are louder than dry ones, and this spot may be flooded — so the
+       number to check is the one the movement stage itself used */
+    const stepPower = A.wetAt(G.player.x, G.player.y) > 0.25 ? 0.30 : 0.22;
+    near(G.selfNoise, stepPower, 'your own noise after twenty frames of walking');
+    keys['d'] = false;
+    for (let i=0;i<40;i++) update(1/60);          // 0.66s of decay at 1.55/s
+    A.updateHUD();
+    assert(G.selfNoise===0, `your noise is still at ${G.selfNoise.toFixed(2)} a second after you stopped`);
+  }
+
+
+  /* and the peak, because a sprint is 0.26s long and the fill alone cannot say
+     whether it happened */
+  /* below full scale, so the decay is visible at all — a peak of 1.0 would sit
+     clamped at the right-hand end for its whole life */
+  show(0.1); G.noisePeak = 0.6; A.updateHUD();
+  /* one frame of decay (0.004) happens before the draw, so the tick sits a
+     fraction under the level it is holding */
+  near(parseFloat(H.noisePeak.style.left), pct(0.6-0.004), 'the peak tick');
+  const before = parseFloat(H.noisePeak.style.left);
+  for (let i=0;i<30;i++) A.updateHUD();
+  const after = parseFloat(H.noisePeak.style.left);
+  assert(after < before, `the peak tick never came down (${before}% -> ${after}%)`);
+
+  /* --- and it holds up while the game is actually being played, which is the
+     only place the numbers above are a lie if the sim does not produce them --- */
+  buildFloor(1, 60606);
+  keys['d'] = true;
+  for (let i=0;i<24;i++) update(1/60);
+  A.updateHUD();
+  const moving = bar();
+  keys['shift'] = true;
+  for (let i=0;i<12;i++) update(1/60);
+  A.updateHUD();
+  const running = bar();
+  keys['d'] = false; keys['shift'] = false;
+  assert(Math.abs(moving-pct(0.22)) < 6,
+    `24 frames of walking left your fill at ${moving.toFixed(1)}%, expected about ${pct(0.22)}`);
+  assert(Math.abs(running-85) < 1,
+    `sprinting put your fill at ${running.toFixed(1)}%, expected 85`);
+  assert(G.selfNoise >= A.SPRINT_NOISE,
+    `the sprint registered as ${G.selfNoise} of your own noise, expected ${A.SPRINT_NOISE}`);
+  console.log(`  walking ${moving.toFixed(0)}%, wading ${Math.round(pct(0.30))}%, LOUD ${Math.round(pct(A.LOUD))}%, `+
+    `sprint ${running.toFixed(0)}%, wrench 100%, door clamps; peak ${before.toFixed(0)}% -> ${after.toFixed(0)}%`);
+
+  /* ============ WHERE THE PIPE MAKES ITS NOISE ============
+     A pipe is broken in a WALL; you stand on the floor tile beside it to wrench
+     it. The noise was emitted from the wall tile — L.x/L.y, the masonry — and
+     alert() hands the source coordinate straight to the entity as the place to
+     walk to. So a Lifeform that heard a pipe was sent to the inside of a wall
+     and stood there grinding its collision disc against brick, which is a bug
+     no bot in this suite can see because a bot never walks toward a leak.
+
+     It is asserted the way it fails: stand an entity next to an open pipe, run
+     one real frame, and check that where it was told to go is a tile it can
+     stand on. */
+  let witness = null;
+  for (const seed of [60606, 4242, 9001, 88, 31337, 2718]){
+    buildFloor(1, seed);
+    for (let i=0;i<12;i++) update(1/30);
+    const L = G.leaks.find(l=>!l.fixed);
+    if (!L) continue;
+    assert(G.grid[L.sy*W+L.sx] === 1,
+      `seed ${seed}: the pipe's stand tile is not walkable — the two coordinates are not what this test assumes`);
+    assert(G.grid[L.y*W+L.x] !== 1,
+      `seed ${seed}: the pipe is not in a wall, so there is no wrong address to give`);
+    /* a walkable neighbour of the stand tile: close enough that the pipe's own
+       noise reaches it, which is the whole point of a standing noise source */
+    let spot = null;
+    for (const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1]]){
+      const nx = L.sx+dx, ny = L.sy+dy;
+      if (nx<0||ny<0||nx>=W||ny>=W) continue;
+      if (G.grid[ny*W+nx] === 1){ spot = {x:nx+0.5, y:ny+0.5}; break; }
+    }
+    if (!spot) continue;
+    witness = { seed, L, spot, R: A.hearRadius(G.leakPower) };
+    break;
+  }
+  assert(witness, 'no open pipe on six floors had a walkable tile beside it');
+
+  {
+    const { seed, L, spot, R } = witness;
+    /* park the player at the far side of the map: the claim under test is about
+       hearing, and a Lifeform that can SEE the player is hunting for a reason
+       this test did not set up */
+    let far = {x:1,y:1,d:-1};
+    for (let y=0;y<W;y++) for (let x=0;x<W;x++){
+      if (G.grid[y*W+x] !== 1) continue;
+      const dd = Math.hypot(x+0.5-spot.x, y+0.5-spot.y);
+      if (dd > far.d) far = {x:x+0.5, y:y+0.5, d:dd};
+    }
+    G.player.x = far.x; G.player.y = far.y;
+
+    const a = G.agents[0];
+    a.x = spot.x; a.y = spot.y; a.state = 'WALK'; a.born = 0; a.rise = 1; a.t = 1;
+    a.target = {x:spot.x, y:spot.y};
+    update(1/60);
+
+    assert(a.state==='SEARCH',
+      `seed ${seed}: an entity one tile from an open pipe (power ${G.leakPower.toFixed(2)}, `+
+      `heard out to ${R.toFixed(2)}) stayed WALK — the pipe is not making a noise anything can hear`);
+    const tx = Math.floor(a.target.x), ty = Math.floor(a.target.y);
+    assert(a.target && G.grid[ty*W+tx] === 1,
+      `seed ${seed}: the pipe drew it to tile ${tx},${ty}, which is not floor — `+
+      'the noise came from the inside of a wall');
+    assert(Math.hypot(a.target.x-(L.sx+0.5), a.target.y-(L.sy+0.5)) < 2,
+      `seed ${seed}: it was sent ${Math.hypot(a.target.x-(L.sx+0.5), a.target.y-(L.sy+0.5)).toFixed(2)} `+
+      'tiles from the pipe that called it');
+    console.log(`  seed ${seed}: pipe power ${G.leakPower.toFixed(2)} heard out to ${R.toFixed(2)} tiles; `+
+      `an entity beside the pipe goes SEARCH for tile ${tx},${ty}, and that tile is floor`);
+  }
 }
 
 reportTimings();

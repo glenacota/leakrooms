@@ -209,6 +209,19 @@ const REPAIR_REACH = 1.25;   // tiles from the pipe face
 const REPAIR_DECAY = 2.6;    // whole-bars lost per second once you move
 const REPAIR_NOISE = 0.85;   // LOUD. Louder than running. That is the point.
 
+/* SPRINT_NOISE is the loudest thing you can do while MOVING, and it is below
+   the wrench — which is what the line above has claimed since the noise table
+   was written, and what the HUD has to be able to show. It used to be a bare
+   1.0, louder than the wrench at 0.85: a sprint both out-shouted the repair and
+   pegged the meter, so the bar could not say which of the two loud decisions
+   you were making, and the comment was simply untrue.
+
+   0.72 keeps everything the sprint is for — 3.3x a walk at 0.22, well over LOUD,
+   so it still wakes a sleeping coil and still commits a hunter to a full hunt —
+   and gives the meter a top end it can actually name. hearRadius() is 12.6
+   tiles, against 6.6 for a walk and 14.2 for the wrench. */
+const SPRINT_NOISE = 0.72;
+
 const WALL = 0, FLOOR = 1;
 
 /* Room-scoped light.
@@ -467,6 +480,9 @@ const Audio_ = {
   hum:null, humGain:null,
   hiss:null, hissGain:null,
   drone:null, droneGain:null, droneFilter:null,
+  /* The two continuous noise beds. See noiseFloor() and leakBed(). */
+  floorGain:null, floorFilter:null,
+  leakGain:null, leakFilter:null,
   master:null, mute:null, masterVol:0.7, muted:false,
   amb:null, ambOn:false, _ambTimer:null, _ambNext:0,
 
@@ -545,6 +561,55 @@ const Audio_ = {
     o1.connect(this.droneGain); o2.connect(g2); g2.connect(this.droneGain);
     o1.start(); o2.start();
 
+    /* --- THE NOISE FLOOR.
+       A bandpassed noise layer whose gain IS the HUD's NOISE bar, plus a low
+       sine under it that only comes up as the bar fills. This is the layer that
+       makes the meter and the mix the same fact: every noise source in the game
+       is a one-shot with a fixed peak, so a bar that fills and a mix that does
+       not change are two different instruments reporting two different
+       numbers. It ramps at 0.06s — fast enough to answer the bar, slow enough
+       that a 0.26s sprint burst does not click. */
+    this.floorGain = a.createGain();
+    this.floorGain.gain.value = 0;
+    this.floorFilter = a.createBiquadFilter();
+    this.floorFilter.type='bandpass';
+    this.floorFilter.frequency.value=520; this.floorFilter.Q.value=0.8;
+    this.floorFilter.connect(this.floorGain);
+    this.floorGain.connect(this.master);
+    const fn=a.createBufferSource(); fn.buffer=buf; fn.loop=true;
+    fn.playbackRate.value=1;
+    fn.connect(this.floorFilter); fn.start();
+    /* the pressure under it — inaudible while you walk, there when you wrench */
+    const fr=a.createOscillator(); fr.type='sine'; fr.frequency.value=74;
+    const frg=a.createGain(); frg.gain.value=0.55;
+    fr.connect(frg); frg.connect(this.floorGain); fr.start();
+
+    /* --- THE LEAK BED.
+       What an open pipe actually sounds like: pressurised water, not a drip.
+       One shared voice, gain driven by the pipes' TOTAL noise and pulled down
+       with distance to the nearest open one, so a burst pipe is something you
+       can walk toward with your ears. It is under the wrench by construction —
+       the wrench has to stay the loudest decision in the game. */
+    this.leakGain = a.createGain();
+    this.leakGain.gain.value = 0;
+    this.leakFilter = a.createBiquadFilter();
+    this.leakFilter.type='bandpass';
+    this.leakFilter.frequency.value=1400; this.leakFilter.Q.value=0.6;
+    this.leakFilter.connect(this.leakGain);
+    this.leakGain.connect(this.master);
+    const ln=a.createBufferSource(); ln.buffer=buf; ln.loop=true;
+    ln.playbackRate.value=1.25;
+    ln.connect(this.leakFilter); ln.start();
+    /* gurgle: the same noise, lowpassed and breathing slowly */
+    const lg=a.createBiquadFilter(); lg.type='lowpass'; lg.frequency.value=260; lg.Q.value=2;
+    lg.connect(this.leakGain);
+    const ln2=a.createBufferSource(); ln2.buffer=buf; ln2.loop=true;
+    ln2.playbackRate.value=0.55;
+    ln2.connect(lg); ln2.start();
+    const llfo=a.createOscillator(); llfo.frequency.value=0.7;
+    const llg=a.createGain(); llg.gain.value=140;
+    llfo.connect(llg); llg.connect(lg.frequency); llfo.start();
+
     /* The store is applied AFTER the graph exists rather than before, because
        applySettings() runs at boot and could not reach a node that had not been
        built yet — which is how a restored "muted" used to be silently ignored
@@ -554,23 +619,33 @@ const Audio_ = {
     this.setMuted(SETTINGS.muted);
   },
 
-  step(vol){                       // wet carpet footstep
+  /* How much louder a one-shot sounds for making more noise. Without it every
+     voice had a fixed peak and the two loudest things in the game — a sprint at
+     1.0 and a wrench at 0.85 — were only distinguishable by the HUD. Walking
+     (0.22) comes out at 1.09x, sprinting at 2.0x, so the bar and the speakers
+     finally agree. Applied to the peaks, never to the master: this is the mix,
+     not the volume slider. */
+  powerVol(p){ return 0.8 + Math.min(2, Math.max(0, p||0))*1.3; },
+
+  step(vol, power){                 // wet carpet footstep
     if (!this.ok) return;
     const a=this.ctx, t=a.currentTime;
+    const k=this.powerVol(power);
     const s=a.createBufferSource(); s.buffer=this.noise;
     s.playbackRate.value = 0.7 + Math.random()*0.4;
     const f=a.createBiquadFilter(); f.type='lowpass'; f.frequency.value=520;
     const g=a.createGain();
     g.gain.setValueAtTime(0.0001,t);
-    g.gain.exponentialRampToValueAtTime(0.10*vol, t+0.012);
+    g.gain.exponentialRampToValueAtTime(0.10*vol*k, t+0.012);
     g.gain.exponentialRampToValueAtTime(0.0001, t+0.17);
     s.connect(f); f.connect(g); g.connect(this.master);
     s.start(t); s.stop(t+0.2);
   },
 
-  splash(vol, wet){               // footstep through standing water
+  splash(vol, wet, power){         // footstep through standing water
     if (!this.ok) return;
     const a=this.ctx, t=a.currentTime;
+    const k=this.powerVol(power);
     const s=a.createBufferSource(); s.buffer=this.noise;
     s.playbackRate.value = 1.1 + Math.random()*0.5;
     /* Deeper water is a lower, longer splash. Filtered LOW rather than high:
@@ -580,7 +655,7 @@ const Audio_ = {
     f.frequency.value = 900 + wet*700;
     const g=a.createGain();
     g.gain.setValueAtTime(0.0001,t);
-    g.gain.exponentialRampToValueAtTime(0.11*vol, t+0.010);
+    g.gain.exponentialRampToValueAtTime(0.11*vol*k, t+0.010);
     g.gain.exponentialRampToValueAtTime(0.0001, t+0.22);
     s.connect(f); f.connect(g); g.connect(this.master);
     s.start(t); s.stop(t+0.25);
@@ -592,17 +667,21 @@ const Audio_ = {
     const o=a.createOscillator(); o.type='sine';
     o.frequency.setValueAtTime(900+Math.random()*700, t);
     o.frequency.exponentialRampToValueAtTime(180, t+0.09);
+    const f=a.createBiquadFilter(); f.type='lowpass'; f.frequency.value=2600;
     const g=a.createGain();
+    /* 0.08 rather than 0.035: the drip is the only cue that says WHICH pipe, and
+       at the old peak it was under the tape hiss from two rooms away. */
     g.gain.setValueAtTime(0.0001,t);
-    g.gain.exponentialRampToValueAtTime(0.035*vol, t+0.006);
+    g.gain.exponentialRampToValueAtTime(0.08*vol, t+0.006);
     g.gain.exponentialRampToValueAtTime(0.0001, t+0.13);
-    o.connect(g); g.connect(this.master);
+    o.connect(f); f.connect(g); g.connect(this.master);
     o.start(t); o.stop(t+0.15);
   },
 
-  wrench(){                        // working the pipe — loud, on purpose
+  wrench(power){                   // working the pipe — loud, on purpose
     if (!this.ok) return;
     const a=this.ctx, t=a.currentTime;
+    const k=this.powerVol(power);
     for (let i=0;i<3;i++){
       const st = t + i*0.16 + Math.random()*0.05;
       const o=a.createOscillator(); o.type='square';
@@ -612,7 +691,7 @@ const Audio_ = {
       f.frequency.value=1500; f.Q.value=4;
       const g=a.createGain();
       g.gain.setValueAtTime(0.0001,st);
-      g.gain.exponentialRampToValueAtTime(0.085, st+0.01);
+      g.gain.exponentialRampToValueAtTime(0.085*k, st+0.01);
       g.gain.exponentialRampToValueAtTime(0.0001, st+0.16);
       o.connect(f); f.connect(g); g.connect(this.master);
       o.start(st); o.stop(st+0.18);
@@ -667,19 +746,59 @@ const Audio_ = {
     s.start(t); s.stop(t+1.6);
   },
 
-  door(){                          // heavy door cycling open
+  door(power){                    // heavy door cycling open
     if (!this.ok) return;
     const a=this.ctx, t=a.currentTime;
+    const k=this.powerVol(power);
     const o=a.createOscillator(); o.type='sawtooth';
     o.frequency.setValueAtTime(70,t);
     o.frequency.exponentialRampToValueAtTime(28,t+1.1);
     const f=a.createBiquadFilter(); f.type='lowpass'; f.frequency.value=420;
     const g=a.createGain();
     g.gain.setValueAtTime(0.0001,t);
-    g.gain.exponentialRampToValueAtTime(0.16,t+0.08);
+    g.gain.exponentialRampToValueAtTime(0.16*k, t+0.08);
     g.gain.exponentialRampToValueAtTime(0.0001,t+1.2);
     o.connect(f); f.connect(g); g.connect(this.master);
     o.start(t); o.stop(t+1.3);
+  },
+
+  /* ---------- THE TWO NOISE BEDS ----------
+     Continuous voices: they move a gain that already exists rather than building
+     one per call. Both are driven from tickAudio, which is the only place that
+     knows the current noise level. */
+
+  /* The HUD bar, in the speakers. `level` is G.noise/NOISE_FS, so the mix IS
+     the meter rather than a mood running alongside it. Gain follows the square,
+     because a bar a third full should sound like a third of the way to
+     shouting, not a third of shouting. */
+  noiseFloor(level){
+    if (!this.ok) return;
+    const t=this.ctx.currentTime;
+    const l=Math.max(0, Math.min(1, level||0));
+    this.floorGain.gain.setTargetAtTime(l*l*0.11, t, 0.06);
+    this.floorFilter.frequency.setTargetAtTime(500 + l*2600, t, 0.1);
+  },
+
+  /* The open pipes. `total` is their summed noise — the same number the
+     water-blue floor of the bar draws — and `dist` the distance to the nearest
+     one. Attenuation is squared so the pipe is a direction you can walk toward
+     rather than a level that is simply always on. */
+  leakBed(total, dist){
+    if (!this.ok) return;
+    const t=this.ctx.currentTime;
+    const l=Math.max(0, Math.min(1, total||0));
+    const near=Math.max(0, 1 - Math.max(0, dist==null?99:dist)/20);
+    this.leakGain.gain.setTargetAtTime(l*near*near*0.16, t, 0.12);
+    this.leakFilter.frequency.setTargetAtTime(1100 + near*2400, t, 0.15);
+  },
+
+  /* Both beds off. For death and for leaving play, where update() stops running
+     and would otherwise freeze them at whatever they last were told. */
+  silenceBeds(){
+    if (!this.ok) return;
+    const t=this.ctx.currentTime;
+    this.floorGain.gain.setTargetAtTime(0, t, 0.15);
+    this.leakGain.gain.setTargetAtTime(0, t, 0.2);
   },
 
   drone(level){
@@ -1989,7 +2108,7 @@ function buildFloor(floorNum, seed){
   G.player = { x: level.spawn.x, y: level.spawn.y, face:-Math.PI/2, stepT:0, stepDur:0.46, moving:false };
   G.batt = BATT_MAX;
   G.radar = false;
-  G.noise = 0; G.noisePeak = 0;
+  G.noise = 0; G.noisePeak = 0; G.selfNoise = 0;
   G.descend = 0;
   /* THE CLOCK. Full at the moment you step through the door, counting down
      the whole level, and the only reason the level has a shape. */
@@ -2003,6 +2122,7 @@ function buildFloor(floorNum, seed){
      guessed, so it is exactly the set of tiles that can ever go wet. */
   G.wetFloor = 0;
   G.wet = 0; G.floodCover = 0; G.atLeak = false; G.leakPower = 0;
+  G.leakTotal = 0; G.leakDist = 99;
   /* Light the room the player spawned in. After this point it follows them:
      G exists, so regionAt(G.player) is meaningful. */
   scopeRoomLight(0, true);
@@ -2839,32 +2959,50 @@ function moveEnt(e, dx, dy, r){
    the entire risk decision was flattened. Walls muffle by 2.6 tiles each. */
 const hearRadius = power => 4 + power*12;
 
+/* Walls between a noise and a listener cost 3 tiles of hearing each. Sampled as
+   a staircase along the straight line between them, which is a cheap
+   approximation of a path. The sampler stops BEFORE the destination, so a source
+   standing in a doorway is heard through it rather than muffled by it — which is
+   the right answer for a pipe broken in a wall and the reason the leak emits
+   from the floor beside it. */
+function wallSteps(ax, ay, x, y){
+  let steps = 0, guard=0;
+  const sx=Math.floor(ax), sy=Math.floor(ay);
+  const ex=Math.floor(x), ey=Math.floor(y);
+  while (guard++<200){
+    const px=sx+Math.sign(ex-sx)*steps, py=sy+Math.sign(ey-sy)*steps;
+    if (px===ex&&py===ey) break;
+    if (solid(px,py)) steps++;
+    if (steps>6) break;
+  }
+  return steps;
+}
+
 function alertAgents(baseR, power, x, y){
   for (const a of G.agents){
     if (a.state==='WALK' && a.born>0) continue;
     const d = Math.hypot(a.x-x, a.y-y);
     if (d > baseR) continue;
     // walls muffle
-    let steps = 0, guard=0;
-    const sx=Math.floor(a.x), sy=Math.floor(a.y);
-    const ex=Math.floor(x), ey=Math.floor(y);
-    while (guard++<200){
-      const px=sx+Math.sign(ex-sx)*steps, py=sy+Math.sign(ey-sy)*steps;
-      if (px===ex&&py===ey) break;
-      if (solid(px,py)) steps++;
-      if (steps>6) break;
-    }
-    const eff = baseR - steps*3.0;
+    const eff = baseR - wallSteps(a.x, a.y, x, y)*3.0;
     if (d > eff) continue;
     alert(a, x, y, power);
   }
 }
 
 /* One-shot noise (cycling a door, hitting a wall):
-   updates the meter, the stats, and alerts. */
-function emitNoise(power, x, y){
+   updates the meter, the stats, and alerts.
+
+   `mine` says the noise came from something the player did. It changes nothing
+   about what the Lifeform hears — that is identical either way, because the
+   rules of the game are about power and distance, not about blame. What it
+   changes is the READOUT: G.selfNoise is the player's own contribution and
+   G.noise is the loudest thing in earshot, so standing still beside a burst pipe
+   shows a bar full of somebody else's noise and none of your own. */
+function emitNoise(power, x, y, mine){
   G.noise = Math.max(G.noise, power);
   G.noisePeak = Math.max(G.noisePeak, power);
+  if (mine) G.selfNoise = Math.max(G.selfNoise, power);
   G.stat.noises++;
   runStat.noises++;
   alertAgents(hearRadius(power), power, x, y);
@@ -2872,9 +3010,10 @@ function emitNoise(power, x, y){
 
 /* Continuous noise (footsteps): alerts at full strength every frame, but does
    not inflate the stats or fight the meter decay. */
-function sustainedNoise(power, x, y){
+function sustainedNoise(power, x, y, mine){
   G.noise = Math.max(G.noise, power);
   G.noisePeak = Math.max(G.noisePeak, power);
+  if (mine) G.selfNoise = Math.max(G.selfNoise, power);
   alertAgents(hearRadius(power), power, x, y);
 }
 
@@ -2886,6 +3025,27 @@ function sustainedNoise(power, x, y){
    coil pile, while sprinting near one makes it stand up. */
 const LOUD = 0.5;
 
+/* NOISE_FS is what a full HUD bar means: the loudest sustained thing you can do
+   on a floor, which is the WRENCH. It is the number that makes the meter read,
+   and it is deliberately NOT BATT_MAX — the bar used to divide the noise level
+   by the battery maximum, so a sprint drew 1% of it and the door 1.8%, while
+   the `hot` class still fired and turned the bar red at a level it could not
+   show. A meter whose scale is borrowed from a different quantity is not a
+   meter.
+
+   Against it: walk 0.22 -> 26%, wading 0.30 -> 35%, sprint 0.72 -> 85%, the
+   standing hiss of four open pipes -> 14-56%, the wrench -> 100%, LOUD at 59%.
+   The door clamps, which is correct: past full scale is past the end of the
+   instrument, and the audio bed keeps reporting the unclamped level. */
+const NOISE_FS = REPAIR_NOISE;
+
+/* The two powers that live outside the normal range, named so the meter, the mix
+   and the AI all read the same number: the door is the loudest thing in the
+   building and the bar clamps on it, and being brushed is loud enough to be
+   heard across the floor. */
+const DOOR_NOISE = 1.8;
+const BRUSH_NOISE = 1.2;
+
 /* Contact. Dying to something you never saw, in a corridor, because it
    happened to be idling there is a gotcha rather than tension. Brushing a
    LOITERING entity does not kill: it startles, commits to a hunt, and makes a
@@ -2895,7 +3055,7 @@ function brush(a, p){
   if (a.state==='HUNT'){ caught(); return; }
   a.state='HUNT'; a.target={x:p.x, y:p.y}; a.t=0;
   a.rise=Math.max(a.rise, 0.85);
-  emitNoise(1.2, p.x, p.y);
+  emitNoise(BRUSH_NOISE, p.x, p.y);
   flash('IT TOUCHED YOU');
   Audio_.rattle(1);
 }
@@ -3116,6 +3276,10 @@ window.addEventListener('keyup', e=>{
 function tickClock(dt){
   G.time += dt;
   G.noise = Math.max(0, G.noise - dt*1.55);
+  /* The player's own share decays on exactly the same curve as the total, so the
+     yellow part of the bar empties at the rate the building's hiss appears
+     under it rather than at a rate of its own invention. */
+  G.selfNoise = Math.max(0, G.selfNoise - dt*1.55);
 
   G.clock = Math.max(0, G.clock - dt);
   if (G.clock <= 0){ outOfTime(); return false; }
@@ -3186,12 +3350,17 @@ function tickMovement(dt){
      nobody follows it at all. */
   if (moving){
     const inWater = preWet > 0.25;
-    sustainedNoise(sprinting ? 1.0 : (inWater ? 0.30 : 0.22), p.x, p.y);
+    /* One power, three consumers: the meter, what the agents hear, and how
+       loud the footstep is. Passing it to the voice as well is what makes a
+       sprinting step sound like a sprinting step instead of a louder walk. */
+    const stepPow = sprinting ? SPRINT_NOISE : (inWater ? 0.30 : 0.22);
+    sustainedNoise(stepPow, p.x, p.y, true);
     p.stepT -= dt;
     if (p.stepT<=0){
       p.stepT = sprinting ? 0.26 : 0.46;
       p.stepDur = p.stepT;
-      if (inWater) Audio_.splash(sprinting?1:0.5, preWet); else Audio_.step(sprinting?1:0.5);
+      if (inWater) Audio_.splash(sprinting?1:0.5, preWet, stepPow);
+      else       Audio_.step(sprinting?1:0.5, stepPow);
     }
     p.moving = moving;
     /* Waking pushes a ripple ahead of you. It is a readable trace of where you
@@ -3201,8 +3370,11 @@ function tickMovement(dt){
       if (p.rippleT <= 0){ p.rippleT = 0.22; seedSplash(p.x, p.y, preWet*0.55); }
     }
   }
-  if (bumped && sprinting) emitNoise(0.55, p.x, p.y);
-  else if (bumped) sustainedNoise(0.3, p.x, p.y);
+  /* Walking into a partition is the player's doing, so it is the player's noise
+     on the meter — the sharp little spike above whatever you were already
+     making. */
+  if (bumped && sprinting) emitNoise(0.55, p.x, p.y, true);
+  else if (bumped) sustainedNoise(0.3, p.x, p.y, true);
 
   return { moving, bumped, sprinting, wet };
 }
@@ -3214,6 +3386,12 @@ function tickMovement(dt){
    standing sound the Lifeform can walk toward, not a series of events. */
 function tickLeakNoise(dt){
   const p = G.player;
+  /* The building's total standing noise: what the open pipes are making right
+     now, everywhere, summed. The HUD draws it as the water-blue floor under the
+     bar and the leak bed plays it, so the number the Lifeform hears is the
+     number the player can see. */
+  G.leakTotal = 0;
+  G.leakDist  = 99;
   if (G.leaksOpen > 0){
     /* Power rises with how much of the level is under water, so the leak gets
        louder as the floor drowns — but it is clamped below LOUD no matter how
@@ -3237,9 +3415,18 @@ function tickLeakNoise(dt){
     const each = Math.min(LEAK_NOISE_BASE + LEAK_NOISE_GAIN*G.floodCover,
                           (LOUD-0.02)/G.leaksOpen);
     G.leakPower = each;
+    G.leakTotal = each * G.leaksOpen;
     for (const L of G.leaks){
       if (L.fixed) continue;
-      sustainedNoise(each, L.x+0.5, L.y+0.5);
+      /* FROM THE STAND TILE, not from the wall the pipe is broken in. L.x/L.y
+         is the masonry and L.sx/L.sy is the floor you stand on to wrench it, and
+         the noise used to be emitted from the masonry: the distance was measured
+         to a wall, and — the part that actually mattered — alert() hands that
+         coordinate straight to the entity as its target, so a Lifeform curious
+         about a pipe was told to walk to the inside of a wall and stood there
+         bumping its own collision disc against brick. LEAK_LURE and leakAt both
+         read sx,sy: the pipe has exactly one address, and it is the floor. */
+      sustainedNoise(each, L.sx+0.5, L.sy+0.5);
     }
 
     /* Dripping, audible near the pipes. This is the find-confirmation cue and
@@ -3257,9 +3444,14 @@ function tickLeakNoise(dt){
       if (d < ld){ ld = d; near = L; }
     }
     if (near && ld < 14){
+      G.leakDist = Math.min(G.leakDist, ld);
       p.dripT = (p.dripT||0) - dt;
       if (p.dripT <= 0){
-        p.dripT = 0.10 + Math.min(1, ld/14)*1.5;
+        /* The floor on the interval is 0.28s. It used to reach 0.10 at the pipe
+           itself — ten drips a second, a machine gun with no pitch and no room
+           in it, which is the opposite of the positional cue it exists to be.
+           Loud and slow reads as "a pipe"; fast and loud reads as a texture. */
+        p.dripT = Math.max(0.28, 0.28 + Math.min(1, ld/14)*1.5);
         Audio_.drip(1 - Math.min(1, ld/14));
       }
     }
@@ -3283,9 +3475,9 @@ function tickRepair(dt, moving, bumped){
   G.atLeak = !!L;
   if (L){
     if (!moving && !bumped){
-      if (L.repair === 0) Audio_.wrench();
+      if (L.repair === 0) Audio_.wrench(REPAIR_NOISE);
       L.repair = Math.min(REPAIR_TIME, L.repair + dt);
-      sustainedNoise(REPAIR_NOISE, L.x+0.5, L.y+0.5);
+      sustainedNoise(REPAIR_NOISE, L.sx+0.5, L.sy+0.5, true);
       if (L.repair >= REPAIR_TIME){
         sealLeak(L);
       }
@@ -3377,9 +3569,9 @@ function tickDoor(dt){
       if (Math.hypot(e.x+0.5-p.x, e.y+0.5-p.y) < 1.25){ onExit=true; break; }
     }
     if (onExit){
-      if (G.descend===0) Audio_.door();
+      if (G.descend===0) Audio_.door(DOOR_NOISE);
       G.descend += dt;
-      sustainedNoise(1.8, p.x, p.y);
+      sustainedNoise(DOOR_NOISE, p.x, p.y, true);
       if (G.descend>=DOOR_HOLD){ nextFloor(); return false; }
     } else {
       G.descend = Math.max(0, G.descend - dt*2.5);
@@ -3410,10 +3602,20 @@ function tickDoor(dt){
   return true;
 }
 
-/* --- proximity drone --- */
+/* --- the mix --- */
 function tickAudio(){
   const prox = Math.max(0, 1 - G.nearest/13);
   Audio_.drone(prox * (0.35 + G.seenBy*0.65));
+  /* The two beds. The floor is the NOISE bar itself, so a filling bar is a
+     filling room: this is the line that makes the meter true rather than
+     decorative. The leak bed is the pipes' total, pulled down by how far the
+     nearest one is — the standing hiss you can walk toward. */
+  /* The bed follows the loudest thing in earshot — which is what the bar's
+     NUMBER shows — while the bar's yellow fill is the player's own share. The
+     mix and the meter are both readings of the same frame, neither of them a
+     separate mood. */
+  Audio_.noiseFloor(G.noise/NOISE_FS);
+  Audio_.leakBed(G.leakTotal/NOISE_FS, G.leakDist);
 }
 
 function update(dt){
@@ -3733,7 +3935,7 @@ function lose(cause){
   G.stat.deaths++;
   runStat.deaths++;
   lives--;
-  Audio_.sting(); Audio_.silence();
+  Audio_.sting(); Audio_.silence(); Audio_.silenceBeds();
   STATE='dead';
   renderLives();
   document.getElementById('hud').classList.remove('on');
@@ -4605,6 +4807,9 @@ const HUD = {
   batt: document.getElementById('bar-batt'),
   noise: document.getElementById('bar-noise'),
   noiseWrap: document.querySelector('.bar.noise'),
+  noisePeak: document.getElementById('bar-noise-peak'),
+  noiseLeak: document.getElementById('bar-noise-leak'),
+  noiseLoud: document.querySelector('.bar.noise u.loud'),
   vBatt: document.getElementById('val-batt'),
   vNoise: document.getElementById('val-noise'),
   vClock: document.getElementById('val-clock'),
@@ -4943,10 +5148,39 @@ function updateHUD(){
   if (!G) return;
   HUD.batt.style.width = (G.batt/BATT_MAX*100)+'%';
   HUD.vBatt.textContent = Math.ceil(G.batt);
-  HUD.noise.style.width = (G.noise/BATT_MAX*100)+'%';
-  HUD.vNoise.textContent = String(Math.round(G.noise/BATT_MAX*100)).padStart(2,'0');
-  HUD.noiseWrap.classList.toggle('hot', G.noise>0.45);
+  /* The NOISE bar, on the noise scale and not the battery one. Divided by
+     BATT_MAX it drew 1% of itself for a sprint and 1.8% for the door, while the
+     red test below still fired on the raw level and turned the bar hot at a
+     level it could not show. Three marks now: the fill (what you are making),
+     the water-blue floor (what the open pipes are making, everywhere — the
+     number a searching Lifeform steers by), and the peak tick, because a sprint
+     lasts 0.26s and the fill alone cannot say that it happened. */
+  const nz = Math.max(0, Math.min(1, G.noise/NOISE_FS))*100;
+  HUD.vNoise.textContent = String(Math.round(nz)).padStart(2,'0');
+  /* TWO FILLS, ONE BAR. The yellow is what YOU are making; the blue is what
+     the open pipes are making, everywhere on the floor, at the level the
+     Lifeform is steering by. Standing still beside a burst pipe used to fill
+     this bar to its top, which reads as "you are screaming" when you are
+     standing perfectly still and something is coming to the PIPE, not to you.
+     The number above is the loudest of the two, because that is what the room
+     actually sounds like. */
+  HUD.noise.style.width = Math.max(0, Math.min(1, G.selfNoise/NOISE_FS))*100+'%';
+  /* LOUD, on YOUR noise, and read from the constant. A pipe never reaches it
+     by construction, so red still means "this is about you" — and the old 0.45
+     was a stale copy of a threshold that lives at 0.5. */
+  HUD.noiseWrap.classList.toggle('hot', G.selfNoise>=LOUD);
   G.noisePeak = Math.max(G.noise, G.noisePeak - 0.004);
+  if (HUD.noisePeak){
+    HUD.noisePeak.style.left = Math.max(0, Math.min(100, G.noisePeak/NOISE_FS*100))+'%';
+    HUD.noisePeak.style.opacity = '1';
+  }
+  if (HUD.noiseLeak){
+    HUD.noiseLeak.style.width = Math.max(0, Math.min(1, G.leakTotal/NOISE_FS))*100+'%';
+  }
+  /* the LOUD mark, positioned from the constant rather than typed into the
+     stylesheet: it is the threshold the AI reads, and a hardcoded 50% went
+     stale the moment full scale stopped being 1.0 */
+  if (HUD.noiseLoud) HUD.noiseLoud.style.left = (LOUD/NOISE_FS*100)+'%';
   /* Three pipe readouts, because they answer three different questions and a
      single "OPEN/SEALED" cannot answer any of them. PIPES is the tally you are
      working down. DOOR is whether the level can end at all — it stays shut until
@@ -5027,7 +5261,7 @@ document.getElementById('btn-start').onclick = ()=>{
   else {
     G.clock = FLOOR_CLOCK; G.time = 0; G.batt = BATT_MAX;
     G.stat = {noises:0, deaths:0, sealed:0};
-    G.radar = false; G.noise = 0; G.noisePeak = 0; G.descend = 0; G.seenBy = 0;
+    G.radar = false; G.noise = 0; G.noisePeak = 0; G.selfNoise = 0; G.descend = 0; G.seenBy = 0;
     initFlood();          // the flood the builder warmed, warmed again here
     snapMask();
   }
