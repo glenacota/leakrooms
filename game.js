@@ -19,8 +19,11 @@ import { mulberry32 } from './util/rng.js';
 import { hash2 } from './util/hash.js';
 import { LEVELS, LEVELS_N } from './config/levels.js';
 import { PAL } from './config/palette.js';
+import { DIFFICULTIES, WATER_TINTS } from './config/presets.js';
+import { SETTINGS_DEFAULTS, SETTINGS_SCHEMA, SETTINGS_KEY, settingsValid } from './settings/schema.js';
+import { FLOORS, FLOOR_CLOCK, REPAIR_TIME, HUNT_BASE, HUNT_STEP, applyDifficulty } from './config/tuning.js';
 import * as _C from './config/constants.js';
-const { BAKE_FLOOR, BATT_MAX, BRUSH_NOISE, CATCH_R, DARK_ROOM, DIFFICULTIES, DOOR_AJAR, DOOR_EASE, DOOR_HOLD, DOOR_NOISE, FLICKER_DEPTH, HAND_OFF, HOP_FALL, LEAK_HEADSTART, LEAK_LURE, LEAK_NOISE_BASE, LEAK_NOISE_GAIN, LEAK_RETREAT, LEAK_SPREAD, LIGHT_FADE, LIGHT_FADE_STEPS, LOUD, LS, MAP_H, MAP_W, MASK_TAU, NOISE_FS, PIPE_FAR, PIPE_GAP, R, RA, RADAR_DRAIN, RENDER_SCALES, REPAIR_DECAY, REPAIR_NOISE, REPAIR_REACH, SCALE_BAD_FRAMES, SCALE_DROP_MS, SCALE_GOOD_FRAMES, SCALE_RECOVER_MS, SETTINGS_DEFAULTS, SETTINGS_KEY, SETTINGS_SCHEMA, SHEEN_STEPS, SPRINT, SPRINT_NOISE, TILE, VHS_PASS, VIEW_DEG, VIEW_FADE_FAR, VIEW_FADE_NEAR, VIEW_HALF, VIEW_MID, VIEW_RANGE, VIEW_RAYS, VIEW_T, WALK, WALL, WALL_FACE, WATER_TINTS, WET_DRAW, WET_EDGE, WET_FALL, WET_RISE, FLOOR } = _C;
+const { BAKE_FLOOR, BATT_MAX, BRUSH_NOISE, CATCH_R, DARK_ROOM, DOOR_AJAR, DOOR_EASE, DOOR_HOLD, DOOR_NOISE, FLICKER_DEPTH, HAND_OFF, HOP_FALL, LEAK_HEADSTART, LEAK_LURE, LEAK_NOISE_BASE, LEAK_NOISE_GAIN, LEAK_RETREAT, LEAK_SPREAD, LIGHT_FADE, LIGHT_FADE_STEPS, LOUD, LS, MAP_H, MAP_W, MASK_TAU, NOISE_FS, PIPE_FAR, PIPE_GAP, R, RA, RADAR_DRAIN, RENDER_SCALES, REPAIR_DECAY, REPAIR_NOISE, REPAIR_REACH, SCALE_BAD_FRAMES, SCALE_DROP_MS, SCALE_GOOD_FRAMES, SCALE_RECOVER_MS, SHEEN_STEPS, SPRINT, SPRINT_NOISE, TILE, VHS_PASS, VIEW_DEG, VIEW_FADE_FAR, VIEW_FADE_NEAR, VIEW_HALF, VIEW_MID, VIEW_RANGE, VIEW_RAYS, VIEW_T, WALK, WALL, WALL_FACE, WET_DRAW, WET_EDGE, WET_FALL, WET_RISE, FLOOR } = _C;
 const cvs = document.getElementById('game');
 const ctx = cvs.getContext('2d', { alpha:false });
 const sheenBuckets = Array.from({length:SHEEN_STEPS},
@@ -47,14 +50,6 @@ const sheenBuckets = Array.from({length:SHEEN_STEPS},
    same tile for TILE*0.5, so the face covers all but the last 1.6px of it and
    the height cue it exists to sell is very nearly gone already. Anything that
    makes the face taller finishes it off. */
-/* How long you have on each level to seal every pipe and get back to the door
-   you came in through. This is the whole pressure of a floor: the water is the
-   clock's excuse, the walk back is what it actually spends. */
-let FLOOR_CLOCK = 180;      // seconds; NORMAL
-let HUNT_BASE   = 3.45;           // tiles/sec, a committed Lifeform on level 1
-let HUNT_STEP   = 0.34;           // extra per level
-let REPAIR_TIME = 5.0;    // seconds of unbroken contact to seal the pipe
-
 /* --- the door ---
    The one door on the floor is a leaf on a hinge, not a rectangle of colour,
    so these are the three numbers that describe how it behaves. */
@@ -110,7 +105,6 @@ let REPAIR_TIME = 5.0;    // seconds of unbroken contact to seal the pipe
    enough to see from the next room, small enough that you are reading a
    waterline rather than surveying a lake. */
 
-
 /* Room-scoped light.
    The bake below is per FIXTURE: how bright a tile would be if its fluorescents
    were the only thing you could see. This is per VIEWER: of that bake, only
@@ -139,7 +133,6 @@ let REPAIR_TIME = 5.0;    // seconds of unbroken contact to seal the pipe
    rooms are dark" rule survivable: a room two gates away down a clear line is
    dim, and one four gates away is nearly black, but the light arrives
    continuously instead of stopping at a boundary you cannot see. */
-
 
 /* ---------- canvas ---------- */
 let VW = 0, VH = 0, DPR = 1, SCALE = 1;
@@ -182,7 +175,6 @@ let VW = 0, VH = 0, DPR = 1, SCALE = 1;
 let frameMsAvg = 16.7;
 let waterDirty = false;
 let badRun = 0, goodRun = 0, renderScaleIdx = 0;
-let FLOORS = LEVELS_N;
 
 function resize(){
   DPR = Math.min(window.devicePixelRatio || 1, 2) * RENDER_SCALES[renderScaleIdx];
@@ -256,7 +248,6 @@ function adaptResolution(ms){
    endings depending on which menu you picked, and there is only one of those
    worth designing. */
 
-
 /* Every field, its type, and its allowed range. The store validates against
    this rather than trusting whatever is in localStorage: a stale blob from an
    older build, a hand-edited value, or a half-written one must degrade to the
@@ -265,15 +256,6 @@ function adaptResolution(ms){
 
 let SETTINGS = Object.assign({}, SETTINGS_DEFAULTS);
 
-function settingsValid(key, v){
-  const s = SETTINGS_SCHEMA[key];
-  if (!s) return false;
-  if (s.type === 'enum') return s.values.indexOf(v) >= 0;
-  if (s.type === 'bool') return typeof v === 'boolean';
-  if (s.type === 'range') return typeof v === 'number' && Number.isFinite(v)
-                            && v >= s.min && v <= s.max;
-  return false;
-}
 
 /* Read the store. EVERY failure path returns defaults for the affected field
    and never throws: localStorage is absent in the headless suite, throws on
@@ -320,11 +302,7 @@ function resetSettings(){
    than at the next run. */
 function applySettings(){
   const d = DIFFICULTIES[SETTINGS.difficulty] || DIFFICULTIES.normal;
-  FLOORS       = LEVELS_N;
-  FLOOR_CLOCK  = d.clock;
-  REPAIR_TIME  = d.repairTime;
-  HUNT_BASE    = d.huntBase;
-  HUNT_STEP    = d.huntStep;
+  applyDifficulty(d);
   Audio_.setMaster(SETTINGS.master);
   /* Both of them, or the settings modal becomes a lie. M flips the stored flag
      through setOption, which lands here — and this used to push only the volume,
@@ -2131,7 +2109,6 @@ function buildFloor(floorNum, seed){
   initFlood();
 }
 
-
 /* ============================================================
    THE FLOOD
    Water spreads from every open pipe at a fixed rate along walkable floor.
@@ -3710,7 +3687,6 @@ function update(dt){
   if (!tickDoor(dt)) return;
   tickAudio();
 }
-
 
 function updateAgent(a, dt, p){
   a.born = Math.max(0, a.born-dt);

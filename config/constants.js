@@ -338,60 +338,6 @@ export const SCALE_RECOVER_MS= 12;     // sustained frame time that earns one ba
 export const SCALE_BAD_FRAMES = 45;    // frames over threshold before acting on it
 export const SCALE_GOOD_FRAMES = 180;  // and a much longer run before recovering
 
-export const WATER_TINTS = {
-  slate:  { damp:[54,50,40],  deep:[32,76,112] },
-  teal:   { damp:[44,52,46],  deep:[24,88,98]  },
-  violet: { damp:[54,44,58],  deep:[78,50,114] },
-  grey:   { damp:[40,40,40],  deep:[104,104,108] },
-};
-
-/* Difficulty. PRESETS, not a slider, and they move COUNTS AND SPACING only:
-   lives, how long you get on the clock, how long the repair takes, and how fast
-   the Lifeform commits. None of them touches the noise table, and that is the
-   whole discipline here — walk/wading staying under LOUD is the design contract,
-   and a difficulty control that could push a quiet noise over the line would let
-   a player configure the stealth layer out of the game. The suite asserts this.
-
-   Note what is NOT here any more: the level count. The five levels are the run,
-   not a setting — a preset that gave you four of them meant the game had five
-   endings depending on which menu you picked, and there is only one of those
-   worth designing. */
-export const DIFFICULTIES = {
-  relaxed: { lives:5, clock:240, repairTime:7.0, huntBase:2.90, huntStep:0.26,
-             label:'RELAXED' },
-  normal:  { lives:3, clock:180, repairTime:5.0, huntBase:3.45, huntStep:0.34,
-             label:'NORMAL' },
-  hard:  { lives:1, clock:150, repairTime:4.0, huntBase:4.05, huntStep:0.42,
-             label:'HARD' },
-};
-
-export const SETTINGS_DEFAULTS = {
-  difficulty: 'normal',
-  master: 0.7,
-  /* M is a toggle, not a slider position, so it is stored as a bool and has no
-     control in the modal — it is a hotkey, and the only place it is visible is
-     the toast it raises when you press it. Persisted like everything else: a
-     player who muted the game once is a player who has muted it five times. */
-  muted: false,
-  waterHue: 'slate',
-  waterContrast: 1.0,
-};
-
-/* Every field, its type, and its allowed range. The store validates against
-   this rather than trusting whatever is in localStorage: a stale blob from an
-   older build, a hand-edited value, or a half-written one must degrade to the
-   default for THAT FIELD and leave the rest alone. Validating per field is
-   what makes that true. */
-export const SETTINGS_SCHEMA = {
-  difficulty:     { type:'enum', values:Object.keys(DIFFICULTIES) },
-  master:         { type:'range', min:0, max:1 },
-  muted:          { type:'bool' },
-  waterHue:       { type:'enum', values:Object.keys(WATER_TINTS) },
-  waterContrast:  { type:'range', min:0.4, max:2 },
-};
-
-export const SETTINGS_KEY = 'leakrooms.settings.v1';
-
 export const WET_DRAW = 0.015;          // packWet: below this a tile is fully transparent
 export const WET_EDGE = WET_DRAW*0.8;    // ...so below THIS the simulation may stop caring
 
