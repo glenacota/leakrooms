@@ -478,7 +478,7 @@ function resetSettings(){
   SETTINGS = Object.assign({}, SETTINGS_DEFAULTS);
   /* Same reason as setOption's water keys: the default tint may differ from the
      one on screen, and reset writes SETTINGS without going through setOption. */
-  waterDirty = true;
+  markWetAll();
   applySettings();
   saveSettings();
 }
@@ -1482,6 +1482,28 @@ const WET_EDGE = WET_DRAW*0.8;    // ...so below THIS the simulation may stop ca
    with no repack is still a frame that draws the water correctly. */
 let waterDirty = false;
 
+/* WHICH PART of the image is stale, not just that some of it is. packWet walks
+   5776 tiles and writes four bytes each, and it ran that in full on every frame
+   the water was moving — which, with a pipe open, is every frame of the level.
+   The water moves in a band, though: tickFlood publishes the bounding box of
+   what it wrote, seedSplash and initFlood cannot describe a band and publish the
+   whole map, and packWet repacks exactly the box and uploads just that rect.
+
+   A dirty box is invalidated by setting the min past the max, so the flag and
+   the box cannot disagree: waterDirty true with an empty box is a full repack. */
+let wetX0=0, wetY0=0, wetX1=MAP_W-1, wetY1=MAP_H-1;
+let wetDirtyX0=-1, wetDirtyY0=-1, wetDirtyX1=-1, wetDirtyY1=-1;
+/* Grow the pending box by one tile. Both writers use this — the flood band and
+   the player's splashes — so neither can mark the water dirty without also
+   saying where. */
+function markWetTile(i){
+  waterDirty = true;
+  const x = i % MAP_W, y = (i / MAP_W) | 0;
+  if (x < wetDirtyX0) wetDirtyX0 = x; else if (x > wetDirtyX1) wetDirtyX1 = x;
+  if (y < wetDirtyY0) wetDirtyY0 = y; else if (y > wetDirtyY1) wetDirtyY1 = y;
+}
+function markWetAll(){ waterDirty = true; wetDirtyX0=wetDirtyY0=wetDirtyX1=wetDirtyY1=-1; }
+
 /* ============================================================
    LEVEL STAGES
    Four pure stages. Each takes the level (or just an rng) and
@@ -2230,6 +2252,11 @@ function buildFloor(floorNum, seed){
     maskTgt: new Float32Array(MAP_W*MAP_H),
     coneArr: new Float32Array(MAP_W*MAP_H),
     maskCv: null, maskCtx: null, maskImg: null,
+    /* Every wall tile, once. The cone's wall pass used to scan all 5776 tiles
+       every retrace — which is every frame while moving — to find the walls,
+       which on a maze this dense is a few hundred of them. Built here so that
+       pass is bounded by the masonry rather than by the map. */
+    wallIdx: null,
     /* the static tile layer: carpet + tonal variation, and wall faces + tops.
        Two layers because the flood lands between them. */
     tilesCv: null, tilesCtx: null, wallsCv: null, wallsCtx: null,
@@ -2244,6 +2271,15 @@ function buildFloor(floorNum, seed){
     wetCv: null, wetCtx: null, wetImg: null,
     postCv: null
   };
+
+  /* The wall index list, before anything reads it. Same row-major order as the
+     scan it replaces, so the cone's wall pass writes the same tiles in the same
+     order and the resulting field is bit-identical. */
+  {
+    const idx = [];
+    for (let i=0; i<MAP_W*MAP_H; i++) if (grid[i]===WALL) idx.push(i);
+    G.wallIdx = Int32Array.from(idx);
+  }
 
   bakeLighting(level);
   labelRegions(level);
@@ -2392,7 +2428,7 @@ function initFlood(){
      of its own any more, and the fresh G.wetImg (alpha 255, RGB 0) would paint
      black over the new carpet for one frame. */
   packWet();
-  waterDirty = true;
+  markWetAll();
 }
 
 /* Drop a blob of water. Used to seed the floor at spawn and — the reason this
@@ -2409,7 +2445,7 @@ function seedSplash(wx, wy, amount){
     const w = Math.min(1, Math.max(0, amount * (1 - dd/1.8)));
     if (w > G.wetArr[i]){
       G.wetSum += w - G.wetArr[i]; G.wetArr[i] = w;
-      waterDirty = true;
+      markWetTile(i);
       /* A splash can wet a tile further out than the flood has reached — the
          player wading a puddle throws it a tile or two past the waterline. The
          pass is bounded by the wet edge, so a tile raised without moving the
@@ -2594,13 +2630,13 @@ function tickFlood(dt){
       sum += snapped - cur;
       G.wetArr[i] = snapped;
       changed = true;
+      markWetTile(i);
     }
     if (G.wetArr[i] > WET_EDGE) edge = G.waterDist[i];
   }
   G.wetEdgeD = edge;
   if (!changed) return;
   G.wetSum = sum;
-  waterDirty = true;
   G.floodCover = G.wetFloor ? Math.max(0, sum/G.wetFloor) : 0;
 }
 
@@ -2633,18 +2669,36 @@ function packWet(){
   const T = WATER_TINTS[SETTINGS.waterHue] || WATER_TINTS.slate;
   const contrast = SETTINGS.waterContrast;
   const d = G.wetImg.data;
-  for (let i=0;i<MAP_W*MAP_H;i++){
-    const a = G.wetArr[i];
-    const k = i*4;
-    if (a <= WET_DRAW){ d[k+3] = 0; continue; }
-    const t = Math.min(1, a);
-    const blue = Math.max(0, (t-0.35)/0.65);
-    d[k]   = Math.round(T.damp[0] + (T.deep[0]-T.damp[0])*blue);
-    d[k+1] = Math.round(T.damp[1] + (T.deep[1]-T.damp[1])*blue);
-    d[k+2] = Math.round(T.damp[2] + (T.deep[2]-T.damp[2])*blue);
-    d[k+3] = Math.round(255*Math.min(0.94, (0.34 + t*0.48)*contrast));
+  /* PARTIAL REPACK. The dirty box names the tiles that changed since the last
+     pack, and only those rows are walked and only that rect is uploaded. With a
+     pipe open the water moves every frame, so this used to be a full 5776-tile
+     pass each time to repaint a band a few tiles across — and the upload was the
+     expensive half, pushing the whole 76x76 image when a tenth of it had
+     changed. An empty box means "repack everything", which is what initFlood, a
+     tint change and the first frame after a floor build all ask for.
+
+     The box is CONSUMED here: the pack is the upload, so after it the pending
+     region is empty and the next writer starts a fresh one. */
+  const full = wetDirtyX1 < 0;
+  const x0 = full ? 0 : wetDirtyX0, y0 = full ? 0 : wetDirtyY0;
+  const x1 = full ? MAP_W-1 : wetDirtyX1, y1 = full ? MAP_H-1 : wetDirtyY1;
+  for (let y=y0; y<=y1; y++){
+    let i = y*MAP_W + x0;
+    for (let x=x0; x<=x1; x++, i++){
+      const a = G.wetArr[i];
+      const k = i*4;
+      if (a <= WET_DRAW){ d[k+3] = 0; continue; }
+      const t = Math.min(1, a);
+      const blue = Math.max(0, (t-0.35)/0.65);
+      d[k]   = Math.round(T.damp[0] + (T.deep[0]-T.damp[0])*blue);
+      d[k+1] = Math.round(T.damp[1] + (T.deep[1]-T.damp[1])*blue);
+      d[k+2] = Math.round(T.damp[2] + (T.deep[2]-T.damp[2])*blue);
+      d[k+3] = Math.round(255*Math.min(0.94, (0.34 + t*0.48)*contrast));
+    }
   }
-  G.wetCtx.putImageData(G.wetImg, 0, 0);
+  const w = x1-x0+1, h = y1-y0+1;
+  G.wetCtx.putImageData(G.wetImg, 0, 0, x0, y0, w, h);
+  wetDirtyX0 = wetDirtyY0 = wetDirtyX1 = wetDirtyY1 = -1;
 }
 
 /* ============================================================
@@ -2826,15 +2880,21 @@ function traceViewCone(force){
      hole rather than a wall. A wall deep inside a block with nothing lit
      around it stays black, which is what you want — you should not be able to
      see the inside of the building. */
-  for (let y=0;y<MAP_H;y++) for (let x=0;x<MAP_W;x++){
-    const i=y*MAP_W+x;
-    if (G.grid[i]!==WALL) continue;
+  /* Walks G.wallIdx rather than the map: on a floor of mostly masonry this is a
+     few hundred iterations instead of 5776 branches, and the same tiles are
+     touched in the same order. The bounds checks are still there — a wall on
+     the map edge has no neighbour on one side, and reading past the array end
+     would be a wrap into the next row. */
+  const grid=G.grid, cone=G.coneArr, widx=G.wallIdx;
+  for (let k=0;k<widx.length;k++){
+    const i = widx[k];
+    const x = i % MAP_W, y = (i / MAP_W) | 0;
     let m = 0;
-    if (x+1<MAP_W   && G.grid[i+1]===FLOOR)   m=Math.max(m, G.coneArr[i+1]);
-    if (x>0        && G.grid[i-1]===FLOOR)   m=Math.max(m, G.coneArr[i-1]);
-    if (y+1<MAP_H  && G.grid[i+MAP_W]===FLOOR) m=Math.max(m, G.coneArr[i+MAP_W]);
-    if (y>0        && G.grid[i-MAP_W]===FLOOR) m=Math.max(m, G.coneArr[i-MAP_W]);
-    G.coneArr[i] = Math.max(G.coneArr[i], m);
+    if (x+1<MAP_W   && grid[i+1]===FLOOR)   m=Math.max(m, cone[i+1]);
+    if (x>0        && grid[i-1]===FLOOR)   m=Math.max(m, cone[i-1]);
+    if (y+1<MAP_H  && grid[i+MAP_W]===FLOOR) m=Math.max(m, cone[i+MAP_W]);
+    if (y>0        && grid[i-MAP_W]===FLOOR) m=Math.max(m, cone[i-MAP_W]);
+    cone[i] = Math.max(cone[i], m);
   }
 
   /* Fold the three terms into the target mask. The radar short-circuits all of
@@ -2857,25 +2917,37 @@ function traceViewCone(force){
    every tile is visible and there is nowhere left to hide. That is the entire
    tool. It is handled here rather than at draw time so there is exactly one
    place in the program where "what can the player see" is decided. */
+/* Row-major, so `i` walks the same order as before and the output is
+   bit-identical — but x and y are carried in the loop instead of recovered from
+   `i` with a modulo and a divide. This runs 5776 times per frame while moving,
+   and the integer div/mod was most of the cost of a pass that is otherwise
+   three array reads and a multiply. Nothing here is allowed to change what it
+   computes: the occlusion oracle in the suite reads this field directly. */
 function combineMask(){
   if (G.radar){ G.maskTgt.fill(1); return; }
   const px2=G.player.x, py2=G.player.y;
-  for (let i=0; i<G.maskTgt.length; i++){
-    const sc = G.visArr[i], cn = G.coneArr[i];
-    let v = 0;
-    if (sc > 0 && cn > 0){
-      if (sc >= 0.999){
-        v = cn;                                   // your own room: no falloff
-      } else {
-        const dx=(i%MAP_W)+0.5-px2, dy=((i/MAP_W)|0)+0.5-py2;
-        const d=Math.sqrt(dx*dx+dy*dy);
-        let f = d<=VIEW_FADE_NEAR ? 1
-              : d>=VIEW_FADE_FAR  ? 0
-              : (VIEW_FADE_FAR-d)/(VIEW_FADE_FAR-VIEW_FADE_NEAR);
-        v = sc*f*cn;
+  const vis=G.visArr, cone=G.coneArr, tgt=G.maskTgt;
+  const fadeSpan = VIEW_FADE_FAR-VIEW_FADE_NEAR;
+  let i=0;
+  for (let y=0; y<MAP_H; y++){
+    const cy = y+0.5-py2;
+    for (let x=0; x<MAP_W; x++, i++){
+      const sc = vis[i], cn = cone[i];
+      let v = 0;
+      if (sc > 0 && cn > 0){
+        if (sc >= 0.999){
+          v = cn;                                   // your own room: no falloff
+        } else {
+          const dx = x+0.5-px2, dy = cy;
+          const d = Math.sqrt(dx*dx + dy*dy);
+          const f = d<=VIEW_FADE_NEAR ? 1
+                  : d>=VIEW_FADE_FAR  ? 0
+                  : (VIEW_FADE_FAR-d)/fadeSpan;
+          v = sc*f*cn;
+        }
       }
+      tgt[i] = v;
     }
-    G.maskTgt[i] = v;
   }
   /* Deliberately NOT blurred. There was a 3x3 pass here and it quietly broke
      the centre of vision: an average of the player's own fully-lit tile with
@@ -4699,32 +4771,45 @@ function arm(g, T, side, cy, swing, col, handCol, reach) {
 /* Where both feet are, this frame. One plan, two consumers: the legs are
    drawn to it and the boots are drawn on it, so the legs cannot come apart
    from the boots — which is the usual way a hand-drawn walk cycle falls
-   apart. */
+   apart.
+
+   It writes into two module-level scratch records rather than building and
+   returning an array. Both consumers run back to back on the same sprite and
+   nothing else reads the plan while either is drawing, so the scratch cannot
+   be observed — and this ran twice per sprite per frame, allocating an array,
+   an object and a `stride` result each time. Same numbers out; the shape is
+   the only thing that changed. */
+const FOOT_A = { s:0, x:0, y:0, ang:0, sc:1 };
+const FOOT_B = { s:0, x:0, y:0, ang:0, sc:1 };
+const FOOT_PLAN = [FOOT_A, FOOT_B];
 function footPlan(S, T, o) {
   const st = stride(S);
   const bob = st.bob * T + (o.bob || 0);
-  const out = [];
-  for (const s of [-1, 1]) {
+  const swing = o.swing || 0.045, liftK = o.lift || 0.06, turn = o.turn || 0.30;
+  const y0 = o.y * T + bob, sc = o.sc || 1, sep = o.sep * T;
+  for (let n=0; n<2; n++){
+    const s = n===0 ? -1 : 1;
+    const f = n===0 ? FOOT_A : FOOT_B;
     const lift = s > 0 ? st.liftR : st.liftL;
-    const fore = -st.s * s * T * (o.swing || 0.045);
-    out.push({
-      s,
-      x: s * o.sep * T,
-      y: o.y * T + bob + fore - lift * (o.lift || 0.06) * T,
-      ang: -s * st.s * (o.turn || 0.30),
-      sc: o.sc || 1,
-    });
+    f.s = s;
+    f.x = s * sep;
+    f.y = y0 - st.s * s * T * swing - lift * liftK * T;
+    f.ang = -s * st.s * turn;
+    f.sc = sc;
   }
-  return out;
+  return FOOT_PLAN;
 }
 
 function feet(g, T, S, o) {
-  for (const f of footPlan(S, T, o)) boot(g, T, f.x, f.y, f.ang, f.sc, o.col, o.dark);
+  const plan = footPlan(S, T, o);
+  for (let n=0;n<2;n++){ const f=plan[n]; boot(g, T, f.x, f.y, f.ang, f.sc, o.col, o.dark); }
 }
 
 function legs(g, T, S, o) {
-  for (const f of footPlan(S, T, o))
-    limb(g, f.s * o.hipSep * T, o.hipY * T, f.x, f.y + T * 0.035, T * (o.w || 0.10), o.col);
+  const plan = footPlan(S, T, o);
+  const w = T * (o.w || 0.10);
+  for (let n=0;n<2;n++){ const f=plan[n];
+    limb(g, f.s * o.hipSep * T, o.hipY * T, f.x, f.y + T * 0.035, w, o.col); }
 }
 
 /* THE AVATAR — the Rigger. Hard hat, hi-vis vest with two reflective bands
@@ -4775,13 +4860,19 @@ function drawRigger(g, S) {
    its legs reach further than its body, which is why the floor is clipped
    under it (see drawAgent) — an unclipped leg over a partition reads as
    walking through walls. The origin is the feet; it grows upward. */
+/* The four legs, as two flat arrays rather than four two-element arrays. This
+   table is constant — the sides and the phase offsets never change — and it was
+   being rebuilt, nested array literals and all, once per Stalker per frame. */
+const STALKER_SIDE = [-1, 1, -1, 1];
+const STALKER_PH   = [0, Math.PI, Math.PI*0.55, Math.PI*0.55];
+
 function drawStalker(g, S) {
   const T = S.T, t = S.t;
   const HGT = T * 0.75;
   g.globalAlpha = Math.min(1, 0.30 + S.h * 0.70);
   g.save();
   const s = Math.sin(S.phase * TAU) * (S.gait || 0);
-  const legs = [[-1, 0], [1, Math.PI], [-1, Math.PI * 0.55], [1, Math.PI * 0.55]];
+  const legs = STALKER_SIDE;
 
   /* THE HIT ZONE, drawn first so the legs and body stand on it. brush() is
      fatal at CATCH_R tiles and nothing on screen said so: the legs reached
@@ -4793,8 +4884,8 @@ function drawStalker(g, S) {
   g.lineWidth = 2;
   g.beginPath(); g.ellipse(0, 0, T * CATCH_R, T * CATCH_R * 0.92, 0, 0, TAU); g.stroke();
 
-  for (let i = 0; i < legs.length; i++) {
-    const side = legs[i][0], ph = legs[i][1];
+  for (let i = 0; i < 4; i++) {
+    const side = legs[i], ph = STALKER_PH[i];
     const sw = Math.sin(S.phase * TAU + ph) * (S.gait || 0);
     const footX = side * T * (0.30 + sw * 0.10);
     const footY = -HGT * 0.06 + Math.cos(S.phase * TAU + ph) * T * 0.09 * (S.gait || 0);
@@ -5034,6 +5125,14 @@ function drawPlayer(p, t){
    coalesces out of its own footprint. Hunting = fully up, one of six
    the Stalker, drawn by drawStalker below. The shadow and the red rim are the
    game's; the thing itself is the sprite's. */
+/* The dormant burst's twenty fill styles, built once at module load. See the
+   DORMANT branch in drawAgent: the brightness of speck `i` is a function of `i`
+   alone, so these strings never change and never needed to be rebuilt. */
+const DORMANT_FILL = Array.from({length:20}, (_,i)=>{
+  const br = Math.round(100 + Math.sin(i)*50);
+  return `rgba(${br},${br},${br},0.3)`;
+});
+
 function drawAgent(a, t){
   const x=a.x*TILE, y=a.y*TILE;
   const h = a.rise;
@@ -5045,12 +5144,17 @@ function drawAgent(a, t){
   ctx.fill();
 
   if (h < 0.02){
-    /* DORMANT — a burst of static on the carpet */
+    /* DORMANT — a burst of static on the carpet.
+       The twenty fill styles are built ONCE, not per frame: `br` comes from
+       `Math.sin(i)` and `i` does not change, so every one of those template
+       literals was allocating a string sixty times a second to hold a value
+       that is the same string it held on the previous frame. Only the
+       POSITIONS animate — they drift on t — and those are two sines either
+       way, so the burst still crawls exactly as before. */
     for (let i=0;i<20;i++){
       const sx = x + Math.sin(i*3.7 + t*0.01)*TILE*0.25;
       const sy = y + Math.cos(i*2.3 + t*0.008)*TILE*0.10;
-      const br = 100 + Math.sin(i)*50;
-      ctx.fillStyle=`rgba(${br},${br},${br},0.3)`;
+      ctx.fillStyle = DORMANT_FILL[i];
       ctx.fillRect(sx, sy, 2, 2);
     }
     return;
@@ -5317,7 +5421,7 @@ function setOption(key, value){
   SETTINGS[key] = value;
   /* packWet bakes the tint into the pixels, so a new tint is a stale image even
      though G.wetArr has not moved. */
-  if (key==='waterHue' || key==='waterContrast') waterDirty = true;
+  if (key==='waterHue' || key==='waterContrast') markWetAll();
   applySettings();
   saveSettings();
   syncSettingsUI();
