@@ -61,7 +61,7 @@ global.localStorage = {
 };
 
 /* ---- load game.js into this context ---- */
-const src = fs.readFileSync(__dirname + '/game.js','utf8');
+const src = '"use strict";\n' + fs.readFileSync(__dirname + '/game.js','utf8');
 const ctxObj = vm.createContext(global);
 vm.runInContext(src, ctxObj, { filename:'game.js' });
 

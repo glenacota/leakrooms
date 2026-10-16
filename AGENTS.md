@@ -13,7 +13,7 @@ LEAKROOMS — 2D top-down puzzle/stealth. Vanilla JS + canvas, zero dependencies
 
 ## Architecture
 
-Single-file game. No modules, no build step. `game.js` runs in browser and in Node (via `vm` in test.js) — keep it loadable headless. The cast is drawn inline in `game.js`.
+Single-file game, one ES module, no build step. `game.js` is loaded via `<script type="module">` in the browser and in Node (via `vm` in test.js, with a `"use strict"` prefix to mimic module strictness) — keep it loadable headless. Modules are CORS-blocked on `file://`, so serve the repo (`npm run serve`) rather than opening the file directly. The cast is drawn inline in `game.js`.
 
 State lives in module-level `let` bindings. `G` holds per-level state (grid, player, agents, `leaks`, flood, the one `exitTiles` door, `clock`). `LEVELS` is the fixed five-level content table; `SETTINGS` is global config, persisted to `localStorage` under `leakroom.settings.v1`.
 
@@ -21,7 +21,7 @@ State lives in module-level `let` bindings. `G` holds per-level state (grid, pla
 
 - **No assets.** Every visual is canvas-drawn or CSS. Every sound is synthesized.
 - **Deterministic RNG.** `mulberry32` seeded per floor. Tests rely on this.
-- **Headless-safe.** `game.js` must load in Node with stubbed DOM/canvas. Tests drive real `update()` and `render()`.
+- **Headless-safe.** `game.js` must load in Node with stubbed DOM/canvas. Tests drive real `update()` and `render()`. The vm source is prefixed with `"use strict"` so module strictness is enforced in the harness too.
 - **No new deps.** Ever.
 
 ## Rules of the run

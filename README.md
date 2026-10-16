@@ -43,6 +43,14 @@ Run the headless test suite:
 node test.js      # exit 0 = pass
 ```
 
+## 🚀 Running
+
+`game.js` is an ES module (`<script type="module">`), so opening `index.html` via `file://` no longer works — browsers block module scripts on that origin. Serve the repo instead:
+
+```
+npm run serve     # → http://localhost:8080/
+```
+
 The test suite validates game logic, physics, and generation across 20 automated checks:
 * Maze & Map Integrity: Validates layout connectivity, exit reachability, and tile geometry across 400 floors. Samples 1.7M+ free-space positions to guarantee zero soft-locks.
 * Vision & Lighting: Verifies the 200° cone of vision, line-of-sight wall occlusion, corridor falloff, and room-scoped light spillage.
