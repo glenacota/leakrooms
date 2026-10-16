@@ -14,62 +14,18 @@
    ============================================================ */
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { calls, els, fakeAudioContext, fakeCanvas, fakeEl } from './tests/helpers/stubs.js';
+import { fakeAudioContext } from './tests/helpers/stubs.js';
 import { softAssert } from './tests/helpers/soft-assert.js';
 import { readCss, readHtml, readSrc } from './tests/helpers/src-text.js';
+import { loadGame } from './tests/helpers/harness.js';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
-
-global.document = {
-  getElementById(id){ return els[id] || (els[id]=fakeEl(id)); },
-  querySelector(sel){ return els[sel] || (els[sel]=fakeEl(sel)); },
-  querySelectorAll(){ return []; },
-  /* The game builds its own canvases (the light bake, the mask, the packed
-     flood field, the procedural textures) rather than declaring them in markup,
-     so the harness has to hand out elements too. Without this the module fails
-     to LOAD, which is worth stating plainly: a stub gap here does not fail one
-     assertion, it kills the entire suite before a single test runs. */
-  createElement(tag){ return tag==='canvas' ? fakeCanvas() : fakeEl(tag); },
-  addEventListener(){},
-  body: { appendChild(){} },
-};
-global.__audioNodes = [];
-global.window = {
-  /* Key handlers are kept so tests can press real keys. Every screen change
-     in this game is a key handler away, and a suite that could not press a
-     key could not tell a working menu from a decorative one. */
-  _h:{},
-  addEventListener(t,f){ this._h[t]=f; },
-  devicePixelRatio:1,
-  AudioContext: undefined,   // exercise the no-AudioContext fallback path
-};
-global.requestAnimationFrame = ()=>0;
-global.performance = { now: ()=> Date.now() };
-
-/* A real localStorage, because the settings store's whole job is surviving a
-   round trip. A stub that silently did nothing would let the persistence code
-   be entirely untested, which is the one part of it that can fail silently in
-   production. Tests can reach __store to corrupt it deliberately. */
-global.__store = new Map();
-global.localStorage = {
-  getItem(k){ return __store.has(k) ? __store.get(k) : null; },
-  setItem(k,v){ __store.set(k, String(v)); },
-  removeItem(k){ __store.delete(k); },
-  clear(){ __store.clear(); },
-};
-
-/* ---- load game.js as an ES module ----
-   The stubs above are installed before this dynamic import (static imports
-   hoist, so the import must be dynamic to run after them). game.js boots
-   against the fake DOM: buildFloor, paintSplashPlan, requestAnimationFrame. */
-const mod = await import('./game.js');
-const A = mod.__api;
+const { A, G, els, calls, store, press } = await loadGame();
 
 /* seeded RNG for deterministic fuzzing */
 const seededRNG = A.mulberry32(0xC0FFEE);
 
-const G      = new Proxy({}, { get:(_,k)=>A.G[k], set:(_,k,v)=>{A.G[k]=v; return true;} });
 const moveEnt= A.moveEnt;
 const blocked= A.blocked;
 const keys   = A.keys;
