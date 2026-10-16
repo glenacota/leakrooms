@@ -6,7 +6,7 @@ import { softAssert } from '../helpers/soft-assert.js';
 import { readCss, readHtml, readSrc } from '../helpers/src-text.js';
 import { loadGame } from '../helpers/harness.js';
 
-const __dirname = fileURLToPath(new URL('.', import.meta.url));
+const __dirname = fileURLToPath(new URL('../..', import.meta.url));
 const { A, G, els, calls, store, press } = await loadGame();
 const seededRNG = A.mulberry32(0xC0FFEE);
 const moveEnt = A.moveEnt;
@@ -489,3 +489,99 @@ console.log('[26] the pause screen — the work order, with the run written on i
   t.done();
 });
 
+/* ============ TEST 34: the floor-clear card ==============================
+   The one screen between two levels. It is asserted on three axes, because each
+   of them can fail alone and none of them implies the others:
+
+     markup    the card exists, ships hidden, and has something to press
+     content   the briefing is the LEVELS row for the floor being entered, and
+                the clock is the one that was left on the floor just finished
+     behaviour it holds the player out of a floor that is already built and
+                already running, the clock is frozen while it is up, and ENTER
+                lets go with every key released
+   ============================================================ */
+test('[34] the floor-clear card — clock left, next floor, ENTER to descend', () => {
+  const t = softAssert();
+console.log('[34] the floor-clear card — clock left, next floor, ENTER to descend');
+{
+  const html = fs.readFileSync(__dirname+'/index.html','utf8');
+  const css  = fs.readFileSync(__dirname+'/style.css','utf8');
+
+  const at = html.indexOf('id="screen-clear"');
+  const clearHtml = at>=0 ? html.slice(at, html.indexOf('id="screen-dead"')) : '';
+  t.assert(at>=0, 'there is no #screen-clear in index.html');
+  t.assert(/class="screen hidden"/.test(clearHtml),
+    'the clear card ships visible — it would cover the first frame of the run');
+  t.assert(/id="btn-descend"/.test(clearHtml), 'the clear card has no button for btn-descend to bind');
+  for (const id of ['clear-clock','clear-leaks','clear-forms','clear-floor','clear-sub'])
+    t.assert(new RegExp('id="'+id+'"').test(clearHtml), `the clear card is missing #${id}`);
+  t.assert(A.SCREENS.includes('clear'),
+    `'clear' is not in SCREENS, so show()/hideAll() will never bring the card up`);
+
+  /* --- the content: the next floor's briefing is LEVELS, not a guess --- */
+  buildFloor(0, 24601);
+  A.floorIdx=0;
+  A.STATE = 'play';
+  /* Give the finished floor a clock the card can be checked against. The build
+     above reset it, so this is set after, exactly as a played level would be. */
+  G.clock = 47.5;
+  const spec = A.LEVELS[1];
+  A.nextFloor();
+
+  t.assert(A.STATE==='clear', `the descent landed in STATE '${A.STATE}', want 'clear'`);
+  t.assert(A.floorIdx===1, `the descent left floorIdx at ${A.floorIdx}, want 1`);
+  t.assert(Math.abs(A.clearCard.clock-47.5) < 1e-9,
+    `the card reported ${A.clearCard.clock}s left, want the 47.5s the finished floor had — `+
+    'the clock is being read after buildFloor threw the old floor away');
+  t.assert(A.clearCard.leaks===spec.leaks && A.clearCard.forms===spec.forms,
+    `the briefing says ${A.clearCard.leaks} bursts / ${A.clearCard.forms} lifeforms, `+
+    `LEVELS[1] says ${spec.leaks} / ${spec.forms}`);
+  t.assert(!els['screen-clear'].classList.contains('hidden'), 'show(\'clear\') left the card hidden');
+  t.assert(els['screen-splash'].classList.contains('hidden')
+      && els['screen-order'].classList.contains('hidden'),
+    'the clear card came up without dismissing the screens behind it');
+  t.assert(els['hud'].classList.contains('on')===false, 'the HUD is still lit behind the clear card');
+
+  /* --- and the card is styled, not just present: an unstyled div inherits the
+         body font, and a briefing nobody can read is a briefing nobody reads --- */
+  t.assert(/\.clear-next\{/.test(css), 'the clear card has no stylesheet rule — it ships unstyled');
+  console.log(`  card: ${A.clearCard.leaks} bursts / ${A.clearCard.forms} lifeforms on floor `+
+    `${A.floorIdx+1}, ${A.clockText(A.clearCard.clock)} left on the floor behind it, ENTER to descend`);
+
+  /* --- behaviour: the floor under the card is REAL, and its clock is not
+         running. Driven through frame(), not update(): the freeze is the loop's
+         gate, and update() called directly is not a state a player is ever in. --- */
+  t.assert(G.pipes===spec.leaks && G.leaksOpen===spec.leaks,
+    `the floor under the card has ${G.leaksOpen} of ${G.pipes} bursts open — it is not built`);
+  const c0 = G.clock;
+  let now = Date.now();
+  for (let i=0;i<120;i++) A.frame(now += 1000/60);   // two seconds of real frames
+  t.assert(Math.abs(G.clock-c0) < 1e-9,
+    `the clock moved from ${c0.toFixed(2)} to ${G.clock.toFixed(2)} while the card was up — `+
+    'the card is not a frozen state, so reading the next floor costs the player time');
+
+  /* --- and it is held the way a key is: nothing is simulating underneath, and
+         ENTER lets go with every key released --- */
+  A.keys['w'] = true; A.keys['shift'] = true;     // the player walked to the door
+  A.dismissClear();
+  t.assert(A.STATE==='play', `dismissClear left STATE '${A.STATE}', want 'play'`);
+  t.assert(Object.keys(A.keys).every(k=>A.keys[k]===false || A.keys[k]===undefined),
+    `keys were still held after the card cleared: ${JSON.stringify(A.keys)}`);
+  t.assert(els['hud'].classList.contains('on'), 'the HUD did not come back on after the card');
+  t.assert(els['screen-clear'].classList.contains('hidden'), 'the clear card stayed up after descending');
+
+  const c1 = G.clock;
+  for (let i=0;i<60;i++) A.frame(now += 1000/60);
+  t.assert(A.STATE==='play' && G.clock < c1,
+    `after the card the clock stood at ${G.clock.toFixed(2)} from ${c1.toFixed(2)} — the run is not running`);
+
+  /* --- the LAST floor goes to the win card instead: no level six --- */
+  buildFloor(4, 24601);
+  A.floorIdx=4;
+  A.STATE = 'play';
+  A.nextFloor();
+  t.assert(A.STATE==='win',
+    `clearing the fifth floor went to '${A.STATE}', want 'win' — the card must not appear with no floor after it`);
+}
+  t.done();
+});

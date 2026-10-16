@@ -285,3 +285,80 @@ console.log('[30] the level stages — genLevel is pure and well-formed');
 }
   t.done();
 });
+/* ============ TEST 32: the door is a door ========================
+   `e.open` was written once, at placement, and never again — so every door
+   on every floor rendered permanently shut, and the renderer's read of it was
+   a value that could not change. The state of the one door on the floor was
+   therefore a stroke alpha and a word, and the 1.5s hold had no representation
+   in the world at all. None of that is visible to a bot that walks to the door
+   and waits, which is why the suite was green through all of it.
+
+   These assertions are on the field the renderer actually reads. */
+test('[32] the door — the leaf, the facing, and the state that drives both', () => {
+  const t = softAssert();
+console.log('[32] the door — the leaf, the facing, and the state that drives both');
+{
+  const settle = n => { for (let i=0;i<n;i++) A.update(1/60); };
+  const standAt = (e, tiles) => {
+    const DIR = { S:[0,1], N:[0,-1], E:[1,0], W:[-1,0] }[e.facing];
+    G.player.x = e.x + 0.5 + DIR[0]*tiles;
+    G.player.y = e.y + 0.5 + DIR[1]*tiles;
+  };
+  const sealAll = () => {
+    for (const L of G.leaks){ L.fixed = true; L.repair = 1; }
+    G.leaksOpen = 0;
+  };
+
+  for (const seed of [4242, 88, 9001]){
+    /* buildFloor takes the floor number as an argument and does not touch the
+       run's own floorIdx, so a loop that descends has to put it back — the
+       second seed otherwise starts on floor 1 with a floor 0 layout and every
+       assertion about it is about a level that does not exist. */
+    A.lives=3; A.floorIdx=0; A.runTime=0;
+    buildFloor(0, seed);
+    const e = G.exitTiles[0];
+    const tag = `seed ${seed}`;
+
+    /* SHUT. With a pipe still open the door cannot end the level, so the leaf
+       must be at zero and must STAY at zero no matter how long you stand on
+       the threshold — this is the state that was silently untestable before. */
+    standAt(e, 0.9); settle(30);
+    t.assert(G.leaksOpen > 0, `${tag}: nothing is leaking, the shut state cannot be tested`);
+    t.assert(G.descend === 0, `${tag}: descended with ${G.leaksOpen} pipe(s) open`);
+    t.assert(e.open < 0.02, `${tag}: the leaf is ${e.open.toFixed(3)} open on a floor with pipes still leaking`);
+
+    /* AJAR. The last seal puts it on the latch, not through it: enough swing
+       to read as READY from across the room, nowhere near a floor change. */
+    sealAll(); standAt(e, 4); settle(60);
+    t.assert(e.open > 0.2 && e.open < 0.6,
+      `${tag}: an armed door rests at ${e.open.toFixed(3)}, want the ajar stop near 0.34`);
+    t.assert(A.floorIdx === 0, `${tag}: standing four tiles away ended the level`);
+
+    /* CRANKING. On the threshold the swing follows G.descend, so the thing the
+       player watches is the thing the sim is doing — and the descent itself is
+       still monotonic and still gated on the pipes. */
+    standAt(e, 0.9); settle(30);
+    t.assert(G.descend > 0.3, `${tag}: the hold is not accumulating (${G.descend.toFixed(2)}s)`);
+    t.assert(e.open > 0.34, `${tag}: the leaf did not follow the hold (${e.open.toFixed(3)})`);
+    const midOpen = e.open;
+
+    /* BACKING OFF drains the cycle, and with it the leaf — a door that stayed
+       cranked open while the progress drained would be lying twice. */
+    G.descend = 1.2; e.open = 0.9; standAt(e, 6); settle(60);
+    t.assert(G.descend === 0, `${tag}: stepping off left ${G.descend.toFixed(2)}s on the clock`);
+    t.assert(e.open < midOpen, `${tag}: the leaf stayed open after the cycle drained`);
+
+    /* and all the way through: the hold still ends the level, once. */
+    standAt(e, 0.9);
+    let frames = 0;
+    while (A.floorIdx === 0 && frames < 400){ A.update(1/60); frames++; }
+    t.assert(A.floorIdx === 1, `${tag}: the hold never reached the floor change in ${frames} frames`);
+    t.assert(G.descend === 0, `${tag}: the new floor opened with ${G.descend.toFixed(2)}s still on the door`);
+    t.assert(G.exitTiles[0].open < 0.02, `${tag}: the new floor's door did not start shut`);
+  }
+  console.log('  shut on a wet floor, ajar on the latch, cranking on the hold, shut again after');
+  console.log('  the new floor, and the facing names the side with floor on it');
+}
+  t.done();
+});
+
