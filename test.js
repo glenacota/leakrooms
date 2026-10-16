@@ -13,7 +13,6 @@
    two have to agree independently.
    ============================================================ */
 import fs from 'node:fs';
-import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 import { calls, els, fakeAudioContext, fakeCanvas, fakeEl } from './tests/helpers/stubs.js';
 import { softAssert } from './tests/helpers/soft-assert.js';
@@ -60,122 +59,16 @@ global.localStorage = {
   clear(){ __store.clear(); },
 };
 
-/* ---- load game.js into this context ---- */
-const src = '"use strict";\n' + fs.readFileSync(__dirname + '/game.js','utf8');
-const ctxObj = vm.createContext(global);
-vm.runInContext(src, ctxObj, { filename:'game.js' });
+/* ---- load game.js as an ES module ----
+   The stubs above are installed before this dynamic import (static imports
+   hoist, so the import must be dynamic to run after them). game.js boots
+   against the fake DOM: buildFloor, paintSplashPlan, requestAnimationFrame. */
+const mod = await import('./game.js');
+const A = mod.__api;
 
 /* seeded RNG for deterministic fuzzing */
-const seededRNG = vm.runInContext('mulberry32(0xC0FFEE)', ctxObj);
+const seededRNG = A.mulberry32(0xC0FFEE);
 
-/* `let`/`const` at vm top level are lexical, not globalThis properties.
-   Re-export through getters so the harness sees live reassignments. */
-vm.runInContext(`
-globalThis.__api = {
-  get G(){ return G; },
-  /* The floor's scratch state moved onto G wholesale — one internals object
-     instead of a getter per array, so the suite reads each buffer through the
-     floor it belongs to. */
-  get internals(){ return {
-    lightArr: G.lightArr, lightCv: G.lightCv, lightImg: G.lightImg, lightCtx: G.lightCtx,
-    visArr: G.visArr, visTgt: G.visTgt, visFrom: G.visFrom, visScratch: G.visScratch,
-    maskArr: G.maskArr, maskTgt: G.maskTgt, coneArr: G.coneArr, maskCv: G.maskCv,
-    regionOf: G.regionOf, regionAdj: G.regionAdj, visRegion: G.visRegion,
-    wetArr: G.wetArr, waterDist: G.waterDist, wetFront: G.wetFront,
-    wetByDist: G.wetByDist, wetMaxDist: G.wetMaxDist, wetEdgeD: G.wetEdgeD,
-    wetIndexAtDist: G.wetIndexAtDist, wetCv: G.wetCv,
-    cvs, ctxRef: ctx, SCALE
-  }; },
-  get DARK_ROOM(){ return DARK_ROOM; },
-  get HOP_FALL(){ return HOP_FALL; },
-  get VIEW_FADE_NEAR(){ return VIEW_FADE_NEAR; },
-  get VIEW_FADE_FAR(){ return VIEW_FADE_FAR; },
-  get VIEW_HALF(){ return VIEW_HALF; },
-  get VIEW_RANGE(){ return VIEW_RANGE; },
-  get RADAR_DRAIN(){ return RADAR_DRAIN; },
-  buildFloor, genLevel, blocked, moveEnt, render, emitNoise, setPrompt, drawPlayer,
-  frame,
-  updateReal: update,
-  /* Every test that is not ABOUT the clock holds it open.
-     The game now ends a level when the clock runs out, and update() returns
-     immediately once it has — so a test that drives twenty thousand frames
-     spends its whole run dead on arrival and reports it as "the AI stopped
-     working" or "the battery stopped draining". The failure is indistinguishable
-     from a real bug unless it is impossible by construction, so it is: the
-     default harness entry point pushes the deadline out of the way, and the two
-     tests that genuinely care about it (the playthrough's clock headroom, and
-     the clock test itself) call updateReal. */
-  update(dt){ if (G) G.clock = 1e6; return update(dt); },
-  scopeRoomLight, regionAt, traceViewCone, packMask, snapMask, combineMask,
-  smoothMask, onScreen, setHeadless,
-  get STATE(){ return STATE; },
-  set STATE(v){ STATE = v; },
-  get floorIdx(){ return floorIdx; },
-  get keys(){ return keys; },
-  get HAND_OFF(){ return HAND_OFF; }, get R(){ return R; }, drawAgent,
-  get cvs(){ return cvs; }, get ctxRef(){ return ctx; }, get SCALE(){ return SCALE; },
-  get TILE(){ return TILE; },
-  get WET_DRAW(){ return WET_DRAW; },
-  get LOUD(){ return LOUD; },
-  get NOISE_FS(){ return NOISE_FS; },
-  get DOOR_NOISE(){ return DOOR_NOISE; },
-  get BRUSH_NOISE(){ return BRUSH_NOISE; },
-  updateHUD, HUD,
-  LEVELS, LEVELS_N, get FLOOR_CLOCK(){ return FLOOR_CLOCK; },
-  get WET_FALL(){ return WET_FALL; },
-  get LEAK_HEADSTART(){ return LEAK_HEADSTART; },
-  get PIPE_GAP(){ return PIPE_GAP; },
-  get FLOOR(){ return FLOOR; },
-  get REPAIR_TIME(){ return REPAIR_TIME; },
-  get REPAIR_REACH(){ return REPAIR_REACH; },
-  get REPAIR_NOISE(){ return REPAIR_NOISE; },
-  get SPRINT_NOISE(){ return SPRINT_NOISE; },
-  get LEAK_NOISE_BASE(){ return LEAK_NOISE_BASE; },
-  get LEAK_NOISE_GAIN(){ return LEAK_NOISE_GAIN; },
-  get LEAK_SPREAD(){ return LEAK_SPREAD; },
-  get LEAK_RETREAT(){ return LEAK_RETREAT; },
-  get WET_RISE(){ return WET_RISE; },
-  get LEAK_LURE(){ return LEAK_LURE; },
-  get WALK(){ return WALK; }, get SPRINT(){ return SPRINT; },
-  tickFlood, wetAt, floodCover, sealLeak, leakReach, leakAt, initFlood, packWet,
-  hearRadius, sustainedNoise,
-  Audio_,
-  get SETTINGS(){ return SETTINGS; },
-  get SETTINGS_DEFAULTS(){ return SETTINGS_DEFAULTS; },
-  get SETTINGS_SCHEMA(){ return SETTINGS_SCHEMA; },
-  get DIFFICULTIES(){ return DIFFICULTIES; },
-  get WATER_TINTS(){ return WATER_TINTS; },
-  loadSettings, saveSettings, resetSettings, applySettings, setOption,
-  settingsValid, get SETTINGS_KEY(){ return SETTINGS_KEY; },
-  advanceSplash, backSplash, show, hideAll, get SCREENS(){ return SCREENS; },
-  nextFloor, dismissClear, get clearCard(){ return clearCard; },
-  /* the real frame loop, not update(): the floor clock is frozen by the GATE in
-     frame() and not by update() refusing to run, so a test that drives update()
-     directly is measuring the wrong thing and will happily "prove" a clock that
-     ticks while the player is reading the clear card. requestAnimationFrame is
-     stubbed to a no-op (line 174), so calling frame() is one frame, not a loop. */
-  frame,
-  paintSplashPlan, rollRunSeed, get RUN_SEED(){ return RUN_SEED; },
-  togglePause, clockText,
-  get pausePage(){ return pausePage; },
-  setPausePage,
-  get termsOpen(){ return termsOpen; },
-  setTermsOpen,
-  resetRun,
-  get resetArmed(){ return resetArmed; },
-  get FLOORS(){ return FLOORS; },
-  get HUNT_BASE(){ return HUNT_BASE; }, get HUNT_STEP(){ return HUNT_STEP; },
-  get lives(){ return lives; }, set lives(v){ lives = v; },
-  get runLives(){ return runLives; },
-  get runStat(){ return runStat; },
-  /* the cast, inlined: the avatar's rig and the thing hunting it */
-  drawRigger, drawStalker,
-  /* their shared gait clock, so the tests can drive the walk cycle */
-  stride, footPlan, feet,
-};
-`, ctxObj);
-
-const A = ctxObj.__api;
 const G      = new Proxy({}, { get:(_,k)=>A.G[k], set:(_,k,v)=>{A.G[k]=v; return true;} });
 const moveEnt= A.moveEnt;
 const blocked= A.blocked;
@@ -499,10 +392,10 @@ console.log('[4] end-to-end — bot drives REAL keys through update()');
     const sd = seed;
     // mirror what the start button does, so nextFloor() keeps deriving floors
     // from THIS seed — otherwise every seed plays the identical floor 1..4
-    vm.runInContext('RUN_SEED='+sd+';', ctxObj);
+    A.RUN_SEED = sd;
     buildFloor(SF, sd);
     A.STATE='play';
-    vm.runInContext(`lives=3; floorIdx=${SF}; runTime=0;`, ctxObj);
+    A.lives=3; A.floorIdx=SF; A.runTime=0;
     let t=0, field=null, gk='', deaths=0, lowestBatt=100, minMargin=1e9, why='?';
     let path=null, wi=0, pathFromX=-99, pathFromY=-99, goalId=-1;
     let escapes=0, swapped=false, hasMovedLastFrame=false, riserGoal=null, lastRiserKey='';
@@ -549,9 +442,9 @@ console.log('[4] end-to-end — bot drives REAL keys through update()');
           keys.w=keys.s=keys.a=keys.d=false; keys.shift=false;
           A.updateReal(1/60); t+=1/60;
           if (A.STATE!=='play'){ deaths++;
-            const lv=vm.runInContext('lives',ctxObj);
+            const lv=A.lives;
             if (lv<=0) break;
-            vm.runInContext('RUN_SEED='+sd+';', ctxObj);
+            A.RUN_SEED = sd;
             buildFloor(A.floorIdx, sd);
             A.STATE='play'; gk=''; path=null; goalId=-1;
           }
@@ -691,16 +584,16 @@ console.log('[4] end-to-end — bot drives REAL keys through update()');
 
       if(A.STATE!=='play'){
         deaths++;
-        const lv=vm.runInContext('lives',ctxObj);
+        const lv=A.lives;
         if(lv<=0) break;
-        vm.runInContext('RUN_SEED='+sd+';', ctxObj);
+        A.RUN_SEED = sd;
         buildFloor(A.floorIdx, sd);
         A.STATE='play'; gk=''; path=null; goalId=-1;
       }
     }
     keys.w=keys.s=keys.a=keys.d=false; keys.shift=false;
     if(A.floorIdx>=5) why='completed';
-    else if(vm.runInContext('lives',ctxObj)<=0) why='lost all 3 lives on level '+A.floorIdx;
+    else if(A.lives<=0) why='lost all 3 lives on level '+A.floorIdx;
     else why='timeout on level '+A.floorIdx;
     return { depth:A.floorIdx, t, deaths, lowestBatt, minMargin, why, escapes };
   }
@@ -1478,7 +1371,7 @@ console.log('[13] cone of vision — 200 degrees, occluded by walls');
   const set=(fx,fy,face)=>{
     G.player.x=spot.x; G.player.y=spot.y; G.player.face=face;
     G.radar=false;
-    scopeRoomLight(0,true);
+    A.scopeRoomLight(0,true);
     A.snapMask();
   };
 
@@ -2144,7 +2037,7 @@ console.log('[15] the pipes — placement, reachability, and the flood field');
 
     /* the whole thing is reachable through the real update(), not only by
        calling the flood directly */
-    A.STATE='play'; vm.runInContext('lives=3;', ctxObj);
+    A.STATE='play'; A.lives=3;
     const before = A.internals.wetFront;
     update(1/30);
     assert(A.internals.wetFront < before || A.internals.wetFront===0, 'update() no longer drives the flood');
@@ -2386,7 +2279,7 @@ console.log('[16] the repair — five seconds, standing still');
     assert(opened, 'with every riser sealed the door never opened — the gate is not the pipes');
     console.log('  sealing the LAST riser opens the door');
     /* put the global back — the remaining tests assume floor 0-ish state */
-    vm.runInContext('floorIdx=0;', ctxObj);
+    A.floorIdx=0;
   }
 
   /* Test 17 is the ONLY test that reads a packed image back as pixels, so
@@ -2480,7 +2373,7 @@ console.log('[17] the water as a cue — legible, free, and it actually leads');
 
     /* slow wet walking by seeding a deep puddle around the player and timing it */
     G.player.x=wetTile.x+0.5; G.player.y=wetTile.y+0.5;
-    vm.runInContext('for(let i=0;i<9;i++) seedSplash(G.player.x,G.player.y,1.0);', ctxObj);
+    for(let i=0;i<9;i++) A.seedSplash(A.G.player.x,A.G.player.y,1.0);
     A.STATE='play';
     keys.w=false; keys.s=false; keys.a=false; keys.d=false;
     let dist=0;
@@ -2556,7 +2449,7 @@ console.log('[18] end-to-end — the bot seals every riser, then walks back out'
   for (let s=0; s<A.LEVELS_N; s++){
     buildFloor(s, s*4441+13);
     A.STATE='play';
-    vm.runInContext('floorIdx=0; lives=3;', ctxObj);
+    A.floorIdx=0; A.lives=3;
     risersWanted += G.leaks.length;
 
     let path=null, wi=0, fromX=-99, fromY=-99, done=false;
@@ -2663,7 +2556,7 @@ console.log('[18] end-to-end — the bot seals every riser, then walks back out'
     `${risersSealed}/${risersWanted} pipes were sealed — the tallies do not agree`);
   assert(descended===A.LEVELS_N, `the bot walked back out on ${descended}/${A.LEVELS_N} levels`);
   console.log(`  bot: ${risersSealed} pipes sealed, ${descended}/${A.LEVELS_N} levels walked back out`);
-  vm.runInContext('floorIdx=0;', ctxObj);
+  A.floorIdx=0;
 }
 
 /* ============ TEST 19: the leak is actually DRAWN =============================
@@ -2971,7 +2864,7 @@ console.log('[22] the run — five levels, three minutes, one door');
   {
     buildFloor(0, 4242);
     A.STATE='play';
-    vm.runInContext('lives=3;', ctxObj);
+    A.lives=3;
     assert(G.clock===180, 'the clock does not open on 3:00');
     A.updateReal(30);
     const t1 = G.clock;
@@ -2988,18 +2881,18 @@ console.log('[22] the run — five levels, three minutes, one door');
   {
     buildFloor(0, 4242);
     A.STATE='play';
-    vm.runInContext('lives=3; floorIdx=0;', ctxObj);
+    A.lives=3; A.floorIdx=0;
     G.clock = 0.5;
     A.updateReal(1);
     assert(A.STATE!=='play', 'the clock ran out and nothing happened');
     const sub = els['dead-sub'].textContent;
     assert(/CLOCK/.test(sub), `running out of time said "${sub}"`);
-    assert(vm.runInContext('lives',ctxObj)===2, 'running out of time cost no life');
+    assert(A.lives===2, 'running out of time cost no life');
     /* and it is announced before it is fatal, so the last thirty seconds are
        the player's to spend rather than a surprise */
     buildFloor(0, 4242);
     A.STATE='play';
-    vm.runInContext('lives=3;', ctxObj);
+    A.lives=3;
     G.clock = 30.2;
     A.updateReal(0.5);
     assert(els['flashnote'].textContent.indexOf('THIRTY')>=0,
@@ -3106,7 +2999,7 @@ console.log('[22] the run — five levels, three minutes, one door');
       `starting a run left the totals at ${A.runStat.sealed}/${A.runStat.deaths}/${A.runStat.noises}`);
     let sealed = 0, noises = 0;
     for (let f=0; f<A.LEVELS_N; f++){
-      if (f>0) vm.runInContext('nextFloor();', ctxObj);   // walk through the door
+      if (f>0) A.nextFloor();   // walk through the door
       A.STATE = 'play';
       assert(G.leaks.length > 0, `level ${f+1} opened with no pipes to seal`);
       for (const L of G.leaks){ A.sealLeak(L); sealed++; }
@@ -3127,7 +3020,7 @@ console.log('[22] the run — five levels, three minutes, one door');
           'retrying the level cleared the run totals');
       }
     }
-    vm.runInContext('nextFloor();', ctxObj);        // floorIdx hits FLOORS: the card is printed
+    A.nextFloor();        // floorIdx hits FLOORS: the card is printed
     assert(A.STATE==='win', `the run ended on STATE=${A.STATE}, not the win screen`);
     assert(G.stat.sealed !== sealed,
       'this assertion needs G.stat to differ from the run total or it proves nothing');
@@ -3140,7 +3033,7 @@ console.log('[22] the run — five levels, three minutes, one door');
     console.log(`  the win card counts the run: ${sealed} pipes sealed, 1 death, ${noises} noises`);
     /* leave the world where the next test expects to find it */
     A.STATE = 'splash';
-    vm.runInContext('lives=3; floorIdx=0; runTime=0;', ctxObj);
+    A.lives=3; A.floorIdx=0; A.runTime=0;
     buildFloor(0, 4242);
   }
 }
@@ -3605,7 +3498,7 @@ console.log('[21] the splash chain — 03 riser, 04 work order, then the run');
               `body ${px(/\.order \.field b\{[^}]*font-size:(\d+)px/)}px, controls ${px(/\.controls-big b\{[^}]*font-size:(\d+)px/)}px`);
 
   /* --- the chain itself, driven through the real key handler --- */
-  const keydown = ctxObj.window._h.keydown;
+  const keydown = global.window._h.keydown;
   assert(typeof keydown==='function', 'no keydown handler was registered');
   const press = (key, extra={})=> keydown({ key, repeat:false, metaKey:false, ctrlKey:false,
                                             altKey:false, preventDefault(){}, ...extra });
@@ -3641,7 +3534,7 @@ console.log('[21] the splash chain — 03 riser, 04 work order, then the run');
   assert(A.STATE==='order', 'a key with the terms chooser open clocked the player in');
   assert(!A.keys['w'], 'a key swallowed by the chooser stayed held — the player walks on spawn');
 
-  const at = ()=> vm.runInContext('SETTINGS.difficulty', ctxObj);
+  const at = ()=> A.SETTINGS.difficulty;
   press('1');
   assert(at()==='relaxed', 'the 1 key did not pick the first term');
   press('3');
@@ -3688,7 +3581,7 @@ console.log('[21] the splash chain — 03 riser, 04 work order, then the run');
      It is the one control with no button, so the key path IS the feature: a
      hotkey that is wired to the wrong state, or that fires on auto-repeat, or
      that also advances the splash, is a hotkey that does not work. */
-  const mutedAt = ()=> vm.runInContext('SETTINGS.muted', ctxObj);
+  const mutedAt = ()=> A.SETTINGS.muted;
   const storeAt = ()=> JSON.parse(global.__store.get(A.SETTINGS_KEY) || '{}');
   const stored = ()=> {
     A.saveSettings();
@@ -3903,7 +3796,7 @@ console.log('[26] the pause screen — the work order, with the run written on i
      to settings, settings back to the run. Driven through the real key
      handler, because a chain asserted only at the API level is a chain that
      disagrees with the key the player actually presses. */
-  const keydown = ctxObj.window._h.keydown;
+  const keydown = global.window._h.keydown;
   assert(typeof keydown==='function', 'no keydown handler was registered');
   const press = (key, extra={})=> keydown({ key, repeat:false, metaKey:false, ctrlKey:false,
                                             altKey:false, preventDefault(){}, ...extra });
@@ -4014,10 +3907,10 @@ console.log('[26] the pause screen — the work order, with the run written on i
   assert(!els['hud'].classList.contains('on'), 'the HUD stayed up over the riser');
 
   /* and the run it starts from the riser is a full one on the same terms */
-  const termsKept = vm.runInContext('SETTINGS.difficulty', ctxObj);
+  const termsKept = A.SETTINGS.difficulty;
   document.getElementById('btn-start').click();
   assert(A.STATE==='play' && A.lives===A.runLives, 'the run after RESET GAME did not start whole');
-  assert(vm.runInContext('SETTINGS.difficulty', ctxObj)===termsKept,
+  assert(A.SETTINGS.difficulty===termsKept,
     'RESET GAME wiped the stamped terms — preferences are not progress');
 
   A.STATE='play'; A.hideAll();
@@ -4272,10 +4165,10 @@ console.log('[29] canvas state — nothing outlives the frame that opened it');
                      searchT:0, target:null, path:[], stuck:0, ripT:0 };
     update(0.016);
 
-    const realDrawPlayer = ctxObj.drawPlayer;
-    ctxObj.drawPlayer = function(pp, t){ clipWhenPlayerDrawn = liveClips(); return realDrawPlayer(pp, t); };
+    const real = A.ENT.player;
+    A.ENT.player = (pp,t)=>{ clipWhenPlayerDrawn = liveClips(); return real(pp,t); };
     render(1000);
-    ctxObj.drawPlayer = realDrawPlayer;
+    A.ENT.player = real;
 
     assert(depth === 0, `render() finished ${depth} canvas state(s) deep — something saved without restoring`);
     assert(liveClips() === 0, `${liveClips()} clip(s) survived the frame`);
@@ -4304,7 +4197,7 @@ console.log('[30] the level stages — genLevel is pure and well-formed');
     const seed = 1000 + s*7777;
     const W = 76;
     const tag = `seed ${seed}`;
-    const level = A.genLevel(vm.runInContext('mulberry32('+seed+')', ctxObj));
+    const level = A.genLevel(A.mulberry32(seed));
     const g = (x,y)=> level.grid[y*W+x];
     const floor = (x,y)=> x>=0 && y>=0 && x<W && y<W && g(x,y)===1;
 
@@ -4369,7 +4262,7 @@ console.log('[30] the level stages — genLevel is pure and well-formed');
       assert(gr.seen === false && typeof gr.text === 'string' && gr.text.length > 0, `${tag}: bad graffiti`);
 
     // purity: same seed, same level
-    const again = A.genLevel(vm.runInContext('mulberry32('+seed+')', ctxObj));
+    const again = A.genLevel(A.mulberry32(seed));
     assert(JSON.stringify(again.leaks) === JSON.stringify(level.leaks),
       `${tag}: genLevel is not deterministic`);
     assert(JSON.stringify(again.exit) === JSON.stringify(level.exit),
@@ -4438,7 +4331,7 @@ console.log('[32] the door — the leaf, the facing, and the state that drives b
        run's own floorIdx, so a loop that descends has to put it back — the
        second seed otherwise starts on floor 1 with a floor 0 layout and every
        assertion about it is about a level that does not exist. */
-    vm.runInContext('lives=3; floorIdx=0; runTime=0;', ctxObj);
+    A.lives=3; A.floorIdx=0; A.runTime=0;
     buildFloor(0, seed);
     const e = G.exitTiles[0];
     const tag = `seed ${seed}`;
@@ -4496,7 +4389,7 @@ console.log('[32] the door — the leaf, the facing, and the state that drives b
    what the Lifeform is hearing. */
 console.log('[33] the noise meter — the scale, the marks, and the pipe that emits');
 {
-  vm.runInContext('lives=3; floorIdx=0;', ctxObj);
+  A.lives=3; A.floorIdx=0;
   buildFloor(1, 60606);
   const W = 76;
   const H = A.HUD;
@@ -4728,7 +4621,7 @@ console.log('[34] the floor-clear card — clock left, next floor, ENTER to desc
 
   /* --- the content: the next floor's briefing is LEVELS, not a guess --- */
   buildFloor(0, 24601);
-  vm.runInContext('floorIdx=0;', ctxObj);
+  A.floorIdx=0;
   A.STATE = 'play';
   /* Give the finished floor a clock the card can be checked against. The build
      above reset it, so this is set after, exactly as a played level would be. */
@@ -4785,7 +4678,7 @@ console.log('[34] the floor-clear card — clock left, next floor, ENTER to desc
 
   /* --- the LAST floor goes to the win card instead: no level six --- */
   buildFloor(4, 24601);
-  vm.runInContext('floorIdx=4;', ctxObj);
+  A.floorIdx=4;
   A.STATE = 'play';
   A.nextFloor();
   assert(A.STATE==='win',
