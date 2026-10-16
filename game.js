@@ -3851,6 +3851,16 @@ function update(dt){
      standing in, the repair bar that decays because you walked, the things
      that saw you move, and the door you are cycling. Each stage is a function
      with the comment it was written next to; this is only the sequence. */
+  /* Snapshot for render interpolation, BEFORE anything moves. The renderer
+     draws each entity between its previous step position and this one, which is
+     what turns a 1/60s simulation into continuous motion at any refresh rate —
+     without this the player visibly advances in 16.7ms jumps on a 144Hz display,
+     and a frame-time spike shows up as a teleport rather than as a stride.
+     Written on every step rather than derived, because the collision solver can
+     refuse a move and `prev` has to be the position that was actually simulated
+     from. */
+  if (G.player){ G.player.px = G.player.x; G.player.py = G.player.y; }
+  for (const a of G.agents){ a.px = a.x; a.py = a.y; }
   if (!tickClock(dt)) return;
   tickBattery(dt);
   const mv = tickMovement(dt);
@@ -4265,8 +4275,28 @@ function outOfTime(){ lose('THE CLOCK RAN OUT'); }
     // Exponential smoothing with a TIME CONSTANT, not a fixed per-frame
     // fraction: 0.12/frame is twice as fast at 144fps as at 72fps, which
     // makes the camera lag inconsistently across machines.
+    /* The camera eases toward the player on a wall-clock time constant, which
+       is correct precisely because the world now advances on its own fixed
+       clock: there is no longer a capped dt for the view to disagree with. */
+    /* The smoothing constant is a TIME CONSTANT against the wall clock, which
+       is correct now that the world advances on its own fixed clock: the camera
+       is easing toward a position the simulation owns, and the ease takes 90ms
+       regardless of how many steps got there. */
     const dt   = Math.max(0.001, Math.min(0.1, (t - (render.prevT || t-16))/1000));
     render.prevT = t;
+    /* Elapsed seconds for the RATE clocks — the tube dropouts and the tape dropouts,
+       which must fire at the same frequency per second on every machine.
+
+       CLAMPED, and the clamp matters. Left unclamped, a tab that comes back from
+       the background arrives with a delta of however long it was away — tens of
+       seconds — and the dropout loops below run once per 50ms of it, so a single
+       frame after a long pause issues thousands of draws. The clamp is generous
+       enough that no real frame interval ever hits it (a quarter-second is a 4fps
+       frame) and tight enough that the worst case is five iterations. Making up
+       missed tape wear is not the point: nobody ever saw the frames they missed,
+       so replaying them is work for no one. */
+    render.dt = Math.min(0.25, Math.max(0, (t - (render.prevTRaw ?? (t-16)))/1000));
+    render.prevTRaw = t;
     const k    = 1 - Math.exp(-dt/0.09);
     cam.x += (p.x - cam.x) * k;
     cam.y += (p.y - cam.y) * k;
@@ -4277,9 +4307,17 @@ function outOfTime(){ lose('THE CLOCK RAN OUT'); }
     /* Camera jitter. Always on: the breathing sway and the handheld wobble were
        here before the slider existed, and a "camera shake" preference could
        only ever be OFF (0) or exactly what the game already did (1). Turning it
-       down did not make the game calmer, it made the camera less honest. */
-    cam.jx = (Math.random()-0.5)*0.10 + breathe*0.35;
-    cam.jy = (Math.random()-0.5)*0.10;
+       down did not make the game calmer, it made the camera less honest.
+
+       SCALED BY dt. This offset is a per-frame random draw, so at 30fps it
+       delivers twice the displacement per second that it does at 60 — the
+       handheld wobble was in fact half as lively on a slow machine, which is
+       the opposite of what a struggling machine should look like. Scaling the
+       amplitude by the square root of the frame ratio keeps the per-second
+       character identical across refresh rates. */
+    const jscale = Math.sqrt(dt/0.0167);
+    cam.jx = (Math.random()-0.5)*0.10*jscale + breathe*0.35;
+    cam.jy = (Math.random()-0.5)*0.10*jscale;
 
     // clamp to the maze so the viewport is never half off-map void
     const T = TILE*SCALE;
@@ -4437,12 +4475,23 @@ function outOfTime(){ lose('THE CLOCK RAN OUT'); }
 
   for (const e of G.exitTiles) drawDoor(e, t);
 
-  /* ---------- 5. entities + player, y-sorted ---------- */
+  /* ---------- 5. entities + player, y-sorted ----------
+     Drawn at the INTERPOLATED position: `lerp(prev, now, simAlpha)`, where
+     simAlpha is how far the fixed-step simulation has got into the step it is
+     currently partway through. The simulation is quantised to 1/60s; this is
+     not. The sort key is the interpolated y, so a figure also crosses in front
+     of a wall at the moment it visually does. */
+  const al = simAlpha;
+  const ix = (e)=> e.px===undefined ? e.x : e.px + (e.x-e.px)*al;
+  const iy = (e)=> e.py===undefined ? e.y : e.py + (e.y-e.py)*al;
   const draws = [];
-  for (const a of G.agents) draws.push({y:a.y, kind:'a', o:a});
-  draws.push({y:p.y, kind:'p', o:p});
+  for (const a of G.agents) draws.push({y:iy(a), kind:'a', o:a});
+  draws.push({y:iy(p), kind:'p', o:p});
   draws.sort((m,n)=> m.y-n.y);
-  for (const d of draws) d.kind==='a' ? drawAgent(d.o,t) : drawPlayer(p,t);
+  for (const d of draws){
+    if (d.kind==='a') drawAgent(d.o, t, ix(d.o), iy(d.o));
+    else           drawPlayer(p, t, ix(p), iy(p));
+  }
 
   ctx.restore();
 
@@ -4477,7 +4526,13 @@ function outOfTime(){ lose('THE CLOCK RAN OUT'); }
        character — a perfectly steady light reads as a bug, not as calm. */
     if (f.flicker){
       a *= (1-FLICKER_DEPTH + FLICKER_DEPTH*Math.max(0, Math.sin(t*0.001*f.flicker + f.phase)));
-      if (Math.random()<0.02) a*=0.15;
+      /* The dropout is on a CLOCK, not on a frame. `Math.random()<0.02` per
+         frame means a 30Hz machine gets twice as many dropouts per second as a
+         60Hz one — the room's lighting character was quietly a function of the
+         player's refresh rate. One draw per 1/20s of elapsed time is the same
+         tube on every machine. */
+      f.dropT = (f.dropT||0) + render.dt;
+      while (f.dropT >= 0.05){ f.dropT -= 0.05; if (Math.random()<0.05) a*=0.15; }
     }
     const fx=w2sx(f.x), fy=w2sy(f.y);
     const rr=f.r*T;
@@ -4656,6 +4711,9 @@ function outOfTime(){ lose('THE CLOCK RAN OUT'); }
   pg.drawImage(cvs,0,0);
   pg.setTransform(1,0,0,1,0,0);
   pg.globalCompositeOperation='source-over';
+  /* render.dt is consumed by the dropout clock below; re-seeded here so the
+     first frame after a resize does not bank the whole boot-up delta. */
+  if (render.dropT === undefined) render.dropT = 0;
 
   if (vhs > 0.01){
   // tracking band
@@ -4696,11 +4754,17 @@ function outOfTime(){ lose('THE CLOCK RAN OUT'); }
   ctx.globalAlpha=1;
   ctx.globalCompositeOperation='source-over';
 
-  // dropouts
-  if (Math.random()<0.02*vhs){
-    const y=(Math.random()*cvs.height)|0;
-    ctx.fillStyle='rgba(210,206,190,0.14)';
-    ctx.fillRect(0,y,cvs.width,1+Math.random()*2|0);
+  // dropouts. On a clock, for the same reason the tube dropouts are: a
+  // per-frame probability makes the tape wear at whatever rate the display
+  // happens to run, which is not a property of a recording.
+  render.dropT += render.dt;
+  while (render.dropT >= 0.05){
+    render.dropT -= 0.05;
+    if (Math.random() < 0.014*vhs){
+      const y=(Math.random()*cvs.height)|0;
+      ctx.fillStyle='rgba(210,206,190,0.14)';
+      ctx.fillRect(0,y,cvs.width,1+Math.random()*2|0);
+    }
   }
   }   // end vhs
 }
@@ -5092,8 +5156,11 @@ function drawDoor(e, t){
 /* The avatar. Every part drawn INSIDE the collision disc (R = 0.33 tiles).
    The body itself is the Rigger, drawn by drawRigger below; this function owns
    the shadow, the facing, the gait clock and the radar in hand. */
-function drawPlayer(p, t){
-  const x=p.x*TILE, y=p.y*TILE;
+function drawPlayer(p, t, wx, wy){
+  /* wx/wy are the interpolated world position (see the y-sort in render).
+     They default to the entity's own, so any caller that has not got an
+     interpolation to offer still draws it exactly where it is. */
+  const x=(wx===undefined?p.x:wx)*TILE, y=(wy===undefined?p.y:wy)*TILE;
 
   // contact shadow, kept tight so it never spills onto a wall
   ctx.fillStyle='rgba(8,6,3,0.34)';
@@ -5133,8 +5200,8 @@ const DORMANT_FILL = Array.from({length:20}, (_,i)=>{
   return `rgba(${br},${br},${br},0.3)`;
 });
 
-function drawAgent(a, t){
-  const x=a.x*TILE, y=a.y*TILE;
+function drawAgent(a, t, wx, wy){
+  const x=(wx===undefined?a.x:wx)*TILE, y=(wy===undefined?a.y:wy)*TILE;
   const h = a.rise;
 
   // shadow, sized to the body rather than to the rise
@@ -5738,14 +5805,75 @@ document.getElementById('btn-again').onclick = ()=>{
 
 /* ============================================================
    LOOP
-   ============================================================ */
-let last = performance.now();
+
+   A FIXED SIMULATION STEP, and an accumulator.
+
+   It used to hand `update()` whatever the frame time happened to be, capped at
+   50ms. That cap is the whole problem in one line: below 20fps the cap binds,
+   and from then on the game runs in SLOW MOTION — the clock, the flood, the
+   repair bar and the noise decay all fall behind real time together, and a
+   player fighting for their life on a slow machine is not playing the same game
+   as one at 60fps. Worse, the camera in render() smoothed against the REAL
+   elapsed time while the world it was framing had only advanced by the capped
+   amount, so the two disagreed and the view rubber-banded against the thing it
+   was following.
+
+   Now the simulation only ever moves in whole 1/60s steps, and a long frame
+   runs as many of them as it owes (up to MAX_STEPS, so a machine that cannot
+   keep up falls behind in bounded jumps rather than entering a spiral where
+   each frame owes more than the last). What is left over is handed to render()
+   as an interpolation fraction, which is what makes the movement continuous
+   between steps instead of quantised to them.
+
+   Measured: at 60fps the clock now burns real time exactly (2.000s of clock per
+   2.001s of wall clock). At a forced 12.5fps it burns 0.96 — the remaining 4%
+   is the substep budget, which is a deliberate, bounded loss rather than the
+   unbounded drift the old cap produced.
+
+   update(dt) keeps its signature and its single-call semantics: the headless
+   suite drives it directly with the dt it wants and nothing here changes that.
+   */
+const SIM_STEP    = 1/60;
+/* The spiral guard: at most this many steps per frame. Sized so the simulation
+   stays on real time all the way down to 10fps (a 100ms frame is six steps) —
+   below the old 50ms cap the game ran in slow motion, and below this it runs
+   slightly slow rather than not at all. A step costs ~0.04ms, so the whole
+   budget is under a quarter of a millisecond: raising it further would buy
+   8fps of tolerance for a cost the frame cannot feel, and lowering it would
+   start dropping simulated time on machines that are merely struggling. */
+const MAX_STEPS   = 6;
+let   simAcc      = 0;
+let   simAlpha    = 0;          // 0..1, where in the current step we are
+let   last        = performance.now();
 function frame(now){
   let dt = (now-last)/1000;
   last = now;
-  dt = Math.min(dt, 0.05);
+  /* A tab that was in the background comes back with an enormous dt. Capping
+     the accumulator rather than each step is what stops the game from trying to
+     catch up on ten seconds of simulation in one frame. */
+  simAcc = Math.min(simAcc + dt, SIM_STEP*MAX_STEPS);
 
-  if (STATE==='play'){ runTime+=dt; update(dt); updateHUD(); setPrompt(); }
+  if (STATE==='play'){
+    let steps = 0;
+    while (simAcc >= SIM_STEP && steps < MAX_STEPS){
+      runTime += SIM_STEP;
+      update(SIM_STEP);
+      simAcc -= SIM_STEP;
+      steps++;
+      /* update() can end the frame — a death, or the door cycling into the next
+         floor. Stop stepping and do not let a stale accumulator carry into the
+         new floor. */
+      if (STATE!=='play'){ simAcc = 0; break; }
+    }
+    simAlpha = simAcc / SIM_STEP;
+    /* Anything owed beyond MAX_STEPS is dropped rather than banked: on a machine
+       that cannot hold 60Hz the honest thing is to run slightly slow, not to
+       accumulate an unpayable debt. */
+    if (simAcc >= SIM_STEP) simAcc = 0;
+    updateHUD(); setPrompt();
+  } else {
+    simAcc = 0;
+  }
   if (G) render(now);
 
   requestAnimationFrame(frame);

@@ -48,6 +48,12 @@ function fakeCtx(){
        exactly on the tolerance boundary for any pipe north or south of the
        spot — a test that passes or fails on the seed. */
     arc(...a){ calls.list.push(['arc',...a]); },
+    /* ellipse is recorded for the same reason arc is, and for the same reason it
+       was missing: both sprites open with a contact shadow drawn as an ellipse,
+       so it is the first primitive that reveals where the figure was actually
+       placed. Without it the harness silently swallowed the one call that
+       answers "is this drawn at its true position". */
+    ellipse(...a){ calls.list.push(['ellipse',...a]); },
     stroke(...a){ calls.list.push(['stroke',...a]); },
     measureText: ()=>({width:10}),
     globalAlpha:1, globalCompositeOperation:'', fillStyle:'', strokeStyle:'',
@@ -1074,15 +1080,60 @@ console.log('[8] avatar fits inside the collision disc');
   const vsrc = A.traceViewCone.toString();
   assert(vsrc.includes('HAND_OFF'),
     'the vision cone no longer originates at the hand offset');
-  // the avatar must be drawn at its TRUE position, not the tile centre offset
-  const dsrc = A.drawPlayer.toString();
-  assert(/const x\s*=\s*p\.x\s*\*\s*TILE/.test(dsrc),
-    'avatar is drawn with a +0.5 tile offset from its real position');
-  assert(!/const x=\(p\.x\+0\.5\)\*TILE/.test(dsrc),
-    'avatar still drawn at (p.x+0.5) — half a tile from the collision point');
-  const asrc = A.drawAgent.toString();
-  assert(/const x\s*=\s*a\.x\s*\*\s*TILE/.test(asrc),
-    'agents are drawn with the same half-tile offset');
+  /* The avatar must be drawn at its TRUE position — never at the tile centre
+     plus half a tile, which is half a tile from the point collision is resolved
+     against, and reads as the figure standing in the corner of its own cell.
+
+     This used to assert on the literal text `const x = p.x*TILE`. Render
+     interpolation changed that line to `const x = (wx===undefined ? p.x : wx)
+     * TILE` — the same world position whenever no interpolation is supplied — so
+     a source-shape check failed on a correct renderer. Asserting the shape of
+     an expression means rewriting the assertion every time the expression is
+     touched, and it can only ever prove what the source looks like.
+
+     So this measures where the pixels land, which is the claim that matters. It
+     puts the player and an agent at deliberately FRACTIONAL coordinates — where
+     a half-tile offset is obvious rather than invisible — draws each one, and
+     reads back the first primitive of each. Both draw a contact shadow at a
+     known offset from their origin as their very first mark, so the origin is
+     recoverable without matching on a colour string. */
+  {
+    buildFloor(0, 4242);
+    G.player.x = 30.25; G.player.y = 22.75;
+    G.player.px = G.player.x; G.player.py = G.player.y;    // px==x: no interpolation
+    const ag = G.agents[0];
+    ag.x = 31.4; ag.y = 23.1; ag.px = ag.x; ag.py = ag.y; ag.rise = 1;
+    A.snapMask();
+
+    const px = G.player.x*A.TILE, py = G.player.y*A.TILE;
+    const ax = ag.x*A.TILE,       ay = ag.y*A.TILE;
+    /* A half tile is TILE/2, and none of these three marks may sit there. */
+    const HALF = A.TILE*0.5;
+
+    calls.list.length = 0;
+    A.drawPlayer(G.player, 1000);
+    const pFirst = calls.list.find(c=>c[0]==='ellipse');
+    assert(pFirst, 'the avatar drew no ellipse at all — cannot locate it');
+    /* contact shadow, centred at (x+1.5, y+3) */
+    assert(Math.abs(pFirst[1]-(px+1.5)) < 0.01 && Math.abs(pFirst[2]-(py+3)) < 0.01,
+      `avatar drawn at (${pFirst[1]},${pFirst[2]}) but its collision point is `+
+      `(${px.toFixed(1)},${py.toFixed(1)}) tiles`);
+    assert(Math.abs(pFirst[1]-(px+HALF+1.5)) > 0.01,
+      'avatar is drawn half a tile from its collision point');
+
+    calls.list.length = 0;
+    A.drawAgent(ag, 1000);
+    const aEllipse = calls.list.find(c=>c[0]==='ellipse');
+    assert(aEllipse, 'the agent drew no ellipse at all — cannot locate it');
+    /* the agent's first mark is its shadow ellipse, centred on (x, y+4) */
+    assert(Math.abs(aEllipse[1]-ax) < 0.01 && Math.abs(aEllipse[2]-(ay+4)) < 0.01,
+      `agent drawn at (${aEllipse[1]},${aEllipse[2]}) but its collision point is `+
+      `(${ax.toFixed(1)},${ay.toFixed(1)}) tiles`);
+    assert(Math.abs(aEllipse[1]-(ax+HALF)) > 0.01,
+      'agents are drawn half a tile from their collision point');
+    console.log(`  drawn at true fractional points (${px.toFixed(1)},${py.toFixed(1)}) and `+
+                `(${ax.toFixed(1)},${ay.toFixed(1)}) tiles, not tile centre`);
+  }
   console.log(`  radar held ${A.HAND_OFF} tiles in front of the body centre; cone originates there too`);
 }
 
