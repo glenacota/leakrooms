@@ -736,6 +736,61 @@ const Audio_ = {
     o.start(t); o.stop(t+1.2);
   },
 
+  /* THE KUDOS — what a sealed floor sounds like. seal() turned the right way
+     round: the same saw and the same filter sweep, but climbing instead of
+     falling, and the hiss-stop underneath it is the noise bed being pulled
+     shut as the chord opens. The room goes QUIET on success, which is the one
+     thing sting() never does, and the quiet is the reward — the whole level
+     has been four pipes hissing and something walking toward them.
+
+     A major triad a fifth and a fourth up, staggered by 90ms and detuned a
+     hair each side, so it lands as a chime on a tape deck rather than as a
+     chord from an instrument. Nothing here is tuned to a key; there is no
+     music in this building and the win sting is not going to start one. */
+  acclaim(){
+    if (!this.ok) return;
+    const a=this.ctx, t=a.currentTime;
+    this.silenceBeds();                  // the old floor stops gurgling behind the card
+
+    /* the hiss-stop */
+    const s=a.createBufferSource(); s.buffer=this.noise;
+    s.playbackRate.value = 0.8;
+    const hf=a.createBiquadFilter(); hf.type='highpass'; hf.frequency.value=1800;
+    const hg=a.createGain();
+    hg.gain.setValueAtTime(0.10,t);
+    hg.gain.exponentialRampToValueAtTime(0.0001,t+0.45);
+    s.connect(hf); hf.connect(hg); hg.connect(this.master);
+    s.start(t); s.stop(t+0.5);
+
+    /* the rising seal — filter and pitch climbing together, the opposite sweep */
+    const o=a.createOscillator(); o.type='sawtooth';
+    o.frequency.setValueAtTime(96,t);
+    o.frequency.exponentialRampToValueAtTime(392,t+0.55);
+    const f=a.createBiquadFilter(); f.type='lowpass';
+    f.frequency.setValueAtTime(600,t);
+    f.frequency.exponentialRampToValueAtTime(3800,t+0.55);
+    const g=a.createGain();
+    g.gain.setValueAtTime(0.0001,t);
+    g.gain.exponentialRampToValueAtTime(0.11,t+0.05);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+0.8);
+    o.connect(f); f.connect(g); g.connect(this.master);
+    o.start(t); o.stop(t+0.9);
+
+    /* the triad */
+    const notes=[523.25, 659.25, 783.99];
+    for(let i=0;i<3;i++){
+      const n=a.createOscillator(); n.type='sine';
+      n.frequency.value = notes[i] * (1 + (i-1)*0.0015);
+      const ng=a.createGain();
+      const st=t+i*0.09;
+      ng.gain.setValueAtTime(0.0001,st);
+      ng.gain.exponentialRampToValueAtTime(0.10/(i+1.4), st+0.02);
+      ng.gain.exponentialRampToValueAtTime(0.0001, st+1.1);
+      n.connect(ng); ng.connect(this.master);
+      n.start(st); n.stop(st+1.2);
+    }
+  },
+
   rattle(vol){                     // wire shifting
     if (!this.ok) return;
     const a=this.ctx, t=a.currentTime;
@@ -3115,6 +3170,7 @@ const MODAL_ACTION = {
      button that is not on the screen is how a modal ends up with a dead
      confirm key. */
   pause:  ()=>togglePause(),
+  clear:  ()=>dismissClear(),
   dead:   ()=>document.getElementById('btn-retry').click(),
   win:    ()=>document.getElementById('btn-again').click(),
 };
@@ -3178,6 +3234,7 @@ window.addEventListener('keydown', e=>{
   if (k==='enter'){
     const act = STATE==='splash' ? MODAL_ACTION.splash
               : STATE==='order'  ? MODAL_ACTION.order
+              : STATE==='clear'  ? MODAL_ACTION.clear
               : STATE==='pause'  ? MODAL_ACTION.pause
               : STATE==='dead'   ? MODAL_ACTION.dead
               : STATE==='win'    ? MODAL_ACTION.win
@@ -3791,12 +3848,16 @@ function randomFloorNear(x,y,rad){
    all land in the same place and cannot disagree with each other.
    ============================================================ */
 
-/* The bed follows STATE, not the individual screens. It is keyed off the two
-   names rather than off `show()` because `show()` is also how the pause screen
-   comes up, and a title drone leaking into a pause menu is the sort of thing
-   nobody reports and everybody notices. */
+/* The bed follows STATE, not the individual screens. It is keyed off the names
+   rather than off `show()` because `show()` is also how the pause screen comes
+   up, and a title drone leaking into a pause menu is the sort of thing nobody
+   reports and everybody notices.
+
+   The floor-clear card is a menu like the other two: the room hum keeps
+   running under it. What stops there is the FLOOR — acclaim() kills the leak
+   and noise beds, which belong to the level that just ended. */
 function syncAmbience(){
-  Audio_.ambience(STATE==='splash' || STATE==='order');
+  Audio_.ambience(STATE==='splash' || STATE==='order' || STATE==='clear');
 }
 
 function advanceSplash(){
@@ -3910,12 +3971,14 @@ function rollRunSeed(){
 /* ============================================================
    FLOW
    ============================================================ */
-let STATE='splash';      // splash | order | play | pause | dead | win
+let STATE='splash';      // splash | order | clear | play | pause | dead | win
 /* Every screen the shell can show, in one list, because show()/hideAll() all
    enumerate them and they used to drift apart the moment a screen was added.
    The settings had a screen in this list once; they are pages of the pause
-   ticket now, so the ticket is the only menu and there is no second list. */
-const SCREENS = ['splash','order','pause','dead','win'];
+   ticket now, so the ticket is the only menu and there is no second list.
+   Every entry has a #screen-<name> div — 'play' is a STATE but not a screen,
+   because the run is the canvas with the HUD on it and nothing to show(). */
+const SCREENS = ['splash','order','clear','pause','dead','win'];
 let RUN_SEED = (Math.random()*1e9)|0;
 let lives = 3, floorIdx = 0, runTime = 0;
 /* The life pips are drawn from this, not from a hardcoded three. The naive
@@ -3938,6 +4001,56 @@ function renderLives(){
   el.innerHTML = livesHTML();
 }
 
+/* THE FLOOR CLEAR.
+   Between one level and the next there is a card: the clock you finished with,
+   and the shape of the floor you are about to walk into. It exists for two
+   reasons and neither of them is vibes — a level transition that silently
+   restarts a running clock is the single most unfair thing this game could do,
+   and a player who does not know the next floor carries four pipes and four
+   things is walking into it with the wrong amount of caution.
+
+   THE FLOOR IS ALREADY BUILT when this comes up. nextFloor() does its usual
+   floorIdx++ / buildFloor in the same frame the door cycles, and 'clear' only
+   holds the PLAYER out of it. Nothing about the state depends on the card being
+   dismissed, and the tests that watch floorIdx move on the descent frame keep
+   working without knowing this screen exists. */
+let clearCard = { floor:0, clock:0, leaks:0, forms:0 };
+function showClear(){
+  const el = id => document.getElementById(id);
+  el('clear-clock').textContent = clockText(clearCard.clock);
+  el('clear-floor').textContent  = clearCard.floor+1;
+  el('clear-leaks').textContent  = clearCard.leaks;
+  el('clear-forms').textContent  = clearCard.forms;
+  /* The praise scales with the clock, and only with the clock. Nailing a floor
+     on the last few seconds gets the warm line; scraping back in does not, and
+     the game does not congratulate you for the version where you nearly died. */
+  el('clear-sub').textContent =
+    clearCard.clock >= FLOOR_CLOCK*0.34 ? 'GOOD WORK. MANAGEMENT NOTICES.'
+                                      : 'SEALED. MANAGEMENT HAS NO COMMENT.';
+  STATE='clear';
+  document.getElementById('hud').classList.remove('on');
+  show('clear');
+  syncAmbience();
+  Audio_.acclaim();
+}
+/* ENTER, and the button, and nothing else. There is no clock on this card and
+   no way back into it — the floor behind it is sealed and the floor in front of
+   it is already running. ESC deliberately does nothing here: backSplash() only
+   walks the title chain, so the key falls through to the play/pause toggle,
+   which is also inert while STATE is 'clear'. */
+function dismissClear(){
+  if (STATE!=='clear') return;
+  STATE='play';
+  hideAll();
+  document.getElementById('hud').classList.add('on');
+  /* Every key down to nothing. The player is almost certainly holding W — they
+     walked to the door — and that keydown is still set, so the first frame of
+     the new floor would walk them back through it. Same reason the splash chain
+     drops the key that dismissed it. */
+  for (const k in keys) delete keys[k];
+  syncAmbience();
+}
+
 function nextFloor(){
   floorIdx++;
   if (floorIdx >= FLOORS){ STATE='win'; show('win'); document.getElementById('win-stats').innerHTML =
@@ -3945,7 +4058,16 @@ function nextFloor(){
     document.getElementById('hud').classList.remove('on');
     return;
   }
+  /* The clock is read off the OLD floor, before the rebuild — G is replaced
+     wholesale by buildFloor and the leftover seconds of the floor you just
+     finished are the whole point of the card. */
+  const clockLeft = G ? G.clock : FLOOR_CLOCK;
   buildFloor(floorIdx, RUN_SEED);
+  /* The briefing reads the same table buildFloor reads, through the same
+     clamp, so the numbers on the card are the numbers on the floor. */
+  const spec = LEVELS[Math.min(floorIdx, LEVELS_N-1)];
+  clearCard = { floor:floorIdx, clock:clockLeft, leaks:spec.leaks, forms:spec.forms };
+  showClear();
 }
 
 /* Every way a run can end badly costs a life, rewinds the level and says why.
@@ -5297,6 +5419,7 @@ document.getElementById('btn-start').onclick = ()=>{
   syncAmbience();        // the title bed has no business following you downstairs
 };
 
+document.getElementById('btn-descend').onclick = ()=>dismissClear();
 document.getElementById('btn-retry').onclick = ()=>{
   if (lives<=0){
     document.getElementById('btn-start').click(); return;

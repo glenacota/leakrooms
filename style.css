@@ -691,6 +691,44 @@ blockquote{
 }
 .hint i{ color:var(--yellow); font-style:italic; }
 
+/* ------------------------------------------------------------
+   FLOOR CLEAR
+   The same ticket stock as every other modal, so it reads as paperwork
+   rather than as a score popup. Two blocks: what the floor cost you
+   (the clock you had left) and what the next one will (the briefing).
+   ------------------------------------------------------------ */
+#screen-clear{ background:rgba(6,5,3,.94); }
+.tape.clear{ max-width:520px; }
+.tape.clear h1{ font-size:30px; }
+
+/* The kudos, and the only number that is about YOU. Big, because it is the
+   thing the player just bought. */
+.clear-left{
+  font-size:11px; font-weight:900; letter-spacing:.28em; color:var(--yellow-deep);
+  margin-bottom:26px;
+}
+.clear-left b{
+  display:block; font-size:34px; letter-spacing:.14em; font-weight:400;
+  color:var(--yellow); margin-top:8px;
+}
+
+/* The next assignment. Dashed top edge like the chooser fold on the order
+   ticket, because it is the same document being re-issued one page on. */
+.clear-next{
+  border-top:2px dashed rgba(228,230,168,.28);
+  padding-top:16px; margin-bottom:28px; text-align:left;
+}
+.clear-next .k{
+  display:block; font-size:11px; font-weight:900; letter-spacing:.2em;
+  color:#8fc4cc; margin-bottom:12px;
+}
+.clear-next .k b{ color:var(--yellow); font-weight:900; }
+.clear-grid{
+  display:grid; grid-template-columns:1fr auto; gap:8px 24px; align-items:baseline;
+}
+.clear-grid span{ font-size:12px; font-weight:900; letter-spacing:.22em; color:var(--yellow); }
+.clear-grid b{ font-size:16px; font-weight:400; color:var(--yellow-dim); letter-spacing:.1em; }
+
 button{
   font-family:var(--mono);
   font-size:13px;

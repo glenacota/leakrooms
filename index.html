@@ -270,6 +270,31 @@
     </div>
   </div>
 
+  <!-- SPLASH — the floor you just sealed, and the assignment for the next one.
+       It comes up on the door cycle and holds the player out of the new floor
+       until they confirm, so nobody is dropped into a running clock they did
+       not know had started. The clock is frozen the whole time it is up: the
+       frame loop only advances on STATE==='play', so this card and the pause
+       ticket buy time by exactly the same mechanism. -->
+  <div id="screen-clear" class="screen hidden">
+    <div class="tape clear">
+      <h1>FLOOR SEALED</h1>
+      <p class="sub" id="clear-sub">GOOD WORK. MANAGEMENT NOTICES.</p>
+
+      <div class="clear-left">CLOCK REMAINING <b id="clear-clock">0:00</b></div>
+
+      <div class="clear-next">
+        <span class="k">NEXT ASSIGNMENT &mdash; FLOOR <b id="clear-floor">2</b> OF 5</span>
+        <div class="clear-grid">
+          <span>BURSTS REPORTED</span><b id="clear-leaks">0</b>
+          <span>LIFEFORMS DETECTED</span><b id="clear-forms">0</b>
+        </div>
+      </div>
+
+      <button id="btn-descend"><b>PRESS ENTER TO DESCEND</b></button>
+    </div>
+  </div>
+
   <div id="screen-dead" class="screen hidden">
     <div class="tape">
       <!-- The cause is in dead-sub: it heard you, or the clock ran out. One
