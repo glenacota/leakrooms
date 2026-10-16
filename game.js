@@ -275,7 +275,7 @@ const DARK_ROOM      = 0.0;
    rooms are dark" rule survivable: a room two gates away down a clear line is
    dim, and one four gates away is nearly black, but the light arrives
    continuously instead of stopping at a boundary you cannot see. */
-const HOP_FALL = [1.0, 0.62, 0.40, 0.26, 0.17, 0.11];   // index = gates passed
+const HOP_FALL = [1.0, 0.85, 0.50, 0.26, 0.17, 0.11];   // index = gates passed
 
 /* Distance attenuation, applied ONLY to regions that are not your own. Without
    it a 40-tile corridor stays at 11% all the way to the far wall and reads as
@@ -354,8 +354,39 @@ const SHEEN_STEPS = 4;
 const sheenBuckets = Array.from({length:SHEEN_STEPS},
   ()=>({ n:0, x0:0, y0:0, x1:0, y1:0 }));
 
+/* ADAPTIVE RESOLUTION.
+
+   The device pixel ratio is capped at 2, which means a retina laptop renders
+   four times the pixels of the same window on an external monitor — and every
+   cost in this renderer is proportional to pixels touched, not to logic
+   executed. Measured on the reference machine, the same frame cost 2.2ms at
+   1x and would cost roughly four times that at 2x, for an image that is then
+   scaled down by the compositor to exactly the size it would have been anyway.
+   On a machine that cannot hold 60Hz, that difference is the whole margin.
+
+   So the ratio is a starting point, not a decision. The frame time is tracked,
+   and if it sits above the drop threshold for long enough to be a trend rather
+   than a spike, the backing store shrinks by one step and resize() runs again.
+   If it then sits comfortably below the recover threshold, it grows back. The
+   bands are deliberately far apart so a machine sitting near a boundary cannot
+   oscillate — a resolution that visibly pumps is worse than a slightly soft one
+   that holds.
+
+   Nothing else in the renderer changes. SCALE is derived from cvs.width, so the
+   camera, the geometry, the light bake and the visibility mask all follow the
+   new backing store automatically, and test 7 — which asserts the camera, the
+   lightmap and the flood image all share one origin — keeps holding. */
+const RENDER_SCALES = [1, 0.8, 0.65, 0.5];
+const SCALE_DROP_MS  = 20;      // sustained frame time that costs a step
+const SCALE_RECOVER_MS= 12;     // sustained frame time that earns one back
+const SCALE_BAD_FRAMES = 45;    // frames over threshold before acting on it
+const SCALE_GOOD_FRAMES = 180;  // and a much longer run before recovering
+let renderScaleIdx = 0;
+let frameMsAvg = 16.7;
+let badRun = 0, goodRun = 0;
+
 function resize(){
-  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  DPR = Math.min(window.devicePixelRatio || 1, 2) * RENDER_SCALES[renderScaleIdx];
   VW = cvs.clientWidth; VH = cvs.clientHeight;
   cvs.width = Math.floor(VW * DPR);
   cvs.height = Math.floor(VH * DPR);
@@ -364,6 +395,41 @@ function resize(){
   if (G) paintSplashPlan();
 }
 window.addEventListener('resize', resize);
+
+/* Called once per frame with the measured frame time. Kept out of resize() so
+   that a window resize cannot be mistaken for a slow machine and start a
+   resolution change on its own. */
+function adaptResolution(ms){
+  /* Exponential average rather than an instantaneous read: one 40ms hitch from
+     a garbage collection pause or a tab switch must not cost a resolution step,
+     and the hysteresis bands below do not protect against a decision taken on
+     a single sample. */
+  frameMsAvg += (ms - frameMsAvg) * 0.05;
+
+  if (frameMsAvg > SCALE_DROP_MS){
+    goodRun = 0; badRun++;
+    if (badRun > SCALE_BAD_FRAMES && renderScaleIdx < RENDER_SCALES.length-1){
+      renderScaleIdx++;
+      badRun = 0; frameMsAvg = 16.7;      // re-measure at the new size, not the old
+      resize();
+      return 'drop';
+    }
+  } else if (frameMsAvg < SCALE_RECOVER_MS){
+    badRun = 0; goodRun++;
+    /* Only while PLAYING. On the splash the canvas is not what the player is
+       looking at, and a resolution change there re-bakes the grain, the
+       vignette and the splash plan for no reason. */
+    if (goodRun > SCALE_GOOD_FRAMES && renderScaleIdx > 0 && STATE==='play'){
+      renderScaleIdx--;
+      goodRun = 0; frameMsAvg = 16.7;
+      resize();
+      return 'raise';
+    }
+  } else {
+    badRun = 0; goodRun = 0;
+  }
+  return null;
+}
 
 /* ============================================================
    SETTINGS
@@ -5874,10 +5940,20 @@ function frame(now){
   } else {
     simAcc = 0;
   }
+  /* Frame time is measured across the WHOLE frame — simulation, render and the
+     browser's own compositing — because that is what the player experiences as
+     smoothness and it is the only number the adaptive resolution can honestly
+     respond to. Sampled before render() so the figure covers the interval we
+     are about to work in. */
+  const frameMs = now - lastRenderStart;
+  lastRenderStart = now;
+  if (frameMs > 0 && frameMs < 1000) adaptResolution(frameMs);
+
   if (G) render(now);
 
   requestAnimationFrame(frame);
 }
+let lastRenderStart = performance.now();
 
 /* ---- boot ----
    The store is read BEFORE anything that depends on it, and applySettings
