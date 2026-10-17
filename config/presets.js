@@ -1,3 +1,12 @@
+/* The water palette. The leak is the ONLY non-yellow hue in the world and it
+   is the entire cue, so a player who cannot separate this from the carpet
+   cannot play the mechanic at all. `damp` is what compositing wet carpet looks
+   like; `deep` is the hue that finally wins. Every value here is chosen by
+   solving for the composited tile, not by picking a colour that looks like
+   water in isolation — see packWet().
+
+   `grey` is the accessibility option: no hue at all, just a hard value
+   difference, for anyone who cannot separate slate from olive. */
 export const WATER_TINTS = {
   slate:  { damp:[54,50,40],  deep:[32,76,112] },
   teal:   { damp:[44,52,46],  deep:[24,88,98]  },

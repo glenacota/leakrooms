@@ -28,129 +28,13 @@ import * as _C from './config/constants.js';
 const { BAKE_FLOOR, BATT_MAX, BRUSH_NOISE, CATCH_R, DARK_ROOM, DOOR_AJAR, DOOR_EASE, DOOR_HOLD, DOOR_NOISE, FLICKER_DEPTH, HAND_OFF, HOP_FALL, LEAK_HEADSTART, LEAK_LURE, LEAK_NOISE_BASE, LEAK_NOISE_GAIN, LEAK_RETREAT, LEAK_SPREAD, LIGHT_FADE, LIGHT_FADE_STEPS, LOUD, LS, MAP_H, MAP_W, MASK_TAU, NOISE_FS, PIPE_FAR, PIPE_GAP, R, RA, RADAR_DRAIN, RENDER_SCALES, REPAIR_DECAY, REPAIR_NOISE, REPAIR_REACH, SCALE_BAD_FRAMES, SCALE_DROP_MS, SCALE_GOOD_FRAMES, SCALE_RECOVER_MS, SHEEN_STEPS, SPRINT, SPRINT_NOISE, TILE, VHS_PASS, VIEW_DEG, VIEW_FADE_FAR, VIEW_FADE_NEAR, VIEW_HALF, VIEW_MID, VIEW_RANGE, VIEW_RAYS, VIEW_T, WALK, WALL, WALL_FACE, WET_DRAW, WET_EDGE, WET_FALL, WET_RISE, FLOOR } = _C;
 const cvs = document.getElementById('game');
 const ctx = cvs.getContext('2d', { alpha:false });
+/* Scratch for the sheen pass in render(): one record per alpha bucket (SHEEN_STEPS,
+   see config/constants.js), reused every frame so the pass allocates nothing. */
 const sheenBuckets = Array.from({length:SHEEN_STEPS},
   ()=>({ n:0, x0:0, y0:0, x1:0, y1:0 }));
 
-/* ---------- deterministic RNG ---------- */
-
-/* ---------- tuning ---------- */
-/* The lit face of a wall: how tall the wallpaper band is, as a fraction of a
-   tile. It is drawn into the carpet tile BELOW each wall that has floor to its
-   south (bakeTiles), and it is the surface the door is painted on — so the
-   number lives here, once, rather than as a local in one function and a guess in
-   another. A door that is taller than this is not painted on the wall, it is
-   standing in front of it.
-
-   DO NOT RAISE IT WITHOUT RAISING THE FLOOR WITH IT. The face is drawn into the
-   tile BELOW the wall, so it eats that tile's floor. At 0.74 the band took 74% of
-   every edge tile, leaving 10px of carpet — and the Rigger's body occupies the
-   top ~8px above their feet, which lands squarely on the wallpaper, so anyone
-   standing along a wall appeared to hover in front of it. The face is not free
-   to grow: it is carved out of the floor the characters walk on.
-
-   Related and also not free: the contact shadow is drawn from the TOP of that
-   same tile for TILE*0.5, so the face covers all but the last 1.6px of it and
-   the height cue it exists to sell is very nearly gone already. Anything that
-   makes the face taller finishes it off. */
-/* --- the door ---
-   The one door on the floor is a leaf on a hinge, not a rectangle of colour,
-   so these are the three numbers that describe how it behaves. */
-/* How far in front of the body the character holds their gear, in tiles. This
-   is both where the vision cone originates and where the device is drawn on
-   the avatar, so the two can never disagree. */
-
-/* The radar is the only tool, and it is expensive. At 5.6/s a full battery is
-   under 18 seconds of sweep — long enough to cross a floor or two, never long
-   enough to leave it running. The torch it replaced drained 2.4/s and could be
-   held indefinitely, which made the budget a formality rather than a decision;
-   this one has to be switched off and thought about. */
-
-/* ---------- THE LEAK ----------
-   You are not here to hunt. You are here because a pipe is burst somewhere in
-   the building and the water is telling you where, and the only thing you can
-   do about it is stand still next to it for five seconds while something else
-   in the building walks toward the noise of you doing exactly that.
-
-   THE WATER IS THE CUE. The radar reveals space and nothing else — it has no
-   reason to know about plumbing and it must not be given one, or the mechanic
-   collapses into sweeping. What the radar cannot do is show you which way the
-   floor is wet, and water runs downhill from the leak and nowhere else, so the
-   wet trail is a path to the source that costs no battery and makes no noise.
-   Walking wet carpet is slightly louder and slightly slower than walking dry
-   it, so following your own trail is not free either.
-
-   THE LEAK IS A STANDING NOISE SOURCE. That is the trap. A leak that only
-   flooded the floor would be scenery. One that gurgles pulls the Lifeform to
-   the pipe — which is a shield while you are finding it, because something
-   standing over the leak is not standing over you, and an ambush while you
-   wrench is a decision you get to make rather than one that happens to you.
-
-   And it is deliberately kept BELOW LOUD. A leak that woke the whole floor on
-   sight would be a chase generator with no off switch; this one makes the
-   thing curious and keeps it coming, which is the difference between a
-   pursuer you can predict and one you cannot. The wrench is what is loud.
-
-   THE FRONT IS SLOW, and it is slow on purpose. At 1.4s a tile the water
-   reached the spawn inside half a minute and turned the floor into a lake long
-   before you got anywhere near it — at which point the wet trail is no longer a
-   trail, it is weather, and following it downhill is no longer a read you are
-   making. At 3.2s a tile the front advances about half a tile per two seconds:
-   still unambiguously alive, still spreading while you stand there, and the
-   readable set of "tiles the water has got to" stays a set you can hold in your
-   head for the length of a journey. The flood is a cue and a clock, not an
-   event. */
-/* The pipe has been open for a while before you got here. Without this the
-   floor starts bone dry and the first half-minute has no cue in it at all —
-   you would have to wander blindly until water happened to reach you, which
-   is the exact opposite of "follow the wet floor downhill". At LEAK_SPREAD this
-   is a puddle about thirteen tiles across already standing around the break —
-   enough to see from the next room, small enough that you are reading a
-   waterline rather than surveying a lake. */
-
-/* Room-scoped light.
-   The bake below is per FIXTURE: how bright a tile would be if its fluorescents
-   were the only thing you could see. This is per VIEWER: of that bake, only
-   the parts you can actually see are lit. Rooms are separated by walls, so the
-   scope falls off with how many gates you must look through — see HOP_FALL.
-
-   The radar overrides all of it while it is on. That is the trade: everything
-   visible, for eighteen seconds of battery a time. */
-/* DARK_ROOM is what a tile is worth when there is no scope at all — only
-   reachable in a degenerate state where the player is off the map. Normal
-   darkness is not this number: it is the product of the scope, the distance
-   falloff and the cone, and any tile the cone cannot reach is exactly black
-   regardless. It was 0.14 for a while, chosen against measured luminance, and
-   that was wrong twice over — it revealed geometry the character cannot see
-   (which reads as the game drawing a map), and it hid the fact that the scope
-   itself was a cliff. */
-
-/* How visible a region is, by how many gates you must look through to reach
-   it. This USED to be a cliff: your room 1.0, one gate away 0.30, everything
-   beyond hard zero. Measured on a 40-tile straight corridor, that blacked out
-   the floor from 10 tiles onward — dead ahead, in line of sight, inside a
-   200 degree cone — because the corridor happened to be a second region. You
-   could not see down a hallway in your own house.
-
-   So it is a falloff, not a cliff, and the falloff is what makes the "other
-   rooms are dark" rule survivable: a room two gates away down a clear line is
-   dim, and one four gates away is nearly black, but the light arrives
-   continuously instead of stopping at a boundary you cannot see. */
-
 /* ---------- canvas ---------- */
 let VW = 0, VH = 0, DPR = 1, SCALE = 1;
-
-/* VHS_PASS and FLICKER_DEPTH used to be slider positions. They are constants
-   now: the scanline crawl and the stuttering tubes are how the place is lit,
-   and a preference for "less of the look" is not a preference the game can
-   honour without becoming a different game. Everything that reads them reads
-   these, so restoring a slider later is a matter of wiring the control, not
-   of hunting the values back out of the renderer. */
-
-/* The specular sheen on deep water is quantised into this many alpha steps and
-   drawn as one path per step. Four is chosen because the whole range is 0 to
-   0.05 of alpha: four steps puts 0.0125 between them, which is under the
-   banding a `lighter` pass shows. Scratch, so the sheen allocates nothing per
-   frame — see the sheen pass in render(). */
 
 /* ADAPTIVE RESOLUTION.
 
@@ -225,45 +109,9 @@ function adaptResolution(ms){
 }
 
 /* ============================================================
-   SETTINGS
+   SETTINGS — applying the store. Schema: settings/schema.js. Load/save:
+   settings/store.js. This file only pushes values into the game.
    ============================================================ */
-
-/* The water palette. The leak is the ONLY non-yellow hue in the world and it
-   is the entire cue, so a player who cannot separate this from the carpet
-   cannot play the mechanic at all. `damp` is what compositing wet carpet looks
-   like; `deep` is the hue that finally wins. Every value here is chosen by
-   solving for the composited tile, not by picking a colour that looks like
-   water in isolation — see packWet().
-
-   `grey` is the accessibility option: no hue at all, just a hard value
-   difference, for anyone who cannot separate slate from olive. */
-
-/* Difficulty. PRESETS, not a slider, and they move COUNTS AND SPACING only:
-   lives, how long you get on the clock, how long the repair takes, and how fast
-   the Lifeform commits. None of them touches the noise table, and that is the
-   whole discipline here — walk/wading staying under LOUD is the design contract,
-   and a difficulty control that could push a quiet noise over the line would let
-   a player configure the stealth layer out of the game. The suite asserts this.
-
-   Note what is NOT here any more: the level count. The five levels are the run,
-   not a setting — a preset that gave you four of them meant the game had five
-   endings depending on which menu you picked, and there is only one of those
-   worth designing. */
-
-/* Every field, its type, and its allowed range. The store validates against
-   this rather than trusting whatever is in localStorage: a stale blob from an
-   older build, a hand-edited value, or a half-written one must degrade to the
-   default for THAT FIELD and leave the rest alone. Validating per field is
-   what makes that true. */
-
-
-
-/* Read the store. EVERY failure path returns defaults for the affected field
-   and never throws: localStorage is absent in the headless suite, throws on
-   some file:// origins, and can be disabled entirely in private browsing. A
-   settings system is never allowed to be the reason the game does not start. */
-
-
 
 /* Push the store into everything that reads a tuning value. Called on load and
    on every change from the modal, so a setting takes effect immediately rather
@@ -830,21 +678,6 @@ let carpetPat, wallPat, ceilPat, scanPat;
    size (resize, DPR change) rather than every frame. */
 let grainFull;
 
-/* THE PALETTE.
-   The five colours of the place, and every surface in the game is drawn from
-   them — there is no other hue anywhere in the world. They are the walls, the
-   carpet and the ceiling in the original, and the roles are assigned by how
-   they read from directly above:
-
-     WALL_TOP   the ceiling of a partition, seen from above. Muted and
-                desaturated, because it has to separate from the carpet
-                without going dark — a wall you cannot tell from the floor is
-                not a wall.
-     CARPET     the saturated one. It is the dominant surface in the frame and
-                it is the colour the place is named for.
-     WALL_FACE  the pale end. The vertical face of a partition catches the
-                fluorescents, so it is the brightest thing in the room. */
-
 function buildPatterns(){
   // --- carpet: 64x64 speckled, seamless-ish ---
   let c = document.createElement('canvas'); c.width=c.height=64;
@@ -1192,55 +1025,6 @@ let wantPixels = true;      // packMask / packWet write an image nobody will rea
 let wantVision = true;      // traceViewCone + smoothMask retrace per frame
 function setHeadless(px, vis){ wantPixels = !!px; wantVision = !!vis; }
 
-/* ---------- THE FLOOD ----------
-   G.wetArr is per TILE, 0..1, exactly like G.maskArr: it is state the simulation
-   reads and the renderer reads, so there is one number and the wet patch you
-   can see is the wet patch that slows your footsteps.
-
-   G.waterDist is a BFS from the leak over walkable floor, recomputed when the
-   leak is sealed, and it is the ONLY thing that decides how fast water spreads.
-   Derived once per state change rather than simulated per tile per frame:
-   water runs downhill, it does not meander, so distance-from-source is exactly
-   the physics and a diffusion model would only add a parameter to get wrong. */
-/* G.wetByDist is every reachable tile ORDERED BY DISTANCE FROM THE LEAK, and
-   G.wetFront is how many of them are currently under water.
-
-   This exists for a measured reason. The first version scanned all 5776 tiles
-   every frame, which is correct and cheap-looking and made the headless suite
-   take well over twenty minutes instead of seventy seconds — the end-to-end
-   bot alone simulates hundreds of thousands of frames.
-
-   But the shape of the problem does not need a scan at all. A tile's target
-   wetness is exactly `dist <= front`, so the ONLY tiles whose target differs
-   from last frame are the ones in the band the front just moved through. Those
-   are contiguous in this ordering, which turns an O(map) pass into an
-   O(perimeter of the waterline) pass — a handful of tiles a frame instead of
-   six thousand. The ordering is stable because the leak does not move. */
-
-/* G.wetEdgeD is the furthest distance from the nearest pipe at which ANY tile is
-   still visibly wet — and it is the bound the per-frame pass actually uses.
-
-   It is not `G.wetFront`, and the difference is the whole recession. `G.wetFront` is
-   where the waterline is; the moment the line starts coming back in, every ring
-   it has already vacated is still soaking and drying, and those rings are OUTSIDE
-   the front. Iterating to the front leaves them stranded at full wetness —
-   permanently, because the bound only ever shrinks from there, so a tile dropped
-   once is never revisited. The front would walk back to zero on schedule and the
-   carpet would not change by a pixel.
-
-   It is also what keeps the pass cheap. A tile at or inside the front is wet, so
-   the front is a lower bound on this, and the extra distance it covers is exactly
-   the still-drying band — a handful of rings. An unflooded level costs one
-   iteration.
-
-   WET_EDGE has to sit BELOW the cut at which a tile stops being drawn (WET_DRAW
-   in packWet), or the last few percent of wetness is left on the carpet
-   forever: the tile falls out of the pass, stops integrating, and freezes just
-   above the threshold where it is still a visible damp patch. It cannot be zero
-   either — a tile approaching zero asymptotically would hold the bound open for
-   ever — so it is the draw cut times a margin, and the two are written together
-   so they cannot drift apart. */
-
 /* WHICH PART of the image is stale, not just that some of it is. packWet walks
    5776 tiles and writes four bytes each, and it ran that in full on every frame
    the water was moving — which, with a pipe open, is every frame of the level.
@@ -1307,8 +1091,7 @@ function genLevel(rng, floorNum=0){
   /* A slot is only usable if it is a wall with floor DIRECTLY SOUTH of it.
      That is not an aesthetic preference with a geometry excuse attached: it is
      the one orientation the building actually lights. bakeTiles paints a single
-     face per wall tile — the south one, sitting in the carpet tile below it
-     (game.js:1674) — so a door anywhere else is a door standing on a dark
+     face per wall tile — the south one, sitting in the carpet tile below it — so a door anywhere else is a door standing on a dark
      ceiling top with no lit wall behind it, which reads as a frame painted on
      the floor rather than as a door in a wall. Restricting the slot keeps every
      door in the one place the renderer already knows how to light.
@@ -2095,6 +1878,45 @@ function buildFloor(floorNum, seed){
    which is what standing water in a building with four burst pipes does.
    ============================================================ */
 
+/* ---------- FLOOD FIELDS (G.wet*) ----------
+   G.wetArr is per TILE, 0..1, exactly like G.maskArr: it is state the simulation
+   reads and the renderer reads, so there is one number and the wet patch you
+   can see is the wet patch that slows your footsteps.
+
+   G.waterDist is a BFS from the leak over walkable floor, recomputed when the
+   leak is sealed, and it is the ONLY thing that decides how fast water spreads.
+   Derived once per state change rather than simulated per tile per frame:
+   water runs downhill, it does not meander, so distance-from-source is exactly
+   the physics and a diffusion model would only add a parameter to get wrong. */
+/* G.wetByDist is every reachable tile ORDERED BY DISTANCE FROM THE LEAK, and
+   G.wetFront is how many of them are currently under water.
+
+   This exists for a measured reason. The first version scanned all 5776 tiles
+   every frame, which is correct and cheap-looking and made the headless suite
+   take well over twenty minutes instead of seventy seconds — the end-to-end
+   bot alone simulates hundreds of thousands of frames.
+
+   But the shape of the problem does not need a scan at all. A tile's target
+   wetness is exactly `dist <= front`, so the ONLY tiles whose target differs
+   from last frame are the ones in the band the front just moved through. Those
+   are contiguous in this ordering, which turns an O(map) pass into an
+   O(perimeter of the waterline) pass — a handful of tiles a frame instead of
+   six thousand. The ordering is stable because the leak does not move. */
+/* G.wetEdgeD is the furthest distance from the nearest pipe at which ANY tile is
+   still visibly wet — and it is the bound the per-frame pass actually uses.
+
+   It is not `G.wetFront`, and the difference is the whole recession. `G.wetFront` is
+   where the waterline is; the moment the line starts coming back in, every ring
+   it has already vacated is still soaking and drying, and those rings are OUTSIDE
+   the front. Iterating to the front leaves them stranded at full wetness —
+   permanently, because the bound only ever shrinks from there, so a tile dropped
+   once is never revisited. The front would walk back to zero on schedule and the
+   carpet would not change by a pixel.
+
+   It is also what keeps the pass cheap. A tile at or inside the front is wet, so
+   the front is a lower bound on this, and the extra distance it covers is exactly
+   the still-drying band — a handful of rings. An unflooded level costs one
+   iteration. */
 /* BFS distance in tiles from the NEAREST pipe across walkable floor. Derived
    once at level build; during play it is read-only. */
 function floodField(){
@@ -2345,8 +2167,7 @@ function tickFlood(dt){
      What IS worth exploiting is the ordering: everything wet is a contiguous
      PREFIX of G.wetByDist, and nothing past its edge can change. Iterating the
      prefix is bounded by how flooded the level is, and an unflooded one costs
-     one iteration. The edge is `G.wetEdgeD` — see the note there for why it is
-     not the front, and what it cost to get that wrong. */
+     one iteration. The edge is `G.wetEdgeD` — see the G.wetEdgeD note above floodField() for why it is not the front, and what it cost to get that wrong. */
   const boundD = Math.max(G.wetEdgeD, Math.ceil(Math.max(prev, front)));
   const hi = G.wetIndexAtDist[Math.min(boundD+1, G.wetIndexAtDist.length-1)] - 1;
   if (hi < 0) return;
@@ -2771,9 +2592,6 @@ function scopeRoomLight(dt, instant){
   return true;
 }
 
-/* The bake is packed ONCE, at floor build. The viewer mask is repacked per
-   pose change; see traceViewCone. */
-
 /* Advance the crossfade. Quantised: LIGHT_FADE_STEPS repacks over LIGHT_FADE
    seconds, so a room change costs 10 repacks and not one per frame forever. */
 function fadeRoomLight(dt){
@@ -2999,31 +2817,6 @@ function sustainedNoise(power, x, y, mine){
   alertAgents(hearRadius(power), power, x, y);
 }
 
-/* Loud = sprinting, hitting a wall, cycling a door.
-   Quiet = walking.
-   Quiet noise only makes it CURIOUS. Only loud noise — or being seen —
-   commits it to a full hunt. That is what makes walking survivable and
-   sprinting a real decision, and it means you can walk right past a sleeping
-   coil pile, while sprinting near one makes it stand up. */
-
-/* NOISE_FS is what a full HUD bar means: the loudest sustained thing you can do
-   on a floor, which is the WRENCH. It is the number that makes the meter read,
-   and it is deliberately NOT BATT_MAX — the bar used to divide the noise level
-   by the battery maximum, so a sprint drew 1% of it and the door 1.8%, while
-   the `hot` class still fired and turned the bar red at a level it could not
-   show. A meter whose scale is borrowed from a different quantity is not a
-   meter.
-
-   Against it: walk 0.22 -> 26%, wading 0.30 -> 35%, sprint 0.72 -> 85%, the
-   standing hiss of four open pipes -> 14-56%, the wrench -> 100%, LOUD at 59%.
-   The door clamps, which is correct: past full scale is past the end of the
-   instrument, and the audio bed keeps reporting the unclamped level. */
-
-/* The two powers that live outside the normal range, named so the meter, the mix
-   and the AI all read the same number: the door is the loudest thing in the
-   building and the bar clamps on it, and being brushed is loud enough to be
-   heard across the floor. */
-
 /* Contact. Dying to something you never saw, in a corridor, because it
    happened to be idling there is a gotcha rather than tension. Brushing a
    LOITERING entity does not kill: it startles, commits to a hunt, and makes a
@@ -3038,6 +2831,12 @@ function brush(a, p){
   Audio_.rattle(1);
 }
 
+/* Loud = sprinting, hitting a wall, cycling a door.
+   Quiet = walking.
+   Quiet noise only makes it CURIOUS. Only loud noise — or being seen —
+   commits it to a full hunt. That is what makes walking survivable and
+   sprinting a real decision, and it means you can walk right past a sleeping
+   coil pile, while sprinting near one makes it stand up. */
 function alert(a, x, y, power){
   const loud = (power||0) >= LOUD;
 
@@ -5753,7 +5552,7 @@ export const __api = {
      frame() and not by update() refusing to run, so a test that drives update()
      directly is measuring the wrong thing and will happily "prove" a clock that
      ticks while the player is reading the clear card. requestAnimationFrame is
-     stubbed to a no-op (line 174), so calling frame() is one frame, not a loop. */
+     stubbed to a no-op, so calling frame() is one frame, not a loop. */
   frame,
   paintSplashPlan, rollRunSeed, get RUN_SEED(){ return RUN_SEED; },
   set RUN_SEED(v){ RUN_SEED = v; },

@@ -22,20 +22,6 @@ export const LS     = 4;                 // light samples per tile
 export const MAP_W  = 76;
 export const MAP_H  = 76;
 export const VIEW_T = 27;                // tiles across the viewport
-/* ---------- THE FIVE LEVELS ----------
-   Fixed content, not a difficulty curve the presets tune: this is the shape of
-   the run. Each level is a floor you enter through one door, a set of burst
-   pipes to find and seal, and a set of things in the building with you.
-
-   `leaks` is the work — how many bursts to find, seal and then walk back from.
-   `forms` is the pressure, and it deliberately does NOT track `leaks`: level 2
-   has twice the work of level 1 and exactly the same number of things hunting
-   for you, so the second level teaches the round trip (seal, then get back)
-   before the building ever gets crowded. Levels 4 and 5 share four pipes and
-   differ only in what is walking around while you do it. */
-/* How long you have on each level to seal every pipe and get back to the door
-   you came in through. This is the whole pressure of a floor: the water is the
-   clock's excuse, the walk back is what it actually spends. */
 let FLOOR_CLOCK = 180;      // seconds; NORMAL
 
 /* --- the door ---
@@ -44,11 +30,6 @@ let FLOOR_CLOCK = 180;      // seconds; NORMAL
 export const DOOR_HOLD = 1.5;      // seconds standing at it
 export const DOOR_AJAR = 0.34;     // the swing it rests at once the pipes are sealed
 export const DOOR_EASE = 6;        // per second; leaves the frame looking at a door
-
-/* These are `let` rather than `const` because the settings modal drives
-   them. Their initialisers are the NORMAL preset and are the documented
-   tuning; applySettings() overwrites them at load. The noise table below is
-   NOT among them, and deliberately so — see the difficulty note. */
 
 export const WALK   = 3.3;               // tiles/sec
 export const SPRINT = 6.0;
@@ -292,7 +273,7 @@ export const VIEW_RANGE = 34;                         // hard stop; the distance
    seeing the tile, which is the leak this exists to stop. */
 export const VIEW_MID   = 0.48;
 
-/* ---------- canvas ---------- */
+/* ---------- render ---------- */
 
 /* VHS_PASS and FLICKER_DEPTH used to be slider positions. They are constants
    now: the scanline crawl and the stuttering tubes are how the place is lit,
@@ -306,42 +287,47 @@ export const FLICKER_DEPTH = 0.65;
 /* The specular sheen on deep water is quantised into this many alpha steps and
    drawn as one path per step. Four is chosen because the whole range is 0 to
    0.05 of alpha: four steps puts 0.0125 between them, which is under the
-   banding a `lighter` pass shows. Scratch, so the sheen allocates nothing per
-   frame — see the sheen pass in render(). */
+   banding a `lighter` pass shows. The buckets are scratch in game.js (sheenBuckets), so the sheen allocates
+   nothing per frame — see the sheen pass in render(). */
 export const SHEEN_STEPS = 4;
 
-/* ADAPTIVE RESOLUTION.
-
-   The device pixel ratio is capped at 2, which means a retina laptop renders
-   four times the pixels of the same window on an external monitor — and every
-   cost in this renderer is proportional to pixels touched, not to logic
-   executed. Measured on the reference machine, the same frame cost 2.2ms at
-   1x and would cost roughly four times that at 2x, for an image that is then
-   scaled down by the compositor to exactly the size it would have been anyway.
-   On a machine that cannot hold 60Hz, that difference is the whole margin.
-
-   So the ratio is a starting point, not a decision. The frame time is tracked,
-   and if it sits above the drop threshold for long enough to be a trend rather
-   than a spike, the backing store shrinks by one step and resize() runs again.
-   If it then sits comfortably below the recover threshold, it grows back. The
-   bands are deliberately far apart so a machine sitting near a boundary cannot
-   oscillate — a resolution that visibly pumps is worse than a slightly soft one
-   that holds.
-
-   Nothing else in the renderer changes. SCALE is derived from cvs.width, so the
-   camera, the geometry, the light bake and the visibility mask all follow the
-   new backing store automatically, and test 7 — which asserts the camera, the
-   lightmap and the flood image all share one origin — keeps holding. */
+/* ADAPTIVE RESOLUTION: the steps and thresholds. The mechanism and the reasoning
+   live in game.js, beside adaptResolution(). The two bands are deliberately far
+   apart so a machine sitting near a boundary cannot oscillate — a resolution
+   that visibly pumps is worse than a slightly soft one that holds. */
 export const RENDER_SCALES = [1, 0.8, 0.65, 0.5];
 export const SCALE_DROP_MS  = 20;      // sustained frame time that costs a step
 export const SCALE_RECOVER_MS= 12;     // sustained frame time that earns one back
 export const SCALE_BAD_FRAMES = 45;    // frames over threshold before acting on it
 export const SCALE_GOOD_FRAMES = 180;  // and a much longer run before recovering
 
+/* WET_EDGE has to sit BELOW the cut at which a tile stops being drawn (WET_DRAW
+   in packWet), or the last few percent of wetness is left on the carpet
+   forever: the tile falls out of the pass, stops integrating, and freezes just
+   above the threshold where it is still a visible damp patch. It cannot be zero
+   either — a tile approaching zero asymptotically would hold the bound open for
+   ever — so it is the draw cut times a margin, and the two are written together
+   so they cannot drift apart. */
 export const WET_DRAW = 0.015;          // packWet: below this a tile is fully transparent
 export const WET_EDGE = WET_DRAW*0.8;    // ...so below THIS the simulation may stop caring
 
 export const LOUD = 0.5;
+/* NOISE_FS is what a full HUD bar means: the loudest sustained thing you can do
+   on a floor, which is the WRENCH. It is the number that makes the meter read,
+   and it is deliberately NOT BATT_MAX — the bar used to divide the noise level
+   by the battery maximum, so a sprint drew 1% of it and the door 1.8%, while
+   the `hot` class still fired and turned the bar red at a level it could not
+   show. A meter whose scale is borrowed from a different quantity is not a
+   meter.
+
+   Against it: walk 0.22 -> 26%, wading 0.30 -> 35%, sprint 0.72 -> 85%, the
+   standing hiss of four open pipes -> 14-56%, the wrench -> 100%, LOUD at 59%.
+   The door clamps, which is correct: past full scale is past the end of the
+   instrument, and the audio bed keeps reporting the unclamped level. */
 export const NOISE_FS = REPAIR_NOISE;
+/* The two powers that live outside the normal range, named so the meter, the mix
+   and the AI all read the same number: the door is the loudest thing in the
+   building and the bar clamps on it, and being brushed is loud enough to be
+   heard across the floor. */
 export const DOOR_NOISE = 1.8;
 export const BRUSH_NOISE = 1.2;

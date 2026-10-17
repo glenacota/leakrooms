@@ -36,7 +36,8 @@ export function saveSettings(){
 
 export function resetSettings(){
   SETTINGS = Object.assign({}, SETTINGS_DEFAULTS);
-  /* markWetAll is now driven by the 'settings:changed' handler (waterDirty). */
+  /* The 'settings:changed' listener in game.js raises waterDirty, which repacks the
+     water image; nothing to call from here. */
   emit('settings:changed', '*');
   saveSettings();
 }
