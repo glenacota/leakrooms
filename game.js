@@ -59,6 +59,9 @@ import { advanceSplash, backSplash, syncAmbience } from './ui/splash.js';
 import { setTermsOpen, termsOpen } from './ui/terms.js';
 import { pausePage, setPausePage, togglePause } from './ui/pause.js';
 import { buildSettingsUI, SEGMENTS, syncSettingsUI } from './ui/settings-panel.js';
+import { bindInput, MODAL_ACTION, toggleMute } from './ui/input.js';
+import { bindButtons } from './ui/buttons.js';
+import { applySettings, bindDom } from './ui/bind.js';
 import { attachFloorImages } from './render/bake.js';
 import { packMask, packWet, setPixels } from './render/pack.js';
 import { paintSplashPlan } from './render/splash-plan.js';
@@ -117,194 +120,6 @@ function setHeadless(px, vis){ setPixels(px); setVision(vis); }
    ~0.06 and therefore made sprinting only marginally louder than walking —
    the entire risk decision was flattened. Walls muffle by 2.6 tiles each. */
 
-/* ENTER is the confirm key for whichever modal is up: start, resume, rewind,
-   run again. It also fires when a button already has focus, so guard against
-   the click landing twice. */
-const MODAL_ACTION = {
-  splash: ()=>advanceSplash(),
-  order:  ()=>advanceSplash(),
-  /* The pause ticket has no resume button — ESC is the resume, and the things
-     under it are the ticket's own pages and controls. Pointing ENTER at a
-     button that is not on the screen is how a modal ends up with a dead
-     confirm key. */
-  pause:  ()=>togglePause(),
-  clear:  ()=>dismissClear(),
-  dead:   ()=>document.getElementById('btn-retry').click(),
-  win:    ()=>document.getElementById('btn-again').click(),
-};
-
-window.addEventListener('keydown', e=>{
-  const k = e.key.toLowerCase();
-  keys[k] = true;
-
-  /* Every key is a user gesture, and the AudioContext cannot start without
-     one. This is the single place the game hears about input, so it is the one
-     place the unlock has to live. */
-  Audio_.unlock();
-
-  /* M, anywhere, at any time. Not just during play: a player who wants the
-     sound off usually wants it off BEFORE the title screen finishes its four
-     second fade-in, and a hotkey that only works once you are in a level is a
-     hotkey that arrives too late to be useful.
-
-     It RETURNS rather than falling through, which is load-bearing. On the
-     splash chain any unmodified key advances, so without this the mute key
-     doubles as "skip intro" — the title vanishes under the finger of someone
-     who is trying to turn the music off. It also drops the key state for the
-     same reason ENTER does: a held M would otherwise still be down when the run
-     starts, and M is not a movement key but the discipline is the same. */
-  if (k==='m'){
-    if (!e.repeat) toggleMute();
-    delete keys[k];
-    e.preventDefault();
-    return;
-  }
-
-  /* ESC on the work order dismisses the terms chooser before it walks the
-     splash chain. The chooser is the top layer of the order screen, and a
-     player who folded it open to change the terms should not fall out of the
-     ticket and onto the riser for one mistimed press. This has to run BEFORE
-     backSplash, or the chain claims the key first. */
-  if (e.key==='Escape' && STATE==='order' && termsOpen){
-    setTermsOpen(false);
-    delete keys[k];
-    return;
-  }
-
-  /* ESC walks the splash chain backwards: from the work order to the pipe.
-     It does nothing on splash 03, which is the first frame — there is nothing
-     behind it, and a key that silently does nothing is worse than no key. */
-  if (e.key==='Escape'){
-    if (backSplash()){ delete keys[k]; return; }
-  }
-
-  /* ESC steps the pause ticket's pages backwards before it leaves the ticket:
-     the briefing page returns to the settings page, and only the settings
-     page resumes. Same shape as backSplash, applied to the pages instead of
-     the screens, so a player who opened the briefing to re-read a control
-     cannot lose the run to one mistimed press. */
-  if (e.key==='Escape' && STATE==='pause' && pausePage!=='settings'){
-    setPausePage('settings');
-    delete keys[k];
-    return;
-  }
-
-  if (k==='enter'){
-    const act = STATE==='splash' ? MODAL_ACTION.splash
-              : STATE==='order'  ? MODAL_ACTION.order
-              : STATE==='clear'  ? MODAL_ACTION.clear
-              : STATE==='pause'  ? MODAL_ACTION.pause
-              : STATE==='dead'   ? MODAL_ACTION.dead
-              : STATE==='win'    ? MODAL_ACTION.win
-              : null;
-    /* Auto-repeat is blocked, same as below: holding ENTER down would blow
-       through the splash and start a second run behind the first. */
-    if (act && !e.repeat){
-      const focused = document.activeElement;
-      const onButton = focused && focused.tagName === 'BUTTON';
-      /* ENTER folds the terms chooser shut rather than clocking in. The pick
-         is already made — every term button commits on click — so starting
-         the run from the key that dismissed the chooser is how a player clocks
-         in on terms they were still reading. preventDefault keeps the browser
-         from also activating the focused term button. */
-      if (STATE==='order' && termsOpen){
-        setTermsOpen(false);
-        delete keys[k];
-        e.preventDefault();
-        return;
-      }
-      /* The ticket carries real controls now. A focused tab or button answers
-         ENTER itself: the key falls through to the browser and activates the
-         control, instead of resuming the run over the top of the click. */
-      if (STATE==='pause' && onButton
-          && focused.closest && focused.closest('#screen-pause')) return;
-      act();                                  // close the modal
-      if (onButton) focused.blur();           // no second activation via Enter
-      /* The key that dismissed the splash must not carry into the run: the
-         same keydown set keys[k] above, and a held W would otherwise walk the
-         player out of the door they just came through. */
-      delete keys[k];
-    }
-    e.preventDefault();
-    return;
-  }
-
-  /* On the splash chain, any unmodified key advances. Sprint and the arrow
-     keys are movement, so holding one through the splash should move the
-     player the instant the run starts — advance once per press, not per
-     repeat, and drop the key state with it. Escape is excluded: it walks
-     backwards, and on splash 03 it means "stay here".
-
-     One exception, and it is the work order while the terms chooser is open:
-     the frame is a form at that moment, and a form that starts a run on a
-     stray keystroke is a form nobody fills in. */
-  if ((STATE==='splash'||STATE==='order') && e.key!=='Escape'
-      && !e.metaKey && !e.ctrlKey && !e.altKey && !e.repeat
-      && !(STATE==='order' && termsOpen)){
-    advanceSplash();
-    delete keys[k];
-    if (STATE==='play') e.preventDefault();
-    return;
-  }
-
-  /* A key the open chooser swallowed is dropped, not held: it did nothing on
-     this screen, and a key that did nothing must not walk the player out of
-     the door the moment the run starts. The splash chain already drops the
-     key that advances it; this is the same discipline for the one branch that
-     does not advance. */
-  if (STATE==='order' && termsOpen) delete keys[k];
-
-  /* The chooser owns the number row and the left/right arrows while it is
-     open: 1-3 are the three terms in DIFFICULTIES order, and the arrows cycle
-     the same way the segmented row does with a mouse. */
-  if (STATE==='order' && termsOpen){
-    const list = Object.keys(DIFFICULTIES);
-    const at = Math.max(0, list.indexOf(String(SETTINGS.difficulty)));
-    if (['1','2','3'].includes(k) && +k <= list.length){
-      setOption('difficulty', list[+k-1]);
-      e.preventDefault();
-      return;
-    }
-    if (e.key==='ArrowLeft' || e.key==='ArrowRight'){
-      const step = e.key==='ArrowRight' ? 1 : -1;
-      setOption('difficulty', list[(at + step + list.length) % list.length]);
-      e.preventDefault();
-      return;
-    }
-  }
-
-  if (k==='r' && G && STATE==='play'){
-    if (G.radar) G.radar = false;
-    else if (G.batt<=0) flash('NO POWER — THE RADAR IS DEAD');
-    else { G.radar = true; Audio_.rattle(0.4); }
-  }
-  if (e.key==='Escape' && (STATE==='play'||STATE==='pause')) togglePause();
-  if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key)){
-    /* One exception: the ticket's own controls. Arrows drag the focused slider
-       and SPACE activates a focused button, so those keys belong to the pause
-       screen while the pause screen has focus. Everywhere else they are
-       movement, and a held arrow through the splash must not scroll anything. */
-    if (STATE==='pause'){
-      const el = document.activeElement;
-      if (el && el.closest && el.closest('#screen-pause')
-          && (el.tagName==='INPUT' || el.tagName==='BUTTON')) return;
-    }
-    e.preventDefault();
-  }
-});
-window.addEventListener('keyup', e=>{
-  const k=e.key.toLowerCase();
-  keys[k] = false;
-});
-
-/* ============================================================
-   THE SPLASH SCREENS
-   Two frames before the run: 03 PIPE (title, rising water) then
-   04 WORK ORDER 88-D (the ticket, which is also the controls list).
-   One advance function drives both, so ENTER, any key, and a click
-   all land in the same place and cannot disagree with each other.
-   ============================================================ */
-
 
 
 /* ============================================================
@@ -315,19 +130,6 @@ window.addEventListener('keyup', e=>{
 /* ============================================================
    HUD + SCREENS
    ============================================================ */
-
-
-/* M. Goes through setOption rather than poking Audio_ directly, so the store is
-   written and the UI re-synced on the same path as every other setting — a mute
-   that only lives in a variable is a mute that forgets itself on reload. The
-   blip is fired AFTER, and only on unmute, because a confirmation you cannot
-   hear is not a confirmation. */
-function toggleMute(){
-  const next = !SETTINGS.muted;
-  setOption('muted', next);
-  flash(next ? 'AUDIO MUTED' : 'AUDIO ON');
-  if (!next) Audio_.blip(true);
-}
 
 
 
@@ -351,26 +153,6 @@ function toggleMute(){
 
 
 
-/* Click anywhere on either splash advances it, so a player who never reads
-   the keyboard prompt is not stuck. The advance function keys off STATE, so
-   the click that lands on CLOCK IN and then bubbles up to the screen a second
-   time finds STATE already 'play' and does nothing.
-
-   Two guards, both for the work order now that it carries controls. A click
-   that lands on a control — a term button, a slider, CHANGE, CLOCK IN itself —
-   is a choice, not an advance: bubbling it up to the screen is how a player
-   who meant to read the terms starts a run on HARD. And while the chooser
-   is open, a click on the frame dismisses it the way ESC does, because an
-   open chooser is the top layer of the screen. */
-for (const id of ['screen-splash','screen-order']){
-  const el = document.getElementById(id);
-  if (el) el.addEventListener('click', (e)=>{
-    if (e.target.closest && e.target.closest('button, input, .terms-fold')) return;
-    if (STATE==='order' && termsOpen){ setTermsOpen(false); return; }
-    advanceSplash();
-  });
-}
-
 
 /* ---- the HUD write cache ----
    updateHUD() and setPrompt() run once per frame, and between them they wrote
@@ -391,13 +173,6 @@ for (const id of ['screen-splash','screen-order']){
    writes immediately. The cache cannot drift from the DOM because nothing else
    writes these nodes. */
 
-/* ---------- buttons ---------- */
-/* The wiring, not the work: each control calls the run function that owns it. */
-document.getElementById('btn-start').onclick   = ()=>startRun();
-document.getElementById('btn-descend').onclick = ()=>dismissClear();
-document.getElementById('btn-retry').onclick   = ()=>retryFloor();
-document.getElementById('btn-again').onclick   = ()=>runAgain();
-
 
 /* ---- boot ----
    The store is read BEFORE anything that depends on it, and applySettings
@@ -408,46 +183,19 @@ document.getElementById('btn-again').onclick   = ()=>runAgain();
 resize();
 buildPatterns();
 buildGlowSprite();
+/* WIRING. Nothing above this point has registered a listener or a subscriber, so
+   the resize above is the resize there has always been: one with nobody
+   listening. After it, in this order — the run answers the simulation's four
+   facts, the DOM side of the bus turns facts into pixels, the input and the
+   buttons attach to the document — and only then does the store load. */
+bindRun();
+bindDom();
+bindInput();
+bindButtons();
 
-function applySettings(){
-  const d = DIFFICULTIES[SETTINGS.difficulty] || DIFFICULTIES.normal;
-  applyDifficulty(d);
-  Audio_.setMaster(SETTINGS.master);
-  /* Both of them, or the settings modal becomes a lie. M flips the stored flag
-     through setOption, which lands here — and this used to push only the volume,
-     so the mute persisted perfectly and changed nothing at all. A setting that
-     saves, survives a reload, and has no effect is the worst kind of setting,
-     because the reload appears to prove it worked. */
-  Audio_.setMuted(SETTINGS.muted);
-}
-
-on('settings:changed', key => {
-  if ((key === '*' || key === 'waterHue' || key === 'waterContrast') && G) G.dirty.water = true;
-  applySettings();
-  syncSettingsUI();
-});
-on('screen', name => { if (name === null) hideAll(); else show(name); });
-on('hud', on_ => { const h = document.getElementById('hud'); if (on_) h.classList.add('on'); else h.classList.remove('on'); });
-on('dead', ({ lives, cause }) => {
-  const sub = document.getElementById('dead-sub');
-  if (lives > 0) sub.textContent = `${lives} LIVES REMAINING \u2014 ${cause}`;
-  else sub.textContent = 'SIGNAL LOST';
-});
-on('win', ({ sealed, deaths, noises, floors, time }) => {
-  document.getElementById('win-stats').innerHTML =
-    `You sealed <b>${sealed}</b> pipes and got back through the door on all <b>${floors}</b> levels.<br>Deaths: <b>${deaths}</b> &nbsp; Noise made: <b>${noises}</b><br>Time: <b>${Math.floor(time/60)}:${String(Math.floor(time%60)).padStart(2,'0')}</b>`;
-});
-on('lives', renderLives);
-on('state', syncAmbience);
-// textures subscription registered at import of render/textures.js; plan rebuild after.
-on('resize', ()=>{ if (G) paintSplashPlan(); });
-on('flash', flash);
-on('sfx', (n, ...a) => Audio_[n](...a));
-loadSettings();
 applySettings();
 /* The loop owns the frame; the shell owns the drawing and the HUD refresh, so
    both are handed in rather than imported. */
-bindRun();
 setFrameHooks({ render, afterUpdate: ()=>{ updateHUD(); setPrompt(); } });
 buildSettingsUI();
 syncSettingsUI();
