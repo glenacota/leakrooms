@@ -7,7 +7,10 @@
    split, source-shape assertions keep working without being rewritten. The
    list grew as the monolith split: sim/ (steps 24-28) and render/ (step 29)
    now hold bodies that assertions used to find in game.js, and cast/ holds the
-   sprites. An assertion that reads a moved function must keep reading it.
+   sprites. An assertion that reads a moved function must keep reading it, and
+   the walk is RECURSIVE — render/passes/ (step 30) is a subdirectory, and an
+   assertion that silently stopped seeing the scanline pass because someone
+   made a subfolder is the exact failure this reader exists to prevent.
    readCss() covers style.css plus css/*.css if that directory ever appears. */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -16,13 +19,23 @@ import { fileURLToPath } from 'node:url';
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const root = path.join(__dirname, '..', '..');
 
+function jsFilesIn(dir){
+  let out = [];
+  for (const e of fs.readdirSync(dir, { withFileTypes: true }).sort((a,b)=>a.name<b.name?-1:1)) {
+    const p = path.join(dir, e.name);
+    if (e.isDirectory()) out = out.concat(jsFilesIn(p));
+    else if (e.name.endsWith('.js')) out.push(p);
+  }
+  return out;
+}
+
 export function readSrc(){
   let out = fs.readFileSync(path.join(root, 'game.js'), 'utf8');
   for (const dir of ['src', 'config', 'util', 'sim', 'render', 'cast']) {
     const d = path.join(root, dir);
     if (fs.existsSync(d)) {
-      for (const f of fs.readdirSync(d).filter(f => f.endsWith('.js')).sort())
-        out += '\n' + fs.readFileSync(path.join(d, f), 'utf8');
+      for (const f of jsFilesIn(d))
+        out += '\n' + fs.readFileSync(f, 'utf8');
     }
   }
   return out;
