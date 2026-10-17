@@ -23,186 +23,20 @@ import { DIFFICULTIES, WATER_TINTS } from './config/presets.js';
 import { SETTINGS_DEFAULTS, SETTINGS_SCHEMA, SETTINGS_KEY, settingsValid } from './settings/schema.js';
 import { FLOORS, FLOOR_CLOCK, REPAIR_TIME, HUNT_BASE, HUNT_STEP, applyDifficulty } from './config/tuning.js';
 import { Audio_ } from './src/audio/index.js';
+import { cvs, ctx, VW, VH, DPR, SCALE, resize, renderScaleIdx, setRenderScaleIdx } from './render/canvas.js';
+import { carpetPat, wallPat, ceilPat, scanPat, grainFull, buildPatterns, buildGrainFull } from './render/textures.js';
 import { G, setG } from './sim/state.js';
 import { keys } from './sim/keys.js';
 import { SETTINGS, loadSettings, saveSettings, resetSettings, setOption } from './settings/store.js';
 import { on } from './util/events.js';
 import * as _C from './config/constants.js';
 const { BAKE_FLOOR, BATT_MAX, BRUSH_NOISE, CATCH_R, DARK_ROOM, DOOR_AJAR, DOOR_EASE, DOOR_HOLD, DOOR_NOISE, FLICKER_DEPTH, HAND_OFF, HOP_FALL, LEAK_HEADSTART, LEAK_LURE, LEAK_NOISE_BASE, LEAK_NOISE_GAIN, LEAK_RETREAT, LEAK_SPREAD, LIGHT_FADE, LIGHT_FADE_STEPS, LOUD, LS, MAP_H, MAP_W, MASK_TAU, NOISE_FS, PIPE_FAR, PIPE_GAP, R, RA, RADAR_DRAIN, RENDER_SCALES, REPAIR_DECAY, REPAIR_NOISE, REPAIR_REACH, SCALE_BAD_FRAMES, SCALE_DROP_MS, SCALE_GOOD_FRAMES, SCALE_RECOVER_MS, SHEEN_STEPS, SPRINT, SPRINT_NOISE, TILE, VHS_PASS, VIEW_DEG, VIEW_FADE_FAR, VIEW_FADE_NEAR, VIEW_HALF, VIEW_MID, VIEW_RANGE, VIEW_RAYS, VIEW_T, WALK, WALL, WALL_FACE, WET_DRAW, WET_EDGE, WET_FALL, WET_RISE, FLOOR } = _C;
-const cvs = document.getElementById('game');
-const ctx = cvs.getContext('2d', { alpha:false });
+let frameMsAvg = 16.7;
+let badRun = 0, goodRun = 0;
+let waterDirty = false;
+const sheenBuckets = Array.from({length:SHEEN_STEPS}, ()=>({ n:0, x0:0, y0:0, x1:0, y1:0 }));
 /* Scratch for the sheen pass in render(): one record per alpha bucket (SHEEN_STEPS,
    see config/constants.js), reused every frame so the pass allocates nothing. */
-const sheenBuckets = Array.from({length:SHEEN_STEPS},
-  ()=>({ n:0, x0:0, y0:0, x1:0, y1:0 }));
-
-/* ---------- canvas ---------- */
-let VW = 0, VH = 0, DPR = 1, SCALE = 1;
-
-/* ADAPTIVE RESOLUTION.
-
-   The device pixel ratio is capped at 2, which means a retina laptop renders
-   four times the pixels of the same window on an external monitor — and every
-   cost in this renderer is proportional to pixels touched, not to logic
-   executed. Measured on the reference machine, the same frame cost 2.2ms at
-   1x and would cost roughly four times that at 2x, for an image that is then
-   scaled down by the compositor to exactly the size it would have been anyway.
-   On a machine that cannot hold 60Hz, that difference is the whole margin.
-
-   So the ratio is a starting point, not a decision. The frame time is tracked,
-   and if it sits above the drop threshold for long enough to be a trend rather
-   than a spike, the backing store shrinks by one step and resize() runs again.
-   If it then sits comfortably below the recover threshold, it grows back. The
-   bands are deliberately far apart so a machine sitting near a boundary cannot
-   oscillate — a resolution that visibly pumps is worse than a slightly soft one
-   that holds.
-
-   Nothing else in the renderer changes. SCALE is derived from cvs.width, so the
-   camera, the geometry, the light bake and the visibility mask all follow the
-   new backing store automatically, and test 7 — which asserts the camera, the
-   lightmap and the flood image all share one origin — keeps holding. */
-let frameMsAvg = 16.7;
-let waterDirty = false;
-let badRun = 0, goodRun = 0, renderScaleIdx = 0;
-
-function resize(){
-  DPR = Math.min(window.devicePixelRatio || 1, 2) * RENDER_SCALES[renderScaleIdx];
-  VW = cvs.clientWidth; VH = cvs.clientHeight;
-  cvs.width = Math.floor(VW * DPR);
-  cvs.height = Math.floor(VH * DPR);
-  SCALE = cvs.width / (VIEW_T * TILE);
-  if (cvs.width > 0 && cvs.height > 0){ buildGrainFull(); buildVignette(); buildDangerWash(); }
-  if (G) paintSplashPlan();
-}
-window.addEventListener('resize', resize);
-
-/* Called once per frame with the measured frame time. Kept out of resize() so
-   that a window resize cannot be mistaken for a slow machine and start a
-   resolution change on its own. */
-function adaptResolution(ms){
-  /* Exponential average rather than an instantaneous read: one 40ms hitch from
-     a garbage collection pause or a tab switch must not cost a resolution step,
-     and the hysteresis bands below do not protect against a decision taken on
-     a single sample. */
-  frameMsAvg += (ms - frameMsAvg) * 0.05;
-
-  if (frameMsAvg > SCALE_DROP_MS){
-    goodRun = 0; badRun++;
-    if (badRun > SCALE_BAD_FRAMES && renderScaleIdx < RENDER_SCALES.length-1){
-      renderScaleIdx++;
-      badRun = 0; frameMsAvg = 16.7;      // re-measure at the new size, not the old
-      resize();
-      return 'drop';
-    }
-  } else if (frameMsAvg < SCALE_RECOVER_MS){
-    badRun = 0; goodRun++;
-    /* Only while PLAYING. On the splash the canvas is not what the player is
-       looking at, and a resolution change there re-bakes the grain, the
-       vignette and the splash plan for no reason. */
-    if (goodRun > SCALE_GOOD_FRAMES && renderScaleIdx > 0 && STATE==='play'){
-      renderScaleIdx--;
-      goodRun = 0; frameMsAvg = 16.7;
-      resize();
-      return 'raise';
-    }
-  } else {
-    badRun = 0; goodRun = 0;
-  }
-  return null;
-}
-
-/* ============================================================
-   SETTINGS — applying the store. Schema: settings/schema.js. Load/save:
-   settings/store.js. This file only pushes values into the game.
-   ============================================================ */
-
-/* Push the store into everything that reads a tuning value. Called on load and
-   on every change from the modal, so a setting takes effect immediately rather
-   than at the next run. */
-function applySettings(){
-  const d = DIFFICULTIES[SETTINGS.difficulty] || DIFFICULTIES.normal;
-  applyDifficulty(d);
-  Audio_.setMaster(SETTINGS.master);
-  /* Both of them, or the settings modal becomes a lie. M flips the stored flag
-     through setOption, which lands here — and this used to push only the volume,
-     so the mute persisted perfectly and changed nothing at all. A setting that
-     saves, survives a reload, and has no effect is the worst kind of setting,
-     because the reload appears to prove it worked. */
-  Audio_.setMuted(SETTINGS.muted);
-}
-
-/* ============================================================
-   TEXTURE PATTERNS — carpet speckle + wallpaper
-   ============================================================ */
-
-let carpetPat, wallPat, ceilPat, scanPat;
-/* The grain, pre-composited to the size of the viewport. The live loop tiled a
-   160x160 tile ~40 times a frame at a random offset; this is one drawImage of
-   the same noise at the same opacity, rebuilt only when the canvas changes
-   size (resize, DPR change) rather than every frame. */
-let grainFull;
-
-function buildPatterns(){
-  // --- carpet: 64x64 speckled, seamless-ish ---
-  let c = document.createElement('canvas'); c.width=c.height=64;
-  let g = c.getContext('2d');
-  g.fillStyle=PAL.carpet; g.fillRect(0,0,64,64);
-  for(let i=0;i<2600;i++){
-    const x=Math.random()*64, y=Math.random()*64;
-    const v = Math.random();
-    g.fillStyle = v<0.4 ? 'rgba(150,156,74,0.30)' : 'rgba(228,230,168,0.28)';
-    g.fillRect(x,y,1.6,1.6);
-  }
-  for(let i=0;i<260;i++){           // faint tile seams
-    g.fillStyle='rgba(150,156,74,0.14)';
-    g.fillRect(Math.random()*64|0, Math.random()*64|0, 2,2);
-  }
-  carpetPat = ctx.createPattern(c,'repeat');
-
-  // --- wallpaper on wall faces: vertical dotted motif ---
-  c = document.createElement('canvas'); c.width=32; c.height=48;
-  g = c.getContext('2d');
-  const grd = g.createLinearGradient(0,0,0,48);
-  grd.addColorStop(0,PAL.bright); grd.addColorStop(0.55,PAL.pale); grd.addColorStop(1,PAL.mid);
-  g.fillStyle=grd; g.fillRect(0,0,32,48);
-  g.fillStyle='rgba(195,203,110,0.55)';
-  for(let y=6;y<48;y+=11) for(let x=(y/11|0)%2?4:12;x<32;x+=8) g.fillRect(x,y,2,2);
-  g.fillStyle='rgba(228,230,168,0.16)'; g.fillRect(0,0,32,3);
-  wallPat = ctx.createPattern(c,'repeat');
-
-  // --- wall top (seen from directly above) ---
-  c = document.createElement('canvas'); c.width=c.height=24;
-  g = c.getContext('2d');
-  g.fillStyle=PAL.wallTop; g.fillRect(0,0,24,24);
-  for(let i=0;i<520;i++){
-    g.fillStyle = Math.random()<0.5?'rgba(163,163,112,0.30)':'rgba(214,222,167,0.16)';
-    g.fillRect(Math.random()*24, Math.random()*24, 2,2);
-  }
-  ceilPat = ctx.createPattern(c,'repeat');
-
-  // --- VHS scanlines ---
-  c = document.createElement('canvas'); c.width=1; c.height=4;
-  g = c.getContext('2d');
-  g.fillStyle='rgba(0,0,0,0)'; g.fillRect(0,0,1,4);
-  g.fillStyle='rgba(0,0,0,0.28)'; g.fillRect(0,3,1,1);
-  scanPat = ctx.createPattern(c,'repeat');
-}
-
-/* The viewport-sized grain. Same noise, same opacity — drawn once per frame as
-   one image instead of ~40 tiled copies. Rebuilt when the canvas size changes
-   (resize() calls it, and the renderer rebuilds lazily on the first frame
-   after boot, which runs before the first resize event). */
-function buildGrainFull(){
-  grainFull = document.createElement('canvas');
-  grainFull.width = cvs.width; grainFull.height = cvs.height;
-  const g = grainFull.getContext('2d');
-  const im = g.createImageData(cvs.width, cvs.height);
-  for(let i=0;i<im.data.length;i+=4){
-    const v = 118 + (Math.random()*74|0);
-    im.data[i]=im.data[i+1]=im.data[i+2]=v; im.data[i+3]=255;
-  }
-  g.putImageData(im,0,0);
-}
 
 /* ---- full-screen overlays, baked once instead of evaluated per pixel ----
    The vignette and the awareness wash are both radial gradients covering the
@@ -4901,11 +4735,60 @@ let lastRenderStart = performance.now();
 resize();
 buildPatterns();
 buildGlowSprite();
+/* Called once per frame with the measured frame time. Kept out of resize() so
+   that a window resize cannot be mistaken for a slow machine and start a
+   resolution change on its own. */
+function adaptResolution(ms){
+  /* Exponential average rather than an instantaneous read: one 40ms hitch from
+     a garbage collection pause or a tab switch must not cost a resolution step,
+     and the hysteresis bands below do not protect against a decision taken on
+     a single sample. */
+  frameMsAvg += (ms - frameMsAvg) * 0.05;
+
+  if (frameMsAvg > SCALE_DROP_MS){
+    goodRun = 0; badRun++;
+    if (badRun > SCALE_BAD_FRAMES && renderScaleIdx < RENDER_SCALES.length-1){
+      setRenderScaleIdx(renderScaleIdx+1);
+      badRun = 0; frameMsAvg = 16.7;      // re-measure at the new size, not the old
+      resize();
+      return 'drop';
+    }
+  } else if (frameMsAvg < SCALE_RECOVER_MS){
+    badRun = 0; goodRun++;
+    /* Only while PLAYING. On the splash the canvas is not what the player is
+       looking at, and a resolution change there re-bakes the grain, the
+       vignette and the splash plan for no reason. */
+    if (goodRun > SCALE_GOOD_FRAMES && renderScaleIdx > 0 && STATE==='play'){
+      setRenderScaleIdx(renderScaleIdx-1);
+      goodRun = 0; frameMsAvg = 16.7;
+      resize();
+      return 'raise';
+    }
+  } else {
+    badRun = 0; goodRun = 0;
+  }
+  return null;
+}
+
+function applySettings(){
+  const d = DIFFICULTIES[SETTINGS.difficulty] || DIFFICULTIES.normal;
+  applyDifficulty(d);
+  Audio_.setMaster(SETTINGS.master);
+  /* Both of them, or the settings modal becomes a lie. M flips the stored flag
+     through setOption, which lands here — and this used to push only the volume,
+     so the mute persisted perfectly and changed nothing at all. A setting that
+     saves, survives a reload, and has no effect is the worst kind of setting,
+     because the reload appears to prove it worked. */
+  Audio_.setMuted(SETTINGS.muted);
+}
+
 on('settings:changed', key => {
   if (key === '*' || key === 'waterHue' || key === 'waterContrast') waterDirty = true;
   applySettings();
   syncSettingsUI();
 });
+// textures subscription registered at import of render/textures.js; plan rebuild after.
+on('resize', ()=>{ if (G) paintSplashPlan(); });
 loadSettings();
 applySettings();
 buildSettingsUI();
