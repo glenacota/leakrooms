@@ -44,6 +44,15 @@ import { genLevel } from './sim/level.js';
 import { spawnAgents } from './sim/spawn.js';
 import { updateAgent, randomFloorNear, tickAgents } from './sim/agents.js';
 import { update, tickAudio } from './sim/update.js';
+import { buildFloor } from './game/floor.js';
+import {
+  STATE, lives, floorIdx, runTime, runLives, runStat, RUN_SEED,
+  clearCard, resetArmed, clockText, nextFloor, dismissClear, rollRunSeed,
+  resetRun, disarmReset, armReset,
+  startRun, retryFloor, runAgain, bindRun,
+  setState, setLives, setFloorIdx, setRunTime, setRunStat, setRunSeed,
+} from './game/run.js';
+import { frame, setFrameHooks } from './game/loop.js';
 import { attachFloorImages } from './render/bake.js';
 import { packMask, packWet, setPixels } from './render/pack.js';
 import { paintSplashPlan } from './render/splash-plan.js';
@@ -87,127 +96,6 @@ function setHeadless(px, vis){ setPixels(px); setVision(vis); }
    existing yet — buildFloor is now only the assembly.
    ============================================================ */
 
-function buildFloor(floorNum, seed){
-  const rng = mulberry32(seed + floorNum*7919);
-  const level = genLevel(rng, floorNum);
-
-  const grid = level.grid;
-  const at = (x,y)=> grid[y*MAP_W+x];
-  const inB = (x,y)=> x>=0 && y>=0 && x<MAP_W && y<MAP_H;
-
-  /* --- line of sight (Bresenham, walls block) --- */
-  const los = makeLos(grid);
-
-  /* The floor object is created HERE, before the bakes below write into it.
-     Every per-floor buffer — light, vision, mask, cone, regions, flood — is a
-     field of G, so building the next floor replaces them all at once and
-     nothing floor-scoped can outlive the floor it describes. The buffers are
-     preallocated because the bakes write through G from their first line;
-     the fields the placement code decides are assigned after it runs. */
-  setG({
-    floor: floorNum,
-    seed,
-    grid, at, inB, los,
-    rooms: level.rooms,
-    exitTiles: level.exit,
-    leaks: level.leaks,
-    fixtures: level.fixtures,
-    batteries: level.batteries,
-    graffiti: level.graffiti,
-    /* The three numbers the HUD and the door gate read, derived once here so
-       nothing has to walk the array to answer "is this level finished". */
-    leaksOpen: level.leaks.length,
-    pipes: level.leaks.length,
-    lightArr: new Float32Array(MAP_W*MAP_H),
-    lightCv: null, lightCtx: null, lightImg: null,
-    visArr: new Float32Array(MAP_W*MAP_H).fill(DARK_ROOM),
-    visFrom: new Float32Array(MAP_W*MAP_H).fill(DARK_ROOM),
-    visTgt: new Float32Array(MAP_W*MAP_H).fill(DARK_ROOM),
-    visScratch: new Float32Array(MAP_W*MAP_H),
-    maskArr: new Float32Array(MAP_W*MAP_H),
-    maskTgt: new Float32Array(MAP_W*MAP_H),
-    coneArr: new Float32Array(MAP_W*MAP_H),
-    maskCv: null, maskCtx: null, maskImg: null,
-    /* Every wall tile, once. The cone's wall pass used to scan all 5776 tiles
-       every retrace — which is every frame while moving — to find the walls,
-       which on a maze this dense is a few hundred of them. Built here so that
-       pass is bounded by the masonry rather than by the map. */
-    wallIdx: null,
-    /* the static tile layer: carpet + tonal variation, and wall faces + tops.
-       Two layers because the flood lands between them. */
-    tilesCv: null, tilesCtx: null, wallsCv: null, wallsCtx: null,
-    regionOf: new Int32Array(MAP_W*MAP_H).fill(-1),
-    regionAdj: null, regionCount: 0,
-    visRegion: -1, visStep: 0, visFadeT: 0,
-    coneX: NaN, coneY: NaN, coneFace: NaN, coneRadar: null,
-    scopeDirty: false,
-    wetArr: new Float32Array(MAP_W*MAP_H),
-    waterDist: null, wetByDist: [], wetFront: 0, wetMaxDist: 0, wetSum: 0,
-    wetEdgeD: -1, wetIndexAtDist: null,
-    wetCv: null, wetCtx: null, wetImg: null,
-    postCv: null,
-    dirty: { water: true, mask: true }
-  });
-
-  /* The wall index list, before anything reads it. Same row-major order as the
-     scan it replaces, so the cone's wall pass writes the same tiles in the same
-     order and the resulting field is bit-identical. */
-  {
-    const idx = [];
-    for (let i=0; i<MAP_W*MAP_H; i++) if (grid[i]===WALL) idx.push(i);
-    G.wallIdx = Int32Array.from(idx);
-  }
-
-  G.lightArr = computeLightArr(level, los);
-  attachFloorImages();
-  labelRegions(level);
-  /* The mask is a SEPARATE canvas at 1 sample per tile rather than another
-     term folded into the light bake. It changes every frame the character
-     turns, and folding it into the lightmap would mean repacking 116k pixels
-     on every small movement instead of 5.8k. */
-  G.maskCv = document.createElement('canvas');
-  G.maskCv.width = MAP_W; G.maskCv.height = MAP_H;
-  G.maskCtx = G.maskCv.getContext('2d');
-  G.maskImg = G.maskCtx.createImageData(MAP_W, MAP_H);
-  G.wetCv = document.createElement('canvas');
-  G.wetCv.width = MAP_W; G.wetCv.height = MAP_H;
-  G.wetCtx = G.wetCv.getContext('2d');
-  G.wetImg = G.wetCtx.createImageData(MAP_W, MAP_H);
-  for (let i=0;i<MAP_W*MAP_H;i++) G.wetImg.data[i*4+3] = 0;
-  G.agents = spawnAgents(level);
-  G.player = { x: level.spawn.x, y: level.spawn.y, face:-Math.PI/2, stepT:0, stepDur:0.46, moving:false };
-  G.batt = BATT_MAX;
-  G.radar = false;
-  G.noise = 0; G.noisePeak = 0; G.selfNoise = 0;
-  G.descend = 0;
-  /* THE CLOCK. Full at the moment you step through the door, counting down
-     the whole level, and the only reason the level has a shape. */
-  G.clock = FLOOR_CLOCK;
-  G.time = 0;
-  G.seenBy = 0;
-  G.nearest = 99;
-  G.stat = { noises:0, deaths:0, sealed:0 };
-  /* how many floor tiles the water can ever reach — the denominator for
-     "how flooded is this level". Counted from the distance field rather than
-     guessed, so it is exactly the set of tiles that can ever go wet. */
-  G.wetFloor = 0;
-  G.wet = 0; G.floodCover = 0; G.atLeak = false; G.leakPower = 0;
-  G.leakTotal = 0; G.leakDist = 99;
-  /* Light the room the player spawned in. After this point it follows them:
-     G exists, so regionAt(G.player) is meaningful. */
-  scopeRoomLight(0, true);
-  snapMask();
-
-  initFlood();
-  G.gfx = {
-    lightCv: G.lightCv, lightCtx: G.lightCtx, lightImg: G.lightImg,
-    maskCv: G.maskCv, maskCtx: G.maskCtx, maskImg: G.maskImg,
-    tilesCv: G.tilesCv, tilesCtx: G.tilesCtx,
-    wallsCv: G.wallsCv, wallsCtx: G.wallsCtx,
-    wetCv: G.wetCv, wetCtx: G.wetCtx, wetImg: G.wetImg,
-    postCv: G.postCv
-  };
-}
 
 /* NOTE: x/y here may be FRACTIONAL world coords (collision), so they MUST be
    floored before indexing the tile array. Without this, G.grid[y*MAP_W+x]
@@ -426,7 +314,7 @@ function syncAmbience(){
 function advanceSplash(){
   Audio_.unlock();
   if (STATE==='splash'){
-    STATE='order';
+    setState('order');
     /* The seed goes on the stub so each run's ticket reads as authored
        rather than generated. It is RUN_SEED — the same number that builds
        the floor when the player clocks in — so it is not decoration. */
@@ -444,25 +332,14 @@ function advanceSplash(){
 }
 function backSplash(){
   Audio_.unlock();
-  if (STATE==='order'){ STATE='splash'; show('splash'); syncAmbience(); return true; }
+  if (STATE==='order'){ setState('splash'); show('splash'); syncAmbience(); return true; }
   return false;                       // nothing behind splash 03: it is the first frame
 }
 
-/* A new run gets a new plan, and the splash is repainted to match even though
-   nobody is looking at it yet: the win screen's RUN IT AGAIN button leads back
-   through here, and a title screen showing the level you just finished would be
-   the sort of small mistake that makes a procedural game feel hand-authored in
-   the wrong direction. */
-function rollRunSeed(){
-  RUN_SEED = (Math.random()*1e9)|0;
-  buildFloor(0, RUN_SEED);
-  paintSplashPlan();
-}
 
 /* ============================================================
    FLOW
    ============================================================ */
-let STATE='splash';      // splash | order | clear | play | pause | dead | win
 /* Every screen the shell can show, in one list, because show()/hideAll() all
    enumerate them and they used to drift apart the moment a screen was added.
    The settings had a screen in this list once; they are pages of the pause
@@ -470,18 +347,6 @@ let STATE='splash';      // splash | order | clear | play | pause | dead | win
    Every entry has a #screen-<name> div — 'play' is a STATE but not a screen,
    because the run is the canvas with the HUD on it and nothing to show(). */
 const SCREENS = ['splash','order','clear','pause','dead','win'];
-let RUN_SEED = (Math.random()*1e9)|0;
-let lives = 3, floorIdx = 0, runTime = 0;
-/* The life pips are drawn from this, not from a hardcoded three. The naive
-   version maps over [0,1,2], so RELAXED would render five pips with the fifth
-   always spent and HARD would render three for a one-life run. */
-let runLives = 3;
-/* The run's own totals. G.stat is thrown away and rebuilt by buildFloor, so
-   everything it counted died with the floor it was counted on: the win card
-   read the LAST level's numbers and called them the run's. runStat lives as
-   long as the run does, is bumped beside every G.stat bump, and is cleared
-   only where a run starts — the CLOCK IN button. */
-let runStat = { noises:0, deaths:0, sealed:0 };
 function livesHTML(){
   return Array.from({length:Math.max(1,runLives)},
     (_,i)=> `<span class="${i<lives?'':'gone'}">&#9679;</span>`).join('');
@@ -493,99 +358,6 @@ function renderLives(){
   hudSet(document.getElementById('val-lives'), 'vLives', 'html', livesHTML());
 }
 
-/* THE FLOOR CLEAR.
-   Between one level and the next there is a card: the clock you finished with,
-   and the shape of the floor you are about to walk into. It exists for two
-   reasons and neither of them is vibes — a level transition that silently
-   restarts a running clock is the single most unfair thing this game could do,
-   and a player who does not know the next floor carries four pipes and four
-   things is walking into it with the wrong amount of caution.
-
-   THE FLOOR IS ALREADY BUILT when this comes up. nextFloor() does its usual
-   floorIdx++ / buildFloor in the same frame the door cycles, and 'clear' only
-   holds the PLAYER out of it. Nothing about the state depends on the card being
-   dismissed, and the tests that watch floorIdx move on the descent frame keep
-   working without knowing this screen exists. */
-let clearCard = { floor:0, clock:0, leaks:0, forms:0 };
-function showClear(){
-  const el = id => document.getElementById(id);
-  el('clear-clock').textContent = clockText(clearCard.clock);
-  el('clear-floor').textContent  = clearCard.floor+1;
-  el('clear-leaks').textContent  = clearCard.leaks;
-  el('clear-forms').textContent  = clearCard.forms;
-  /* The praise scales with the clock, and only with the clock. Nailing a floor
-     on the last few seconds gets the warm line; scraping back in does not, and
-     the game does not congratulate you for the version where you nearly died. */
-  el('clear-sub').textContent =
-    clearCard.clock >= FLOOR_CLOCK*0.34 ? 'GOOD WORK. MANAGEMENT NOTICES.'
-                                      : 'SEALED. MANAGEMENT HAS NO COMMENT.';
-  STATE='clear';
-  emit('hud', false);
-  emit('screen', 'clear');
-  emit('state', STATE);
-  Audio_.acclaim();
-}
-/* ENTER, and the button, and nothing else. There is no clock on this card and
-   no way back into it — the floor behind it is sealed and the floor in front of
-   it is already running. ESC deliberately does nothing here: backSplash() only
-   walks the title chain, so the key falls through to the play/pause toggle,
-   which is also inert while STATE is 'clear'. */
-function dismissClear(){
-  if (STATE!=='clear') return;
-  STATE='play';
-  emit('screen', null);
-  emit('hud', true);
-  /* Every key down to nothing. The player is almost certainly holding W — they
-     walked to the door — and that keydown is still set, so the first frame of
-     the new floor would walk them back through it. Same reason the splash chain
-     drops the key that dismissed it. */
-  for (const k in keys) delete keys[k];
-  emit('state', STATE);
-}
-
-function nextFloor(){
-  floorIdx++;
-  if (floorIdx >= FLOORS){ STATE='win'; emit('win', { sealed: runStat.sealed, deaths: runStat.deaths, noises: runStat.noises, floors: FLOORS, time: runTime });
-    emit('hud', false);
-    emit('screen', 'win');
-    return;
-  }
-  /* The clock is read off the OLD floor, before the rebuild — G is replaced
-     wholesale by buildFloor and the leftover seconds of the floor you just
-     finished are the whole point of the card. */
-  const clockLeft = G ? G.clock : FLOOR_CLOCK;
-  buildFloor(floorIdx, RUN_SEED);
-  /* The briefing reads the same table buildFloor reads, through the same
-     clamp, so the numbers on the card are the numbers on the floor. */
-  const spec = LEVELS[Math.min(floorIdx, LEVELS_N-1)];
-  clearCard = { floor:floorIdx, clock:clockLeft, leaks:spec.leaks, forms:spec.forms };
-  showClear();
-}
-
-/* Every way a run can end badly costs a life, rewinds the level and says why.
-   Two causes, one exit: something found you, or the clock ran out. They are
-   the same shape because they are the same decision — you did not get back to
-   the door in time — and one screen for both means the player is never left
-   guessing which rule they broke. */
-function lose(cause){
-  if (STATE!=='play') return;
-  G.stat.deaths++;
-  runStat.deaths++;
-  lives--;
-  Audio_.sting(); Audio_.silence(); Audio_.silenceBeds();
-  STATE='dead';
-  emit('lives');
-  emit('hud', false);
-  emit('dead', { lives, cause });
-  emit('screen', 'dead');
-}
-
-function caught(){ lose('TAPE DAMAGED'); }
-
-/* Out of time. The same cost as being caught — a life and a rewound level —
-   because a clock is only a real deadline if it can actually kill you. If it
-   only scolded you, three minutes would be advice. */
-function outOfTime(){ lose('THE CLOCK RAN OUT'); }
 
 /* ============================================================
    HUD + SCREENS
@@ -611,13 +383,6 @@ const HUD = {
   hud: document.getElementById('hud')
 };
 
-/* m:ss, floored. The clock is read at a glance while running, so it never
-   shows a value it would not show again a frame later — it counts down on whole
-   seconds and that is all. */
-function clockText(s){
-  const t = Math.max(0, Math.ceil(s));
-  return Math.floor(t/60) + ':' + String(t%60).padStart(2,'0');
-}
 
 let flashT = 0;
 function flash(text){
@@ -761,44 +526,6 @@ function setTermsOpen(v){
    armed reset must never survive the player's attention moving elsewhere,
    or the next pause fires it by accident.
    ============================================================ */
-let resetArmed = false;
-let resetArmTimer = 0;
-const RESET_LABEL  = 'RESET GAME';
-const RESET_ARMED  = 'TAP AGAIN — LOSES THE RUN';
-
-function paintResetButton(){
-  const b = document.getElementById('btn-reset-run');
-  if (b) b.textContent = resetArmed ? RESET_ARMED : RESET_LABEL;
-}
-function disarmReset(){
-  resetArmed = false;
-  clearTimeout(resetArmTimer);
-  paintResetButton();
-}
-function armReset(){
-  resetArmed = true;
-  clearTimeout(resetArmTimer);
-  resetArmTimer = setTimeout(disarmReset, 5000);
-  paintResetButton();
-}
-function resetRun(){
-  /* The same path boot walks: a new seed, the floor built from it, the plan
-     painted from the same seed — so the riser shows the building the next
-     run is actually about to be, not a picture of the one just abandoned. */
-  rollRunSeed();
-  floorIdx = 0;
-  runTime = 0;
-  runLives = (DIFFICULTIES[SETTINGS.difficulty] || DIFFICULTIES.normal).lives;
-  lives = runLives;
-  runStat = { noises:0, deaths:0, sealed:0 };
-  emit('lives');
-  /* The HUD belongs to a run; the riser is not one. */
-  emit('hud', false);
-  STATE = 'splash';
-  emit('screen', 'splash');
-  emit('state', STATE);
-  disarmReset();
-}
 
 
 function syncSettingsUI(){
@@ -893,7 +620,7 @@ for (const id of ['screen-splash','screen-order']){
 
 function togglePause(){
   if (STATE==='play'){
-    STATE='pause';
+    setState('pause');
     show('pause');
     /* Every pause lands on the settings page. It is the one page of the ticket
        with something to change on it, and the page a player who came back to
@@ -918,7 +645,7 @@ function togglePause(){
     set('pause-terms',  (DIFFICULTIES[SETTINGS.difficulty] || DIFFICULTIES.normal).label);
     set('pause-seed',    '#88D-' + (RUN_SEED>>>0).toString(16).toUpperCase().slice(-4));
   }
-  else if (STATE==='pause'){ disarmReset(); STATE='play'; hideAll(); }
+  else if (STATE==='pause'){ disarmReset(); setState('play'); hideAll(); }
 }
 
 /* ---- the HUD write cache ----
@@ -1044,155 +771,12 @@ function setPrompt(){
 }
 
 /* ---------- buttons ---------- */
-document.getElementById('btn-start').onclick = ()=>{
-  Audio_.init();
-  Audio_.unlock();
-  /* The seed is NOT rolled here. It was rolled before the splash was painted,
-     because the plan behind the title has to be the level the player is about
-     to walk — re-rolling at the moment of entry would make the splash a lie
-     and nothing else. A finished run rolls its own; see rollRunSeed(). */
-  runLives = (DIFFICULTIES[SETTINGS.difficulty] || DIFFICULTIES.normal).lives;
-  lives = runLives; floorIdx=0; runTime=0;
-  /* A new run, so a new tally: the win card is the only reader and it must not
-     inherit the previous run's seals and deaths. */
-  runStat = { noises:0, deaths:0, sealed:0 };
-  emit('lives');
-  /* Floor 0 was already built at boot — the same seed, the same geometry the
-     splash plan was painted from — so building it again here generates the
-     identical level a second time for nothing. Reuse it instead.
-
-     The extra two conditions are what stop the reuse from handing back a
-     PLAYED floor: a run that died on floor 1 and came back through CLOCK IN
-     (lives spent, btn-retry forwards to here) has the same seed and the same
-     floor number, but its pipes are sealed and its clock has run. A floor
-     that has never ticked and still has every pipe open is the only floor
-     worth keeping. The clock check also catches a difficulty change made
-     after boot, whose FLOOR_CLOCK the boot floor was never built with. */
-  const reuse = G && G.floor===0 && G.seed===RUN_SEED
-                && G.clock >= FLOOR_CLOCK && G.leaksOpen === G.pipes;
-  if (!reuse) buildFloor(0, RUN_SEED);
-  else {
-    G.clock = FLOOR_CLOCK; G.time = 0; G.batt = BATT_MAX;
-    G.stat = {noises:0, deaths:0, sealed:0};
-    G.radar = false; G.noise = 0; G.noisePeak = 0; G.selfNoise = 0; G.descend = 0; G.seenBy = 0;
-    initFlood();          // the flood the builder warmed, warmed again here
-    snapMask();
-  }
-  /* The opening grace period, on the start path either way — reuse and a
-     fresh build have to be indistinguishable from where the player stands. */
-  for (const a of G.agents){ a.born = 3.0; }
-  emit('screen', null);
-  STATE='play';
-  emit('hud', true);
-  emit('state', STATE);        // the title bed has no business following you downstairs
-};
-
+/* The wiring, not the work: each control calls the run function that owns it. */
+document.getElementById('btn-start').onclick   = ()=>startRun();
 document.getElementById('btn-descend').onclick = ()=>dismissClear();
-document.getElementById('btn-retry').onclick = ()=>{
-  if (lives<=0){
-    document.getElementById('btn-start').click(); return;
-  }
-  buildFloor(floorIdx, RUN_SEED);
-  G.batt = Math.max(G.batt, 55);
-  /* The retry keeps the same seed, so the pipes are where you left them and
-     the flood restarts. Dying costs you a life and the work you did on them,
-     but not the knowledge — which is the split that matters, because where the
-     pipes are is the thing you spent the level learning and a re-roll would
-     erase it. */
-  for (const a of G.agents){ a.born=3.0; }
-  emit('screen', null); STATE='play';
-  emit('hud', true);
-  emit('state', STATE);
-};
-document.getElementById('btn-again').onclick = ()=>{
-  rollRunSeed();                 // a new run deserves a new building
-  document.getElementById('btn-start').click();
-};
+document.getElementById('btn-retry').onclick   = ()=>retryFloor();
+document.getElementById('btn-again').onclick   = ()=>runAgain();
 
-/* ============================================================
-   LOOP
-
-   A FIXED SIMULATION STEP, and an accumulator.
-
-   It used to hand `update()` whatever the frame time happened to be, capped at
-   50ms. That cap is the whole problem in one line: below 20fps the cap binds,
-   and from then on the game runs in SLOW MOTION — the clock, the flood, the
-   repair bar and the noise decay all fall behind real time together, and a
-   player fighting for their life on a slow machine is not playing the same game
-   as one at 60fps. Worse, the camera in render() smoothed against the REAL
-   elapsed time while the world it was framing had only advanced by the capped
-   amount, so the two disagreed and the view rubber-banded against the thing it
-   was following.
-
-   Now the simulation only ever moves in whole 1/60s steps, and a long frame
-   runs as many of them as it owes (up to MAX_STEPS, so a machine that cannot
-   keep up falls behind in bounded jumps rather than entering a spiral where
-   each frame owes more than the last). What is left over is handed to render()
-   as an interpolation fraction, which is what makes the movement continuous
-   between steps instead of quantised to them.
-
-   Measured: at 60fps the clock now burns real time exactly (2.000s of clock per
-   2.001s of wall clock). At a forced 12.5fps it burns 0.96 — the remaining 4%
-   is the substep budget, which is a deliberate, bounded loss rather than the
-   unbounded drift the old cap produced.
-
-   update(dt) keeps its signature and its single-call semantics: the headless
-   suite drives it directly with the dt it wants and nothing here changes that.
-   */
-const SIM_STEP    = 1/60;
-/* The spiral guard: at most this many steps per frame. Sized so the simulation
-   stays on real time all the way down to 10fps (a 100ms frame is six steps) —
-   below the old 50ms cap the game ran in slow motion, and below this it runs
-   slightly slow rather than not at all. A step costs ~0.04ms, so the whole
-   budget is under a quarter of a millisecond: raising it further would buy
-   8fps of tolerance for a cost the frame cannot feel, and lowering it would
-   start dropping simulated time on machines that are merely struggling. */
-const MAX_STEPS   = 6;
-let   simAcc      = 0;
-let   last        = performance.now();
-function frame(now){
-  let dt = (now-last)/1000;
-  last = now;
-  /* A tab that was in the background comes back with an enormous dt. Capping
-     the accumulator rather than each step is what stops the game from trying to
-     catch up on ten seconds of simulation in one frame. */
-  simAcc = Math.min(simAcc + dt, SIM_STEP*MAX_STEPS);
-
-  if (STATE==='play'){
-    let steps = 0;
-    while (simAcc >= SIM_STEP && steps < MAX_STEPS){
-      runTime += SIM_STEP;
-      update(SIM_STEP);
-      simAcc -= SIM_STEP;
-      steps++;
-      /* update() can end the frame — a death, or the door cycling into the next
-         floor. Stop stepping and do not let a stale accumulator carry into the
-         new floor. */
-      if (STATE!=='play'){ simAcc = 0; break; }
-    }
-    setSimAlpha(simAcc / SIM_STEP);   // 0..1, where in the current step we are
-    /* Anything owed beyond MAX_STEPS is dropped rather than banked: on a machine
-       that cannot hold 60Hz the honest thing is to run slightly slow, not to
-       accumulate an unpayable debt. */
-    if (simAcc >= SIM_STEP) simAcc = 0;
-    updateHUD(); setPrompt();
-  } else {
-    simAcc = 0;
-  }
-  /* Frame time is measured across the WHOLE frame — simulation, render and the
-     browser's own compositing — because that is what the player experiences as
-     smoothness and it is the only number the adaptive resolution can honestly
-     respond to. Sampled before render() so the figure covers the interval we
-     are about to work in. */
-  const frameMs = now - lastRenderStart;
-  lastRenderStart = now;
-  if (frameMs > 0 && frameMs < 1000) adaptResolution(frameMs);
-
-  if (G) render(now);
-
-  requestAnimationFrame(frame);
-}
-let lastRenderStart = performance.now();
 
 /* ---- boot ----
    The store is read BEFORE anything that depends on it, and applySettings
@@ -1203,40 +787,6 @@ let lastRenderStart = performance.now();
 resize();
 buildPatterns();
 buildGlowSprite();
-/* Called once per frame with the measured frame time. Kept out of resize() so
-   that a window resize cannot be mistaken for a slow machine and start a
-   resolution change on its own. */
-function adaptResolution(ms){
-  /* Exponential average rather than an instantaneous read: one 40ms hitch from
-     a garbage collection pause or a tab switch must not cost a resolution step,
-     and the hysteresis bands below do not protect against a decision taken on
-     a single sample. */
-  frameMsAvg += (ms - frameMsAvg) * 0.05;
-
-  if (frameMsAvg > SCALE_DROP_MS){
-    goodRun = 0; badRun++;
-    if (badRun > SCALE_BAD_FRAMES && renderScaleIdx < RENDER_SCALES.length-1){
-      setRenderScaleIdx(renderScaleIdx+1);
-      badRun = 0; frameMsAvg = 16.7;      // re-measure at the new size, not the old
-      resize();
-      return 'drop';
-    }
-  } else if (frameMsAvg < SCALE_RECOVER_MS){
-    badRun = 0; goodRun++;
-    /* Only while PLAYING. On the splash the canvas is not what the player is
-       looking at, and a resolution change there re-bakes the grain, the
-       vignette and the splash plan for no reason. */
-    if (goodRun > SCALE_GOOD_FRAMES && renderScaleIdx > 0 && STATE==='play'){
-      setRenderScaleIdx(renderScaleIdx-1);
-      goodRun = 0; frameMsAvg = 16.7;
-      resize();
-      return 'raise';
-    }
-  } else {
-    badRun = 0; goodRun = 0;
-  }
-  return null;
-}
 
 function applySettings(){
   const d = DIFFICULTIES[SETTINGS.difficulty] || DIFFICULTIES.normal;
@@ -1272,12 +822,12 @@ on('state', syncAmbience);
 on('resize', ()=>{ if (G) paintSplashPlan(); });
 on('flash', flash);
 on('sfx', (n, ...a) => Audio_[n](...a));
-on('stat', k => { runStat[k]++; });
-on('caught', caught);
-on('clock:out', outOfTime);
-on('door:cycled', nextFloor);
 loadSettings();
 applySettings();
+/* The loop owns the frame; the shell owns the drawing and the HUD refresh, so
+   both are handed in rather than imported. */
+bindRun();
+setFrameHooks({ render, afterUpdate: ()=>{ updateHUD(); setPrompt(); } });
 buildSettingsUI();
 syncSettingsUI();
 /* The audio graph is built HERE, at boot, and not on the first click of the
@@ -1334,8 +884,8 @@ export const __api = {
   scopeRoomLight, regionAt, traceViewCone, packMask, snapMask, combineMask,
   smoothMask, onScreen, setHeadless,
   get STATE(){ return STATE; },
-  set STATE(v){ STATE = v; },
-  get floorIdx(){ return floorIdx; }, set floorIdx(v){ floorIdx = v; },
+  set STATE(v){ setState(v); },
+  get floorIdx(){ return floorIdx; }, set floorIdx(v){ setFloorIdx(v); },
   get keys(){ return keys; },
   get HAND_OFF(){ return HAND_OFF; }, get R(){ return R; }, drawAgent,
   get cvs(){ return cvs; }, get ctxRef(){ return ctx; }, get SCALE(){ return SCALE; },
@@ -1381,7 +931,7 @@ export const __api = {
      stubbed to a no-op, so calling frame() is one frame, not a loop. */
   frame,
   paintSplashPlan, rollRunSeed, get RUN_SEED(){ return RUN_SEED; },
-  set RUN_SEED(v){ RUN_SEED = v; },
+  set RUN_SEED(v){ setRunSeed(v); },
   mulberry32, seedSplash,
   togglePause, clockText,
   get pausePage(){ return pausePage; },
@@ -1390,10 +940,11 @@ export const __api = {
   setTermsOpen,
   resetRun,
   get resetArmed(){ return resetArmed; },
+  set resetArmed(v){ resetArmed = v; },
   get FLOORS(){ return FLOORS; },
   get HUNT_BASE(){ return HUNT_BASE; }, get HUNT_STEP(){ return HUNT_STEP; },
-  get lives(){ return lives; }, set lives(v){ lives = v; },
-  set runTime(v){ runTime = v; },
+  get lives(){ return lives; }, set lives(v){ setLives(v); },
+  set runTime(v){ setRunTime(v); },
   get runLives(){ return runLives; },
   get runStat(){ return runStat; },
   /* the cast, inlined: the avatar's rig and the thing hunting it */
