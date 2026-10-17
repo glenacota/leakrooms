@@ -2491,9 +2491,9 @@ function showClear(){
     clearCard.clock >= FLOOR_CLOCK*0.34 ? 'GOOD WORK. MANAGEMENT NOTICES.'
                                       : 'SEALED. MANAGEMENT HAS NO COMMENT.';
   STATE='clear';
-  document.getElementById('hud').classList.remove('on');
-  show('clear');
-  syncAmbience();
+  emit('hud', false);
+  emit('screen', 'clear');
+  emit('state', STATE);
   Audio_.acclaim();
 }
 /* ENTER, and the button, and nothing else. There is no clock on this card and
@@ -2504,21 +2504,21 @@ function showClear(){
 function dismissClear(){
   if (STATE!=='clear') return;
   STATE='play';
-  hideAll();
-  document.getElementById('hud').classList.add('on');
+  emit('screen', null);
+  emit('hud', true);
   /* Every key down to nothing. The player is almost certainly holding W — they
      walked to the door — and that keydown is still set, so the first frame of
      the new floor would walk them back through it. Same reason the splash chain
      drops the key that dismissed it. */
   for (const k in keys) delete keys[k];
-  syncAmbience();
+  emit('state', STATE);
 }
 
 function nextFloor(){
   floorIdx++;
-  if (floorIdx >= FLOORS){ STATE='win'; show('win'); document.getElementById('win-stats').innerHTML =
-      `You sealed <b>${runStat.sealed}</b> pipes and got back through the door on all <b>${FLOORS}</b> levels.<br>Deaths: <b>${runStat.deaths}</b> &nbsp; Noise made: <b>${runStat.noises}</b><br>Time: <b>${Math.floor(runTime/60)}:${String(Math.floor(runTime%60)).padStart(2,'0')}</b>`;
-    document.getElementById('hud').classList.remove('on');
+  if (floorIdx >= FLOORS){ STATE='win'; emit('win', { sealed: runStat.sealed, deaths: runStat.deaths, noises: runStat.noises, floors: FLOORS, time: runTime });
+    emit('hud', false);
+    emit('screen', 'win');
     return;
   }
   /* The clock is read off the OLD floor, before the rebuild — G is replaced
@@ -2545,12 +2545,10 @@ function lose(cause){
   lives--;
   Audio_.sting(); Audio_.silence(); Audio_.silenceBeds();
   STATE='dead';
-  renderLives();
-  document.getElementById('hud').classList.remove('on');
-  const sub = document.getElementById('dead-sub');
-  if (lives>0) sub.textContent = `${lives} LIVES REMAINING \u2014 ${cause}`;
-  else sub.textContent = 'SIGNAL LOST';
-  show('dead');
+  emit('lives');
+  emit('hud', false);
+  emit('dead', { lives, cause });
+  emit('screen', 'dead');
 }
 
 function caught(){ lose('TAPE DAMAGED'); }
@@ -3555,12 +3553,12 @@ function resetRun(){
   runLives = (DIFFICULTIES[SETTINGS.difficulty] || DIFFICULTIES.normal).lives;
   lives = runLives;
   runStat = { noises:0, deaths:0, sealed:0 };
-  renderLives();
+  emit('lives');
   /* The HUD belongs to a run; the riser is not one. */
-  document.getElementById('hud').classList.remove('on');
+  emit('hud', false);
   STATE = 'splash';
-  show('splash');
-  syncAmbience();
+  emit('screen', 'splash');
+  emit('state', STATE);
   disarmReset();
 }
 
@@ -3820,7 +3818,7 @@ document.getElementById('btn-start').onclick = ()=>{
   /* A new run, so a new tally: the win card is the only reader and it must not
      inherit the previous run's seals and deaths. */
   runStat = { noises:0, deaths:0, sealed:0 };
-  renderLives();
+  emit('lives');
   /* Floor 0 was already built at boot — the same seed, the same geometry the
      splash plan was painted from — so building it again here generates the
      identical level a second time for nothing. Reuse it instead.
@@ -3845,10 +3843,10 @@ document.getElementById('btn-start').onclick = ()=>{
   /* The opening grace period, on the start path either way — reuse and a
      fresh build have to be indistinguishable from where the player stands. */
   for (const a of G.agents){ a.born = 3.0; }
-  hideAll();
+  emit('screen', null);
   STATE='play';
-  document.getElementById('hud').classList.add('on');
-  syncAmbience();        // the title bed has no business following you downstairs
+  emit('hud', true);
+  emit('state', STATE);        // the title bed has no business following you downstairs
 };
 
 document.getElementById('btn-descend').onclick = ()=>dismissClear();
@@ -3864,9 +3862,9 @@ document.getElementById('btn-retry').onclick = ()=>{
      pipes are is the thing you spent the level learning and a re-roll would
      erase it. */
   for (const a of G.agents){ a.born=3.0; }
-  hideAll(); STATE='play';
-  document.getElementById('hud').classList.add('on');
-  syncAmbience();
+  emit('screen', null); STATE='play';
+  emit('hud', true);
+  emit('state', STATE);
 };
 document.getElementById('btn-again').onclick = ()=>{
   rollRunSeed();                 // a new run deserves a new building
@@ -4020,6 +4018,19 @@ on('settings:changed', key => {
   applySettings();
   syncSettingsUI();
 });
+on('screen', name => { if (name === null) hideAll(); else show(name); });
+on('hud', on_ => { const h = document.getElementById('hud'); if (on_) h.classList.add('on'); else h.classList.remove('on'); });
+on('dead', ({ lives, cause }) => {
+  const sub = document.getElementById('dead-sub');
+  if (lives > 0) sub.textContent = `${lives} LIVES REMAINING \u2014 ${cause}`;
+  else sub.textContent = 'SIGNAL LOST';
+});
+on('win', ({ sealed, deaths, noises, floors, time }) => {
+  document.getElementById('win-stats').innerHTML =
+    `You sealed <b>${sealed}</b> pipes and got back through the door on all <b>${floors}</b> levels.<br>Deaths: <b>${deaths}</b> &nbsp; Noise made: <b>${noises}</b><br>Time: <b>${Math.floor(time/60)}:${String(Math.floor(time%60)).padStart(2,'0')}</b>`;
+});
+on('lives', renderLives);
+on('state', syncAmbience);
 // textures subscription registered at import of render/textures.js; plan rebuild after.
 on('resize', ()=>{ if (G) paintSplashPlan(); });
 on('flash', flash);
