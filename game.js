@@ -31,6 +31,7 @@ import { carpetPat, wallPat, ceilPat, scanPat, grainFull, buildPatterns, buildGr
 import { G, setG } from './sim/state.js';
 import { keys } from './sim/keys.js';
 import { view } from './util/view.js';
+import { makeLos } from './util/grid.js';
 import { genLevel } from './sim/level.js';
 import { SETTINGS, loadSettings, saveSettings, resetSettings, setOption } from './settings/store.js';
 import { on, emit } from './util/events.js';
@@ -163,27 +164,11 @@ function markWetAll(){ if (G) G.dirty.water = true; wetDirtyX0=wetDirtyY0=wetDir
 
 /* Fills G.lightArr and the packed G.lightCv/G.lightCtx/G.lightImg from the
    level's fixtures and grid. Pure apart from those G fields. */
-function bakeLighting(level){
+function computeLightArr(level, los){
   const grid = level.grid;
   const at = (x,y)=> grid[y*MAP_W+x];
   const inB = (x,y)=> x>=0 && y>=0 && x<MAP_W && y<MAP_H;
-
-  /* --- line of sight (Bresenham, walls block) --- */
-  function los(x0,y0,x1,y1){
-    x0=Math.floor(x0); y0=Math.floor(y0); x1=Math.floor(x1); y1=Math.floor(y1);
-    let dx=Math.abs(x1-x0), dy=Math.abs(y1-y0);
-    let sx=x0<x1?1:-1, sy=y0<y1?1:-1, err=dx-dy;
-    let guard=0;
-    while(guard++ < 400){
-      if(x0===x1 && y0===y1) return true;
-      const e2 = 2*err;
-      if (e2 > -dy){ err -= dy; x0 += sx; }
-      if (e2 <  dx){ err += dx; y0 += sy; }
-      if (x0===x1 && y0===y1) return true;
-      if (!inB(x0,y0) || at(x0,y0)===WALL) return false;
-    }
-    return false;
-  }
+  if (!los) los = makeLos(grid);
 
   /* --- bake ambient light --- */
   G.lightArr = new Float32Array(MAP_W*MAP_H);
@@ -291,6 +276,7 @@ function bakeLighting(level){
      position, so the speckles swam as the view panned; baked, they are part
      of the building, which is what they always looked like they were. */
   bakeTiles();
+  return G.lightArr;
 }
 
 /* Paint the static tile layer: carpet + tonal variation into G.tilesCv, wall
@@ -515,21 +501,7 @@ function buildFloor(floorNum, seed){
   const inB = (x,y)=> x>=0 && y>=0 && x<MAP_W && y<MAP_H;
 
   /* --- line of sight (Bresenham, walls block) --- */
-  function los(x0,y0,x1,y1){
-    x0=Math.floor(x0); y0=Math.floor(y0); x1=Math.floor(x1); y1=Math.floor(y1);
-    let dx=Math.abs(x1-x0), dy=Math.abs(y1-y0);
-    let sx=x0<x1?1:-1, sy=y0<y1?1:-1, err=dx-dy;
-    let guard=0;
-    while(guard++ < 400){
-      if(x0===x1 && y0===y1) return true;
-      const e2 = 2*err;
-      if (e2 > -dy){ err -= dy; x0 += sx; }
-      if (e2 <  dx){ err += dx; y0 += sy; }
-      if (x0===x1 && y0===y1) return true;
-      if (!inB(x0,y0) || at(x0,y0)===WALL) return false;
-    }
-    return false;
-  }
+  const los = makeLos(grid);
 
   /* The floor object is created HERE, before the bakes below write into it.
      Every per-floor buffer — light, vision, mask, cone, regions, flood — is a
@@ -591,7 +563,7 @@ function buildFloor(floorNum, seed){
     G.wallIdx = Int32Array.from(idx);
   }
 
-  bakeLighting(level);
+  G.lightArr = computeLightArr(level, los);
   labelRegions(level);
   /* The mask is a SEPARATE canvas at 1 sample per tile rather than another
      term folded into the light bake. It changes every frame the character
@@ -601,6 +573,11 @@ function buildFloor(floorNum, seed){
   G.maskCv.width = MAP_W; G.maskCv.height = MAP_H;
   G.maskCtx = G.maskCv.getContext('2d');
   G.maskImg = G.maskCtx.createImageData(MAP_W, MAP_H);
+  G.wetCv = document.createElement('canvas');
+  G.wetCv.width = MAP_W; G.wetCv.height = MAP_H;
+  G.wetCtx = G.wetCv.getContext('2d');
+  G.wetImg = G.wetCtx.createImageData(MAP_W, MAP_H);
+  for (let i=0;i<MAP_W*MAP_H;i++) G.wetImg.data[i*4+3] = 0;
   G.agents = spawnAgents(level);
   G.player = { x: level.spawn.x, y: level.spawn.y, face:-Math.PI/2, stepT:0, stepDur:0.46, moving:false };
   G.batt = BATT_MAX;
@@ -626,6 +603,14 @@ function buildFloor(floorNum, seed){
   snapMask();
 
   initFlood();
+  G.gfx = {
+    lightCv: G.lightCv, lightCtx: G.lightCtx, lightImg: G.lightImg,
+    maskCv: G.maskCv, maskCtx: G.maskCtx, maskImg: G.maskImg,
+    tilesCv: G.tilesCv, tilesCtx: G.tilesCtx,
+    wallsCv: G.wallsCv, wallsCtx: G.wallsCtx,
+    wetCv: G.wetCv, wetCtx: G.wetCtx, wetImg: G.wetImg,
+    postCv: G.postCv
+  };
 }
 
 /* ============================================================
@@ -733,11 +718,6 @@ function initFlood(){
   G.wetSum = 0;
   G.wetEdgeD = -1;
   G.wetFloor = G.wetByDist.length;
-  G.wetCv = document.createElement('canvas');
-  G.wetCv.width = MAP_W; G.wetCv.height = MAP_H;
-  G.wetCtx = G.wetCv.getContext('2d');
-  G.wetImg = G.wetCtx.createImageData(MAP_W, MAP_H);
-  for (let i=0;i<MAP_W*MAP_H;i++) G.wetImg.data[i*4+3] = 0;
   /* Start the room the player spawns in already damp. Otherwise the first
      seconds of a floor are a pristine yellow carpet with no cue at all, and
      the water reads as a thing that switched on rather than a thing that has
@@ -4080,13 +4060,13 @@ export const __api = {
      instead of a getter per array, so the suite reads each buffer through the
      floor it belongs to. */
   get internals(){ return {
-    lightArr: G.lightArr, lightCv: G.lightCv, lightImg: G.lightImg, lightCtx: G.lightCtx,
+    lightArr: G.lightArr, lightCv: G.gfx.lightCv, lightImg: G.gfx.lightImg, lightCtx: G.gfx.lightCtx,
     visArr: G.visArr, visTgt: G.visTgt, visFrom: G.visFrom, visScratch: G.visScratch,
-    maskArr: G.maskArr, maskTgt: G.maskTgt, coneArr: G.coneArr, maskCv: G.maskCv,
+    maskArr: G.maskArr, maskTgt: G.maskTgt, coneArr: G.coneArr, maskCv: G.gfx.maskCv,
     regionOf: G.regionOf, regionAdj: G.regionAdj, visRegion: G.visRegion,
     wetArr: G.wetArr, waterDist: G.waterDist, wetFront: G.wetFront,
     wetByDist: G.wetByDist, wetMaxDist: G.wetMaxDist, wetEdgeD: G.wetEdgeD,
-    wetIndexAtDist: G.wetIndexAtDist, wetCv: G.wetCv,
+    wetIndexAtDist: G.wetIndexAtDist, wetCv: G.gfx.wetCv,
     cvs, ctxRef: ctx, SCALE
   }; },
   get DARK_ROOM(){ return DARK_ROOM; },
