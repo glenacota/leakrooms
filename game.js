@@ -53,6 +53,12 @@ import {
   setState, setLives, setFloorIdx, setRunTime, setRunStat, setRunSeed,
 } from './game/run.js';
 import { frame, setFrameHooks } from './game/loop.js';
+import { hideAll, SCREENS, show } from './ui/dom.js';
+import { flash, HUD, livesHTML, renderLives, updateHUD, setPrompt } from './ui/hud.js';
+import { advanceSplash, backSplash, syncAmbience } from './ui/splash.js';
+import { setTermsOpen, termsOpen } from './ui/terms.js';
+import { pausePage, setPausePage, togglePause } from './ui/pause.js';
+import { buildSettingsUI, SEGMENTS, syncSettingsUI } from './ui/settings-panel.js';
 import { attachFloorImages } from './render/bake.js';
 import { packMask, packWet, setPixels } from './render/pack.js';
 import { paintSplashPlan } from './render/splash-plan.js';
@@ -299,106 +305,17 @@ window.addEventListener('keyup', e=>{
    all land in the same place and cannot disagree with each other.
    ============================================================ */
 
-/* The bed follows STATE, not the individual screens. It is keyed off the names
-   rather than off `show()` because `show()` is also how the pause screen comes
-   up, and a title drone leaking into a pause menu is the sort of thing nobody
-   reports and everybody notices.
-
-   The floor-clear card is a menu like the other two: the room hum keeps
-   running under it. What stops there is the FLOOR — acclaim() kills the leak
-   and noise beds, which belong to the level that just ended. */
-function syncAmbience(){
-  Audio_.ambience(STATE==='splash' || STATE==='order' || STATE==='clear');
-}
-
-function advanceSplash(){
-  Audio_.unlock();
-  if (STATE==='splash'){
-    setState('order');
-    /* The seed goes on the stub so each run's ticket reads as authored
-       rather than generated. It is RUN_SEED — the same number that builds
-       the floor when the player clocks in — so it is not decoration. */
-    const seedEl = document.getElementById('order-seed');
-    if (seedEl) seedEl.textContent = '#88D-' + (RUN_SEED>>>0).toString(16).toUpperCase().slice(-4);
-    show('order');
-  } else if (STATE==='order'){
-    /* The chooser folds itself shut on the way in: the next time this ticket
-       is seen — after a death, or a finished run — it should show the stamped
-       terms, not last boot's open fold. */
-    setTermsOpen(false);
-    document.getElementById('btn-start').click();
-  }
-  syncAmbience();
-}
-function backSplash(){
-  Audio_.unlock();
-  if (STATE==='order'){ setState('splash'); show('splash'); syncAmbience(); return true; }
-  return false;                       // nothing behind splash 03: it is the first frame
-}
 
 
 /* ============================================================
    FLOW
    ============================================================ */
-/* Every screen the shell can show, in one list, because show()/hideAll() all
-   enumerate them and they used to drift apart the moment a screen was added.
-   The settings had a screen in this list once; they are pages of the pause
-   ticket now, so the ticket is the only menu and there is no second list.
-   Every entry has a #screen-<name> div — 'play' is a STATE but not a screen,
-   because the run is the canvas with the HUD on it and nothing to show(). */
-const SCREENS = ['splash','order','clear','pause','dead','win'];
-function livesHTML(){
-  return Array.from({length:Math.max(1,runLives)},
-    (_,i)=> `<span class="${i<lives?'':'gone'}">&#9679;</span>`).join('');
-}
-function renderLives(){
-  /* Goes through the HUD cache like updateHUD does, so the two can never
-     disagree about what the element is showing: whichever runs second sees a
-     cache that already matches the DOM and correctly writes nothing. */
-  hudSet(document.getElementById('val-lives'), 'vLives', 'html', livesHTML());
-}
 
 
 /* ============================================================
    HUD + SCREENS
    ============================================================ */
-const HUD = {
-  batt: document.getElementById('bar-batt'),
-  noise: document.getElementById('bar-noise'),
-  noiseWrap: document.querySelector('.bar.noise'),
-  noisePeak: document.getElementById('bar-noise-peak'),
-  noiseLeak: document.getElementById('bar-noise-leak'),
-  noiseLoud: document.querySelector('.bar.noise u.loud'),
-  vBatt: document.getElementById('val-batt'),
-  vNoise: document.getElementById('val-noise'),
-  vClock: document.getElementById('val-clock'),
-  clockWrap: document.getElementById('clock'),
-  vPipes: document.getElementById('val-pipes'),
-  vLeak: document.getElementById('val-leak'),
-  vFlood: document.getElementById('val-flood'),
-  barFlood: document.getElementById('bar-flood'),
-  vDepth: document.getElementById('val-depth'),
-  vLives: document.getElementById('val-lives'),
-  prompt: document.getElementById('prompt'),
-  hud: document.getElementById('hud')
-};
 
-
-let flashT = 0;
-function flash(text){
-  const el=document.getElementById('flashnote');
-  el.textContent = text;
-  el.classList.add('on');
-  clearTimeout(flashT);
-  flashT = setTimeout(()=>el.classList.remove('on'), 3400);
-}
-
-function show(which){
-  for (const s of SCREENS)
-    document.getElementById('screen-'+s).classList.toggle('hidden', s!==which);
-}
-function hideAll(){ for (const s of SCREENS)
-    document.getElementById('screen-'+s).classList.add('hidden'); }
 
 /* M. Goes through setOption rather than poking Audio_ directly, so the store is
    written and the UI re-synced on the same path as every other setting — a mute
@@ -412,103 +329,7 @@ function toggleMute(){
   if (!next) Audio_.blip(true);
 }
 
-/* ============================================================
-   THE PAUSE TICKET — SETTINGS AND BRIEFING ARE PAGES OF IT
-   Every control writes straight into SETTINGS, then calls applySettings() and
-   saveSettings(). There is no "apply" button and no pending copy: a slider
-   that only commits on OK makes people wonder whether it saved, and these
-   values are all cheap and reversible.
 
-   They are not a screen of their own any more. They are the lower half of the
-   ticket the player is already looking at, because a pause is the one moment
-   the player has stopped to read a document — and a modal over that document
-   hides the very thing the player paused to check. pausePage is the only state
-   this adds: which page of the ticket is showing. STATE never leaves 'pause',
-   so the clock stays frozen and the game behind the ticket stays stopped the
-   way it always did, with no second state machine to keep in step.
-   ============================================================ */
-let pausePage = 'settings';      // 'settings' | 'briefing'
-
-/* SETTINGS is where a pause lands: it is the page with something to change on
-   it. BRIEFING is SPLASH 02 reprinted — the work order, the backstory and the
-   controls list — for the player who clicked through it once and remembers
-   none of it. It is a reprint rather than the order screen itself, because a
-   reprint cannot start a run: the "any key advances" branch on the splash
-   chain would fire behind the player's back otherwise, and a second copy of
-   one hundred words is a cheaper thing to own than a second way to lose a
-   floor. */
-function setPausePage(page){
-  pausePage = page;
-  /* An armed RESET GAME does not survive the player's attention moving to
-     another page of the ticket. */
-  disarmReset();
-  for (const b of document.querySelectorAll('[data-pause-page]'))
-    b.classList.toggle('hidden', b.dataset.pausePage !== page);
-  for (const t of document.querySelectorAll('[data-pause-tab]'))
-    t.setAttribute('aria-selected', String(t.dataset.pauseTab === page));
-}
-
-/* ============================================================
-   THE TERMS OF THE SHIFT
-   The difficulty used to be a settings row the player could flip from the
-   pause ticket, mid-run — which rewrote FLOOR_CLOCK, REPAIR_TIME and the
-   hunt constants under a floor already being played, while runLives had
-   been read at clock-in and stayed where it was. Now it is chosen at the
-   door: the work order carries a stamp, CHANGE folds the chooser open on
-   the ticket, and whatever the stamp says when CLOCK IN lands is what the
-   run is built with. There is no difficulty control on the pause screen at
-   all — a run is on its terms from its first frame.
-
-   The value still lives in SETTINGS and still persists, so a returning
-   player's stamp is the run they always play; a fresh machine reads NORMAL,
-   the schema default, and is never unset. paintTerms is the one place the
-   stamp is written, and syncSettingsUI calls it, so every path that can
-   change the value — the chooser, the digits, RESET SETTINGS, a reloaded
-   store — leaves the three stamps and the note saying the same thing.
-   ============================================================ */
-let termsOpen = false;
-
-/* The work order is prose, and prose needs prose numbers: 240 is "4 minutes",
-   150 is "2 minutes 30 seconds", 90 is "90 seconds". The briefing used to say
-   "3 minutes" and "5 seconds" whatever the terms — a lie on two of the three. */
-function proseClock(s){
-  const m = Math.floor(s/60), r = Math.round(s%60);
-  const mins = m ? `${m} minute${m===1?'':'s'}` : '';
-  const secs = r ? `${r} second${r===1?'':'s'}` : '';
-  return [mins, secs].filter(Boolean).join(' ') || 'no time at all';
-}
-
-function paintTerms(){
-  const d = DIFFICULTIES[SETTINGS.difficulty] || DIFFICULTIES.normal;
-  const set = (id, txt)=>{ const el = document.getElementById(id); if (el) el.textContent = txt; };
-  set('order-terms', d.label);
-  set('pause-terms', d.label);
-  /* The work order and the pause reprint of it are one document written
-     twice, so the numbers on both come from here: how long the shift is and
-     how long a pipe takes, in the terms' own numbers. */
-  const ret = proseClock(d.clock);
-  const fix = `${d.repairTime} second${d.repairTime===1?'':'s'}`;
-  set('order-return', ret);
-  set('brief-return', ret);
-  set('order-repair', fix);
-  set('brief-repair', fix);
-  const note = document.getElementById('note-difficulty');
-  if (note){
-    note.textContent = `${d.lives} lives \u00b7 ${Math.round(d.clock)}s on the clock \u00b7 ${d.repairTime}s at the pipe`;
-  }
-}
-
-function setTermsOpen(v){
-  termsOpen = v;
-  const fold = document.getElementById('terms-fold');
-  if (fold) fold.classList.toggle('open', v);
-  if (!v){
-    /* The order screen has no movement, so a key held while the chooser was
-       open must not carry into the run: closing the fold is the moment the
-       frame goes back to being a splash, and splashes drop held keys. */
-    for (const kk in keys) keys[kk] = false;
-  }
-}
 
 /* ============================================================
    RESET GAME
@@ -528,75 +349,7 @@ function setTermsOpen(v){
    ============================================================ */
 
 
-function syncSettingsUI(){
-  // sliders
-  for (const el of document.querySelectorAll('input[type=range][data-opt]')){
-    const v = SETTINGS[el.dataset.opt];
-    if (v !== undefined && Number(el.value) !== v) el.value = v;
-  }
-  // segmented buttons
-  for (const row of document.querySelectorAll('.seg[data-opt]')){
-    const key = row.dataset.opt, cur = String(SETTINGS[key]);
-    for (const b of row.querySelectorAll('button')){
-      b.setAttribute('aria-pressed', String(b.dataset.value === cur));
-    }
-  }
-  /* The stamp on the work order, on its stub, and on the pause stub are the
-     same fact as the segmented row, so they are painted from the same place
-     the row is synced — one writer, three stamps, the note line. */
-  paintTerms();
-}
 
-/* Button label sets per segmented row. Declared here rather than in markup so
-   the enum and the labels cannot drift apart. */
-const SEGMENTS = {
-  difficulty: () => Object.keys(DIFFICULTIES).map(k => [k, DIFFICULTIES[k].label]),
-  waterHue:   () => [['slate','SLATE'],['teal','TEAL'],['violet','VIOLET'],['grey','GREY']],
-};
-
-function buildSettingsUI(){
-  /* The controls used to live in a modal they shared with a BACK button, and
-     the return path was state juggling: remember where you were, swap STATE,
-     map it back on the way out. Now the ticket's pages ARE the menu, so the
-     return path is one line: the tab that is not pressed. Escape out of the
-     briefing page cannot strand the player anywhere, because there is only
-     ever the ticket. */
-  for (const row of document.querySelectorAll('.seg[data-opt]')){
-    const key = row.dataset.opt;
-    const opts = (SEGMENTS[key] || (()=>[]))();
-    row.innerHTML = '';
-    for (const [val,label] of opts){
-      const b = document.createElement('button');
-      b.textContent = label;
-      b.dataset.value = String(val);
-      b.onclick = ()=> setOption(key, SETTINGS_SCHEMA[key].type === 'enum' ? val : (val==='true'));
-      row.appendChild(b);
-    }
-  }
-  for (const el of document.querySelectorAll('input[type=range][data-opt]')){
-    const key = el.dataset.opt;
-    el.addEventListener('input', ()=> setOption(key, parseFloat(el.value)));
-  }
-  const reset = document.getElementById('btn-settings-reset');
-  if (reset) reset.onclick = ()=>{ resetSettings(); syncSettingsUI(); };
-  /* No BACK on the settings page: it is the page a pause lands on, so BACK
-     would mean ESC, and a second control that does what the key under the
-     player's hand already does is a control nobody needs. The briefing's BACK
-     is different — it goes somewhere, back to the settings page. */
-  for (const t of document.querySelectorAll('[data-pause-tab]'))
-    t.onclick = ()=> setPausePage(t.dataset.pauseTab);
-  /* The terms chooser: the front door. CHANGE folds it out of the stamp on
-     the work order; the segmented row inside it is built by the loop above,
-     exactly as it was when it was a settings row. */
-  const change = document.getElementById('btn-terms-change');
-  if (change) change.onclick = ()=> setTermsOpen(!termsOpen);
-  /* RESET GAME: arm on the first press, fire on the second. */
-  const resetRunBtn = document.getElementById('btn-reset-run');
-  if (resetRunBtn) resetRunBtn.onclick = ()=>{
-    if (!resetArmed){ armReset(); return; }
-    resetRun();
-  };
-}
 
 /* Click anywhere on either splash advances it, so a player who never reads
    the keyboard prompt is not stuck. The advance function keys off STATE, so
@@ -618,35 +371,6 @@ for (const id of ['screen-splash','screen-order']){
   });
 }
 
-function togglePause(){
-  if (STATE==='play'){
-    setState('pause');
-    show('pause');
-    /* Every pause lands on the settings page. It is the one page of the ticket
-       with something to change on it, and the page a player who came back to
-       adjust the tint needs; the briefing is one click deeper for the player
-       who wants to re-read the work order. */
-    setPausePage('settings');
-    /* The pause screen is splash 04 with the run's own numbers written on it,
-       so pausing costs no bearings: depth, pipes left, clock, battery, lives,
-       and the next move — all in the places a clerk would have written them.
-       SCOPE OF WORK answers "what am I here for" and STATUS answers "where
-       does that stand"; the ticket has a line for each because they are
-       different questions. */
-    const set = (id, html)=>{ const el = document.getElementById(id); if (el) el.innerHTML = html; };
-    const sealed = G.pipes - G.leaksOpen;
-
-    set('pause-level',   `${G.floor+1}/${FLOORS}`);
-    set('pause-clock',   clockText(G.clock));
-    set('pause-pipes',  `${sealed}/${G.pipes}`);
-    set('pause-batt',    String(Math.ceil(G.batt)));
-    set('pause-lives', livesHTML());
-    /* The terms the run is on. Not a control — a fact, like the clock. */
-    set('pause-terms',  (DIFFICULTIES[SETTINGS.difficulty] || DIFFICULTIES.normal).label);
-    set('pause-seed',    '#88D-' + (RUN_SEED>>>0).toString(16).toUpperCase().slice(-4));
-  }
-  else if (STATE==='pause'){ disarmReset(); setState('play'); hideAll(); }
-}
 
 /* ---- the HUD write cache ----
    updateHUD() and setPrompt() run once per frame, and between them they wrote
@@ -666,109 +390,6 @@ function togglePause(){
    an identical reading writes nothing, which is correct, and one that does not
    writes immediately. The cache cannot drift from the DOM because nothing else
    writes these nodes. */
-const hudCache = Object.create(null);
-function hudSet(el, key, prop, val){
-  if (!el || hudCache[key] === val) return;
-  hudCache[key] = val;
-  if (prop === 'text') el.textContent = val;
-  else if (prop === 'html') el.innerHTML = val;
-  else el.style[prop] = val;
-}
-function hudFlag(el, key, cls, on){
-  if (!el || hudCache[key] === on) return;
-  hudCache[key] = on;
-  el.classList.toggle(cls, on);
-}
-
-function updateHUD(){
-  if (!G) return;
-  hudSet(HUD.batt, 'batt', 'width', (G.batt/BATT_MAX*100)+'%');
-  hudSet(HUD.vBatt, 'vBatt', 'text', Math.ceil(G.batt));
-  /* The NOISE bar, on the noise scale and not the battery one. Divided by
-     BATT_MAX it drew 1% of itself for a sprint and 1.8% for the door, while the
-     red test below still fired on the raw level and turned the bar hot at a
-     level it could not show. Three marks now: the fill (what you are making),
-     the water-blue floor (what the open pipes are making, everywhere — the
-     number a searching Lifeform steers by), and the peak tick, because a sprint
-     lasts 0.26s and the fill alone cannot say that it happened. */
-  const nz = Math.max(0, Math.min(1, G.noise/NOISE_FS))*100;
-  hudSet(HUD.vNoise, 'vNoise', 'text', String(Math.round(nz)).padStart(2,'0'));
-  /* TWO FILLS, ONE BAR. The yellow is what YOU are making; the blue is what
-     the open pipes are making, everywhere on the floor, at the level the
-     Lifeform is steering by. Standing still beside a burst pipe used to fill
-     this bar to its top, which reads as "you are screaming" when you are
-     standing perfectly still and something is coming to the PIPE, not to you.
-     The number above is the loudest of the two, because that is what the room
-     actually sounds like. */
-  hudSet(HUD.noise, 'noise', 'width', Math.max(0, Math.min(1, G.selfNoise/NOISE_FS))*100+'%');
-  /* LOUD, on YOUR noise, and read from the constant. A pipe never reaches it
-     by construction, so red still means "this is about you" — and the old 0.45
-     was a stale copy of a threshold that lives at 0.5. */
-  hudFlag(HUD.noiseWrap, 'noiseHot', 'hot', G.selfNoise>=LOUD);
-  G.noisePeak = Math.max(G.noise, G.noisePeak - 0.004);
-  hudSet(HUD.noisePeak, 'noisePeakL', 'left', Math.max(0, Math.min(100, G.noisePeak/NOISE_FS*100))+'%');
-  hudSet(HUD.noisePeak, 'noisePeakO', 'opacity', '1');
-  hudSet(HUD.noiseLeak, 'noiseLeak', 'width', (Math.max(0, Math.min(1, G.leakTotal/NOISE_FS))*100)+'%');
-  /* the LOUD mark, positioned from the constant rather than typed into the
-     stylesheet: it is the threshold the AI reads, and a hardcoded 50% went
-     stale the moment full scale stopped being 1.0 */
-  hudSet(HUD.noiseLoud, 'noiseLoud', 'left', (LOUD/NOISE_FS*100)+'%');
-  /* Three pipe readouts, because they answer three different questions and a
-     single "OPEN/SEALED" cannot answer any of them. PIPES is the tally you are
-     working down. DOOR is whether the level can end at all — it stays shut until
-     the last one is closed. FLOOD is a gauge of how much of the floor is under
-     water: it keeps climbing while you are still working, and it drains after
-     the last seal, so it is both the pressure and the proof the repair worked. */
-  hudSet(HUD.vPipes, 'vPipes', 'text', `${G.pipes-G.leaksOpen}/${G.pipes}`);
-  /* The door. OPEN means every pipe is sealed and the level can be ended, so
-     OPEN is the good state and gets no colour; SEALED is the only one that
-     shouts. The old version injected <span class="ok">OPEN</span> with ok being
-     water-blue, next to a flood gauge also in water-blue — so the word that
-     answers "can I leave yet" looked like it belonged to the thing keeping you
-     here. Text plus a class, not markup, so the stylesheet can say what the
-     states mean. */
-  hudSet(HUD.vLeak, 'vLeak', 'text', G.leaksOpen===0 ? 'OPEN' : 'SEALED');
-  hudFlag(HUD.vLeak, 'vLeakShut', 'shut', G.leaksOpen>0);
-  hudSet(HUD.vFlood, 'vFlood', 'text', String(Math.round(G.floodCover*100)).padStart(2,'0'));
-  hudSet(HUD.barFlood, 'barFlood', 'width', (G.floodCover*100)+'%');
-  /* The clock. Whole seconds, and it changes COLOUR in the last thirty — the
-     same thirty the flash announces — because a number that does not change
-     colour is a number players stop seeing after the first level, and a number
-     that changes SIZE is one that reflows its own box once a second for three
-     minutes. Both flags live on the wrapper, so the stylesheet owns what
-     "low" and "critical" look like and this never has to restate it. */
-  hudSet(HUD.vClock, 'vClock', 'text', clockText(G.clock));
-  hudFlag(HUD.clockWrap, 'clockLow', 'low',     G.clock <= 30);
-  hudFlag(HUD.clockWrap, 'clockCrit', 'critical', G.clock <= 10);
-  hudSet(HUD.vDepth, 'vDepth', 'text', `${G.floor+1}/${FLOORS}`);
-  /* innerHTML, and the reason this one mattered most: a run of spans was being
-     PARSED as HTML sixty times a second to redraw three bullet characters that
-     change when you die. */
-  hudSet(HUD.vLives, 'vLives', 'html', livesHTML());
-}
-
-/* The prompt line. One of five strings, and it holds whichever one applies for
-   seconds at a time — so it was being rebuilt as a template literal and handed
-   to the DOM every frame, which re-inserts the text node and re-lays-out the
-   line every frame to say the same four words. The element reference is cached
-   here too rather than looked up per frame. */
-function setPrompt(){
-  const el=HUD.prompt;
-  if (!G){ hudFlag(el, 'promptOn', 'on', false); return; }
-  let working = 0;
-  for (const L of G.leaks) if (!L.fixed && L.repair > 0.02) working++;
-  /* The repair prompt is first because it is the only state in the game where
-     the player must NOT press a key, and the prompt line is where they look to
-     find out what the game wants. Everything else is a movement instruction. */
-  let msg;
-  if (working)              msg = 'wrenching \u2014 DO NOT MOVE';
-  else if (G.atLeak)        msg = `hold still \u2014 ${REPAIR_TIME} seconds at the pipe`;
-  else if (G.descend>0.02)  msg = 'cycling door \u2014 do not stop';
-  else if (G.leaksOpen>0)   msg = `${G.leaksOpen} PIPE${G.leaksOpen===1?'':'S'} LEAKING \u2014 THE WATER RUNS DOWNHILL FROM THE BREAK`;
-  else                      msg = 'the door will cycle \u2014 GET BACK TO THE ONE YOU CAME IN THROUGH';
-  hudSet(el, 'prompt', 'text', msg);
-  hudFlag(el, 'promptOn', 'on', true);
-}
 
 /* ---------- buttons ---------- */
 /* The wiring, not the work: each control calls the run function that owns it. */
