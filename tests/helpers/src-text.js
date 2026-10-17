@@ -4,7 +4,10 @@
    real bytes once per test instead of reimplementing regexes over a copy.
 
    readSrc() covers game.js plus every *.js under src/ — when the monolith is
-   split, source-shape assertions keep working without being rewritten.
+   split, source-shape assertions keep working without being rewritten. The
+   list grew as the monolith split: sim/ (steps 24-28) and render/ (step 29)
+   now hold bodies that assertions used to find in game.js, and cast/ holds the
+   sprites. An assertion that reads a moved function must keep reading it.
    readCss() covers style.css plus css/*.css if that directory ever appears. */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -15,7 +18,7 @@ const root = path.join(__dirname, '..', '..');
 
 export function readSrc(){
   let out = fs.readFileSync(path.join(root, 'game.js'), 'utf8');
-  for (const dir of ['src', 'config', 'util']) {
+  for (const dir of ['src', 'config', 'util', 'sim', 'render', 'cast']) {
     const d = path.join(root, dir);
     if (fs.existsSync(d)) {
       for (const f of fs.readdirSync(d).filter(f => f.endsWith('.js')).sort())
