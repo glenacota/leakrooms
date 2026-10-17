@@ -118,16 +118,18 @@ export async function loadGame(opts = {}){
     els.game = cv;
     // override getContext just in case
     cv.getContext = () => rec;
-    const mod = await import('../../game.js');
-    const A = mod.__api;
+    const mod = await import('../../src/boot.js');
+    mod.boot();
+    const { __api: A } = await import('./api.js');
     const G  = new Proxy({}, { get:(_,k)=>A.G[k], set:(_,k,v)=>{A.G[k]=v; return true;} });
     const press = (key, extra={}) => global.window._h.keydown({
       key, repeat:false, metaKey:false, ctrlKey:false, altKey:false,
       preventDefault(){}, ...extra });
     return { A, G, els, calls, store, press, recCtx: rec };
   }
-  const mod = await import('../../game.js');
-  const A = mod.__api;
+  const mod = await import('../../src/boot.js');
+  mod.boot();
+  const { __api: A } = await import('./api.js');
   const G  = new Proxy({}, { get:(_,k)=>A.G[k], set:(_,k,v)=>{A.G[k]=v; return true;} });
   const press = (key, extra={}) => global.window._h.keydown({
     key, repeat:false, metaKey:false, ctrlKey:false, altKey:false,

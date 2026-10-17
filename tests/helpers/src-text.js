@@ -30,7 +30,11 @@ function jsFilesIn(dir){
 }
 
 export function readSrc(){
-  let out = fs.readFileSync(path.join(root, 'game.js'), 'utf8');
+  let out = '';
+  for (const f of ['src/main.js', 'src/boot.js']){
+    const p2 = path.join(root, f);
+    if (fs.existsSync(p2)) out += '\n' + fs.readFileSync(p2, 'utf8');
+  }
   for (const dir of ['src', 'config', 'util', 'sim', 'render', 'cast']) {
     const d = path.join(root, dir);
     if (fs.existsSync(d)) {

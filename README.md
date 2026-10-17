@@ -45,7 +45,7 @@ node test.js      # exit 0 = pass
 
 ## 🚀 Running
 
-`game.js` is an ES module (`<script type="module">`), so opening `index.html` via `file://` no longer works — browsers block module scripts on that origin. Serve the repo instead:
+`src/main.js` is an ES module (`<script type="module">`), so opening `index.html` via `file://` no longer works — browsers block module scripts on that origin. Serve the repo instead:
 
 ```
 npm run serve     # → http://localhost:8080/

@@ -30,7 +30,7 @@ const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
    the helpers import the code under test and would make the cycle check
    meaningless. */
 const DIRS = ['config', 'util', 'sim', 'render', 'game', 'ui', 'cast', 'src', 'settings'];
-const ENTRY = 'game.js';
+const ENTRY = 'src/main.js';
 
 function walk(dir, out){
   for (const e of fs.readdirSync(dir, { withFileTypes: true })){
