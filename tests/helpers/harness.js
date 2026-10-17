@@ -4,18 +4,36 @@
    A (__api), G (live proxy), els, calls, store, press.
    test.js keeps only what is test-specific. */
 import { calls, els, fakeCanvas, fakeEl, fakeCtx } from './stubs.js';
+import * as dom from './dom.js';
 
-/* ---- fake DOM ---- */
+/* ---- fake DOM ----
+   Backed by the shipped markup (see helpers/dom.js): the element table is read
+   out of index.html so that wiring the game does by QUERYING the document is
+   built in tests the way it is in the browser. An id the markup does not carry
+   still gets a bare element, because the suite asks for ids the game creates
+   at runtime and those must not start returning null. */
 global.document = {
-  getElementById(id){ return els[id] || (els[id]=fakeEl(id)); },
-  querySelector(sel){ return els[sel] || (els[sel]=fakeEl(sel)); },
-  querySelectorAll(){ return []; },
+  /* `els` first: a test that plants an element under an id owns it. The trace
+     harness does exactly that — it replaces #game with a recording canvas before
+     game.js is imported — and a markup lookup would otherwise hand the renderer
+     the element from index.html and quietly stop recording the frame. */
+  getElementById(id){
+    if (id in els) return els[id];
+    const found = dom.getElementById(id);
+    return (els[id] = found || fakeEl(id));
+  },
+  querySelector(sel){
+    if (sel in els) return els[sel];
+    const found = dom.querySelector(sel);
+    return (els[sel] = found || fakeEl(sel));
+  },
+  querySelectorAll(sel){ return dom.querySelectorAll(sel); },
   /* The game builds its own canvases (the light bake, the mask, the packed
      flood field, the procedural textures) rather than declaring them in markup,
      so the harness has to hand out elements too. Without this the module fails
      to LOAD, which is worth stating plainly: a stub gap here does not fail one
      assertion, it kills the entire suite before a single test runs. */
-  createElement(tag){ return tag==='canvas' ? fakeCanvas() : fakeEl(tag); },
+  createElement(tag){ return tag==='canvas' ? fakeCanvas() : dom.createElement(tag); },
   addEventListener(){},
   body: { appendChild(){} },
 };
