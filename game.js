@@ -30,6 +30,7 @@ import { cvs, ctx, VW, VH, DPR, SCALE, resize, renderScaleIdx, setRenderScaleIdx
 import { carpetPat, wallPat, ceilPat, scanPat, grainFull, buildPatterns, buildGrainFull } from './render/textures.js';
 import { G, setG } from './sim/state.js';
 import { keys } from './sim/keys.js';
+import { view } from './util/view.js';
 import { genLevel } from './sim/level.js';
 import { SETTINGS, loadSettings, saveSettings, resetSettings, setOption } from './settings/store.js';
 import { on, emit } from './util/events.js';
@@ -1083,8 +1084,8 @@ function regionAt(x,y){
    camera stops rather than following, and seeing what is genuinely off-screen
    would be worse than a one-frame difference from the smoothing. */
 function onScreen(wx, wy){
-  const T = TILE*SCALE;
-  const halfW = cvs.width /(2*T), halfH = cvs.height /(2*T);
+  const T = TILE*view.scale;
+  const halfW = view.w /(2*T), halfH = view.h /(2*T);
   let cx = G.player.x, cy = G.player.y;
   if (MAP_W > halfW*2) cx = Math.max(halfW, Math.min(MAP_W-halfW, cx));
   if (MAP_H > halfH*2) cy = Math.max(halfH, Math.min(MAP_H-halfH, cy));
