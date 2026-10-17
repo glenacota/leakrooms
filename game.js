@@ -32,6 +32,8 @@ import { G, setG } from './sim/state.js';
 import { keys } from './sim/keys.js';
 import { view } from './util/view.js';
 import { makeLos } from './util/grid.js';
+import { solid, blocked, unstick, depenetrate, moveEnt } from './sim/collision.js';
+import { hearRadius, alertAgents, emitNoise, sustainedNoise, brush, alert } from './sim/noise.js';
 import { genLevel } from './sim/level.js';
 import { SETTINGS, loadSettings, saveSettings, resetSettings, setOption } from './settings/store.js';
 import { on, emit } from './util/events.js';
@@ -1413,97 +1415,6 @@ function snapMask(){
    floored before indexing the tile array. Without this, G.grid[y*MAP_W+x]
    is a fractional index -> undefined -> undefined===WALL is false -> walls
    become permeable at their edges. */
-const solid = (x,y)=>{
-  x = Math.floor(x); y = Math.floor(y);
-  return !(x>=0 && y>=0 && x<MAP_W && y<MAP_H) || G.grid[y*MAP_W+x]===WALL;
-};
-
-/* Circle vs tile-AABB.
-   A 8-point sample ring is close enough to a box that diagonal wall corners
-   snag you even when a clear circular path exists — movement feels sticky.
-   This is the exact test, and it lets you slide around corners smoothly. */
-function blocked(x,y,r){
-  const tx0=Math.floor(x-r), tx1=Math.floor(x+r);
-  const ty0=Math.floor(y-r), ty1=Math.floor(y+r);
-  for (let ty=ty0; ty<=ty1; ty++){
-    for (let tx=tx0; tx<=tx1; tx++){
-      if (!solid(tx,ty)) continue;
-      const px = x < tx   ? tx : (x > tx+1 ? tx+1 : x);
-      const py = y < ty   ? ty : (y > ty+1 ? ty+1 : y);
-      const dx = x-px, dy = y-py;
-      if (dx*dx + dy*dy < r*r) return true;
-    }
-  }
-  return false;
-}
-
-/* Safety net: if an entity's circle is overlapping geometry, every direction
-   is blocked and it is wedged for good. Slide it to the nearest free spot.
-   Reached by axis-separated sliding into a wall edge, so it is rare — but a
-   soft-lock you cannot walk out of is unacceptable. */
-/* Slide out of geometry. `force` skips the "already legal" early-out and is
-   used when an entity is legal but immobile (both axes blocked at once), which
-   an overlap test alone cannot detect. Local only — never teleports. */
-function unstick(e, r){
-  // Test with the entity's OWN radius. A hardcoded 0.34 here made a player
-  // resting flush against a wall (gap 0.335, comfortably clear at R=0.33)
-  // read as overlapping, so every wall contact nudged it ~0.08 tiles sideways.
-  if (!blocked(e.x, e.y, r)) return false;
-  let bx=null, by=null, bd=Infinity;
-  for (let a=0; a<24; a++){
-    const ang = a/24*Math.PI*2;
-    const cx = Math.cos(ang), cy = Math.sin(ang);
-    for (let d=0.08; d<=0.9; d+=0.08){
-      const nx = e.x+cx*d, ny = e.y+cy*d;
-      if (!blocked(nx, ny, r)){ if (d<bd){ bd=d; bx=nx; by=ny; } break; }
-    }
-  }
-  if (bx!==null){ e.x=bx; e.y=by; return true; }
-  return false;
-}
-
-/* Escape a genuine pocket: both requested axes are blocked, so the entity is
-   legal but immobile. Walks a short ring biased toward the direction actually
-   being asked for, and never moves more than 0.45 tiles — this is a nudge out
-   of a wedge, not a teleport. */
-function depenetrate(e, r, dx, dy){
-  const want = Math.atan2(dy, dx);
-  let bx=null, by=null, bd=Infinity;
-  for (let a=-3; a<=3; a++){
-    const ang = want + a*(Math.PI/12);          // try straight on first, then fan out
-    const cx = Math.cos(ang), cy = Math.sin(ang);
-    for (let d=0.08; d<=0.45; d+=0.08){
-      const nx = e.x+cx*d, ny = e.y+cy*d;
-      if (!blocked(nx, ny, r)){ if (d<bd){ bd=d; bx=nx; by=ny; } break; }
-    }
-  }
-  if (bx!==null){ e.x=bx; e.y=by; return true; }
-  return false;
-}
-
-/* Move: try the full step, then slide on each axis, then depenetrate.
-   No perpendicular "corner assist". That used to nudge sideways whenever an
-   axis was blocked, and it tried the perpendicular in a FIXED order (+1 before
-   -1) — so holding up against a wall always picked +x and walked you right
-   until you left the screen. If your circle overlaps a wall corner then
-   stopping is the correct answer; you round the corner by also pressing the
-   other direction, which the axis-only fallback already handles. */
-function moveEnt(e, dx, dy, r){
-  if (dx===0 && dy===0) return [0,0];
-
-  // full step (diagonal input moves on both axes)
-  if (!blocked(e.x+dx, e.y+dy, r)){ e.x+=dx; e.y+=dy; return [dx,dy]; }
-  // slide along the wall
-  if (dx!==0 && !blocked(e.x+dx, e.y, r)){ e.x+=dx; return [dx,0]; }
-  if (dy!==0 && !blocked(e.x, e.y+dy, r)){ e.y+=dy; return [0,dy]; }
-  /* Only a DIAGONAL press into a concave corner counts as wedged. Being
-     unable to move while pressing straight into a wall is the normal resting
-     state, not a trap — depenetrating there just nudged the avatar sideways
-     every frame, which read as drift. */
-  if (dx!==0 && dy!==0) depenetrate(e, r, dx, dy);
-  return [0,0];
-}
-
 /* ============================================================
    NOISE — the whole stealth layer.
 
@@ -1513,105 +1424,6 @@ function moveEnt(e, dx, dy, r){
    Previously movement passed power*dt*4, which made every frame's contribution
    ~0.06 and therefore made sprinting only marginally louder than walking —
    the entire risk decision was flattened. Walls muffle by 2.6 tiles each. */
-const hearRadius = power => 4 + power*12;
-
-/* Walls between a noise and a listener cost 3 tiles of hearing each. Sampled as
-   a staircase along the straight line between them, which is a cheap
-   approximation of a path. The sampler stops BEFORE the destination, so a source
-   standing in a doorway is heard through it rather than muffled by it — which is
-   the right answer for a pipe broken in a wall and the reason the leak emits
-   from the floor beside it. */
-function wallSteps(ax, ay, x, y){
-  let steps = 0, guard=0;
-  const sx=Math.floor(ax), sy=Math.floor(ay);
-  const ex=Math.floor(x), ey=Math.floor(y);
-  while (guard++<200){
-    const px=sx+Math.sign(ex-sx)*steps, py=sy+Math.sign(ey-sy)*steps;
-    if (px===ex&&py===ey) break;
-    if (solid(px,py)) steps++;
-    if (steps>6) break;
-  }
-  return steps;
-}
-
-function alertAgents(baseR, power, x, y){
-  for (const a of G.agents){
-    if (a.state==='WALK' && a.born>0) continue;
-    const d = Math.hypot(a.x-x, a.y-y);
-    if (d > baseR) continue;
-    // walls muffle
-    const eff = baseR - wallSteps(a.x, a.y, x, y)*3.0;
-    if (d > eff) continue;
-    alert(a, x, y, power);
-  }
-}
-
-/* One-shot noise (cycling a door, hitting a wall):
-   updates the meter, the stats, and alerts.
-
-   `mine` says the noise came from something the player did. It changes nothing
-   about what the Lifeform hears — that is identical either way, because the
-   rules of the game are about power and distance, not about blame. What it
-   changes is the READOUT: G.selfNoise is the player's own contribution and
-   G.noise is the loudest thing in earshot, so standing still beside a burst pipe
-   shows a bar full of somebody else's noise and none of your own. */
-function emitNoise(power, x, y, mine){
-  G.noise = Math.max(G.noise, power);
-  G.noisePeak = Math.max(G.noisePeak, power);
-  if (mine) G.selfNoise = Math.max(G.selfNoise, power);
-  G.stat.noises++;
-  emit('stat', 'noises');
-  alertAgents(hearRadius(power), power, x, y);
-}
-
-/* Continuous noise (footsteps): alerts at full strength every frame, but does
-   not inflate the stats or fight the meter decay. */
-function sustainedNoise(power, x, y, mine){
-  G.noise = Math.max(G.noise, power);
-  G.noisePeak = Math.max(G.noisePeak, power);
-  if (mine) G.selfNoise = Math.max(G.selfNoise, power);
-  alertAgents(hearRadius(power), power, x, y);
-}
-
-/* Contact. Dying to something you never saw, in a corridor, because it
-   happened to be idling there is a gotcha rather than tension. Brushing a
-   LOITERING entity does not kill: it startles, commits to a hunt, and makes a
-   great deal of noise. You get the chase, not the cheap death. Only contact
-   with something already hunting is fatal. */
-function brush(a, p){
-  if (a.state==='HUNT'){ emit('caught'); return; }
-  a.state='HUNT'; a.target={x:p.x, y:p.y}; a.t=0;
-  a.rise=Math.max(a.rise, 0.85);
-  emitNoise(BRUSH_NOISE, p.x, p.y);
-  emit('flash', 'IT TOUCHED YOU');
-  emit('sfx', 'rattle', 1);
-}
-
-/* Loud = sprinting, hitting a wall, cycling a door.
-   Quiet = walking.
-   Quiet noise only makes it CURIOUS. Only loud noise — or being seen —
-   commits it to a full hunt. That is what makes walking survivable and
-   sprinting a real decision, and it means you can walk right past a sleeping
-   coil pile, while sprinting near one makes it stand up. */
-function alert(a, x, y, power){
-  const loud = (power||0) >= LOUD;
-
-  if (a.state==='DORMANT'){
-    if (!loud) return;               // walking past a sleeping coil is safe
-    a.state='RISING'; a.rise=0; a.target={x,y};
-    a.stepT = 0;
-    emit('sfx', 'rattle', a.born>0 ? 1 : 0.55);
-    return;
-  }
-  if (a.born>0) return;              // the hunter's opening grace period
-
-  if (loud || a.state==='HUNT'){ a.state='HUNT'; a.target={x,y}; a.t=0; }
-  else if (a.state==='WALK'){ a.state='SEARCH'; a.t=4.5; a.target={x,y}; }
-}
-
-/* ============================================================
-   UPDATE
-   ============================================================ */
 
 /* ENTER is the confirm key for whichever modal is up: start, resume, rewind,
    run again. It also fires when a button already has focus, so guard against
