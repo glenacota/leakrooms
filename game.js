@@ -866,7 +866,7 @@ function sealLeak(L){
     ? `PIPE SEALED \u2014 ${G.leaksOpen} STILL OPEN`
     : 'EVERY PIPE SEALED \u2014 GET BACK TO THE DOOR');
   G.stat.sealed++;
-  runStat.sealed++;
+  emit('stat', 'sealed');
   /* Recompute the distance field from the seal point so the recession runs
      outward from where the work happened rather than from the pipe. It is a
      visual difference, but it is the difference between water receding from
@@ -1571,7 +1571,7 @@ function emitNoise(power, x, y, mine){
   G.noisePeak = Math.max(G.noisePeak, power);
   if (mine) G.selfNoise = Math.max(G.selfNoise, power);
   G.stat.noises++;
-  runStat.noises++;
+  emit('stat', 'noises');
   alertAgents(hearRadius(power), power, x, y);
 }
 
@@ -1590,7 +1590,7 @@ function sustainedNoise(power, x, y, mine){
    great deal of noise. You get the chase, not the cheap death. Only contact
    with something already hunting is fatal. */
 function brush(a, p){
-  if (a.state==='HUNT'){ caught(); return; }
+  if (a.state==='HUNT'){ emit('caught'); return; }
   a.state='HUNT'; a.target={x:p.x, y:p.y}; a.t=0;
   a.rise=Math.max(a.rise, 0.85);
   emitNoise(BRUSH_NOISE, p.x, p.y);
@@ -1827,7 +1827,7 @@ function tickClock(dt){
   G.selfNoise = Math.max(0, G.selfNoise - dt*1.55);
 
   G.clock = Math.max(0, G.clock - dt);
-  if (G.clock <= 0){ outOfTime(); return false; }
+  if (G.clock <= 0){ emit('clock:out'); return false; }
   if (G.clock <= 30 && !G.clockAnnounced){
     G.clockAnnounced = true;
     emit('flash', 'THIRTY SECONDS \u2014 THE WATER IS AT YOUR FEET');
@@ -2117,7 +2117,7 @@ function tickDoor(dt){
       if (G.descend===0) emit('sfx', 'door', DOOR_NOISE);
       G.descend += dt;
       sustainedNoise(DOOR_NOISE, p.x, p.y, true);
-      if (G.descend>=DOOR_HOLD){ nextFloor(); return false; }
+      if (G.descend>=DOOR_HOLD){ emit('door:cycled'); return false; }
     } else {
       G.descend = Math.max(0, G.descend - dt*2.5);
     }
@@ -4035,6 +4035,10 @@ on('settings:changed', key => {
 on('resize', ()=>{ if (G) paintSplashPlan(); });
 on('flash', flash);
 on('sfx', (n, ...a) => Audio_[n](...a));
+on('stat', k => { runStat[k]++; });
+on('caught', caught);
+on('clock:out', outOfTime);
+on('door:cycled', nextFloor);
 loadSettings();
 applySettings();
 buildSettingsUI();
