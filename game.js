@@ -38,7 +38,6 @@ import * as _C from './config/constants.js';
 const { BAKE_FLOOR, BATT_MAX, BRUSH_NOISE, CATCH_R, DARK_ROOM, DOOR_AJAR, DOOR_EASE, DOOR_HOLD, DOOR_NOISE, FLICKER_DEPTH, HAND_OFF, HOP_FALL, LEAK_HEADSTART, LEAK_LURE, LEAK_NOISE_BASE, LEAK_NOISE_GAIN, LEAK_RETREAT, LEAK_SPREAD, LIGHT_FADE, LIGHT_FADE_STEPS, LOUD, LS, MAP_H, MAP_W, MASK_TAU, NOISE_FS, PIPE_FAR, PIPE_GAP, R, RA, RADAR_DRAIN, RENDER_SCALES, REPAIR_DECAY, REPAIR_NOISE, REPAIR_REACH, SCALE_BAD_FRAMES, SCALE_DROP_MS, SCALE_GOOD_FRAMES, SCALE_RECOVER_MS, SHEEN_STEPS, SPRINT, SPRINT_NOISE, TILE, VHS_PASS, VIEW_DEG, VIEW_FADE_FAR, VIEW_FADE_NEAR, VIEW_HALF, VIEW_MID, VIEW_RANGE, VIEW_RAYS, VIEW_T, WALK, WALL, WALL_FACE, WET_DRAW, WET_EDGE, WET_FALL, WET_RISE, FLOOR } = _C;
 let frameMsAvg = 16.7;
 let badRun = 0, goodRun = 0;
-let waterDirty = false;
 const sheenBuckets = Array.from({length:SHEEN_STEPS}, ()=>({ n:0, x0:0, y0:0, x1:0, y1:0 }));
 /* Scratch for the sheen pass in render(): one record per alpha bucket (SHEEN_STEPS,
    see config/constants.js), reused every frame so the pass allocates nothing. */
@@ -146,12 +145,12 @@ let wetDirtyX0=-1, wetDirtyY0=-1, wetDirtyX1=-1, wetDirtyY1=-1;
    the player's splashes — so neither can mark the water dirty without also
    saying where. */
 function markWetTile(i){
-  waterDirty = true;
+  if (G) G.dirty.water = true;
   const x = i % MAP_W, y = (i / MAP_W) | 0;
   if (x < wetDirtyX0) wetDirtyX0 = x; else if (x > wetDirtyX1) wetDirtyX1 = x;
   if (y < wetDirtyY0) wetDirtyY0 = y; else if (y > wetDirtyY1) wetDirtyY1 = y;
 }
-function markWetAll(){ waterDirty = true; wetDirtyX0=wetDirtyY0=wetDirtyX1=wetDirtyY1=-1; }
+function markWetAll(){ if (G) G.dirty.water = true; wetDirtyX0=wetDirtyY0=wetDirtyX1=wetDirtyY1=-1; }
 
 /* ============================================================
    LEVEL STAGES
@@ -579,7 +578,8 @@ function buildFloor(floorNum, seed){
     waterDist: null, wetByDist: [], wetFront: 0, wetMaxDist: 0, wetSum: 0,
     wetEdgeD: -1, wetIndexAtDist: null,
     wetCv: null, wetCtx: null, wetImg: null,
-    postCv: null
+    postCv: null,
+    dirty: { water: true, mask: true }
   });
 
   /* The wall index list, before anything reads it. Same row-major order as the
@@ -737,7 +737,7 @@ function initFlood(){
   G.wetCv.width = MAP_W; G.wetCv.height = MAP_H;
   G.wetCtx = G.wetCv.getContext('2d');
   G.wetImg = G.wetCtx.createImageData(MAP_W, MAP_H);
-  for (let i=0;i<MAP_W*MAP_H;i++) G.wetImg.data[i*4+3] = 255;
+  for (let i=0;i<MAP_W*MAP_H;i++) G.wetImg.data[i*4+3] = 0;
   /* Start the room the player spawns in already damp. Otherwise the first
      seconds of a floor are a pristine yellow carpet with no cue at all, and
      the water reads as a thing that switched on rather than a thing that has
@@ -775,7 +775,7 @@ function initFlood(){
      from update() — so the render that follows in that same frame has no pack
      of its own any more, and the fresh G.wetImg (alpha 255, RGB 0) would paint
      black over the new carpet for one frame. */
-  packWet();
+  if (G) G.dirty.water = true;
   markWetAll();
 }
 
@@ -878,7 +878,7 @@ function sealLeak(L){
      and the level would snap from flooded to dry on the frame you fixed the
      pipe — the single most visible bug available in this feature. The field is
      already the right answer: water recedes from where it spread. */
-  packWet();
+  if (G) G.dirty.water = true;
 }
 
 /* Advance the water one frame.
@@ -1389,6 +1389,14 @@ function packMask(){
   G.maskCtx.putImageData(G.maskImg, 0, 0);
 }
 
+/* Pack any stale pixel images now, so render() never draws a frame from a
+   half-updated buffer. The pack functions themselves still gate on wantPixels,
+   so this is a no-op in headless mode. */
+function syncImages(){
+  if (G.dirty.water){ packWet(); G.dirty.water = false; }
+  if (G.dirty.mask){ packMask(); G.dirty.mask = false; }
+}
+
 /* Ease the drawn mask toward the freshly traced one.
    The mask is per TILE, so even retraced every frame it is still quantised:
    as you walk, tiles enter and leave the fan one at a time and the boundary of
@@ -1418,7 +1426,7 @@ function smoothMask(dt){
 function snapMask(){
   traceViewCone(true);
   G.maskArr.set(G.maskTgt);
-  packMask();
+  if (G) G.dirty.mask = true;
 }
 
 /* NOTE: x/y here may be FRACTIONAL world coords (collision), so they MUST be
@@ -2202,7 +2210,7 @@ function update(dt){
      moved while it was off rather than dropping it. */
   if (wantVision){
     if (traceViewCone(false) || G.scopeDirty){ combineMask(); G.scopeDirty = false; }
-    if (smoothMask(dt)) packMask();
+    if (smoothMask(dt)) if (G) G.dirty.mask = true;
   }
 
   /* --- the flood ---
@@ -2212,7 +2220,6 @@ function update(dt){
      cannot be further than LEAK_SPREAD seconds of travel from the source, so
      the outer ring is skipped entirely instead of being tested and rejected. */
   tickFlood(dt);
-  if (waterDirty){ packWet(); waterDirty = false; }
 
   tickLeakNoise(dt);
   tickRepair(dt, mv.moving, mv.bumped);
@@ -2588,6 +2595,7 @@ function outOfTime(){ lose('THE CLOCK RAN OUT'); }
 
   function render(t){
     if (!G) return;
+    syncImages();
     const p=G.player;
 
     // camera follow + breathing jitter.
@@ -4028,7 +4036,7 @@ function applySettings(){
 }
 
 on('settings:changed', key => {
-  if (key === '*' || key === 'waterHue' || key === 'waterContrast') waterDirty = true;
+  if ((key === '*' || key === 'waterHue' || key === 'waterContrast') && G) G.dirty.water = true;
   applySettings();
   syncSettingsUI();
 });
