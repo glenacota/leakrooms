@@ -32,7 +32,7 @@ import { G, setG } from './sim/state.js';
 import { keys } from './sim/keys.js';
 import { genLevel } from './sim/level.js';
 import { SETTINGS, loadSettings, saveSettings, resetSettings, setOption } from './settings/store.js';
-import { on } from './util/events.js';
+import { on, emit } from './util/events.js';
 import * as _C from './config/constants.js';
 const { BAKE_FLOOR, BATT_MAX, BRUSH_NOISE, CATCH_R, DARK_ROOM, DOOR_AJAR, DOOR_EASE, DOOR_HOLD, DOOR_NOISE, FLICKER_DEPTH, HAND_OFF, HOP_FALL, LEAK_HEADSTART, LEAK_LURE, LEAK_NOISE_BASE, LEAK_NOISE_GAIN, LEAK_RETREAT, LEAK_SPREAD, LIGHT_FADE, LIGHT_FADE_STEPS, LOUD, LS, MAP_H, MAP_W, MASK_TAU, NOISE_FS, PIPE_FAR, PIPE_GAP, R, RA, RADAR_DRAIN, RENDER_SCALES, REPAIR_DECAY, REPAIR_NOISE, REPAIR_REACH, SCALE_BAD_FRAMES, SCALE_DROP_MS, SCALE_GOOD_FRAMES, SCALE_RECOVER_MS, SHEEN_STEPS, SPRINT, SPRINT_NOISE, TILE, VHS_PASS, VIEW_DEG, VIEW_FADE_FAR, VIEW_FADE_NEAR, VIEW_HALF, VIEW_MID, VIEW_RANGE, VIEW_RAYS, VIEW_T, WALK, WALL, WALL_FACE, WET_DRAW, WET_EDGE, WET_FALL, WET_RISE, FLOOR } = _C;
 let frameMsAvg = 16.7;
@@ -857,12 +857,12 @@ function sealLeak(L){
      that reads it as something else will be wrong. */
   L.repair = 0;
   G.leaksOpen = Math.max(0, G.leaksOpen-1);
-  Audio_.seal();
+  emit('sfx', 'seal', );
   /* The recession only starts when the LAST pipe is closed, so the water keeps
      advancing between the first repair and the fourth. That is deliberate: it
      means sealing one pipe out of four is progress and not relief, and the floor
      does not stop drowning the moment you feel good about yourself. */
-  flash(G.leaksOpen
+  emit('flash', G.leaksOpen
     ? `PIPE SEALED \u2014 ${G.leaksOpen} STILL OPEN`
     : 'EVERY PIPE SEALED \u2014 GET BACK TO THE DOOR');
   G.stat.sealed++;
@@ -1594,8 +1594,8 @@ function brush(a, p){
   a.state='HUNT'; a.target={x:p.x, y:p.y}; a.t=0;
   a.rise=Math.max(a.rise, 0.85);
   emitNoise(BRUSH_NOISE, p.x, p.y);
-  flash('IT TOUCHED YOU');
-  Audio_.rattle(1);
+  emit('flash', 'IT TOUCHED YOU');
+  emit('sfx', 'rattle', 1);
 }
 
 /* Loud = sprinting, hitting a wall, cycling a door.
@@ -1611,7 +1611,7 @@ function alert(a, x, y, power){
     if (!loud) return;               // walking past a sleeping coil is safe
     a.state='RISING'; a.rise=0; a.target={x,y};
     a.stepT = 0;
-    Audio_.rattle(a.born>0 ? 1 : 0.55);
+    emit('sfx', 'rattle', a.born>0 ? 1 : 0.55);
     return;
   }
   if (a.born>0) return;              // the hunter's opening grace period
@@ -1830,8 +1830,8 @@ function tickClock(dt){
   if (G.clock <= 0){ outOfTime(); return false; }
   if (G.clock <= 30 && !G.clockAnnounced){
     G.clockAnnounced = true;
-    flash('THIRTY SECONDS \u2014 THE WATER IS AT YOUR FEET');
-    Audio_.sting();
+    emit('flash', 'THIRTY SECONDS \u2014 THE WATER IS AT YOUR FEET');
+    emit('sfx', 'sting', );
   }
   return true;
 }
@@ -1841,11 +1841,11 @@ function tickBattery(dt){
   const p = G.player;
   if (G.radar){
     G.batt -= RADAR_DRAIN*dt;
-    if (G.batt<=0){ G.batt=0; G.radar=false; flash('NO POWER — THE RADAR IS DEAD'); }
+    if (G.batt<=0){ G.batt=0; G.radar=false; emit('flash', 'NO POWER — THE RADAR IS DEAD'); }
   }
   for (const b of G.batteries){
     if (b.taken) continue;
-    if (Math.hypot(b.x-p.x,b.y-p.y)<0.85){ b.taken=true; G.batt=Math.min(BATT_MAX,G.batt+50); flash('+50 BATTERY'); }
+    if (Math.hypot(b.x-p.x,b.y-p.y)<0.85){ b.taken=true; G.batt=Math.min(BATT_MAX,G.batt+50); emit('flash', '+50 BATTERY'); }
   }
 }
 
@@ -1904,8 +1904,8 @@ function tickMovement(dt){
     if (p.stepT<=0){
       p.stepT = sprinting ? 0.26 : 0.46;
       p.stepDur = p.stepT;
-      if (inWater) Audio_.splash(sprinting?1:0.5, preWet, stepPow);
-      else       Audio_.step(sprinting?1:0.5, stepPow);
+      if (inWater) emit('sfx', 'splash', sprinting?1:0.5, preWet, stepPow);
+      else       emit('sfx', 'step', sprinting?1:0.5, stepPow);
     }
     p.moving = moving;
     /* Waking pushes a ripple ahead of you. It is a readable trace of where you
@@ -1997,7 +1997,7 @@ function tickLeakNoise(dt){
            in it, which is the opposite of the positional cue it exists to be.
            Loud and slow reads as "a pipe"; fast and loud reads as a texture. */
         p.dripT = Math.max(0.28, 0.28 + Math.min(1, ld/14)*1.5);
-        Audio_.drip(1 - Math.min(1, ld/14));
+        emit('sfx', 'drip', 1 - Math.min(1, ld/14));
       }
     }
   } else {
@@ -2020,7 +2020,7 @@ function tickRepair(dt, moving, bumped){
   G.atLeak = !!L;
   if (L){
     if (!moving && !bumped){
-      if (L.repair === 0) Audio_.wrench(REPAIR_NOISE);
+      if (L.repair === 0) emit('sfx', 'wrench', REPAIR_NOISE);
       L.repair = Math.min(REPAIR_TIME, L.repair + dt);
       sustainedNoise(REPAIR_NOISE, L.sx+0.5, L.sy+0.5, true);
       if (L.repair >= REPAIR_TIME){
@@ -2092,7 +2092,7 @@ function tickRadarReveal(){
   for (const gr of G.graffiti){
     if (gr.seen) continue;
     if (!onScreen(gr.x+0.5, gr.y+0.5)) continue;
-    gr.seen=true; flash(gr.text);
+    gr.seen=true; emit('flash', gr.text);
   }
 }
 
@@ -2114,7 +2114,7 @@ function tickDoor(dt){
       if (Math.hypot(e.x+0.5-p.x, e.y+0.5-p.y) < 1.25){ onExit=true; break; }
     }
     if (onExit){
-      if (G.descend===0) Audio_.door(DOOR_NOISE);
+      if (G.descend===0) emit('sfx', 'door', DOOR_NOISE);
       G.descend += dt;
       sustainedNoise(DOOR_NOISE, p.x, p.y, true);
       if (G.descend>=DOOR_HOLD){ nextFloor(); return false; }
@@ -2150,7 +2150,7 @@ function tickDoor(dt){
 /* --- the mix --- */
 function tickAudio(){
   const prox = Math.max(0, 1 - G.nearest/13);
-  Audio_.drone(prox * (0.35 + G.seenBy*0.65));
+  emit('sfx', 'drone', prox * (0.35 + G.seenBy*0.65));
   /* The two beds. The floor is the NOISE bar itself, so a filling bar is a
      filling room: this is the line that makes the meter true rather than
      decorative. The leak bed is the pipes' total, pulled down by how far the
@@ -2159,8 +2159,8 @@ function tickAudio(){
      NUMBER shows — while the bar's yellow fill is the player's own share. The
      mix and the meter are both readings of the same frame, neither of them a
      separate mood. */
-  Audio_.noiseFloor(G.noise/NOISE_FS);
-  Audio_.leakBed(G.leakTotal/NOISE_FS, G.leakDist);
+  emit('sfx', 'noiseFloor', G.noise/NOISE_FS);
+  emit('sfx', 'leakBed', G.leakTotal/NOISE_FS, G.leakDist);
 }
 
 function update(dt){
@@ -4033,6 +4033,8 @@ on('settings:changed', key => {
 });
 // textures subscription registered at import of render/textures.js; plan rebuild after.
 on('resize', ()=>{ if (G) paintSplashPlan(); });
+on('flash', flash);
+on('sfx', (n, ...a) => Audio_[n](...a));
 loadSettings();
 applySettings();
 buildSettingsUI();
