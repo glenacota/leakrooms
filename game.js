@@ -22,6 +22,8 @@ import { PAL } from './config/palette.js';
 import { DIFFICULTIES, WATER_TINTS } from './config/presets.js';
 import { SETTINGS_DEFAULTS, SETTINGS_SCHEMA, SETTINGS_KEY, settingsValid } from './settings/schema.js';
 import { FLOORS, FLOOR_CLOCK, REPAIR_TIME, HUNT_BASE, HUNT_STEP, applyDifficulty } from './config/tuning.js';
+import { SETTINGS, loadSettings, saveSettings, resetSettings, setOption } from './settings/store.js';
+import { on } from './util/events.js';
 import * as _C from './config/constants.js';
 const { BAKE_FLOOR, BATT_MAX, BRUSH_NOISE, CATCH_R, DARK_ROOM, DOOR_AJAR, DOOR_EASE, DOOR_HOLD, DOOR_NOISE, FLICKER_DEPTH, HAND_OFF, HOP_FALL, LEAK_HEADSTART, LEAK_LURE, LEAK_NOISE_BASE, LEAK_NOISE_GAIN, LEAK_RETREAT, LEAK_SPREAD, LIGHT_FADE, LIGHT_FADE_STEPS, LOUD, LS, MAP_H, MAP_W, MASK_TAU, NOISE_FS, PIPE_FAR, PIPE_GAP, R, RA, RADAR_DRAIN, RENDER_SCALES, REPAIR_DECAY, REPAIR_NOISE, REPAIR_REACH, SCALE_BAD_FRAMES, SCALE_DROP_MS, SCALE_GOOD_FRAMES, SCALE_RECOVER_MS, SHEEN_STEPS, SPRINT, SPRINT_NOISE, TILE, VHS_PASS, VIEW_DEG, VIEW_FADE_FAR, VIEW_FADE_NEAR, VIEW_HALF, VIEW_MID, VIEW_RANGE, VIEW_RAYS, VIEW_T, WALK, WALL, WALL_FACE, WET_DRAW, WET_EDGE, WET_FALL, WET_RISE, FLOOR } = _C;
 const cvs = document.getElementById('game');
@@ -254,48 +256,14 @@ function adaptResolution(ms){
    default for THAT FIELD and leave the rest alone. Validating per field is
    what makes that true. */
 
-let SETTINGS = Object.assign({}, SETTINGS_DEFAULTS);
 
 
 /* Read the store. EVERY failure path returns defaults for the affected field
    and never throws: localStorage is absent in the headless suite, throws on
    some file:// origins, and can be disabled entirely in private browsing. A
    settings system is never allowed to be the reason the game does not start. */
-function loadSettings(){
-  /* Always load over DEFAULTS rather than over whatever is live. The first
-     version overlaid onto the current SETTINGS, which meant the result
-     depended on WHEN it was called: a field absent from the blob kept
-     whatever value it happened to hold, so loading a partial blob after a
-     Hard run left you Hard. Loading is a total function of the blob and
-     nothing else. */
-  SETTINGS = Object.assign({}, SETTINGS_DEFAULTS);
-  let raw = null;
-  try { raw = localStorage.getItem(SETTINGS_KEY); } catch(e){ return SETTINGS; }
-  if (!raw) return SETTINGS;
-  let obj = null;
-  try { obj = JSON.parse(raw); } catch(e){ return SETTINGS; }
-  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return SETTINGS;
-  for (const k of Object.keys(SETTINGS_SCHEMA)){
-    if (Object.prototype.hasOwnProperty.call(obj, k) && settingsValid(k, obj[k])){
-      SETTINGS[k] = obj[k];
-    }
-  }
-  return SETTINGS;
-}
 
-function saveSettings(){
-  try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(SETTINGS)); return true; }
-  catch(e){ return false; }
-}
 
-function resetSettings(){
-  SETTINGS = Object.assign({}, SETTINGS_DEFAULTS);
-  /* Same reason as setOption's water keys: the default tint may differ from the
-     one on screen, and reset writes SETTINGS without going through setOption. */
-  markWetAll();
-  applySettings();
-  saveSettings();
-}
 
 /* Push the store into everything that reads a tuning value. Called on load and
    on every change from the modal, so a setting takes effect immediately rather
@@ -5268,17 +5236,6 @@ function resetRun(){
   disarmReset();
 }
 
-function setOption(key, value){
-  if (!settingsValid(key, value)) return false;
-  SETTINGS[key] = value;
-  /* packWet bakes the tint into the pixels, so a new tint is a stale image even
-     though G.wetArr has not moved. */
-  if (key==='waterHue' || key==='waterContrast') markWetAll();
-  applySettings();
-  saveSettings();
-  syncSettingsUI();
-  return true;
-}
 
 function syncSettingsUI(){
   // sliders
@@ -5683,6 +5640,11 @@ let lastRenderStart = performance.now();
 resize();
 buildPatterns();
 buildGlowSprite();
+on('settings:changed', key => {
+  if (key === '*' || key === 'waterHue' || key === 'waterContrast') waterDirty = true;
+  applySettings();
+  syncSettingsUI();
+});
 loadSettings();
 applySettings();
 buildSettingsUI();
