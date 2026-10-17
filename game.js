@@ -23,6 +23,8 @@ import { DIFFICULTIES, WATER_TINTS } from './config/presets.js';
 import { SETTINGS_DEFAULTS, SETTINGS_SCHEMA, SETTINGS_KEY, settingsValid } from './settings/schema.js';
 import { FLOORS, FLOOR_CLOCK, REPAIR_TIME, HUNT_BASE, HUNT_STEP, applyDifficulty } from './config/tuning.js';
 import { Audio_ } from './src/audio/index.js';
+import { G, setG } from './sim/state.js';
+import { keys } from './sim/keys.js';
 import { SETTINGS, loadSettings, saveSettings, resetSettings, setOption } from './settings/store.js';
 import { on } from './util/events.js';
 import * as _C from './config/constants.js';
@@ -470,7 +472,6 @@ function genMaze(rng){
 /* ============================================================
    FLOOR STATE
    ============================================================ */
-let G = null;                // the whole floor lives on G — null until the first buildFloor
 
 /* ---- HEADLESS SWITCHES ------------------------------------------------
    Two subsystems exist only to feed pixels to a canvas: packing the mask
@@ -1232,7 +1233,7 @@ function buildFloor(floorNum, seed){
      nothing floor-scoped can outlive the floor it describes. The buffers are
      preallocated because the bakes write through G from their first line;
      the fields the placement code decides are assigned after it runs. */
-  G = {
+  setG({
     floor: floorNum,
     seed,
     grid, at, inB, los,
@@ -1274,7 +1275,7 @@ function buildFloor(floorNum, seed){
     wetEdgeD: -1, wetIndexAtDist: null,
     wetCv: null, wetCtx: null, wetImg: null,
     postCv: null
-  };
+  });
 
   /* The wall index list, before anything reads it. Same row-major order as the
      scan it replaces, so the cone's wall pass writes the same tiles in the same
@@ -2318,7 +2319,6 @@ function alert(a, x, y, power){
 /* ============================================================
    UPDATE
    ============================================================ */
-const keys = {};
 
 /* ENTER is the confirm key for whichever modal is up: start, resume, rewind,
    run again. It also fires when a button already has focus, so guard against
