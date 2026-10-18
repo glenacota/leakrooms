@@ -4,7 +4,7 @@
    This file decides which of those tiles the player can see right now.
 
    There is one mask, built in one place (combineMask):
-     radar on    everything, at full brightness
+     radar on    everything
      radar off   room scope x distance fade x cone of vision
 
    The three terms are:
@@ -243,10 +243,10 @@ export function combineMask(){
      with hard zeros in it eats into the lit side of every edge. The mask canvas is
      drawn with bilinear scaling from 76x76 up to full screen, which already
      softens edges across about a tile without leaking. */
-  /* Radar: keep the normally visible part fully lit; only the dark part becomes 20% transparent. */
+  /* Radar: keep the normally visible part fully lit; only the dark part becomes 10% transparent. */
   if (G.radar){
     const tgt = G.maskTgt;
-    for (let i=0;i<tgt.length;i++) if (tgt[i] < 0.5) tgt[i] = 0.2;
+    for (let i=0;i<tgt.length;i++) if (tgt[i] < 0.5) tgt[i] = 0.1;
   }
 }
 
