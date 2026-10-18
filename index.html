@@ -318,6 +318,18 @@
       <button id="btn-again">RUN IT AGAIN</button>
     </div>
   </div>
+<!-- ============ FATAL ============
+       The error boundary's card, and deliberately NOT one of the SCREENS: it is
+       not a state of the run but the end of one, so show()/hideAll() never
+       touch it and nothing in the run can cover it. Reload is the only offer,
+       because a run that has stopped drawing itself has nothing worth saving. -->
+  <div id="fatal" class="fatal hidden">
+    <div class="tape">
+      <h1 class="bad">SYSTEM FAULT</h1>
+      <p class="sub">THE FLOOR STOPPED ANSWERING</p>
+      <button id="btn-reload"><b>RELOAD</b></button>
+    </div>
+  </div>
 </div>
 
 <script type="module" src="src/main.js"></script>

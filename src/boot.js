@@ -17,12 +17,32 @@ import { bindRun } from './game/run.js';
 import { bindDom } from './ui/bind.js';
 import { bindInput } from './ui/input.js';
 import { bindButtons } from './ui/buttons.js';
-import { setFrameHooks } from './game/loop.js';
+import { setFatalHook, setFrameHooks } from './game/loop.js';
 import { render } from './render/render.js';
 import { updateHUD, setPrompt } from './ui/hud.js';
 import { frame } from './game/loop.js';
 
+/* The card. One function for every route into it — the loop's third failure, an
+   error nobody caught, a rejection nobody awaited — because a boundary with
+   three entry points and three copies of the behaviour is a boundary that will
+   eventually have two that disagree. It only removes the class; the overlay is
+   the only thing in the shell with no show() to call, so it manages itself. */
+function showFatal(err){
+  if (err) console.error(err);
+  const el = document.getElementById('fatal');
+  if (el) el.classList.remove('hidden');
+}
+
 export function boot(){
+  /* The error boundary goes up FIRST, before the code it is there to catch: a
+     boot that throws, a listener that throws, a rejection nobody awaited, and a
+     frame that throws all end at the same card, which is the only thing the
+     player can act on. Without it the failure is a black screen or a frozen
+     one, and neither says anything. */
+  setFatalHook(showFatal);
+  window.addEventListener('error',              e => showFatal(e.error || e));
+  window.addEventListener('unhandledrejection', e => showFatal(e.reason || e));
+  document.getElementById('btn-reload').onclick = ()=>globalThis.location?.reload();
   resize();
   buildPatterns();
   buildGlowSprite();
@@ -50,8 +70,16 @@ export function boot(){
      title sound like a place. The browser will hold it suspended until a gesture
      arrives — Audio_.unlock(), called from the keydown handler and from
      advanceSplash — and everything is built and wired in the meantime. */
-  Audio_.init();
-  syncAmbience();
+  /* Audio is a luxury the game plays without: a browser that hands over no
+     AudioContext, or a context that fails to build, must not cost the player
+     the floor. The rest of the run is silent, which is a fair trade for
+     starting. */
+  try {
+    Audio_.init();
+    syncAmbience();
+  } catch (err){
+    console.warn('audio unavailable:', err);
+  }
   /* The splash plan is the level the first run is built from, so the boot floor
      is built from RUN_SEED instead of a throwaway constant: painting it is then
      a copy of what already exists rather than a second generation of the maze. */

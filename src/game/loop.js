@@ -59,47 +59,65 @@ const SIM_STEP    = 1/60;
 const MAX_STEPS   = 6;
 let   simAcc      = 0;
 let   last        = performance.now();
+/* THE ERROR BOUNDARY. A throw used to end the game silently: frame() armed its
+   own successor on its LAST line, so the first exception stopped the loop dead
+   and the player was left staring at a frozen floor with the clock still
+   running. The successor is now requested FIRST, so the next frame exists
+   whatever this one does, and the work is wrapped. Two frames in a row failing
+   is usually a hitch that recovers; three is a loop that is going to keep
+   throwing forever, so the loop stops and hands the shell the error instead. */
+const MAX_FAILURES = 3;
+let fails = 0, dead = false;
+let fatalHook = ()=>{};
+export function setFatalHook(fn){ fatalHook = fn; }
+
 export function frame(now){
-  let dt = (now-last)/1000;
-  last = now;
-  /* A tab that was in the background comes back with an enormous dt. Capping
-     the accumulator rather than each step is what stops the game from trying to
-     catch up on ten seconds of simulation in one frame. */
-  simAcc = Math.min(simAcc + dt, SIM_STEP*MAX_STEPS);
-
-  if (STATE==='play'){
-    let steps = 0;
-    while (simAcc >= SIM_STEP && steps < MAX_STEPS){
-      addRunTime(SIM_STEP);
-      update(SIM_STEP);
-      simAcc -= SIM_STEP;
-      steps++;
-      /* update() can end the frame — a death, or the door cycling into the next
-         floor. Stop stepping and do not let a stale accumulator carry into the
-         new floor. */
-      if (STATE!=='play'){ simAcc = 0; break; }
-    }
-    setSimAlpha(simAcc / SIM_STEP);   // 0..1, where in the current step we are
-    /* Anything owed beyond MAX_STEPS is dropped rather than banked: on a machine
-       that cannot hold 60Hz the honest thing is to run slightly slow, not to
-       accumulate an unpayable debt. */
-    if (simAcc >= SIM_STEP) simAcc = 0;
-    afterUpdate();
-  } else {
-    simAcc = 0;
-  }
-  /* Frame time is measured across the WHOLE frame — simulation, render and the
-     browser's own compositing — because that is what the player experiences as
-     smoothness and it is the only number the adaptive resolution can honestly
-     respond to. Sampled before render() so the figure covers the interval we
-     are about to work in. */
-  const frameMs = now - lastRenderStart;
-  lastRenderStart = now;
-  if (frameMs > 0 && frameMs < 1000) adaptResolution(frameMs);
-
-  if (G) renderHook(now);
-
+  if (dead) return;
   requestAnimationFrame(frame);
+  try {
+    let dt = (now-last)/1000;
+    last = now;
+    /* A tab that was in the background comes back with an enormous dt. Capping
+       the accumulator rather than each step is what stops the game from trying to
+       catch up on ten seconds of simulation in one frame. */
+    simAcc = Math.min(simAcc + dt, SIM_STEP*MAX_STEPS);
+
+    if (STATE==='play'){
+      let steps = 0;
+      while (simAcc >= SIM_STEP && steps < MAX_STEPS){
+        addRunTime(SIM_STEP);
+        update(SIM_STEP);
+        simAcc -= SIM_STEP;
+        steps++;
+        /* update() can end the frame — a death, or the door cycling into the next
+           floor. Stop stepping and do not let a stale accumulator carry into the
+           new floor. */
+        if (STATE!=='play'){ simAcc = 0; break; }
+      }
+      setSimAlpha(simAcc / SIM_STEP);   // 0..1, where in the current step we are
+      /* Anything owed beyond MAX_STEPS is dropped rather than banked: on a machine
+         that cannot hold 60Hz the honest thing is to run slightly slow, not to
+         accumulate an unpayable debt. */
+      if (simAcc >= SIM_STEP) simAcc = 0;
+      afterUpdate();
+    } else {
+      simAcc = 0;
+    }
+    /* Frame time is measured across the WHOLE frame — simulation, render and the
+       browser's own compositing — because that is what the player experiences as
+       smoothness and it is the only number the adaptive resolution can honestly
+       respond to. Sampled before render() so the figure covers the interval we
+       are about to work in. */
+    const frameMs = now - lastRenderStart;
+    lastRenderStart = now;
+    if (frameMs > 0 && frameMs < 1000) adaptResolution(frameMs);
+
+    if (G) renderHook(now);
+
+    fails = 0;
+  } catch (err){
+    if (++fails >= MAX_FAILURES){ dead = true; fatalHook(err); }
+  }
 }
 let lastRenderStart = performance.now();
 /* Called once per frame with the measured frame time. Kept out of resize() so
