@@ -2,7 +2,7 @@ import { BATT_MAX } from '../config/constants.js';
 import { FLOORS } from '../config/tuning.js';
 import { DIFFICULTIES } from '../config/presets.js';
 import { SETTINGS } from '../settings/store.js';
-import { Audio_ } from '../src/audio/index.js';
+import { Audio_ } from '../audio/index.js';
 import { G } from '../sim/state.js';
 import { clockText, disarmReset, lives, RUN_SEED, setState, STATE } from '../game/run.js';
 import { hideAll, show } from './dom.js';

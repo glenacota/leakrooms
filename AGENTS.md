@@ -7,23 +7,23 @@ LEAKROOMS — 2D top-down puzzle/stealth. Vanilla JS + canvas, zero dependencies
 ## Files
 
 - `index.html` — markup, HUD, screens (splash/order/pause/dead/win); settings live as a page of the pause ticket, not a screen
-- `src/main.js` — composition root: installs the boot and starts the frame loop
-- `src/boot.js` — boot order: wiring, settings, audio, floor 0, then the loop
-- `game/` — run state machine, floor assembly, fixed-step loop
-- `sim/` — pure simulation: collision, noise, flood, leaks, regions, lightmap, vision, spawn, agents, player, clock, door, radar, tick stages, update
-- `render/` — canvas, textures, bake, pack, entities, passes (ground/markers/actors/lighting/leaks/post), splash plan
-- `ui/` — DOM, HUD, splash, terms, pause ticket, settings panel, input, buttons, bindings
-- `config/` — constants, levels, palette, presets, tuning
-- `settings/` — schema and store
+- `src/main.js` — entry point: `import {boot} from './boot.js'; boot();`
+- `src/boot.js` — composition root: boot order, all event wiring, settings, audio, floor 0, then the loop
+- `src/sim/` — pure simulation: collision, noise, flood, leaks, regions, lightmap, vision, spawn, agents, player, clock, door, radar, tick stages, update
+- `src/render/` — canvas, textures, bake, pack, entities, passes (ground/markers/actors/lighting/leaks/post), splash plan
+- `src/ui/` — DOM, HUD, splash, terms, pause ticket, settings panel, input, buttons, bindings
+- `src/game/` — run state machine, floor assembly, fixed-step loop
+- `src/cast/` — the rigger and the stalker
 - `src/audio/` — synthesized audio
-- `cast/` — the rigger and the stalker
-- `util/` — rng, hash, grid, events, view
+- `src/config/` — constants, levels, palette, presets, tuning
+- `src/settings/` — schema and store
+- `src/util/` — rng, hash, grid, events, view
 - `style.css` — CRT shell, mono-yellow palette, tape UI
 - `tests/` — headless regression suite (`npm test`, parallel files, exit 0 = pass)
 
 ## Architecture
 
-No build step. `src/main.js` is the entry point and is loaded via `<script type="module">`; the rest of the tree is native ES modules. CORS blocks `file://`, so serve the repo (`npm run serve`). The cast is drawn inline in `render/entities.js`.
+No build step. `src/main.js` is the entry point and is loaded via `<script type="module">`; the rest of the tree is native ES modules. CORS blocks `file://`, so serve the repo (`npm run serve`). The cast is drawn inline in `src/render/entities.js`.
 
 State lives in module-level `let` bindings. `G` holds per-level state (grid, player, agents, `leaks`, flood, the one `exitTiles` door, `clock`). `LEVELS` is the fixed five-level content table; `SETTINGS` is global config, persisted to `localStorage` under `leakroom.settings.v1`.
 

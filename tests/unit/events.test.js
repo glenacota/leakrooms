@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { on, off, emit, clearAll } from '../../util/events.js';
+import { on, off, emit, clearAll } from '../../src/util/events.js';
 
 test('emit calls listeners in order', () => {
   clearAll();

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mulberry32 } from '../../util/rng.js';
-import { hash2 } from '../../util/hash.js';
+import { mulberry32 } from '../../src/util/rng.js';
+import { hash2 } from '../../src/util/hash.js';
 
 test('mulberry32 deterministic', () => {
   const a = mulberry32(0xC0FFEE)();

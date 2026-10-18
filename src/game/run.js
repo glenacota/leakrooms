@@ -3,7 +3,7 @@ import { LEVELS, LEVELS_N } from '../config/levels.js';
 import { DIFFICULTIES } from '../config/presets.js';
 import { FLOOR_CLOCK, FLOORS } from '../config/tuning.js';
 import { SETTINGS } from '../settings/store.js';
-import { Audio_ } from '../src/audio/index.js';
+import { Audio_ } from '../audio/index.js';
 import { emit, on } from '../util/events.js';
 import { initFlood } from '../sim/flood.js';
 import { keys } from '../sim/keys.js';

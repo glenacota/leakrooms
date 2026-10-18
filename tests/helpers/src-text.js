@@ -35,7 +35,7 @@ export function readSrc(){
     const p2 = path.join(root, f);
     if (fs.existsSync(p2)) out += '\n' + fs.readFileSync(p2, 'utf8');
   }
-  for (const dir of ['src', 'config', 'util', 'sim', 'render', 'cast']) {
+  for (const dir of ['src']) {
     const d = path.join(root, dir);
     if (fs.existsSync(d)) {
       for (const f of jsFilesIn(d))

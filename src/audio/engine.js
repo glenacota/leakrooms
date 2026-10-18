@@ -1,4 +1,4 @@
-import { SETTINGS } from '../../settings/store.js';
+import { SETTINGS } from '../settings/store.js';
 
 export const engine = {
   ctx:null, ok:false,

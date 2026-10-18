@@ -1,7 +1,7 @@
 import { DIFFICULTIES } from '../config/presets.js';
 import { SETTINGS } from '../settings/store.js';
 import { applyDifficulty } from '../config/tuning.js';
-import { Audio_ } from '../src/audio/index.js';
+import { Audio_ } from '../audio/index.js';
 import { on } from '../util/events.js';
 import { G } from '../sim/state.js';
 import { paintSplashPlan } from '../render/splash-plan.js';

@@ -1,60 +1,60 @@
-import { mulberry32 } from '../../util/rng.js';
-import { hash2 } from '../../util/hash.js';
-import { LEVELS, LEVELS_N } from '../../config/levels.js';
-import { PAL } from '../../config/palette.js';
-import { DIFFICULTIES, WATER_TINTS } from '../../config/presets.js';
-import { SETTINGS_DEFAULTS, SETTINGS_SCHEMA, SETTINGS_KEY, settingsValid } from '../../settings/schema.js';
-import { FLOORS, FLOOR_CLOCK, REPAIR_TIME, HUNT_BASE, HUNT_STEP, applyDifficulty } from '../../config/tuning.js';
+import { mulberry32 } from '../../src/util/rng.js';
+import { hash2 } from '../../src/util/hash.js';
+import { LEVELS, LEVELS_N } from '../../src/config/levels.js';
+import { PAL } from '../../src/config/palette.js';
+import { DIFFICULTIES, WATER_TINTS } from '../../src/config/presets.js';
+import { SETTINGS_DEFAULTS, SETTINGS_SCHEMA, SETTINGS_KEY, settingsValid } from '../../src/settings/schema.js';
+import { FLOORS, FLOOR_CLOCK, REPAIR_TIME, HUNT_BASE, HUNT_STEP, applyDifficulty } from '../../src/config/tuning.js';
 import { Audio_ } from '../../src/audio/index.js';
-import { drawRigger } from '../../cast/rigger.js';
-import { drawStalker } from '../../cast/stalker.js';
-import { TAU } from '../../cast/primitives.js';
-import { cvs, ctx, VW, VH, DPR, SCALE, resize, renderScaleIdx, setRenderScaleIdx } from '../../render/canvas.js';
-import { carpetPat, wallPat, ceilPat, scanPat, grainFull, buildPatterns, buildGrainFull } from '../../render/textures.js';
-import { G, setG } from '../../sim/state.js';
-import { keys } from '../../sim/keys.js';
-import { view } from '../../util/view.js';
-import { makeLos } from '../../util/grid.js';
-import { solid, blocked, unstick, depenetrate, moveEnt } from '../../sim/collision.js';
-import { hearRadius, alertAgents, emitNoise, sustainedNoise, brush, alert } from '../../sim/noise.js';
-import { initFlood, seedSplash, wetAt, tickFlood, floodCover, takeWetBox } from '../../sim/flood.js';
-import { leakAt, leakReach, sealLeak, tickLeakNoise, tickRepair } from '../../sim/leaks.js';
-import { labelRegions, regionAt } from '../../sim/regions.js';
-import { computeLightArr } from '../../sim/lightmap.js';
+import { drawRigger } from '../../src/cast/rigger.js';
+import { drawStalker } from '../../src/cast/stalker.js';
+import { TAU } from '../../src/cast/primitives.js';
+import { cvs, ctx, VW, VH, DPR, SCALE, resize, renderScaleIdx, setRenderScaleIdx } from '../../src/render/canvas.js';
+import { carpetPat, wallPat, ceilPat, scanPat, grainFull, buildPatterns, buildGrainFull } from '../../src/render/textures.js';
+import { G, setG } from '../../src/sim/state.js';
+import { keys } from '../../src/sim/keys.js';
+import { view } from '../../src/util/view.js';
+import { makeLos } from '../../src/util/grid.js';
+import { solid, blocked, unstick, depenetrate, moveEnt } from '../../src/sim/collision.js';
+import { hearRadius, alertAgents, emitNoise, sustainedNoise, brush, alert } from '../../src/sim/noise.js';
+import { initFlood, seedSplash, wetAt, tickFlood, floodCover, takeWetBox } from '../../src/sim/flood.js';
+import { leakAt, leakReach, sealLeak, tickLeakNoise, tickRepair } from '../../src/sim/leaks.js';
+import { labelRegions, regionAt } from '../../src/sim/regions.js';
+import { computeLightArr } from '../../src/sim/lightmap.js';
 import {
   wantVision, setVision, castFan, traceViewCone, combineMask, scopeRoomLight,
   fadeRoomLight, smoothMask, snapMask, fixtureVis, onScreen,
-} from '../../sim/vision.js';
-import { genLevel } from '../../sim/level.js';
-import { spawnAgents } from '../../sim/spawn.js';
-import { updateAgent, randomFloorNear, tickAgents } from '../../sim/agents.js';
-import { update, tickAudio } from '../../sim/update.js';
-import { buildFloor } from '../../game/floor.js';
+} from '../../src/sim/vision.js';
+import { genLevel } from '../../src/sim/level.js';
+import { spawnAgents } from '../../src/sim/spawn.js';
+import { updateAgent, randomFloorNear, tickAgents } from '../../src/sim/agents.js';
+import { update, tickAudio } from '../../src/sim/update.js';
+import { buildFloor } from '../../src/game/floor.js';
 import {
   STATE, lives, floorIdx, runTime, runLives, runStat, RUN_SEED,
   clearCard, resetArmed, clockText, nextFloor, dismissClear, rollRunSeed,
   resetRun, disarmReset, armReset,
   startRun, retryFloor, runAgain, bindRun,
   setState, setLives, setFloorIdx, setRunTime, setRunStat, setRunSeed,
-} from '../../game/run.js';
-import { frame, setFrameHooks } from '../../game/loop.js';
-import { hideAll, SCREENS, show } from '../../ui/dom.js';
-import { flash, HUD, livesHTML, renderLives, updateHUD, setPrompt } from '../../ui/hud.js';
-import { advanceSplash, backSplash, syncAmbience } from '../../ui/splash.js';
-import { setTermsOpen, termsOpen } from '../../ui/terms.js';
-import { pausePage, setPausePage, togglePause } from '../../ui/pause.js';
-import { buildSettingsUI, SEGMENTS, syncSettingsUI } from '../../ui/settings-panel.js';
-import { bindInput, MODAL_ACTION, toggleMute } from '../../ui/input.js';
-import { bindButtons } from '../../ui/buttons.js';
-import { applySettings, bindDom } from '../../ui/bind.js';
-import { attachFloorImages } from '../../render/bake.js';
-import { packMask, packWet, setPixels } from '../../render/pack.js';
-import { paintSplashPlan } from '../../render/splash-plan.js';
-import { buildGlowSprite, render, setSimAlpha } from '../../render/render.js';
-import { ENT, drawAgent, drawPlayer } from '../../render/entities.js';
-import { SETTINGS, loadSettings, saveSettings, resetSettings, setOption } from '../../settings/store.js';
-import { on, emit } from '../../util/events.js';
-import * as _C from '../../config/constants.js';
+} from '../../src/game/run.js';
+import { frame, setFrameHooks } from '../../src/game/loop.js';
+import { hideAll, SCREENS, show } from '../../src/ui/dom.js';
+import { flash, HUD, livesHTML, renderLives, updateHUD, setPrompt } from '../../src/ui/hud.js';
+import { advanceSplash, backSplash, syncAmbience } from '../../src/ui/splash.js';
+import { setTermsOpen, termsOpen } from '../../src/ui/terms.js';
+import { pausePage, setPausePage, togglePause } from '../../src/ui/pause.js';
+import { buildSettingsUI, SEGMENTS, syncSettingsUI } from '../../src/ui/settings-panel.js';
+import { bindInput, MODAL_ACTION, toggleMute } from '../../src/ui/input.js';
+import { bindButtons } from '../../src/ui/buttons.js';
+import { applySettings, bindDom } from '../../src/ui/bind.js';
+import { attachFloorImages } from '../../src/render/bake.js';
+import { packMask, packWet, setPixels } from '../../src/render/pack.js';
+import { paintSplashPlan } from '../../src/render/splash-plan.js';
+import { buildGlowSprite, render, setSimAlpha } from '../../src/render/render.js';
+import { ENT, drawAgent, drawPlayer } from '../../src/render/entities.js';
+import { SETTINGS, loadSettings, saveSettings, resetSettings, setOption } from '../../src/settings/store.js';
+import { on, emit } from '../../src/util/events.js';
+import * as _C from '../../src/config/constants.js';
 const { BAKE_FLOOR, BATT_MAX, BRUSH_NOISE, CATCH_R, DARK_ROOM, DOOR_AJAR, DOOR_EASE, DOOR_HOLD, DOOR_NOISE, FLICKER_DEPTH, HAND_OFF, HOP_FALL, LEAK_HEADSTART, LEAK_LURE, LEAK_NOISE_BASE, LEAK_NOISE_GAIN, LEAK_RETREAT, LEAK_SPREAD, LIGHT_FADE, LIGHT_FADE_STEPS, LOUD, LS, MAP_H, MAP_W, MASK_TAU, NOISE_FS, PIPE_FAR, PIPE_GAP, R, RA, RADAR_DRAIN, RENDER_SCALES, REPAIR_DECAY, REPAIR_NOISE, REPAIR_REACH, SCALE_BAD_FRAMES, SCALE_DROP_MS, SCALE_GOOD_FRAMES, SCALE_RECOVER_MS, SHEEN_STEPS, SPRINT, SPRINT_NOISE, TILE, VHS_PASS, VIEW_DEG, VIEW_FADE_FAR, VIEW_FADE_NEAR, VIEW_HALF, VIEW_MID, VIEW_RANGE, VIEW_RAYS, VIEW_T, WALK, WALL, WALL_FACE, WET_DRAW, WET_EDGE, WET_FALL, WET_RISE, FLOOR } = _C;
 
 function setHeadless(px, vis){ setPixels(px); setVision(vis); }

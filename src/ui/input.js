@@ -1,6 +1,6 @@
 import { DIFFICULTIES } from '../config/presets.js';
 import { SETTINGS, setOption } from '../settings/store.js';
-import { Audio_ } from '../src/audio/index.js';
+import { Audio_ } from '../audio/index.js';
 import { keys } from '../sim/keys.js';
 import { G } from '../sim/state.js';
 import { STATE } from '../game/run.js';

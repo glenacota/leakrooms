@@ -2,25 +2,25 @@
    tree imports this back. `boot()` is the single entry point the browser and the
    test harness both call, and the order inside it is the order the game was
    always initialised in — changing it is a behaviour change, not a tidy. */
-import { resize } from '../render/canvas.js';
-import { buildPatterns } from '../render/textures.js';
-import { buildGlowSprite } from '../render/render.js';
-import { loadSettings } from '../settings/store.js';
-import { applySettings } from '../ui/bind.js';
-import { buildSettingsUI, syncSettingsUI } from '../ui/settings-panel.js';
-import { Audio_ } from '../src/audio/index.js';
-import { syncAmbience } from '../ui/splash.js';
-import { buildFloor } from '../game/floor.js';
-import { RUN_SEED } from '../game/run.js';
-import { paintSplashPlan } from '../render/splash-plan.js';
-import { bindRun } from '../game/run.js';
-import { bindDom } from '../ui/bind.js';
-import { bindInput } from '../ui/input.js';
-import { bindButtons } from '../ui/buttons.js';
-import { setFrameHooks } from '../game/loop.js';
-import { render } from '../render/render.js';
-import { updateHUD, setPrompt } from '../ui/hud.js';
-import { frame } from '../game/loop.js';
+import { resize } from './render/canvas.js';
+import { buildPatterns } from './render/textures.js';
+import { buildGlowSprite } from './render/render.js';
+import { loadSettings } from './settings/store.js';
+import { applySettings } from './ui/bind.js';
+import { buildSettingsUI, syncSettingsUI } from './ui/settings-panel.js';
+import { Audio_ } from './audio/index.js';
+import { syncAmbience } from './ui/splash.js';
+import { buildFloor } from './game/floor.js';
+import { RUN_SEED } from './game/run.js';
+import { paintSplashPlan } from './render/splash-plan.js';
+import { bindRun } from './game/run.js';
+import { bindDom } from './ui/bind.js';
+import { bindInput } from './ui/input.js';
+import { bindButtons } from './ui/buttons.js';
+import { setFrameHooks } from './game/loop.js';
+import { render } from './render/render.js';
+import { updateHUD, setPrompt } from './ui/hud.js';
+import { frame } from './game/loop.js';
 
 export function boot(){
   resize();

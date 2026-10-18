@@ -1,4 +1,4 @@
-import { Audio_ } from '../src/audio/index.js';
+import { Audio_ } from '../audio/index.js';
 import { RUN_SEED, setState, STATE } from '../game/run.js';
 import { setTermsOpen } from './terms.js';
 import { show } from './dom.js';
