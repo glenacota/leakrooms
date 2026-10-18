@@ -113,6 +113,9 @@ export function fakeAudioNode(kind){
     start(){ n._starts++; }, stop(){ n._stops++; },
     gain: fakeParam(1), frequency: fakeParam(440), detune: fakeParam(0),
     Q: fakeParam(1), playbackRate: fakeParam(1),
+    /* DynamicsCompressorNode keeps its controls on the node. */
+    threshold: fakeParam(-24), knee: fakeParam(30), ratio: fakeParam(12),
+    attack: fakeParam(0.003), release: fakeParam(0.25),
     buffer: null, loop: false, type: 'sine', pan: fakeParam(0),
   };
   global.__audioNodes.push(n);
@@ -137,6 +140,9 @@ export function fakeAudioContext(){
     createBufferSource: ()=>fakeAudioNode('bufsrc'),
     createBiquadFilter: ()=>fakeAudioNode('biquad'),
     createStereoPanner: ()=>fakeAudioNode('pan'),
+    /* The compressor between the mute and the destination. Its parameters live
+       on the node itself rather than under `gain`, so the node carries them. */
+    createDynamicsCompressor: ()=>fakeAudioNode('comp'),
     createBuffer: (ch,len)=>({ length:len, getChannelData: ()=>new Float32Array(len) }),
     resume(){ this.state='running'; return Promise.resolve(); },
     suspend(){ this.state='suspended'; return Promise.resolve(); },

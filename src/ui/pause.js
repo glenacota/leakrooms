@@ -4,8 +4,7 @@ import { DIFFICULTIES } from '../config/presets.js';
 import { SETTINGS } from '../settings/store.js';
 import { Audio_ } from '../audio/index.js';
 import { G } from '../sim/state.js';
-import { clockText, disarmReset, lives, RUN_SEED, setState, STATE } from '../game/run.js';
-import { hideAll, show } from './dom.js';
+import { clockText, disarmReset, lives, RUN_SEED, STATE, transition } from '../game/run.js';
 import { livesHTML } from './hud.js';
 
 /* ============================================================
@@ -45,8 +44,12 @@ export function setPausePage(page){
 }
 export function togglePause(){
   if (STATE==='play'){
-    setState('pause');
-    show('pause');
+    /* One call, like every other state change in the run: the screen, the HUD,
+       the keys and — through 'state' — the beds, the drone and the audio
+       context itself. This used to be setState plus a bare show('pause'), which
+       left the noise bed running under the ticket with update() no longer
+       running to close it. */
+    transition('pause');
     /* Every pause lands on the settings page. It is the one page of the ticket
        with something to change on it, and the page a player who came back to
        adjust the tint needs; the briefing is one click deeper for the player
@@ -70,5 +73,5 @@ export function togglePause(){
     set('pause-terms',  (DIFFICULTIES[SETTINGS.difficulty] || DIFFICULTIES.normal).label);
     set('pause-seed',    '#88D-' + (RUN_SEED>>>0).toString(16).toUpperCase().slice(-4));
   }
-  else if (STATE==='pause'){ disarmReset(); setState('play'); hideAll(); }
+  else if (STATE==='pause'){ disarmReset(); transition('play'); }
 }

@@ -89,7 +89,7 @@ console.log('[23] audio — the graph reaches the destination');
      itself so a new sound cannot skip the test — with the shell's own methods
      named out, because those move gains and start timers rather than making a
      sound, and "built no nodes" is the correct answer for all of them. */
-  const SHELL = ['init','setMaster','setMuted','unlock','ambience',
+  const SHELL = ['init','setMaster','setMuted','unlock','suspend','resume','ambience',
                  '_ambStart','_ambTick','_ambStop','_ambNote',
                  /* the two continuous noise beds, their silencer, and the
                     gain curve they share with the one-shots: all four move gains
@@ -242,3 +242,66 @@ console.log('[23] audio — the graph reaches the destination');
   t.done();
 });
 
+
+/* ---- the mix when the run stops ------------------------------------------
+   Two continuous voices are driven from update(), and update() stops the
+   instant the run does. If the state change does not close them, the noise
+   floor and the drone sit at whatever the last frame told them — under the
+   pause ticket, under the death card, and under the WIN screen, where the run
+   ends without a clock to run out. The win path was the sharpest version of
+   this: it changed state by hand and never announced it, so nothing in the
+   audio side ever heard that the game had finished. */
+test('[42] leaving play closes the mix, and pausing stops the context', () => {
+  const t = softAssert();
+console.log('[42] leaving play closes the mix, and pausing stops the context');
+{
+  /* A real graph again — test 23 tears its own down at the end. */
+  const ctx = fakeAudioContext();
+  global.window.AudioContext = function(){ return ctx; };
+  A.Audio_.ctx = null; A.Audio_.ok = false;
+  A.Audio_.init();
+  const gainOf = n => n.gain._scheduled;
+
+  /* A loud, wet, hunted floor. */
+  A.Audio_.noiseFloor(0.9);
+  A.Audio_.drone(0.8);
+  t.assert(gainOf(A.Audio_.floorGain) > 0 && gainOf(A.Audio_.droneGain) > 0,
+    'the beds did not open — there is nothing here to close');
+
+  /* ...and the win. nextFloor() past the last floor is the one path that used
+     to change state without telling anybody. */
+  A.floorIdx = A.FLOORS;
+  A.nextFloor();
+  t.assert(A.STATE==='win', `nextFloor() on the last floor left STATE '${A.STATE}', want 'win'`);
+  t.assert(gainOf(A.Audio_.floorGain)===0,
+    `the noise floor is still at ${gainOf(A.Audio_.floorGain)} under the win card — update() stopped and nothing closed it`);
+
+  /* The pause, which is the same bug with a screen on it. */
+  A.STATE = 'play';
+  A.Audio_.noiseFloor(0.9);
+  A.Audio_.drone(0.9);
+  A.togglePause();
+  t.assert(A.STATE==='pause', `togglePause() left STATE '${A.STATE}', want 'pause'`);
+  t.assert(gainOf(A.Audio_.droneGain)===0,
+    `the drone is still at ${gainOf(A.Audio_.droneGain)} under the pause ticket`);
+  t.assert(gainOf(A.Audio_.floorGain)===0,
+    `the noise floor is still at ${gainOf(A.Audio_.floorGain)} under the pause ticket`);
+  t.assert(ctx.state==='suspended',
+    `a paused game leaves the audio context '${ctx.state}' — a suspended context is the one call that stops the whole graph`);
+
+  /* ...and the run comes back, graph and all. */
+  A.togglePause();
+  t.assert(A.STATE==='play', `unpausing left STATE '${A.STATE}'`);
+  t.assert(ctx.state==='running', `the context stayed '${ctx.state}' after the run resumed`);
+
+  /* Mute is still total, which is why the compressor sits after it. */
+  A.Audio_.setMuted(true);
+  t.assert(A.Audio_.mute.gain._scheduled===0, 'muting stopped working with the compressor in the chain');
+  A.Audio_.setMuted(false);
+
+  global.window.AudioContext = undefined;
+  A.Audio_.ctx = null; A.Audio_.ok = false;
+  console.log('  win card and pause both close the beds and the drone; the context sleeps and wakes');
+}
+  t.done();
+});

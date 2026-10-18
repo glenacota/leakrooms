@@ -53,7 +53,24 @@ export const engine = {
     this.mute = a.createGain();
     this.mute.gain.value = SETTINGS.muted ? 0 : 1;
     this.master.connect(this.mute);
-    this.mute.connect(a.destination);
+    /* THE COMPRESSOR, between the mute and the speakers. Twelve voices all
+       peaking at once is a thing this mix actually does — a door cycling while
+       a wrench is running while a stalker arrives — and without a limiter those
+       peaks sum past 0dB and clip, which on a laptop speaker is the loudest,
+       ugliest and least controllable sound the game can make. It sits AFTER the
+       mute rather than before it so that muting is still total, and after the
+       master so it never fights the volume slider. The settings are gentle on
+       purpose: this is a safety net against clipping, not a loudness contest
+       (the browser's own defaults are a 12:1 ratio above -24dB, which would
+       flatten a mix that was never in trouble). */
+    this.comp = a.createDynamicsCompressor();
+    this.comp.threshold.value = -3;
+    this.comp.knee.value = 6;
+    this.comp.ratio.value = 6;
+    this.comp.attack.value = 0.003;
+    this.comp.release.value = 0.25;
+    this.mute.connect(this.comp);
+    this.comp.connect(a.destination);
 
     // --- 60Hz fluorescent hum + its 2nd/3rd harmonics ---
     this.humGain = a.createGain();
@@ -164,9 +181,41 @@ export const engine = {
   /* Browsers will not let an AudioContext start without a user gesture, so the
      context exists from boot and stays silent until the first key or click.
      Every interaction that can start the game already runs through one of the
-     two entry points that call this, so there is nothing to add to the wiring. */
+     two entry points that call this, so there is nothing to add to the wiring.
+
+     `interrupted` is the third state and it is the one Safari and Chrome reach
+     on their own — an incoming call, a headphone unplug, a tab switch on some
+     platforms — so the game comes back to a suspended context that nothing is
+     going to resume. The gesture that gets the player back is the next key or
+     click, which is what this is. The promise is dropped rather than left
+     floating: a refused resume rejects, and an unhandled rejection now reaches
+     the error boundary and puts the fatal card over a game that is working
+     perfectly. */
   unlock(){
-    if (this.ctx && this.ctx.state==='suspended' && this.ctx.resume) this.ctx.resume();
+    const st = this.ctx && this.ctx.state;
+    if (this.ctx && (st === 'suspended' || st === 'interrupted') && this.ctx.resume)
+      this.ctx.resume().catch(()=>{});
+  },
+
+  /* The pause holds the clock, the flood and the simulation — and now the audio
+     context too. A paused game that is still rendering into a live graph is
+     doing work nobody is listening to, and on a laptop that is the difference
+     between a tab that idles and a tab that keeps a fan going. `suspend()` is
+     the one call that stops all of it at once.
+
+     resume() is called without a gesture, so a browser that refuses it will
+     refuse it; the game stays silent until the next key, which calls unlock()
+     with a gesture and is the path that always works. */
+  suspend(){
+    if (!this.ctx) return;
+    try { if (this.ctx.state === 'running' && this.ctx.suspend) this.ctx.suspend().catch(()=>{}); }
+    catch(e){ /* a context that will not suspend is not worth a fatal card */ }
+  },
+  resume(){
+    if (!this.ctx) return;
+    const st = this.ctx.state;
+    if ((st === 'suspended' || st === 'interrupted') && this.ctx.resume)
+      try { this.ctx.resume().catch(()=>{}); } catch(e){}
   },
 
   /* A soft confirmation tone, so pressing M is never a guess. Deliberately not

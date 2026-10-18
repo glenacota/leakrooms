@@ -71,35 +71,47 @@ export function showClear(){
   el('clear-sub').textContent =
     clearCard.clock >= FLOOR_CLOCK*0.34 ? 'GOOD WORK. MANAGEMENT NOTICES.'
                                       : 'SEALED. MANAGEMENT HAS NO COMMENT.';
-  setState('clear');
-  emit('hud', false);
-  emit('screen', 'clear');
-  emit('state', STATE);
+  transition('clear');
   Audio_.acclaim();
 }
 /* ENTER, and the button, and nothing else. There is no clock on this card and
    no way back into it — the floor behind it is sealed and the floor in front of
    it is already running. ESC deliberately does nothing here: backSplash() only
    walks the title chain, so the key falls through to the play/pause toggle,
-   which is also inert while STATE is 'clear'. */
+   which is also inert while STATE is 'clear'.
+
+   The keys go down inside transition(): the player is almost certainly holding
+   W — they walked to the door — and the first frame of the new floor would walk
+   them back through it otherwise. */
 export function dismissClear(){
   if (STATE!=='clear') return;
-  setState('play');
-  emit('screen', null);
-  emit('hud', true);
-  /* Every key down to nothing. The player is almost certainly holding W — they
-     walked to the door — and that keydown is still set, so the first frame of
-     the new floor would walk them back through it. Same reason the splash chain
-     drops the key that dismissed it. */
+  transition('play');
+}
+
+/* THE ONE WAY THE RUN CHANGES STATE.
+
+   Four things happen every time and they used to happen four times over, in
+   four orders, in five places: the run enters the state, the screen follows it,
+   the HUD follows the screen, and the world is told so the audio can answer.
+   Two of the paths were missing one of them — the win branch never emitted
+   'state', so the noise bed ran on under the win card with nothing left to
+   close it, and the pause never emitted it either. A state change nobody hears
+   about is a bug that only a mix can see.
+
+   Keys go down here because a run that starts on a held W walks the player out
+   of the door they came through, and the run is the only thing that knows a
+   screen just changed. */
+export function transition(to){
+  setState(to);
+  emit('screen', to === 'play' ? null : to);
+  emit('hud', to === 'play');
   for (const k in keys) delete keys[k];
   emit('state', STATE);
 }
 
 export function nextFloor(){
   setFloorIdx(floorIdx+1);
-  if (floorIdx >= FLOORS){ setState('win'); emit('win', { sealed: runStat.sealed, deaths: runStat.deaths, noises: runStat.noises, floors: FLOORS, time: runTime });
-    emit('hud', false);
-    emit('screen', 'win');
+  if (floorIdx >= FLOORS){ transition('win'); emit('win', { sealed: runStat.sealed, deaths: runStat.deaths, noises: runStat.noises, floors: FLOORS, time: runTime });
     return;
   }
   /* The clock is read off the OLD floor, before the rebuild — G is replaced
@@ -129,12 +141,10 @@ export function lose(cause){
   G.stat.deaths++;
   runStat.deaths++;
   setLives(lives-1);
-  Audio_.sting(); Audio_.silence(); Audio_.silenceBeds();
-  setState('dead');
+  Audio_.sting();                 // the beds and the drone are closed by 'state'
+  transition('dead');
   emit('lives');
-  emit('hud', false);
   emit('dead', { lives, cause });
-  emit('screen', 'dead');
 }
 
 export function caught(){ lose('TAPE DAMAGED'); }
@@ -183,11 +193,9 @@ export function resetRun(){
   setLives(runLives);
   setRunStat({ noises:0, deaths:0, sealed:0 });
   emit('lives');
-  /* The HUD belongs to a run; the riser is not one. */
-  emit('hud', false);
-  setState('splash');
-  emit('screen', 'splash');
-  emit('state', STATE);
+  /* The HUD belongs to a run; the riser is not one. transition() raises it off
+     with the state change and everything else that follows a state. */
+  transition('splash');
   disarmReset();
 }
 
@@ -230,10 +238,7 @@ else {
 /* The opening grace period, on the start path either way — reuse and a
    fresh build have to be indistinguishable from where the player stands. */
 for (const a of G.agents){ a.born = 3.0; }
-emit('screen', null);
-setState('play');
-emit('hud', true);
-emit('state', STATE);        // the title bed has no business following you downstairs
+transition('play');       // the title bed has no business following you downstairs
 }
 
 export function retryFloor(){
@@ -248,9 +253,7 @@ G.batt = Math.max(G.batt, 55);
    pipes are is the thing you spent the level learning and a re-roll would
    erase it. */
 for (const a of G.agents){ a.born=3.0; }
-emit('screen', null); setState('play');
-emit('hud', true);
-emit('state', STATE);
+transition('play');
 }
 
 export function runAgain(){

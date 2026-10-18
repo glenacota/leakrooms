@@ -4,6 +4,7 @@ import { applyDifficulty } from '../config/tuning.js';
 import { Audio_ } from '../audio/index.js';
 import { on } from '../util/events.js';
 import { G } from '../sim/state.js';
+import { STATE } from '../game/run.js';
 import { paintSplashPlan } from '../render/splash-plan.js';
 import { hideAll, show } from './dom.js';
 import { flash, renderLives } from './hud.js';
@@ -44,7 +45,21 @@ export function bindDom(){
       `You sealed <b>${sealed}</b> pipes and got back through the door on all <b>${floors}</b> levels.<br>Deaths: <b>${deaths}</b> &nbsp; Noise made: <b>${noises}</b><br>Time: <b>${Math.floor(time/60)}:${String(Math.floor(time%60)).padStart(2,'0')}</b>`;
   });
   on('lives', renderLives);
-  on('state', syncAmbience);
+  on('state', () => {
+    syncAmbience();
+    /* Leaving play is the end of update(), and update() is what drives the two
+       continuous beds and the drone. Nothing would close them: the noise floor
+       of a level nobody is playing stays at whatever the last frame told it,
+       under the pause ticket, the death card or the win screen. Every state
+       change announces itself here now, so every one of them closes the mix. */
+    if (STATE!=='play'){ Audio_.silenceBeds(); Audio_.silence(); }
+    /* The pause holds the clock, the flood and the simulation; it now holds the
+       audio context too, and blur/visibilitychange reach the pause by pausing.
+       Resuming is attempted without a gesture, which a browser may refuse — the
+       next key goes through unlock() with one, which always works. */
+    if (STATE==='pause') Audio_.suspend();
+    else if (STATE==='play') Audio_.resume();
+  });
   // textures subscription registered at import of render/textures.js; plan rebuild after.
   on('resize', ()=>{ if (G) paintSplashPlan(); });
   on('flash', flash);
