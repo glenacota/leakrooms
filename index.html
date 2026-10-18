@@ -7,6 +7,7 @@
 <title>LEAKROOMS</title>
 <link rel="icon" type="image/png" href="./logo.png">
 
+<!-- Stylesheets. The order matters: tokens first (shared variables), base last (overrides). -->
 <link rel="stylesheet" href="css/tokens.css">
 <link rel="stylesheet" href="css/hud.css">
 <link rel="stylesheet" href="css/screens.css">
@@ -16,14 +17,26 @@
 </head>
 <body>
 
+<!--
+  PAGE OVERVIEW
+  Everything lives inside the CRT frame, in this order:
+    1. Stage    the game canvas plus the prompt and flash text over it
+    2. HUD      the left sidebar of readouts
+    3. Screens  overlays: title, work order, pause, floor clear, death, win
+    4. Fatal    the error card (kept separate from the screens)
+  All behaviour is in src/ and is loaded as a module at the bottom of the page.
+-->
+
 <div id="crt">
+
   <!-- ============ STAGE ============
-       The play area. The canvas fills this box and nothing else, so the map is
-       never drawn under the instrument panel: the camera, the ambient bake, the
-       visibility mask and the vignette all size off this box, so what you can
-       see is exactly what the game renders. The prompt and the flash note live
-       in here too, because they are centred on the MAP — outside this box they
-       would centre on the window and sit a third of a tile off the player. -->
+       The play area. The canvas fills this box and nothing else, so the map
+       is never drawn underneath the HUD. The game sizes its camera, lighting
+       and visibility mask to this box.
+
+       The prompt and the flash note are inside the stage on purpose: they are
+       centred on the map, and outside it they would be centred on the whole
+       window and sit off to one side of the player. -->
   <div id="stage">
     <canvas id="game"></canvas>
     <div id="prompt"></div>
@@ -31,21 +44,7 @@
   </div>
 
   <!-- ============ HUD ============
-       Option 06: one full-height column on the right edge. Every stat gets the
-       same width, so nothing is competing for horizontal space and the whole
-       instrument can be scanned top to bottom in one sweep — which is the
-       actual argument for this layout over the two clusters it replaces.
-
-       It is NOT an overlay: the canvas lives in #stage, a flex sibling of this
-       column, so the panel and the play area cannot overlap. It used to be one
-       — the canvas was the whole window with this painted on top of it — and
-       the cost was a strip of live viewport that was rendered, lit, tracked by
-       the visibility mask and never seen, on the side things approach from.
-
-       BATTERY, NOISE and FLOOD are the three continuous readings and they get
-       bars — a bar is read in one glance where a number has to be parsed. The
-       rest are states and counts, where a bar would be the wrong shape: you
-       cannot read WHICH riser is sealed off a gradient. -->
+       The values are written by src/ui/hud.js. -->
   <div id="hud">
     <div class="hud-side">
 
@@ -63,12 +62,11 @@
       </div>
       <div class="stat">
         <span class="lbl">NOISE</span>
-        <!-- Two fills and two marks inside the ONE bar, none of them a bar of its
-             own: blue underlay is what the open pipes are making everywhere (the
-             level the Lifeform steers by), the yellow fill is what YOU are
-             making, the orange tick is where the last loud moment peaked, and
-             the hairline is LOUD — the threshold the AI reads, placed from the
-             constant at runtime. -->
+        <!-- One bar with two fills and two marks:
+             blue fill    noise from the open pipes (what monsters steer by)
+             yellow fill  noise you are making
+             orange tick  where your last loud moment peaked
+             hairline     the LOUD threshold, positioned from the game constant -->
         <div class="bar noise"><i class="leak" id="bar-noise-leak"></i><i id="bar-noise"></i><u class="peak" id="bar-noise-peak"></u><u class="loud"></u></div>
         <span class="val val-bar" id="val-noise">00</span>
       </div>
@@ -103,11 +101,15 @@
     </div>
   </div>
 
-  <!-- ============ SCREENS ============ -->
+  <!-- ============ SCREENS ============
+       Overlay screens. Only one is visible at a time, and src/ui/dom.js
+       switches between them by adding or removing the hidden class.
+       The order of this list matches the run:
+         title -> work order -> (play) -> pause / floor clear / death / win -->
 
-  <!-- ------------------------------------------------------------
-   SPLASH 01
-   ------------------------------------------------------------ -->
+  <!-- ------------ TITLE SCREEN ------------
+       The first thing the player sees. Behind the title are the rolling
+       floor plan and the water animation (see splash.css). Any key starts. -->
   <div id="screen-splash" class="screen splash">
     <div class="splash-plan"><canvas id="splash-plan"></canvas></div>
     <div class="splash-plan far"><canvas id="splash-plan-far"></canvas></div>
@@ -121,9 +123,9 @@
     </div>
   </div>
 
-  <!-- ------------------------------------------------------------
-   SPLASH 02 — Backstory, controls list
-   ------------------------------------------------------------ -->
+  <!-- ------------ WORK ORDER SCREEN ------------
+       The backstory, the rules, the difficulty choice and the controls
+       list, laid out as a paper ticket. Starting the run happens here. -->
   <div id="screen-order" class="screen hidden">
     <div class="order-wrap">
       <div class="order perf">
@@ -145,12 +147,9 @@
             <li>No refunds for lost equipment. <b>Or personnel.</b></li>
           </ul>
 
-          <!-- The terms of the shift, taken at the door. The stamp is what
-               CLOCK IN builds the run with — the last terms worked, persisted,
-               NORMAL on a fresh machine — and CHANGE folds the chooser open on
-               the ticket itself. There is no difficulty setting anywhere else:
-               a run is on its terms from the first frame, and the pause screen
-               has nothing to change. -->
+          <!-- Difficulty is chosen here, at the door, and nowhere else, so a run
+               keeps the same rules from its first frame to its last. 
+               The buttons in the chooser are built by src/ui/settings-panel.js. -->
           <div class="stamp-terms">
             <span class="k">DIFFICULTY:</span>
             <span class="v" id="order-terms">NORMAL</span>
@@ -164,6 +163,7 @@
           </div>
         </div>
 
+        <!-- The stub on the right: run seed and the controls list -->
         <div class="order-side">
           <small>CONTRACTOR</small>
           <div class="badge">Async</div>
@@ -189,7 +189,11 @@
     </div>
   </div>
 
-  <!-- ============ PAUSE ============ -->
+  <!-- ============ PAUSE ============
+       The pause screen reuses the work order ticket and adds the run's live
+       numbers on the stub. It has two pages, switched by the tabs:
+         Settings  
+         Briefing  a reprint of the work order text -->
   <div id="screen-pause" class="screen hidden">
     <div class="order-wrap">
       <div class="order perf">
@@ -203,6 +207,7 @@
             <button id="tab-pause-briefing" data-pause-tab="briefing" role="tab" aria-selected="false">BRIEFING</button>
           </div>
 
+          <!-- Page 1: settings. The controls are wired by src/ui/settings-panel.js. -->
           <div class="pause-page" data-pause-page="settings">
             <div class="settings-grid">
 
@@ -230,6 +235,8 @@
             </div>
           </div>
 
+          <!-- Page 2: briefing. The same text as the work order, so a player can
+               re-read the rules without leaving the run. -->
           <div class="pause-page hidden" data-pause-page="briefing">
             <div class="field">
               <span>Scope of work</span>
@@ -248,6 +255,7 @@
           </div>
         </div>
 
+        <!-- The stub: the run's current numbers, filled in by src/ui/pause.js -->
         <div class="order-side">
           <small>ON THE CLOCK</small>
           <div class="big" id="pause-clock">3:00</div>
@@ -278,12 +286,12 @@
     </div>
   </div>
 
-  <!-- SPLASH — the floor you just sealed, and the assignment for the next one.
-       It comes up on the door cycle and holds the player out of the new floor
-       until they confirm, so nobody is dropped into a running clock they did
-       not know had started. The clock is frozen the whole time it is up: the
-       frame loop only advances on STATE==='play', so this card and the pause
-       ticket buy time by exactly the same mechanism. -->
+  <!-- ------------ FLOOR CLEAR CARD ------------
+       Shown after the door cycles. It reports the clock left over and the
+       briefing for the next floor. The next floor is already built behind it,
+       but the player is held out until they press the button, and the clock
+       is frozen while the card is up. That way nobody starts a floor they have
+       not read about. -->
   <div id="screen-clear" class="screen hidden">
     <div class="tape clear">
       <h1>FLOOR SEALED</h1>
@@ -303,16 +311,21 @@
     </div>
   </div>
 
+  <!-- ------------ DEATH SCREEN ------------
+       Shown when a lifeform catches you or the clock runs out. Both cost a
+       life, so they share one screen. The reason is written into the line
+       below the title. -->
   <div id="screen-dead" class="screen hidden">
     <div class="tape">
-      <!-- The cause is in dead-sub: it heard you, or the clock ran out. One
-           screen for both, because they cost the same thing. -->
       <h1 class="bad">SHIFT OVER</h1>
       <p class="sub" id="dead-sub">SIGNAL LOST</p>
       <button id="btn-retry">REWIND</button>
     </div>
   </div>
 
+  <!-- ------------ WIN SCREEN ------------
+       Shown after the fifth floor. The totals are for the whole run and are
+       written in by script. -->
   <div id="screen-win" class="screen hidden">
     <div class="tape">
       <h1>NOCLIP</h1>
@@ -321,11 +334,9 @@
       <button id="btn-again">RUN IT AGAIN</button>
     </div>
   </div>
-<!-- ============ FATAL ============
-       The error boundary's card, and deliberately NOT one of the SCREENS: it is
-       not a state of the run but the end of one, so show()/hideAll() never
-       touch it and nothing in the run can cover it. Reload is the only offer,
-       because a run that has stopped drawing itself has nothing worth saving. -->
+
+  <!-- ============ FATAL ERROR ============
+       Shown if the game loop keeps crashing. -->
   <div id="fatal" class="fatal hidden">
     <div class="tape">
       <h1 class="bad">SYSTEM FAULT</h1>
@@ -335,6 +346,7 @@
   </div>
 </div>
 
+<!-- Entry point. Everything else is imported from here as ES modules. -->
 <script type="module" src="src/main.js"></script>
 </body>
 </html>
