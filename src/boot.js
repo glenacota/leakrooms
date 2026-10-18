@@ -1,7 +1,11 @@
-/* The composition root. Everything the game is, is imported here; nothing in the
-   tree imports this back. `boot()` is the single entry point the browser and the
-   test harness both call, and the order inside it is the order the game was
-   always initialised in — changing it is a behaviour change, not a tidy. */
+/* The composition root: the one place where the whole game is put together.
+
+   boot() creates the canvas and textures, connects the modules to each other,
+   loads saved settings, builds the first floor, and starts the game loop.
+   The browser and the test harness both call it.
+
+   Rule: nothing else in src/ may import this file. The order of the steps
+   inside boot() matters, so changing it can change how the game behaves. */
 import { resize } from './render/canvas.js';
 import { buildPatterns } from './render/textures.js';
 import { buildGlowSprite } from './render/render.js';
@@ -22,69 +26,83 @@ import { render } from './render/render.js';
 import { updateHUD, setPrompt } from './ui/hud.js';
 import { frame } from './game/loop.js';
 
-/* The card. One function for every route into it — the loop's third failure, an
-   error nobody caught, a rejection nobody awaited — because a boundary with
-   three entry points and three copies of the behaviour is a boundary that will
-   eventually have two that disagree. It only removes the class; the overlay is
-   the only thing in the shell with no show() to call, so it manages itself. */
+/**
+ * Shows the "SYSTEM FAULT" card when the game hits an error it cannot recover
+ * from. Every kind of failure (a boot error, an uncaught error, an unhandled
+ * promise rejection, or the loop giving up) ends up here, so the player always
+ * sees the same message with a reload button.
+ *
+ * The card is not one of the normal screens, so it has no show() call
+ * and simply removes its own "hidden" class.
+ *
+ * @param {Error} [err] - what went wrong; logged to the console if given.
+ */
 function showFatal(err){
   if (err) console.error(err);
   const el = document.getElementById('fatal');
   if (el) el.classList.remove('hidden');
 }
 
+/**
+ * Starts the game: sets up the canvas, connects the modules, loads settings,
+ * builds the first floor and starts the frame loop.
+ */
 export function boot(){
-  /* The error boundary goes up FIRST, before the code it is there to catch: a
-     boot that throws, a listener that throws, a rejection nobody awaited, and a
-     frame that throws all end at the same card, which is the only thing the
-     player can act on. Without it the failure is a black screen or a frozen
-     one, and neither says anything. */
+  /* Set up error handling first, so that anything that fails during the rest
+     of boot (or later, while playing) shows the fatal card. Without it, a
+     crash would leave a black or frozen screen that tells the player nothing. */
   setFatalHook(showFatal);
   window.addEventListener('error',              e => showFatal(e.error || e));
   window.addEventListener('unhandledrejection', e => showFatal(e.reason || e));
   document.getElementById('btn-reload').onclick = ()=>globalThis.location?.reload();
+
+  /* Size the canvas and build the drawing resources. No listeners are
+     connected yet, so this first resize() does not trigger any redraw work. */
   resize();
   buildPatterns();
   buildGlowSprite();
 
-  /* WIRING. Nothing above this point has registered a listener or a subscriber,
-     so the resize above is the resize there has always been: one with nobody
-     listening. After it, in this order — the run answers the simulation's four
-     facts, the DOM side of the bus turns facts into pixels, the input and the
-     buttons attach to the document — and only then does the store load. */
+  /* Connect the modules to each other through the event bus and the DOM.
+     The order is:
+       1. bindRun      the run reacts to what the simulation reports
+       2. bindDom      events are turned into on-screen changes
+       3. bindInput    keyboard handling
+       4. bindButtons  button and screen clicks */
   bindRun();
   bindDom();
   bindInput();
   bindButtons();
 
+  /* Load saved settings and apply them (difficulty and volume), then build
+     the settings controls so they show the loaded values. */
   loadSettings();
   applySettings();
-  /* The loop owns the frame; the shell owns the drawing and the HUD refresh, so
-     both are handed in rather than imported. */
   buildSettingsUI();
   syncSettingsUI();
-  /* The audio graph is built HERE, at boot, and not on the first click of the
-     run. Two reasons, and the second is the one that matters: the title screen is
-     the only place the splash bed can play at all, and a context created inside
-     the CLOCK IN click is already too late to have been the thing that made the
-     title sound like a place. The browser will hold it suspended until a gesture
-     arrives — Audio_.unlock(), called from the keydown handler and from
-     advanceSplash — and everything is built and wired in the meantime. */
-  /* Audio is a luxury the game plays without: a browser that hands over no
-     AudioContext, or a context that fails to build, must not cost the player
-     the floor. The rest of the run is silent, which is a fair trade for
-     starting. */
+
+  /* Audio is built now, at boot, so the title screen has its ambient sound.
+     Browsers keep the audio context suspended until the player presses a key
+     or clicks; Audio_.unlock() is called from the key handler and from
+     advanceSplash() to resume it.
+
+     Audio is optional. If the browser has no audio support or setup fails,
+     the game still starts, just without sound. */
   try {
     Audio_.init();
     syncAmbience();
   } catch (err){
     console.warn('audio unavailable:', err);
   }
-  /* The splash plan is the level the first run is built from, so the boot floor
-     is built from RUN_SEED instead of a throwaway constant: painting it is then
-     a copy of what already exists rather than a second generation of the maze. */
+
+  /* Build floor 0 from RUN_SEED. The title screen paints a faded plan of this
+     same floor, so the player's first run is the level shown behind the title.
+     Reusing one floor means the maze is generated only once. */
   buildFloor(0, RUN_SEED);
   paintSplashPlan();
+
+  /* The loop does not know about rendering or the HUD, so both are passed in:
+     `render` draws a frame, and `afterUpdate` refreshes the HUD and the
+     prompt line after each simulation step. */
   setFrameHooks({ render, afterUpdate: ()=>{ updateHUD(); setPrompt(); } });
 
   requestAnimationFrame(frame);
