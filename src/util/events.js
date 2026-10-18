@@ -1,7 +1,9 @@
-/* Tiny event bus. Listeners are stored per type; emit iterates a snapshot so
-   a listener that (un)subscribes during dispatch cannot skip or double-fire. */
+/* A tiny event bus. Listeners are stored per event type, and emit() loops over
+   a copy of them, so a listener that subscribes or unsubscribes while an event
+   is being delivered cannot cause another listener to be skipped or called twice. */
 const listeners = new Map();
 
+// Subscribes to an event. Returns a function that unsubscribes again.
 export function on(type, fn){
   if (!listeners.has(type)) listeners.set(type, new Set());
   listeners.get(type).add(fn);
@@ -21,6 +23,7 @@ export function emit(type, ...args){
   for (const fn of [...set]) fn(...args);
 }
 
+// Removes every listener. Only the tests need this.
 export function clearAll(){
   listeners.clear();
 }

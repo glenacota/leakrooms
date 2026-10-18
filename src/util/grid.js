@@ -1,8 +1,9 @@
 import { MAP_W, MAP_H } from '../config/constants.js';
 import { WALL } from '../config/constants.js';
 
-/* Line of sight: Bresenham, walls block. One implementation shared by bake
-   and buildFloor instead of two identical copies. */
+/* Line of sight between two points, using Bresenham's line algorithm: it walks
+   the tiles on the straight line and stops at the first wall. The bake and
+   buildFloor share this one version. */
 export function makeLos(grid){
   const at = (x,y)=> grid[y*MAP_W+x];
   const inB = (x,y)=> x>=0 && y>=0 && x<MAP_W && y<MAP_H;

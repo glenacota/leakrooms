@@ -3,17 +3,15 @@ import { emit } from '../util/events.js';
 
 export let SETTINGS = Object.assign({}, SETTINGS_DEFAULTS);
 
-/* Read the store. EVERY failure path returns defaults for the affected field
-   and never throws: localStorage is absent in the headless suite, throws on
-   some file:// origins, and can be disabled entirely in private browsing. A
-   settings system is never allowed to be the reason the game does not start. */
+/* Reads the saved settings. Every failure path falls back to the defaults for
+   the affected field and never throws: localStorage is missing in the test
+   harness, throws on some file:// origins, and can be disabled in private
+   browsing. The settings must never be the reason the game does not start. */
 export function loadSettings(){
-  /* Always load over DEFAULTS rather than over whatever is live. The first
-     version overlaid onto the current SETTINGS, which meant the result
-     depended on WHEN it was called: a field absent from the blob kept
-     whatever value it happened to hold, so loading a partial blob after a
-     Hard run left you Hard. Loading is a total function of the blob and
-     nothing else. */
+  /* Always start from the defaults, not from the live values. Otherwise the
+     result would depend on when this is called: a field missing from the saved
+     data would keep whatever it held, so loading a partial save after a HARD run
+     would leave you on HARD. */
   SETTINGS = Object.assign({}, SETTINGS_DEFAULTS);
   let raw = null;
   try { raw = localStorage.getItem(SETTINGS_KEY); } catch(e){ return SETTINGS; }
@@ -34,18 +32,15 @@ export function saveSettings(){
   catch(e){ return false; }
 }
 
-/* RESET SETTINGS. `keepTerms` exists for one caller: the pause ticket's RESET
-   button, which lives on the page of a run that was clocked in on a stamped set
-   of terms. Terms are stamped once, at the door, for the whole shift — so
-   resetting them from a page of that run moved the floor clock and the repair
-   time out from under the player mid-run, and the button that says "reset
-   settings" did it silently. Every other caller gets the clean slate. */
+/* RESET SETTINGS. `keepTerms` is for the pause screen's RESET button only. That
+   button sits on a run that was clocked in on a fixed difficulty, and resetting
+   the difficulty mid-run would change the floor clock and repair time under the
+   floor being played. Every other caller gets a clean slate. */
 export function resetSettings(opts){
   const terms = (opts && opts.keepTerms) ? SETTINGS.difficulty : null;
   SETTINGS = Object.assign({}, SETTINGS_DEFAULTS);
   if (terms) SETTINGS.difficulty = terms;
-  /* The 'settings:changed' listener in game.js raises waterDirty, which repacks the
-     water image; nothing to call from here. */
+  // The 'settings:changed' listener in ui/bind.js marks the water image stale, so there is nothing to call from here.
   emit('settings:changed', '*');
   saveSettings();
 }
@@ -53,13 +48,13 @@ export function resetSettings(opts){
 export function setOption(key, value){
   if (!settingsValid(key, value)) return false;
   SETTINGS[key] = value;
-  /* packWet bakes the tint into the pixels, so a new tint is a stale image even
-     though G.wetArr has not moved. The handler raises waterDirty for the tint
-     keys; here we just announce the change. */
+  /* The water tint is baked into the water image's pixels, so a new tint makes
+     the image stale even though the water itself did not move. The listener
+     handles that; here the change is only announced. */
   emit('settings:changed', key);
   saveSettings();
   return true;
 }
 
-// re-export schema helpers for convenience
+// Re-exported so other modules can import everything settings-related from one place.
 export { SETTINGS_DEFAULTS, SETTINGS_SCHEMA, SETTINGS_KEY, settingsValid };
