@@ -172,7 +172,7 @@ function onKeyDown(e){
   if (k==='r' && G && STATE==='play'){
     if (G.radar) G.radar = false;
     else if (G.batt<=0) flash('NO POWER — THE RADAR IS DEAD');
-    else { G.radar = true; Audio_.rattle(0.4); }
+    else { G.radar = true; G.radarRattleT = 0; }
   }
   if (e.key==='Escape' && (STATE==='play'||STATE==='pause')) togglePause();
   if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key)){

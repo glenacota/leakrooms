@@ -74,7 +74,7 @@ export const engine = {
 
     // --- 60Hz fluorescent hum + its 2nd/3rd harmonics ---
     this.humGain = a.createGain();
-    this.humGain.gain.value = 0.055;
+    this.humGain.gain.value = 0.035;
     this.humGain.connect(this.master);
     [[60,0.55],[120,0.3],[180,0.12]].forEach(([f,g])=>{
       const o = a.createOscillator(); o.type='sine'; o.frequency.value=f;
@@ -84,7 +84,7 @@ export const engine = {
 
     // --- tape hiss ---
     this.hissGain = a.createGain();
-    this.hissGain.gain.value = 0.012;
+    this.hissGain.gain.value = 0.006;
     const hp = a.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=3800;
     const hs = a.createBufferSource(); hs.buffer=buf; hs.loop=true;
     hs.connect(hp); hp.connect(this.hissGain); this.hissGain.connect(this.master);
@@ -113,13 +113,17 @@ export const engine = {
     this.floorGain = a.createGain();
     this.floorGain.gain.value = 0;
     this.floorFilter = a.createBiquadFilter();
-    this.floorFilter.type='bandpass';
-    this.floorFilter.frequency.value=520; this.floorFilter.Q.value=0.8;
+    this.floorFilter.type='lowpass';
+    this.floorFilter.frequency.value=1200; this.floorFilter.Q.value=0.7;
     this.floorFilter.connect(this.floorGain);
     this.floorGain.connect(this.master);
     const fn=a.createBufferSource(); fn.buffer=buf; fn.loop=true;
-    fn.playbackRate.value=1;
+    fn.playbackRate.value=0.5;
     fn.connect(this.floorFilter); fn.start();
+    /* scuff cadence: a slow LFO on the gain so the bed pulses like footsteps */
+    const slfo=a.createOscillator(); slfo.frequency.value=2.2;
+    const slg=a.createGain(); slg.gain.value=0.03;
+    slfo.connect(slg); slg.connect(this.floorGain.gain); slfo.start();
     /* the pressure under it — inaudible while you walk, there when you wrench */
     const fr=a.createOscillator(); fr.type='sine'; fr.frequency.value=74;
     const frg=a.createGain(); frg.gain.value=0.55;

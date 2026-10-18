@@ -120,7 +120,7 @@ export function fakeAudioNode(kind){
     },
     disconnect(){ n._out.length = 0; },
     start(){ n._starts++; }, stop(){ n._stops++; },
-    gain: fakeParam(1), frequency: fakeParam(440), detune: fakeParam(0),
+    gain: fakeParam(1), frequency: fakeParam(440), detune: fakeParam(0), delayTime: fakeParam(0),
     Q: fakeParam(1), playbackRate: fakeParam(1),
     /* DynamicsCompressorNode keeps its controls on the node. */
     threshold: fakeParam(-24), knee: fakeParam(30), ratio: fakeParam(12),
@@ -148,6 +148,7 @@ export function fakeAudioContext(){
     createOscillator: ()=>fakeAudioNode('osc'),
     createBufferSource: ()=>fakeAudioNode('bufsrc'),
     createBiquadFilter: ()=>fakeAudioNode('biquad'),
+    createDelay: ()=>fakeAudioNode('delay'),
     createStereoPanner: ()=>fakeAudioNode('pan'),
     /* The compressor between the mute and the destination. Its parameters live
        on the node itself rather than under `gain`, so the node carries them. */

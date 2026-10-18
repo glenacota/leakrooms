@@ -22,6 +22,7 @@ export function tickClock(dt){
   G.noise = Math.max(0, G.noise - dt*1.55);
   // The player's own noise decays at the same rate as the total, so the yellow part of the bar empties as fast as the building's hiss appears under it.
   G.selfNoise = Math.max(0, G.selfNoise - dt*1.55);
+  G.ambientNoise = Math.max(0, G.ambientNoise - dt*1.55);
 
   G.clock = Math.max(0, G.clock - dt);
   if (G.clock <= 0){ emit('clock:out'); return false; }

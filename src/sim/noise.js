@@ -89,6 +89,7 @@ export function emitNoise(power, x, y, mine){
   G.noise = Math.max(G.noise, power);
   G.noisePeak = Math.max(G.noisePeak, power);
   if (mine) G.selfNoise = Math.max(G.selfNoise, power);
+  else G.ambientNoise = Math.max(G.ambientNoise, power);
   G.stat.noises++;
   emit('stat', 'noises');
   alertAgents(hearRadius(power), power, x, y);
@@ -101,6 +102,7 @@ export function sustainedNoise(power, x, y, mine){
   G.noise = Math.max(G.noise, power);
   G.noisePeak = Math.max(G.noisePeak, power);
   if (mine) G.selfNoise = Math.max(G.selfNoise, power);
+  else G.ambientNoise = Math.max(G.ambientNoise, power);
   alertAgents(hearRadius(power), power, x, y);
 }
 

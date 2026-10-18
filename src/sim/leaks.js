@@ -131,7 +131,9 @@ export function tickRepair(dt, moving, bumped){
   G.atLeak = !!L;
   if (L){
     if (!moving && !bumped){
-      if (L.repair === 0) emit('sfx', 'wrench', REPAIR_NOISE);
+      if (L.repair === 0) L.wrenchT = 0;
+      L.wrenchT = (L.wrenchT||0) - dt;
+      if (L.wrenchT <= 0){ emit('sfx', 'wrench', REPAIR_NOISE); L.wrenchT = 1; }
       L.repair = Math.min(REPAIR_TIME, L.repair + dt);
       sustainedNoise(REPAIR_NOISE, L.sx+0.5, L.sy+0.5, true);
       if (L.repair >= REPAIR_TIME){

@@ -226,7 +226,7 @@ if (!reuse) buildFloor(0, RUN_SEED);
 else {
   G.clock = FLOOR_CLOCK; G.time = 0; G.batt = BATT_MAX;
   G.stat = {noises:0, deaths:0, sealed:0};
-  G.radar = false; G.noise = 0; G.noisePeak = 0; G.selfNoise = 0; G.descend = 0; G.seenBy = 0;
+  G.radar = false; G.radarRattleT = 0; G.noise = 0; G.noisePeak = 0; G.selfNoise = 0; G.ambientNoise = 0; G.descend = 0; G.seenBy = 0;
   initFlood();          // warm the flood up again for the new run
   snapMask();
 }

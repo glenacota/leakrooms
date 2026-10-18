@@ -17,7 +17,8 @@ export function tickAudio(){
   const prox = Math.max(0, 1 - G.nearest/13);
   emit('sfx', 'drone', prox * (0.35 + G.seenBy*0.65));
   // The noise bed follows the loudest thing in earshot, which is the number the bar shows. The yellow fill on the bar is only the player's own share.
-  emit('sfx', 'noiseFloor', G.noise/NOISE_FS);
+  // Ambient mix only: running raises footsteps, not the bed.
+  emit('sfx', 'noiseFloor', Math.max(G.ambientNoise, G.leakTotal)/NOISE_FS);
   emit('sfx', 'leakBed', G.leakTotal/NOISE_FS, G.leakDist);
 }
 

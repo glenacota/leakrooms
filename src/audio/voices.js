@@ -1,91 +1,93 @@
 export const voices = {
   powerVol(p){ return 0.8 + Math.min(2, Math.max(0, p||0))*1.3; },
 
-  step(vol, power){                 // wet carpet footstep
+  step(vol, power){                 // rubber sole on damp concrete thud
     if (!this.ok) return;
     const a=this.ctx, t=a.currentTime;
     const k=this.powerVol(power);
-    const s=a.createBufferSource(); s.buffer=this.noise;
-    s.playbackRate.value = 0.7 + Math.random()*0.4;
-    const f=a.createBiquadFilter(); f.type='lowpass'; f.frequency.value=520;
+    const o=a.createOscillator(); o.type='sine';
+    o.frequency.setValueAtTime(80*k?80:80, t);
+    o.frequency.exponentialRampToValueAtTime(40, t+0.08);
     const g=a.createGain();
-    g.gain.setValueAtTime(0.0001,t);
-    g.gain.exponentialRampToValueAtTime(0.10*vol*k, t+0.012);
-    g.gain.exponentialRampToValueAtTime(0.0001, t+0.17);
-    s.connect(f); f.connect(g); g.connect(this.master);
-    s.start(t); s.stop(t+0.2);
+    g.gain.setValueAtTime(0.12*vol*k, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t+0.09);
+    o.connect(g); g.connect(this.master);
+    o.start(t); o.stop(t+0.1);
   },
 
-  splash(vol, wet, power){         // footstep through standing water
+  splash(vol, wet, power){         // wet boot squelch with low thump
     if (!this.ok) return;
     const a=this.ctx, t=a.currentTime;
     const k=this.powerVol(power);
     const s=a.createBufferSource(); s.buffer=this.noise;
-    s.playbackRate.value = 1.1 + Math.random()*0.5;
-    /* Deeper water is a lower, longer splash. Filtered LOW rather than high:
-       the wet carpet step is already a lowpass, so a wet step has to move the
-       other way to be distinguishable from a dry one at a glance. */
     const f=a.createBiquadFilter(); f.type='lowpass';
-    f.frequency.value = 900 + wet*700;
+    f.frequency.value = 600;
     const g=a.createGain();
-    g.gain.setValueAtTime(0.0001,t);
-    g.gain.exponentialRampToValueAtTime(0.11*vol*k, t+0.010);
-    g.gain.exponentialRampToValueAtTime(0.0001, t+0.22);
+    g.gain.setValueAtTime(0.10*vol*k, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t+0.25);
     s.connect(f); f.connect(g); g.connect(this.master);
-    s.start(t); s.stop(t+0.25);
+    s.start(t); s.stop(t+0.3);
+    const o=a.createOscillator(); o.type='sine';
+    o.frequency.setValueAtTime(70, t);
+    o.frequency.exponentialRampToValueAtTime(40, t+0.2);
+    const g2=a.createGain();
+    g2.gain.setValueAtTime(0.08*vol*k, t);
+    g2.gain.exponentialRampToValueAtTime(0.0001, t+0.22);
+    o.connect(g2); g2.connect(this.master);
+    o.start(t); o.stop(t+0.25);
   },
 
-  drip(vol){                      // the leak, at range — a positional cue
+  drip(vol){                      // single water drop with a short echo (more "pipe")
     if (!this.ok) return;
     const a=this.ctx, t=a.currentTime;
     const o=a.createOscillator(); o.type='sine';
-    o.frequency.setValueAtTime(900+Math.random()*700, t);
+    o.frequency.setValueAtTime(900+Math.random()*300, t);
     o.frequency.exponentialRampToValueAtTime(180, t+0.09);
-    const f=a.createBiquadFilter(); f.type='lowpass'; f.frequency.value=2600;
     const g=a.createGain();
-    /* 0.08 rather than 0.035: the drip is the only cue that says WHICH pipe, and
-       at the old peak it was under the tape hiss from two rooms away. */
-    g.gain.setValueAtTime(0.0001,t);
-    g.gain.exponentialRampToValueAtTime(0.08*vol, t+0.006);
+    g.gain.setValueAtTime(0.08*vol, t);
     g.gain.exponentialRampToValueAtTime(0.0001, t+0.13);
-    o.connect(f); f.connect(g); g.connect(this.master);
+    o.connect(g); g.connect(this.master);
     o.start(t); o.stop(t+0.15);
+    // short echo
+    const del=a.createDelay(); del.delayTime.value=0.12;
+    const fb=a.createGain(); fb.gain.value=0.3;
+    const eg=a.createGain(); eg.gain.value=0.4;
+    g.connect(del); del.connect(fb); fb.connect(del); del.connect(eg); eg.connect(this.master);
   },
 
-  wrench(power){                   // working the pipe — loud, on purpose
+  wrench(power){                   // ratchet clicks with metallic clank
     if (!this.ok) return;
     const a=this.ctx, t=a.currentTime;
     const k=this.powerVol(power);
-    for (let i=0;i<3;i++){
-      const st = t + i*0.16 + Math.random()*0.05;
+    for (let i=0;i<5;i++){
+      const st=t+i*0.09;
       const o=a.createOscillator(); o.type='square';
-      o.frequency.setValueAtTime(240+Math.random()*160, st);
-      o.frequency.exponentialRampToValueAtTime(90, st+0.12);
-      const f=a.createBiquadFilter(); f.type='bandpass';
-      f.frequency.value=1500; f.Q.value=4;
+      o.frequency.value=1200;
       const g=a.createGain();
-      g.gain.setValueAtTime(0.0001,st);
-      g.gain.exponentialRampToValueAtTime(0.085*k, st+0.01);
-      g.gain.exponentialRampToValueAtTime(0.0001, st+0.16);
-      o.connect(f); f.connect(g); g.connect(this.master);
-      o.start(st); o.stop(st+0.18);
+      g.gain.setValueAtTime(0.07*k, st);
+      g.gain.exponentialRampToValueAtTime(0.0001, st+0.05);
+      o.connect(g); g.connect(this.master);
+      o.start(st); o.stop(st+0.06);
     }
   },
 
-  seal(){                          // the pipe stops
+  seal(){                          // valve closing clunk + pressure drop
     if (!this.ok) return;
     const a=this.ctx, t=a.currentTime;
-    const o=a.createOscillator(); o.type='sawtooth';
-    o.frequency.setValueAtTime(320,t);
-    o.frequency.exponentialRampToValueAtTime(52,t+0.9);
-    const f=a.createBiquadFilter(); f.type='lowpass';
-    f.frequency.setValueAtTime(3200,t);
-    f.frequency.exponentialRampToValueAtTime(180,t+0.9);
+    const o=a.createOscillator(); o.type='sine';
+    o.frequency.setValueAtTime(90,t);
+    o.frequency.exponentialRampToValueAtTime(50,t+0.4);
     const g=a.createGain();
     g.gain.setValueAtTime(0.14,t);
-    g.gain.exponentialRampToValueAtTime(0.0001,t+1.1);
-    o.connect(f); f.connect(g); g.connect(this.master);
-    o.start(t); o.stop(t+1.2);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+0.45);
+    o.connect(g); g.connect(this.master);
+    o.start(t); o.stop(t+0.5);
+    const c=a.createOscillator(); c.type='square'; c.frequency.value=400;
+    const gc=a.createGain();
+    gc.gain.setValueAtTime(0.10,t+0.05);
+    gc.gain.exponentialRampToValueAtTime(0.0001,t+0.12);
+    c.connect(gc); gc.connect(this.master);
+    c.start(t+0.05); c.stop(t+0.15);
   },
 
   /* THE KUDOS — what a sealed floor sounds like. seal() turned the right way
@@ -103,62 +105,39 @@ export const voices = {
     if (!this.ok) return;
     const a=this.ctx, t=a.currentTime;
     this.silenceBeds();                  // the old floor stops gurgling behind the card
-
-    /* the hiss-stop */
-    const s=a.createBufferSource(); s.buffer=this.noise;
-    s.playbackRate.value = 0.8;
-    const hf=a.createBiquadFilter(); hf.type='highpass'; hf.frequency.value=1800;
-    const hg=a.createGain();
-    hg.gain.setValueAtTime(0.10,t);
-    hg.gain.exponentialRampToValueAtTime(0.0001,t+0.45);
-    s.connect(hf); hf.connect(hg); hg.connect(this.master);
-    s.start(t); s.stop(t+0.5);
-
-    /* the rising seal — filter and pitch climbing together, the opposite sweep */
-    const o=a.createOscillator(); o.type='sawtooth';
-    o.frequency.setValueAtTime(96,t);
-    o.frequency.exponentialRampToValueAtTime(392,t+0.55);
-    const f=a.createBiquadFilter(); f.type='lowpass';
-    f.frequency.setValueAtTime(600,t);
-    f.frequency.exponentialRampToValueAtTime(3800,t+0.55);
-    const g=a.createGain();
-    g.gain.setValueAtTime(0.0001,t);
-    g.gain.exponentialRampToValueAtTime(0.11,t+0.05);
-    g.gain.exponentialRampToValueAtTime(0.0001,t+0.8);
-    o.connect(f); f.connect(g); g.connect(this.master);
-    o.start(t); o.stop(t+0.9);
-
-    /* the triad */
-    const notes=[523.25, 659.25, 783.99];
-    for(let i=0;i<3;i++){
-      const n=a.createOscillator(); n.type='sine';
-      n.frequency.value = notes[i] * (1 + (i-1)*0.0015);
-      const ng=a.createGain();
-      const st=t+i*0.09;
-      ng.gain.setValueAtTime(0.0001,st);
-      ng.gain.exponentialRampToValueAtTime(0.10/(i+1.4), st+0.02);
-      ng.gain.exponentialRampToValueAtTime(0.0001, st+1.1);
-      n.connect(ng); ng.connect(this.master);
-      n.start(st); n.stop(st+1.2);
-    }
+    const notes=[392,494,587,784];
+    notes.forEach((f,i)=>{
+      const o=a.createOscillator(); o.type='sine'; o.frequency.value=f;
+      const g=a.createGain();
+      const st=t+i*0.1;
+      g.gain.setValueAtTime(0.0001,st);
+      g.gain.exponentialRampToValueAtTime(0.1,st+0.03);
+      g.gain.exponentialRampToValueAtTime(0.0001,st+0.9);
+      o.connect(g); g.connect(this.master);
+      o.start(st); o.stop(st+1);
+    });
   },
 
-  rattle(vol){                     // wire shifting
+  rattle(vol){                     // electrical spark / static crackle (audible)
     if (!this.ok) return;
     const a=this.ctx, t=a.currentTime;
-    for(let i=0;i<5;i++){
+    for(let i=0;i<6;i++){
+      const st=t+Math.random()*0.3;
       const s=a.createBufferSource(); s.buffer=this.noise;
-      s.playbackRate.value = 1.4 + Math.random();
-      const f=a.createBiquadFilter(); f.type='bandpass';
-      f.frequency.value = 1400+Math.random()*2600; f.Q.value=7;
+      const f=a.createBiquadFilter(); f.type='highpass'; f.frequency.value=3000;
       const g=a.createGain();
-      const st=t+i*0.045+Math.random()*0.02;
-      g.gain.setValueAtTime(0.0001,st);
-      g.gain.exponentialRampToValueAtTime(0.05*vol, st+0.006);
-      g.gain.exponentialRampToValueAtTime(0.0001, st+0.07);
+      g.gain.setValueAtTime(0.42*vol, st);
+      g.gain.exponentialRampToValueAtTime(0.0001, st+0.04);
       s.connect(f); f.connect(g); g.connect(this.master);
-      s.start(st); s.stop(st+0.09);
+      s.start(st); s.stop(st+0.05);
     }
+    // low clack so it reads on small speakers
+    const o=a.createOscillator(); o.type='square'; o.frequency.value=180;
+    const g2=a.createGain();
+    g2.gain.setValueAtTime(0.32*vol, t);
+    g2.gain.exponentialRampToValueAtTime(0.0001, t+0.06);
+    o.connect(g2); g2.connect(this.master);
+    o.start(t); o.stop(t+0.08);
   },
 
   sting(){                         // caught
@@ -175,20 +154,19 @@ export const voices = {
     s.start(t); s.stop(t+1.6);
   },
 
-  door(power){                    // heavy door cycling open
+  door(power){                    // heavy vault door with bolt clunks
     if (!this.ok) return;
     const a=this.ctx, t=a.currentTime;
     const k=this.powerVol(power);
-    const o=a.createOscillator(); o.type='sawtooth';
-    o.frequency.setValueAtTime(70,t);
-    o.frequency.exponentialRampToValueAtTime(28,t+1.1);
-    const f=a.createBiquadFilter(); f.type='lowpass'; f.frequency.value=420;
-    const g=a.createGain();
-    g.gain.setValueAtTime(0.0001,t);
-    g.gain.exponentialRampToValueAtTime(0.16*k, t+0.08);
-    g.gain.exponentialRampToValueAtTime(0.0001,t+1.2);
-    o.connect(f); f.connect(g); g.connect(this.master);
-    o.start(t); o.stop(t+1.3);
+    for(let i=0;i<3;i++){
+      const st=t+i*0.25;
+      const o=a.createOscillator(); o.type='square'; o.frequency.value=120;
+      const g=a.createGain();
+      g.gain.setValueAtTime(0.12*k, st);
+      g.gain.exponentialRampToValueAtTime(0.0001, st+0.12);
+      o.connect(g); g.connect(this.master);
+      o.start(st); o.stop(st+0.15);
+    }
   },
 
   /* ---------- THE TWO NOISE BEDS ----------
@@ -204,8 +182,8 @@ export const voices = {
     if (!this.ok) return;
     const t=this.ctx.currentTime;
     const l=Math.max(0, Math.min(1, level||0));
-    this.floorGain.gain.setTargetAtTime(l*l*0.11, t, 0.06);
-    this.floorFilter.frequency.setTargetAtTime(500 + l*2600, t, 0.1);
+    this.floorGain.gain.setTargetAtTime(l*l*0.07, t, 0.06);
+    this.floorFilter.frequency.setTargetAtTime(800 + l*1200, t, 0.1);
   },
 
   /* The open pipes. `total` is their summed noise — the same number the
@@ -217,7 +195,7 @@ export const voices = {
     const t=this.ctx.currentTime;
     const l=Math.max(0, Math.min(1, total||0));
     const near=Math.max(0, 1 - Math.max(0, dist==null?99:dist)/20);
-    this.leakGain.gain.setTargetAtTime(l*near*near*0.16, t, 0.12);
+    this.leakGain.gain.setTargetAtTime(l*near*near*0.10, t, 0.12);
     this.leakFilter.frequency.setTargetAtTime(1100 + near*2400, t, 0.15);
   },
 
@@ -243,6 +221,21 @@ export const voices = {
      rather than to zero: a mute slider that truly reaches 0 leaves the graph
      in a state where a later unmute has to re-prime it, and a 0.0001 gain is
      inaudible in practice. */
+  clink(vol=0.4){
+    if (!this.ok) return;
+    const a=this.ctx, t=a.currentTime;
+    for(let i=0;i<4;i++){
+      const st=t+i*0.08+Math.random()*0.02;
+      const o=a.createOscillator(); o.type='triangle';
+      o.frequency.value=1800+Math.random()*1200;
+      const g=a.createGain();
+      g.gain.setValueAtTime(0.09*vol, st);
+      g.gain.exponentialRampToValueAtTime(0.0001, st+0.12);
+      o.connect(g); g.connect(this.master);
+      o.start(st); o.stop(st+0.13);
+    }
+  },
+
   blip(up){
     if (!this.ok) return;
     const a=this.ctx, t=a.currentTime;

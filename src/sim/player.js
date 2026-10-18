@@ -14,6 +14,10 @@ export function tickBattery(dt){
   if (G.radar){
     G.batt -= RADAR_DRAIN*dt;
     if (G.batt<=0){ G.batt=0; G.radar=false; emit('flash', 'NO POWER — THE RADAR IS DEAD'); }
+    G.radarRattleT = (G.radarRattleT||0) - dt;
+    if (G.radarRattleT <= 0){ emit('sfx', 'clink', 0.4); G.radarRattleT = 0.6; }
+  } else {
+    G.radarRattleT = 0;
   }
   for (const b of G.batteries){
     if (b.taken) continue;
@@ -79,8 +83,8 @@ export function tickMovement(dt){
     if (p.stepT<=0){
       p.stepT = sprinting ? 0.26 : 0.46;
       p.stepDur = p.stepT;
-      if (inWater) emit('sfx', 'splash', sprinting?1:0.5, preWet, stepPow);
-      else       emit('sfx', 'step', sprinting?1:0.5, stepPow);
+      if (inWater) emit('sfx', 'splash', sprinting?1.4:0.5, preWet, stepPow);
+      else       emit('sfx', 'step', sprinting?1.4:0.5, stepPow);
     }
     p.moving = moving;
     // Wading pushes a ripple ahead of you, a trace of where you have been on top of the noise you already made.

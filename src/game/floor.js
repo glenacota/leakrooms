@@ -138,8 +138,8 @@ export function buildFloor(floorNum, seed){
   G.agents = spawnAgents(level);
   G.player = { x: level.spawn.x, y: level.spawn.y, face:-Math.PI/2, stepT:0, stepDur:0.46, moving:false };
   G.batt = BATT_MAX;
-  G.radar = false;
-  G.noise = 0; G.noisePeak = 0; G.selfNoise = 0;
+  G.radar = false; G.radarRattleT = 0;
+  G.noise = 0; G.noisePeak = 0; G.selfNoise = 0; G.ambientNoise = 0;
   G.descend = 0;
   // The level clock starts full when the player steps in.
   G.clock = FLOOR_CLOCK;
