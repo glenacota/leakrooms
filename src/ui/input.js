@@ -3,7 +3,7 @@ import { SETTINGS, setOption } from '../settings/store.js';
 import { Audio_ } from '../audio/index.js';
 import { keys } from '../sim/keys.js';
 import { G } from '../sim/state.js';
-import { STATE } from '../game/run.js';
+import { STATE, dismissClear } from '../game/run.js';
 import { flash } from './hud.js';
 import { setPausePage, togglePause, pausePage } from './pause.js';
 import { advanceSplash, backSplash } from './splash.js';
