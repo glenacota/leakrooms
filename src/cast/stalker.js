@@ -1,7 +1,19 @@
 import { TAU, limb, blob } from './primitives.js';
 import { CATCH_R } from '../config/constants.js';
+
+/* The four legs, as two flat arrays: which side each leg is on, and its phase
+   offset in the walk cycle. The table is constant, so it is built once here and
+   not rebuilt for every Stalker on every frame. */
 const STALKER_SIDE = [-1, 1, -1, 1];
 const STALKER_PH   = [0, Math.PI, Math.PI*0.55, Math.PI*0.55];
+
+/* THE LIFEFORM: the Stalker. Four thick black legs under a small glossy body,
+   roughly TWICE the size of the avatar: the Rigger stands about a quarter of a
+   tile tall and half a tile wide, and this is about half a tile tall and three
+   quarters across. It does not grow as it approaches. It is compact and simply
+   already there. Its legs reach further than its body, which is why the floor is
+   clipped under it (see drawAgent): an unclipped leg over a partition reads as
+   walking through walls. The origin is the feet; it grows upward. */
 export function drawStalker(g, S) {
   const T = S.T, t = S.t;
   const HGT = T * 0.75;
@@ -56,13 +68,11 @@ export function drawStalker(g, S) {
   g.beginPath(); g.ellipse(T * 0.055, -HGT * 0.86, T * 0.035, T * 0.014, -0.4, 0, TAU); g.fill();
   g.restore();   // the body pitch
 
-  /* Pop the save() at the top of this function. Without it the Stalker leaks
-     one canvas state per frame, and because the states are LIFO the damage is
-     not confined to itself: drawAgent's two restores then pop the WRONG pair,
-     so its floor clip survives past drawAgent and the player — drawn after it
-     in the y-sort — is clipped to the five tiles around the Stalker. The
-     Rigger therefore vanished whenever a Lifeform happened to sort north of
-     it, which is every frame in the bottom half of a floor. */
+  /* Pops the save() at the top of this function. Every save needs its own
+     restore. Canvas states are last-in first-out, so a missing one here would
+     make drawAgent's two restores pop the wrong pair, leave its floor clip
+     active, and clip the player (drawn after it) to the tiles around the
+     Stalker. The render test checks that no save outlives a frame. */
   g.restore();
   g.globalAlpha = 1;
 }

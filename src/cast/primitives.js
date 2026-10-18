@@ -1,5 +1,9 @@
+/* Drawing helpers shared by the two characters. Every function draws into a 2D
+   canvas context `g`. `T` is the size of one tile in pixels, and `S` is the
+   sprite state: { phase, gait, ... }. */
 export const TAU = Math.PI * 2;
 
+// A line with rounded ends, used for limbs.
 export function limb(g, x1, y1, x2, y2, w, col) {
   g.strokeStyle = col;
   g.lineWidth = w;
@@ -8,6 +12,7 @@ export function limb(g, x1, y1, x2, y2, w, col) {
   g.lineCap = 'butt';
 }
 
+// A filled ellipse.
 export function blob(g, cx, cy, rx, ry, col, rot) {
   g.fillStyle = col;
   g.beginPath(); g.ellipse(cx, cy, rx, ry, rot || 0, 0, TAU); g.fill();
@@ -60,15 +65,13 @@ export function arm(g, T, side, cy, swing, col, handCol, reach) {
 
 /* Where both feet are, this frame. One plan, two consumers: the legs are
    drawn to it and the boots are drawn on it, so the legs cannot come apart
-   from the boots — which is the usual way a hand-drawn walk cycle falls
-   apart.
+   from the boots, which is the usual way a hand-drawn walk cycle falls apart.
 
-   It writes into two module-level scratch records rather than building and
+   It writes into two module-level scratch records instead of building and
    returning an array. Both consumers run back to back on the same sprite and
-   nothing else reads the plan while either is drawing, so the scratch cannot
-   be observed — and this ran twice per sprite per frame, allocating an array,
-   an object and a `stride` result each time. Same numbers out; the shape is
-   the only thing that changed. */
+   nothing else reads the plan while either is drawing, so reusing the records
+   is safe, and it avoids allocating an array, an object and a `stride` result
+   twice per sprite per frame. */
 const FOOT_A = { s:0, x:0, y:0, ang:0, sc:1 };
 const FOOT_B = { s:0, x:0, y:0, ang:0, sc:1 };
 const FOOT_PLAN = [FOOT_A, FOOT_B];
@@ -101,7 +104,3 @@ export function legs(g, T, S, o) {
   for (let n=0;n<2;n++){ const f=plan[n];
     limb(g, f.s * o.hipSep * T, o.hipY * T, f.x, f.y + T * 0.035, w, o.col); }
 }
-
-/* THE AVATAR — the Rigger. Hard hat, hi-vis vest with two reflective bands
-   that slide fore and aft on the stride, tool belt, and a wrench that swings
-   with the walk. Local -y is forward: the boots lead, the hat brim trails. */

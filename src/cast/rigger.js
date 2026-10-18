@@ -1,4 +1,8 @@
 import { TAU, limb, blob, rim, arm, feet, legs, footPlan, stride } from './primitives.js';
+
+/* THE AVATAR: the Rigger. Hard hat, hi-vis vest with two reflective bands that
+   slide fore and aft on the stride, tool belt, and a wrench that swings with the
+   walk. Local -y is forward: the boots lead, the hat brim trails. */
 export function drawRigger(g, S) {
   const T = S.T, st = stride(S);
   const hip = st.bob * T;
@@ -35,16 +39,3 @@ export function drawRigger(g, S) {
   g.strokeStyle = 'rgba(255,244,200,0.6)'; g.lineWidth = 1.4;
   g.beginPath(); g.moveTo(-T * 0.07, T * 0.04 + hip); g.lineTo(T * 0.07, T * 0.04 + hip); g.stroke();
 }
-
-/* THE LIFEFORM — the Stalker. Four thick black legs under a small glossy
-   body, sized at roughly TWICE the avatar: the Rigger stands about a quarter
-   of a tile tall and half a tile wide, and this is about half a tile tall and
-   three quarters across. A thing that swells as it approaches you is a threat
-   you can watch coming; this one is compact and simply is already there, and
-   its legs reach further than its body, which is why the floor is clipped
-   under it (see drawAgent) — an unclipped leg over a partition reads as
-   walking through walls. The origin is the feet; it grows upward. */
-/* The four legs, as two flat arrays rather than four two-element arrays. This
-   table is constant — the sides and the phase offsets never change — and it was
-   being rebuilt, nested array literals and all, once per Stalker per frame. */
-
