@@ -1,3 +1,10 @@
+/* Short notes scrawled on the carpet. A level scatters some in random rooms,
+   and the player reads one when the radar sweeps it onto the screen.
+
+   The first group is spooky flavour text. The second group repeats the rules
+   of the shift, so players can learn them in the world as well as on the
+   work order. */
+
 export const NOTES = [
     'it only hears you when you move',
     'the lights are always on. always on. always on.',
@@ -9,9 +16,7 @@ export const NOTES = [
     'you are not the first thing here to have come back for the door',
     'if you can hear it, it already knows where you are',
     'the hum is not coming from the ceiling',
-    /* The rules of the shift, in the hands of people who did not get them
-       either. They are placed like every other note — random rooms, revealed
-       by the radar — so they are found rather than delivered. */
+    // The rules of the shift
     'the wet floor runs downhill. it runs AWAY from the break.',
     'wrench takes five seconds. it is the loudest thing you will do here.',
     'don\'t stand still anywhere except the pipe',

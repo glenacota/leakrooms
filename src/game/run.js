@@ -1,3 +1,10 @@
+/* ============================================================
+   THE RUN
+   Everything about the player's current attempt: which screen or state
+   the game is in, lives, totals, and every way a run starts, ends,
+   rewinds or continues.
+   ============================================================ */
+
 import { BATT_MAX } from '../config/constants.js';
 import { LEVELS, LEVELS_N } from '../config/levels.js';
 import { DIFFICULTIES } from '../config/presets.js';
@@ -12,95 +19,87 @@ import { G } from '../sim/state.js';
 import { paintSplashPlan } from '../render/splash-plan.js';
 import { buildFloor } from './floor.js';
 
-/* ============================================================
-   FLOW
-   The run: its state, and every way it starts, ends, rewinds or
-   continues. The state is exported as live bindings and written
-   through setters, because an importer may read it but must not
-   assign to it.
-   ============================================================ */
-export let STATE='splash';      // splash | order | clear | play | pause | dead | win
+/* The variables below are live bindings. Other modules can read them,
+   but only this file may assign to them. Changes go through the setter
+   functions at the bottom, so there is one place where the run changes. */
 
+// One of: splash | order | clear | play | pause | dead | win
+export let STATE='splash';
+
+// The seed that builds every floor of the run (floor N uses this seed plus N).
 export let RUN_SEED = (Math.random()*1e9)|0;
 export let lives = 3, floorIdx = 0, runTime = 0;
-/* The life pips are drawn from this, not from a hardcoded three. The naive
-   version maps over [0,1,2], so RELAXED would render five pips with the fifth
-   always spent and HARD would render three for a one-life run. */
+
+/* How many life pips the HUD draws. It follows the difficulty (5 on
+   RELAXED, 1 on HARD), so it cannot be a hardcoded three. */
 export let runLives = 3;
-/* The run's own totals. G.stat is thrown away and rebuilt by buildFloor, so
-   everything it counted died with the floor it was counted on: the win card
-   read the LAST level's numbers and called them the run's. runStat lives as
-   long as the run does, is bumped beside every G.stat bump, and is cleared
-   only where a run starts — the CLOCK IN button. */
+
+/* Totals for the whole run. G.stat is thrown away whenever a floor is
+   rebuilt, so the win card needs its own counters that last as long as the
+   run. They are cleared only when a run starts (startRun). */
 export let runStat = { noises:0, deaths:0, sealed:0 };
 
-/* A new run gets a new plan, and the splash is repainted to match even though
-   nobody is looking at it yet: the win screen's RUN IT AGAIN button leads back
-   through here, and a title screen showing the level you just finished would be
-   the sort of small mistake that makes a procedural game feel hand-authored in
-   the wrong direction. */
+/* Starts a new building: new seed, a fresh floor 0, and a repainted title
+   plan. The title screen must show the level the next run will really
+   play, so this runs before the player sees it again (RUN IT AGAIN, RESET). */
 export function rollRunSeed(){
   setRunSeed((Math.random()*1e9)|0);
   buildFloor(0, RUN_SEED);
   paintSplashPlan();
 }
 
-/* THE FLOOR CLEAR.
-   Between one level and the next there is a card: the clock you finished with,
-   and the shape of the floor you are about to walk into. It exists for two
-   reasons and neither of them is vibes — a level transition that silently
-   restarts a running clock is the single most unfair thing this game could do,
-   and a player who does not know the next floor carries four pipes and four
-   things is walking into it with the wrong amount of caution.
+/* ============================================================
+   FLOOR CLEAR CARD
+   Between two levels the player sees a card with the clock they finished
+   with and a briefing for the next floor. It exists so that a running clock
+   never silently restarts, and so the player knows what is coming (pipes
+   and lifeforms) before they walk in.
 
-   THE FLOOR IS ALREADY BUILT when this comes up. nextFloor() does its usual
-   floorIdx++ / buildFloor in the same frame the door cycles, and 'clear' only
-   holds the PLAYER out of it. Nothing about the state depends on the card being
-   dismissed, and the tests that watch floorIdx move on the descent frame keep
-   working without knowing this screen exists. */
+   The next floor is already built while the card is up. 'clear' only holds
+   the player out of it, and the clock is frozen because the loop only
+   steps the simulation while STATE is 'play'.
+   ============================================================ */
 export let clearCard = { floor:0, clock:0, leaks:0, forms:0 };
+
+// Fills in the card and shows it.
 export function showClear(){
   const el = id => document.getElementById(id);
   el('clear-clock').textContent = clockText(clearCard.clock);
   el('clear-floor').textContent  = clearCard.floor+1;
   el('clear-leaks').textContent  = clearCard.leaks;
   el('clear-forms').textContent  = clearCard.forms;
-  /* The praise scales with the clock, and only with the clock. Nailing a floor
-     on the last few seconds gets the warm line; scraping back in does not, and
-     the game does not congratulate you for the version where you nearly died. */
+  // The praise depends only on how much clock was left. Barely making it
+  // gets the cooler line.
   el('clear-sub').textContent =
     clearCard.clock >= FLOOR_CLOCK*0.34 ? 'GOOD WORK. MANAGEMENT NOTICES.'
                                       : 'SEALED. MANAGEMENT HAS NO COMMENT.';
   transition('clear');
   Audio_.acclaim();
 }
-/* ENTER, and the button, and nothing else. There is no clock on this card and
-   no way back into it — the floor behind it is sealed and the floor in front of
-   it is already running. ESC deliberately does nothing here: backSplash() only
-   walks the title chain, so the key falls through to the play/pause toggle,
-   which is also inert while STATE is 'clear'.
 
-   The keys go down inside transition(): the player is almost certainly holding
-   W — they walked to the door — and the first frame of the new floor would walk
-   them back through it otherwise. */
+/* Called by ENTER and by the card's button. ESC does nothing here on purpose:
+   there is no way back to the floor you just sealed. Held keys are cleared
+   inside transition(), because the player was almost certainly holding W
+   when they reached the door. */
 export function dismissClear(){
   if (STATE!=='clear') return;
   transition('play');
 }
 
-/* THE ONE WAY THE RUN CHANGES STATE.
+/* ============================================================
+   STATE CHANGES
+   ============================================================ */
 
-   Four things happen every time and they used to happen four times over, in
-   four orders, in five places: the run enters the state, the screen follows it,
-   the HUD follows the screen, and the world is told so the audio can answer.
-   Two of the paths were missing one of them — the win branch never emitted
-   'state', so the noise bed ran on under the win card with nothing left to
-   close it, and the pause never emitted it either. A state change nobody hears
-   about is a bug that only a mix can see.
-
-   Keys go down here because a run that starts on a held W walks the player out
-   of the door they came through, and the run is the only thing that knows a
-   screen just changed. */
+/**
+ * The only way the run changes state. Every change does the same four things:
+ * set the state, show the matching screen, show or hide the HUD, and
+ * announce 'state' so the audio can react.
+ *
+ * Held keys are cleared as well. Otherwise a run that starts while W is held
+ * would walk the player straight back out of the door they came through.
+ *
+ * @param {string} to - the new state ('play', 'pause', 'dead', ...).
+ */
 export function transition(to){
   setState(to);
   emit('screen', to === 'play' ? null : to);
@@ -109,39 +108,39 @@ export function transition(to){
   emit('state', STATE);
 }
 
+// Called when the door cycles: moves to the next floor, or ends the run.
 export function nextFloor(){
   setFloorIdx(floorIdx+1);
   if (floorIdx >= FLOORS){ transition('win'); emit('win', { sealed: runStat.sealed, deaths: runStat.deaths, noises: runStat.noises, floors: FLOORS, time: runTime });
     return;
   }
-  /* The clock is read off the OLD floor, before the rebuild — G is replaced
-     wholesale by buildFloor and the leftover seconds of the floor you just
-     finished are the whole point of the card. */
+  /* Read the leftover clock BEFORE rebuilding. buildFloor replaces G, and the
+     seconds left on the finished floor are what the card shows. */
   const clockLeft = G ? G.clock : FLOOR_CLOCK;
   buildFloor(floorIdx, RUN_SEED);
-  /* The briefing reads the same table buildFloor reads, through the same
-     clamp, so the numbers on the card are the numbers on the floor. */
+  // Same table and same clamp as buildFloor, so the card matches the floor.
   const spec = LEVELS[Math.min(floorIdx, LEVELS_N-1)];
   setClearCard({ floor:floorIdx, clock:clockLeft, leaks:spec.leaks, forms:spec.forms });
   showClear();
 }
 
-/* Every way a run can end badly costs a life, rewinds the level and says why.
-   Two causes, one exit: something found you, or the clock ran out. They are
-   the same shape because they are the same decision — you did not get back to
-   the door in time — and one screen for both means the player is never left
-   guessing which rule they broke. */
+/**
+ * Ends the attempt: costs a life, shows the death screen and says why. Being
+ * caught and running out of the clock are the same thing to the player (they
+ * did not get back to the door in time), so they share one path.
+ *
+ * @param {string} cause - text shown on the death screen.
+ */
 export function lose(cause){
   if (STATE!=='play') return;
-  /* Told to the FLOOR before the run's own state changes, because the frame
-     that ends the run is still a simulation frame: without this the rest of
-     update() keeps running on a run that is over, and the worst of it is the
-     door, which cycles and builds the NEXT floor on the frame you died. */
+  /* Tell the floor first. This frame is still a simulation frame, and without
+     G.ended the rest of update() would keep running. The worst case is the
+     door cycling and building the next floor on the frame you died. */
   G.ended = true;
   G.stat.deaths++;
   runStat.deaths++;
   setLives(lives-1);
-  Audio_.sting();                 // the beds and the drone are closed by 'state'
+  Audio_.sting();                 // the noise beds are closed by the 'state' event
   transition('dead');
   emit('lives');
   emit('dead', { lives, cause });
@@ -149,19 +148,20 @@ export function lose(cause){
 
 export function caught(){ lose('TAPE DAMAGED'); }
 
-/* Out of time. The same cost as being caught — a life and a rewound level —
-   because a clock is only a real deadline if it can actually kill you. If it
-   only scolded you, three minutes would be advice. */
+// Running out of time costs a life too. A deadline that cannot kill you is only advice.
 export function outOfTime(){ lose('THE CLOCK RAN OUT'); }
 
-/* m:ss, floored. The clock is read at a glance while running, so it never
-   shows a value it would not show again a frame later — it counts down on whole
-   seconds and that is all. */
+// Formats seconds as m:ss, rounding up so the display matches whole seconds.
 export function clockText(s){
   const t = Math.max(0, Math.ceil(s));
   return Math.floor(t/60) + ':' + String(t%60).padStart(2,'0');
 }
 
+/* ============================================================
+   RESET GAME (two taps)
+   The pause screen's reset button ends the whole run, so the first tap only
+   arms it. It disarms after 5 seconds or when the player changes page.
+   ============================================================ */
 export let resetArmed = false;
 let resetArmTimer = 0;
 const RESET_LABEL  = 'RESET GAME';
@@ -183,9 +183,9 @@ export function armReset(){
   paintResetButton();
 }
 export function resetRun(){
-  /* The same path boot walks: a new seed, the floor built from it, the plan
-     painted from the same seed — so the riser shows the building the next
-     run is actually about to be, not a picture of the one just abandoned. */
+  /* Follows the same steps as boot: new seed, floor built from it, plan
+     painted from it. The title screen then shows the building the next run
+     will use, not the one just abandoned. */
   rollRunSeed();
   setFloorIdx(0);
   setRunTime(0);
@@ -193,38 +193,33 @@ export function resetRun(){
   setLives(runLives);
   setRunStat({ noises:0, deaths:0, sealed:0 });
   emit('lives');
-  /* The HUD belongs to a run; the riser is not one. transition() raises it off
-     with the state change and everything else that follows a state. */
-  transition('splash');
+  transition('splash');          // also hides the HUD, which belongs to a run
   disarmReset();
 }
 
-/* The three buttons on the shell, as functions. They were inline onclick
-   bodies; the wiring stays in game.js and these are what it calls. */
+/* ============================================================
+   BUTTON ACTIONS
+   The functions behind the main buttons. src/ui/buttons.js attaches them.
+   ============================================================ */
+
+// CLOCK IN: starts a new run on floor 1.
 export function startRun(){
 Audio_.init();
 Audio_.unlock();
-/* The seed is NOT rolled here. It was rolled before the splash was painted,
-   because the plan behind the title has to be the level the player is about
-   to walk — re-rolling at the moment of entry would make the splash a lie
-   and nothing else. A finished run rolls its own; see rollRunSeed(). */
+/* The seed is not rolled here. It was rolled before the title screen was
+   painted, and the plan behind the title has to be the level the player is
+   about to play. A finished run rolls its own (see rollRunSeed). */
 setRunLives((DIFFICULTIES[SETTINGS.difficulty] || DIFFICULTIES.normal).lives);
 setLives(runLives); setFloorIdx(0); setRunTime(0);
-/* A new run, so a new tally: the win card is the only reader and it must not
-   inherit the previous run's seals and deaths. */
+// A new run gets a new tally, so the win card never shows the previous run.
 setRunStat({ noises:0, deaths:0, sealed:0 });
 emit('lives');
-/* Floor 0 was already built at boot — the same seed, the same geometry the
-   splash plan was painted from — so building it again here generates the
-   identical level a second time for nothing. Reuse it instead.
-
-   The extra two conditions are what stop the reuse from handing back a
-   PLAYED floor: a run that died on floor 1 and came back through CLOCK IN
-   (lives spent, btn-retry forwards to here) has the same seed and the same
-   floor number, but its pipes are sealed and its clock has run. A floor
-   that has never ticked and still has every pipe open is the only floor
-   worth keeping. The clock check also catches a difficulty change made
-   after boot, whose FLOOR_CLOCK the boot floor was never built with. */
+/* Floor 0 was already built at boot from the same seed, so building it again
+   would only generate the same level twice. Reuse it when it is untouched:
+   same seed, clock never started, and every pipe still open. That check
+   matters because a run that died on floor 1 and came back through here has
+   the same seed but a played floor. The clock check also catches a
+   difficulty change made after boot. */
 const reuse = G && G.floor===0 && G.seed===RUN_SEED
               && G.clock >= FLOOR_CLOCK && G.leaksOpen === G.pipes;
 if (!reuse) buildFloor(0, RUN_SEED);
@@ -232,53 +227,55 @@ else {
   G.clock = FLOOR_CLOCK; G.time = 0; G.batt = BATT_MAX;
   G.stat = {noises:0, deaths:0, sealed:0};
   G.radar = false; G.noise = 0; G.noisePeak = 0; G.selfNoise = 0; G.descend = 0; G.seenBy = 0;
-  initFlood();          // the flood the builder warmed, warmed again here
+  initFlood();          // warm the flood up again for the new run
   snapMask();
 }
-/* The opening grace period, on the start path either way — reuse and a
-   fresh build have to be indistinguishable from where the player stands. */
+// A short grace period before lifeforms can notice you, for both paths above.
 for (const a of G.agents){ a.born = 3.0; }
-transition('play');       // the title bed has no business following you downstairs
+transition('play');
 }
 
+// REWIND: replays the same floor after a death, or starts a new run if no lives are left.
 export function retryFloor(){
 if (lives<=0){
   document.getElementById('btn-start').click(); return;
 }
 buildFloor(floorIdx, RUN_SEED);
 G.batt = Math.max(G.batt, 55);
-/* The retry keeps the same seed, so the pipes are where you left them and
-   the flood restarts. Dying costs you a life and the work you did on them,
-   but not the knowledge — which is the split that matters, because where the
-   pipes are is the thing you spent the level learning and a re-roll would
-   erase it. */
+/* Same seed, so the pipes are in the same places and only the flood restarts.
+   Dying costs a life and the repairs you made, but not what you learned about
+   where the pipes are. */
 for (const a of G.agents){ a.born=3.0; }
 transition('play');
 }
 
+// RUN IT AGAIN (win screen): a new building, then a normal start.
 export function runAgain(){
-rollRunSeed();                 // a new run deserves a new building
+rollRunSeed();
 document.getElementById('btn-start').click();
 }
 
-/* ---- the setters. An exported `let` is a live binding: importers see every
-   write, but only this module may assign, so each write goes through one of
-   these and there is exactly one place the run can change. ---- */
+/* ============================================================
+   SETTERS
+   Needed because other modules cannot assign to imported variables.
+   ============================================================ */
 export function setState(v){ STATE = v; }
 export function setLives(v){ lives = v; }
 export function setFloorIdx(v){ floorIdx = v; }
 export function setRunTime(v){ runTime = v; }
-/* the loop bills the run for each simulation step, not the caller */
+// The loop calls this once per simulation step.
 export function addRunTime(v){ runTime += v; }
 export function setRunLives(v){ runLives = v; }
 export function setRunStat(v){ runStat = v; }
 export function setRunSeed(v){ RUN_SEED = v; }
 export function setClearCard(v){ clearCard = v; }
 
-/* ---- the event wiring. The simulation reports four facts and decides nothing
-   about what they mean: a stat was counted, something caught you, the clock ran
-   out, the door cycled. Each is answered here, which is why the run's counters
-   live as long as the run does. ---- */
+/* ============================================================
+   EVENT WIRING
+   The simulation only reports four facts (a stat was counted, something
+   caught you, the clock ran out, the door cycled). This is where the run
+   decides what each one means. Called once from boot().
+   ============================================================ */
 export function bindRun(){
   on('stat', k => { runStat[k]++; });
   on('caught', caught);
