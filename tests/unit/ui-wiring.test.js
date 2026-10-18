@@ -109,3 +109,26 @@ test('[36] the controls change what they claim to change', () => {
   console.log('  slider -> store, tint -> stamp, tab -> page, CHANGE -> fold');
   t.done();
 });
+
+/* One click advances one screen. bindButtons() is the single owner of the
+   screen click wiring, but the module used to add the same listener a second
+   time at import time — so a single click on the riser ran advanceSplash()
+   twice and skipped the work order the player is supposed to read. Nothing
+   else caught it: the key chain has its own handler, and the terms guard is
+   written to swallow the second pass rather than fight it. */
+test('[37] a click on a splash screen advances exactly one screen', () => {
+  const t = softAssert();
+
+  A.hideAll(); A.STATE='splash'; A.show('splash');
+  el('screen-splash')._fire('click', { target:{ closest: ()=>null } });
+  t.assert(A.STATE==='order',
+    `one click on the riser left STATE at '${A.STATE}' — the screen listener is bound twice, so the click advanced twice`);
+
+  el('screen-order')._fire('click', { target:{ closest: ()=>null } });
+  t.assert(A.STATE==='play',
+    `one click on the work order left STATE at '${A.STATE}' — the click did not clock the player in`);
+
+  console.log('[37] a click on a splash screen advances exactly one screen');
+  console.log('  one listener per screen: click -> order -> play, no skipped ticket');
+  t.done();
+});
