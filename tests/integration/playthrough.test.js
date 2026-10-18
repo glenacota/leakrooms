@@ -344,12 +344,12 @@ test('[18] end-to-end — the bot seals every riser, then walks back out', () =>
   const t = softAssert();
 console.log('[18] end-to-end — the bot seals every riser, then walks back out');
 {
-  const W=76, IDX=(x,y)=>y*W+x;
+  const W=76, H=76, IDX=(x,y)=>y*W+x;
 
   /* --- navigation: the SAME path machinery test 4 uses, pointed at a pipe --- */
   function bfsPath(sx,sy,gx,gy){
     if(sx===gx && sy===gy) return [];
-    const prev=new Int32Array(W*W).fill(-1);
+    const prev=new Int32Array(W*H).fill(-1);
     const st=IDX(sx,sy), goal=IDX(gx,gy);
     if(G.grid[st]!==1||G.grid[goal]!==1) return null;
     prev[st]=st; const q=[st];
@@ -358,8 +358,8 @@ console.log('[18] end-to-end — the bot seals every riser, then walks back out'
       if(c===goal) break;
       const cx=c%W, cy=(c/W)|0;
       for(const [nx,ny] of [[cx+1,cy],[cx-1,cy],[cx,cy+1],[cx,cy-1]]){
-        if(nx<0||ny<0||nx>=W||ny>=W) continue;
-        const ni=ny*W+nx;
+        if(nx<0||ny<0||nx>=W||ny>=H) continue;
+        const ni=IDX(nx,ny);
         if(G.grid[ni]!==1||prev[ni]>=0) continue;
         prev[ni]=c; q.push(ni);
       }
@@ -376,15 +376,44 @@ console.log('[18] end-to-end — the bot seals every riser, then walks back out'
      it checks whether you are close enough to cycle the door. */
   function doorGoal(door){
     const cand=[[door.x+1,door.y],[door.x-1,door.y],[door.x,door.y+1],[door.x,door.y-1]]
-      .filter(([x,y])=>x>=0&&y>=0&&x<W&&y<W&&G.grid[IDX(x,y)]===1);
-    return cand.length ? {x:cand[0][0], y:cand[0][1]} : null;
+      .filter(([x,y])=>x>=0&&y>=0&&x<W&&y<H&&G.grid[IDX(x,y)]===1);
+    if(!cand.length) return null;
+    const px=G.player.x, py=G.player.y;
+    let b=cand[0], bd=Infinity;
+    for(const [cx,cy] of cand){
+      const d=Math.abs(cx-px)+Math.abs(cy-py);
+      if(d<bd){ bd=d; b=[cx,cy]; }
+    }
+    return {x:b[0], y:b[1], tile:IDX(b[0],b[1])};
   }
+
+  /* Distance field from a tile — walking distance, not Euclidean. */
+  function distField(gx,gy){
+    const dist=new Int32Array(W*H).fill(-1);
+    const g0=IDX(gx|0,gy|0);
+    if(gx<0||gy<0||gx>=W||gy>=H||G.grid[g0]!==1) return null;
+    const q=[g0]; dist[g0]=0;
+    for(let h=0;h<q.length;h++){
+      const c=q[h],cx=c%W,cy=(c/W)|0;
+      const nb=[[cx+1,cy],[cx-1,cy],[cx,cy+1],[cx,cy-1]];
+      for(const [nx,ny] of nb){
+        if(nx<0||ny<0||nx>=W||ny>=H) continue;
+        const ni=IDX(nx,ny);
+        if(G.grid[ni]!==1||dist[ni]>=0) continue;
+        dist[ni]=dist[c]+1; q.push(ni);
+      }
+    }
+    return dist;
+  }
+
+  const distTo=(f,tile)=> f ? (f[tile]>=0?f[tile]:9999) : 9999;
 
   /* Every level, because the level table is the thing under test: if level 3
      is unreachable where level 2 is fine, only walking all five finds it. */
   let arrived=0, descended=0, noPath=0, risersSealed=0, risersWanted=0;
   for (let s=0; s<A.LEVELS_N; s++){
     buildFloor(s, s*4441+13);
+    if (G.agents.length) G.agents.length=0;
     A.STATE='play';
     A.floorIdx=0; A.lives=3;
     risersWanted += G.leaks.length;
@@ -394,10 +423,11 @@ console.log('[18] end-to-end — the bot seals every riser, then walks back out'
     let goal=null, goalId=-1;
     let frames=0;
     let sealedThisLevel=0, allSealed=false;
+    let fromHere=null, fromX0=-99, fromY0=-99, lastRiserKey='';
     const f0 = A.floorIdx;
     const door=G.exitTiles[0];
 
-    while (frames < 60*240 && !done){
+    while (frames < 60*300 && !done){
       frames++;
       const px=G.player.x, py=G.player.y;
       keys.w=keys.s=keys.a=keys.d=false; keys.shift=false;
@@ -406,13 +436,25 @@ console.log('[18] end-to-end — the bot seals every riser, then walks back out'
          is done. Recomputed from scratch every frame so that a riser sealing
          mid-walk hands the level straight over to the next one — which is the
          behaviour a player gets, and the one a stale cached goal would break. */
-      let best=null, bd=Infinity;
-      for(const L of G.leaks){
-        if (L.fixed) continue;
-        const d=Math.hypot(L.sx-px, L.sy-py);
-        if (d<bd){ bd=d; best={x:L.sx, y:L.sy}; }
+      const open = G.leaks.filter(L=>!L.fixed);
+      let best=null, riserGoal=null;
+      if (open.length){
+        if (!fromHere || Math.hypot(px-fromX0, py-fromY0) > 4){
+          fromHere = distField(Math.floor(px), Math.floor(py));
+          fromX0 = px; fromY0 = py;
+        }
+        let bd=Infinity;
+        for(const L of open){
+          const d = distTo(fromHere, IDX(L.sx, L.sy));
+          if (d<bd){ bd=d; best=L; }
+        }
+        if (best){
+          const rk = best.sx+','+best.sy;
+          if (rk !== lastRiserKey){ lastRiserKey = rk; goalId=-1; }
+          riserGoal={x:best.sx, y:best.sy};
+        }
       }
-      goal = best || doorGoal(door);
+      goal = riserGoal || doorGoal(door);
       if (!goal){ noPath++; break; }
       if (IDX(goal.x,goal.y)!==goalId){ goalId=IDX(goal.x,goal.y); path=null; }
 
