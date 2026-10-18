@@ -351,3 +351,50 @@ button:active{ transform:translateY(1px); }
   .controls-big{ font-size:14px; }
   .controls-big b{ min-width:64px; font-size:14px; }
 }
+
+/* ---------- Screen Footer ---------- */
+/* Matches the footer from https://deujo.glenacota.me/ (without settings button) */
+.screen-footer{
+  position:absolute;
+  left:0; right:0; bottom:0;
+  padding:8px 16px;
+  border-top:1px solid rgba(228,230,168,.18);
+  background:rgba(6,5,3,.86);
+  z-index:10;
+}
+
+.screen.splash .screen-footer{
+  background:transparent;
+  border-top-color:rgba(228,230,168,.12);
+}
+
+.footer-left{
+  font-size:14px;
+  letter-spacing:.18em;
+  color:var(--yellow-deep);
+  text-align:center;
+  margin:0;
+}
+
+.footer-link{
+  color:var(--yellow-deep);
+  text-decoration:none;
+  transition:color .15s;
+}
+
+.footer-link:hover{
+  color:var(--yellow);
+}
+
+.footer-icon{
+  display:inline-block;
+  width:16px; height:16px;
+  vertical-align:middle;
+  margin-right:6px;
+  fill:currentColor;
+}
+
+.footer-left span {
+  color: white;
+  padding: 0 1rem;
+}
