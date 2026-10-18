@@ -27,6 +27,14 @@ export function tickAudio(){
 }
 
 export function update(dt){
+  /* The terminal latch is about THIS STEP, not about the floor: lose() raises
+     it part way through and the two guards below read it. It is cleared here so
+     the next step starts clean — one bad frame does not condemn the floor, and a
+     run resumed onto the same floor (which only the headless bot does, by
+     putting STATE back rather than rebuilding) ticks again. Nothing here is what
+     stops the world: the loop stops stepping the moment the run is over. This is
+     only what stops the rest of the frame. */
+  G.ended = false;
   /* ORDER IS THE DESIGN. The clock first because it can end the frame, then
      the battery, then movement — and everything after movement reads what the
      movement produced: the mask the room you walked into, the flood you are
@@ -77,7 +85,14 @@ export function update(dt){
 
   tickLeakNoise(dt);
   tickRepair(dt, mv.moving, mv.bumped);
+  if (G.ended) return;
   tickAgents(dt);
+  /* The frame the run ends on. Everything below this line belongs to a run that
+     no longer exists — and the door is the dangerous one: caught on the
+     threshold, it still cycles, still emits door:cycled, and still builds the
+     next floor, so dying to step through your own front door advanced the level
+     and cost nothing. The same guard after the repair for the same reason. */
+  if (G.ended) return;
   tickRadarReveal();
   if (!tickDoor(dt)) return;
   tickAudio();

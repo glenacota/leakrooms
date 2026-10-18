@@ -93,6 +93,11 @@ export function buildFloor(floorNum, seed){
     waterDist: null, wetByDist: [], wetFront: 0, wetMaxDist: 0, wetSum: 0,
     wetEdgeD: -1, wetIndexAtDist: null,
     wetCv: null, wetCtx: null, wetImg: null,
+    /* The floor has already been decided — a lifeform has you, or the clock ran
+       out. It is a fact about the WORLD rather than about the run (STATE is the
+       run's copy), because the simulation is what finds out and the rest of the
+       frame has to be told to stop. See update(). */
+    ended: false,
     dirty: { water: true, mask: true }
   });
 

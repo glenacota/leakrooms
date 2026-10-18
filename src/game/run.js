@@ -121,6 +121,11 @@ export function nextFloor(){
    guessing which rule they broke. */
 export function lose(cause){
   if (STATE!=='play') return;
+  /* Told to the FLOOR before the run's own state changes, because the frame
+     that ends the run is still a simulation frame: without this the rest of
+     update() keeps running on a run that is over, and the worst of it is the
+     door, which cycles and builds the NEXT floor on the frame you died. */
+  G.ended = true;
   G.stat.deaths++;
   runStat.deaths++;
   setLives(lives-1);
