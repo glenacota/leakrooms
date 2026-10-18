@@ -312,6 +312,18 @@ export const WET_DRAW = 0.015;          // packWet: below this a tile is fully t
 export const WET_EDGE = WET_DRAW*0.8;    // ...so below THIS the simulation may stop caring
 
 export const LOUD = 0.5;
+/* NOISE.WALL_COST is what one wall takes off a sound's reach, in tiles. It is
+   not a power — nothing about how loud the game is changes here — it is the
+   shape of the room the sound has to cross, and it lives next to LOUD because
+   both of them are the question "does that reach you" rather than "how loud was
+   it".
+
+   3.0 is steep on purpose. A walk is heard 6.6 tiles away through open floor, so
+   two walls between you and it is roughly the edge of hearing and three is past
+   it: masonry is a wall you can put between you and a thing that hunts by ear,
+   which is a decision the player gets to make. It also stays clear of the powers
+   — nothing in the table above moved, and LOUD is untouched. */
+export const NOISE = { WALL_COST: 3.0 };
 /* NOISE_FS is what a full HUD bar means: the loudest sustained thing you can do
    on a floor, which is the WRENCH. It is the number that makes the meter read,
    and it is deliberately NOT BATT_MAX — the bar used to divide the noise level

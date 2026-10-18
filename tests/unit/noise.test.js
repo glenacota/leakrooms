@@ -229,3 +229,111 @@ console.log('[33] the noise meter — the scale, the marks, and the pipe that em
   t.done();
 });
 
+
+/* ---- WALLS MUFFLE A SOUND -------------------------------------------------
+   hearRadius() says how far a power carries through open floor. Until now
+   nothing subtracted the building: the only thing between a sound and an ear
+   was the distance, and the line of walls between them was sampled on a
+   diagonal, which counts the walls that happen to lie on that diagonal and
+   ignores the ones you are looking at. So a walk three walls away was heard
+   exactly as loudly as a walk five tiles away in the open, which is the one
+   piece of cover this maze offers.
+
+   Three claims: a walk is lost behind three walls and not in the open, and a
+   sprint — LOUD, 12.6 tiles — still crosses one wall and wakes a sleeping coil.
+   The powers themselves are asserted unchanged: this is the shape of the room,
+   not the loudness of the game. */
+test('[44] walls muffle a sound, and the loudest one still carries', () => {
+  const t = softAssert();
+console.log('[44] walls muffle a sound, and the loudest one still carries');
+{
+  const W = 76, H = 76;
+  const FLOOR_T = 1;
+  const at = (x,y)=> (x<0||y<0||x>=W||y>=H) ? FLOOR_T : G.grid[y*W+x];
+
+  /* A straight run of floor with exactly `walls` masonry tiles in it, and one
+     more floor tile past them — so the listener is five tiles from the sound,
+     three walls in. Scanned, not planted: a real maze position is the claim,
+     and a hand-built grid would only prove the arithmetic. */
+  const findRun = (walls) => {
+    for (let y=0; y<H; y++)
+      for (let x=0; x<W-walls-2; x++){
+        if (at(x,y)!==FLOOR_T) continue;
+        let n=0;
+        while (n<walls && at(x+1+n,y)===0) n++;
+        if (n!==walls) continue;
+        if (at(x+1+n,y)!==FLOOR_T || at(x+1+n+1,y)!==FLOOR_T) continue;
+        return { src:{x:x+0.5, y:y+0.5}, ear:{x:x+1+n+1+0.5, y:y+0.5} };
+      }
+    return null;
+  };
+  /* Five clear floor tiles: the same distance, nothing in between. */
+  const findClear = () => {
+    for (let y=0; y<H; y++)
+      for (let x=0; x<W-5; x++){
+        if (at(x,y)!==FLOOR_T) continue;
+        let clear=true;
+        for (let i=1; i<=4; i++) if (at(x+i,y)!==FLOOR_T){ clear=false; break; }
+        if (clear) return { src:{x:x+0.5, y:y+0.5}, ear:{x:x+4.5, y:y+0.5} };
+      }
+    return null;
+  };
+
+  const put = (spot, state) => {
+    G.agents = [{
+      x: spot.x, y: spot.y, state, t:0, rise: state==='DORMANT'?0:1,
+      target:null, face:0, wakeCd:0, stepT:0, born:0,
+    }];
+    return G.agents[0];
+  };
+
+  /* Search a few seeds for a floor that has the geometry to ask the question
+     in — a BSP maze at this size almost always does, and the fallback is a
+     second building rather than a skipped assertion. */
+  let murdled = null, clear = null;
+  for (const seed of [4242, 60606, 88, 9001, 31337, 12345]){
+    A.buildFloor(0, seed);
+    murdled = findRun(3); clear = findClear();
+    if (murdled && clear) break;
+  }
+  t.assert(!!(murdled && clear), 'no floor in six seeds has three walls and five clear tiles in a row — the scan is wrong');
+
+  /* BEHIND THREE WALLS: a walk is 6.6 tiles, three walls take nine off that. */
+  A.buildFloor(0, 4242);
+  {
+    const a = put(murdled.ear, 'WALK');
+    A.sustainedNoise(0.22, murdled.src.x, murdled.src.y);
+    t.assert(a.state==='WALK',
+      `a walk three walls and five tiles away still turned the listener to ${a.state} — the walls are not in the way`);
+  }
+
+  /* THE SAME DISTANCE, NOTHING IN BETWEEN. */
+  A.buildFloor(0, 4242);
+  {
+    const a = put(clear.ear, 'WALK');
+    A.sustainedNoise(0.22, clear.src.x, clear.src.y);
+    t.assert(a.state==='SEARCH',
+      `a walk four tiles away in the open left the listener ${a.state} — and now nothing carries at all`);
+  }
+
+  /* ...and one wall is not cover from a sprint. LOUD crosses masonry. */
+  {
+    const one = findRun(1);
+    t.assert(!!one, 'no single-wall run on this floor — the scan is wrong');
+    const a = put(one.ear, 'DORMANT');
+    A.sustainedNoise(A.SPRINT_NOISE, one.src.x, one.src.y);
+    t.assert(a.state!=='DORMANT',
+      `a sprint one wall and five tiles away did not wake a sleeping coil — WALL_COST of 3.0 has taken the sprint's reach with it`);
+    t.assert(a.state==='RISING' || a.state==='HUNT',
+      `a sprint woke the coil into '${a.state}', want it rising or hunting`);
+  }
+
+  /* The table itself is untouched: this is the shape of the room, not the
+     loudness of the game. */
+  t.assert(A.LOUD===0.5, `LOUD is ${A.LOUD} — the noise contract is not this task's to move`);
+  t.assert(A.SPRINT_NOISE===0.72 && A.REPAIR_NOISE===0.85,
+    'a noise power moved — only WALL_COST was supposed to change');
+  console.log('  walk lost behind three walls, heard in the open, sprint crosses one');
+}
+  t.done();
+});
