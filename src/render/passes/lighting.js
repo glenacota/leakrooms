@@ -3,15 +3,16 @@ import { G } from '../../sim/state.js';
 import { fixtureVis } from '../../sim/vision.js';
 import { cvs, ctx, SCALE } from '../canvas.js';
 
-/* ---- the fixture glow sprite ----
-   Every lit fixture filled a rect of side 2*r*TILE under 'lighter' from a
-   gradient built on the spot — and r runs to 19 tiles, so that rect is bigger
-   than the screen. One of those measured 9.5ms. A textured quad of the same
-   size measured 1.4ms, and the sprite is built once at boot.
+/* ---------- The ceiling-light glow sprite ----------
+   Each lit fixture used to fill a rectangle of side 2*r*TILE under 'lighter'
+   from a gradient built on the spot. The radius goes up to 19 tiles, so that
+   rectangle is bigger than the screen, and one of them measured 9.5 ms. Drawing
+   a pre-made sprite of the same size measured 1.4 ms, and the sprite is built
+   once at boot.
 
-   The three stops are the fluorescents' own colours at the alphas the old
-   gradient used, baked at full strength; the per-frame strength now rides in
-   globalAlpha, which is what a gradient stop multiplied by `a` was doing. */
+   The three colour stops are the fluorescents' own colours, at the same alphas
+   the old gradient used, at full strength. The per-frame strength is applied
+   through globalAlpha. */
 let glowSprite = null;
 export function buildGlowSprite(){
   const S = 128;
@@ -27,59 +28,53 @@ export function buildGlowSprite(){
 
 export function lighting(rc){
   const {t, dt, dx, dy, T, w2sx, w2sy} = rc;
-/* ---------- 6. lighting ---------- */
+/* ---------- 6. Lighting ---------- */
 ctx.setTransform(1,0,0,1,0,0);
 
-// ambient bake (multiply) — mono-yellow, and only where the character can see
+// The ambient bake (multiply): mono-yellow, and only where the character can see
 ctx.globalCompositeOperation='multiply';
 ctx.imageSmoothingEnabled = true;
 ctx.drawImage(G.lightCv, dx, dy, MAP_W*TILE*SCALE, MAP_H*TILE*SCALE);
 
-/* The visibility mask: room scope x distance x cone, or everything at once
-   while the radar sweeps. One multiply. Multiplicative, not additive, so it
-   can only ever REMOVE light the bake put there — which is the whole point. */
+/* The visibility mask: room scope x distance x cone, or everything at once while
+   the radar sweeps. It is a multiply, so it can only REMOVE light that the bake
+   put there. That is the point of it. */
 ctx.drawImage(G.maskCv, dx, dy, MAP_W*TILE*SCALE, MAP_H*TILE*SCALE);
 
-/* flickering fluorescents (additive, above the bake).
-   GATED BY VISIBILITY. The bake is a multiply, so an unlit room is already
-   dark — but this pass is 'lighter', which ADDS light on top of whatever
-   the bake left. Left ungated it paints every fixture on the floor at full
-   strength, so every "dark" room would have its tube blazing in it and the
-   room scoping would be invisible. */
+/* Flickering fluorescent tubes (additive, drawn above the bake).
+
+   They are gated by visibility. The bake is a multiply, so an unlit room is
+   already dark, but this pass is 'lighter', which ADDS light on top of whatever
+   the bake left. Without the gate, every tube on the floor would blaze at full
+   strength and every "dark" room would be lit, hiding the room scoping. */
 ctx.globalCompositeOperation='lighter';
 for (const f of G.fixtures){
   const fv = fixtureVis(f);
   if (fv < 0.02) continue;
   let a = 0.12 * fv;
-  /* Fluorescent flicker. 16% of fixtures stutter, a 2%-per-frame dropout dips
-     a tube to 15%, and the VHS pass adds its own on top. The depth and the
-     dropout were a three-way preference once; they are now simply what a
-     fluorescent tube does, at FLICKER_DEPTH. The hum is the room's whole
-     character — a perfectly steady light reads as a bug, not as calm. */
+  /* Flicker. 16% of the tubes stutter, a random dropout dips a tube to 15%, and
+     the tape pass adds its own flicker on top. This is simply how a fluorescent
+     tube looks (at FLICKER_DEPTH): a perfectly steady light would look like a bug,
+     not like calm. */
   if (f.flicker){
     a *= (1-FLICKER_DEPTH + FLICKER_DEPTH*Math.max(0, Math.sin(t*0.001*f.flicker + f.phase)));
-    /* The dropout is on a CLOCK, not on a frame. `Math.random()<0.02` per
-       frame means a 30Hz machine gets twice as many dropouts per second as a
-       60Hz one — the room's lighting character was quietly a function of the
-       player's refresh rate. One draw per 1/20s of elapsed time is the same
-       tube on every machine. */
+    /* The dropout runs on a CLOCK and not on a frame. A chance per frame would
+       give a 30 Hz screen twice as many dropouts per second as a 60 Hz one, so
+       the lighting would depend on the refresh rate. One draw per 1/20 s of
+       elapsed time gives the same tube on every machine. */
     f.dropT = (f.dropT||0) + dt;
     while (f.dropT >= 0.05){ f.dropT -= 0.05; if (Math.random()<0.05) a*=0.15; }
   }
   const fx=w2sx(f.x), fy=w2sy(f.y);
   const rr=f.r*T;
   if (fx<-rr||fy<-rr||fx>cvs.width+rr||fy>cvs.height+rr) continue;
-  /* One textured quad instead of a screen-sized gradient rebuilt per fixture
-     per frame. Same ramp, same alpha (it rides in globalAlpha now), and the
-     sprite is a quarter of the cost: a gradient fill evaluates its stops at
-     every pixel it covers, a drawImage samples a texture — and this rect is
-     routinely larger than the viewport, because r goes up to 19 tiles. */
+  // The glow is one scaled sprite (see above), with its strength in globalAlpha
   ctx.globalAlpha = a;
   ctx.drawImage(glowSprite, fx-rr, fy-rr, rr*2, rr*2);
   ctx.globalAlpha = 1;
-  /* The tube itself must be a FIXED physical size. It used to scale with
-     f.r (the 10-19 tile light radius), painting a 130-400px additive slab
-     per fixture; two or three overlapping blew the whole frame to white. */
+  /* The tube itself has a FIXED physical size. It used to scale with the light
+     radius (10 to 19 tiles), painting a 130 to 400 px additive slab per fixture,
+     and two or three overlapping would blow the frame out to white. */
   const tw2 = 2.4*T, th2 = 0.34*T;
   ctx.save();
   ctx.translate(fx, fy);
@@ -91,11 +86,9 @@ for (const f of G.fixtures){
   ctx.restore();
 }
 
-/* No additive pass for the radar. It is tempting: sweep a bright wash over the
-   frame to suggest the device firing. But the mask has already multiplied
-   every dark room down to black, so an additive wash paints a yellow haze
-   onto an empty frame — a glow with no room in it, which reads as a
-   rendering fault rather than as light. The radar reveals because the mask
-   never zeroed anything while it was on. */
+/* The radar has no additive pass, on purpose. A bright wash would paint a yellow
+   haze over a mostly dark frame, which looks like a rendering fault and not like
+   light. The radar reveals things because the mask stops hiding them while it is
+   on. */
 ctx.globalCompositeOperation='source-over';
 }

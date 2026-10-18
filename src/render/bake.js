@@ -3,31 +3,30 @@ import { hash2 } from '../util/hash.js';
 import { G } from '../sim/state.js';
 import { carpetPat, ceilPat, wallPat } from './textures.js';
 
-/* Packs the light bake into G.lightCv/G.lightCtx/G.lightImg and bakes the
-   static tile layer. These are the floor's pixels: everything the renderer
-   reads, off the G.lightArr that computeLightArr filled. */
+/**
+ * Turns the light bake (G.lightArr) into a canvas, and paints the static tile
+ * layers. Runs once per floor, from buildFloor.
+ *
+ * Only the ambient light is packed here. Everything that depends on the viewer
+ * (room scope, cone of vision, radar) is a separate mask on its own canvas, so
+ * there is exactly one multiply, and the mask can only remove light that the
+ * bake provides.
+ */
 export function attachFloorImages(){
-  /* Pack the BAKE — pure, unchanged. Every viewer-side term (room scope, cone of
-     vision, radar) is folded into a single mask on a separate canvas, so there
-     is exactly one multiply and the mask can only ever remove light the bake
-     put there. */
   G.lightCv = document.createElement('canvas');
   G.lightCv.width = MAP_W*LS; G.lightCv.height = MAP_H*LS;
   G.lightCtx = G.lightCv.getContext('2d');
   G.lightImg = G.lightCtx.createImageData(G.lightCv.width, G.lightCv.height);
-  /* The canvas dimensions and the pixel buffer are DOM-backed reads: they are
-     resolved once here instead of per iteration, and every write below goes
-     through the local buffer reference. Same pixels, same order. */
+  // Canvas size and pixel buffer are looked up once here, because reading them in the loop is slow.
   const LW = G.lightCv.width, LH = G.lightCv.height, LD = G.lightImg.data;
   for (let y=0;y<LH;y++){
     const ty=(y/LS)|0, row=ty*MAP_W;
     for (let x=0;x<LW;x++){
-      /* NEUTRAL, not mono-yellow. This used to be tinted (255,246,186) plus a
-         warm +18 lift, which existed to stop unlit floor going black. Now that
-         darkness is the mask's job, tinting the bake would double-count it:
-         a lit room would come out green-yellow a second time on top of a
-         palette that is already the right colour. The bake is now a pure
-         brightness, and the hue comes from the surfaces themselves. */
+      /* The bake is pure brightness (grey), with no tint. It used to be tinted
+         yellow with a warm lift to stop unlit floor going black. Now darkness
+         is the mask's job, and tinting the bake would apply the yellow twice: a
+         lit room would come out green-yellow on top of a palette that is already
+         the right colour. The hue comes from the surfaces themselves. */
       const b = Math.min(1, G.lightArr[row + ((x/LS)|0)]);
       const v = Math.round(255*b);
       const k=(y*LW+x)*4;
@@ -37,30 +36,24 @@ export function attachFloorImages(){
   }
   G.lightCtx.putImageData(G.lightImg, 0, 0);
 
-  /* The static tile layer, baked in the same stage: sections 1-3 of the
-     renderer are entirely static. The carpet, the hash2 tonal variation, the
-     wall faces, the wall tops and their edge highlights depend on nothing but
-     the grid, which never changes while a floor is played. Painting them per
-     viewport per frame was ~980 fillRect calls of unchanged pixels, so they
-     are drawn into two world-sized canvases here and the renderer samples the
-     viewport out of them with one drawImage each.
-
-     TWO canvases, not one: the flood has to land BETWEEN the carpet and the
-     wall faces — a partition standing in a flooded room stays dry — so the
-     carpet and the walls cannot share a single layer.
-
-     The patterns are anchored to the world grid here. The live code filled
-     them under the camera transform, which tied their phase to the camera
-     position, so the speckles swam as the view panned; baked, they are part
-     of the building, which is what they always looked like they were. */
   bakeTiles();
 }
 
-/* Paint the static tile layer: carpet + tonal variation into G.tilesCv, wall
-   faces + tops into G.wallsCv. Runs once per floor, from bakeLighting, with G
-   and its grid already in place. Every pixel below is byte-for-byte the same
-   drawing the renderer used to do per frame — same patterns, same coordinates,
-   same order — over the whole map instead of the viewport. */
+/**
+ * Paints the static tile layers once per floor: the carpet and the wall faces
+ * and tops. They depend only on the grid, which never changes while a floor is
+ * played, so drawing them again every frame would be about 980 fillRect calls
+ * of pixels that never change. Instead they are drawn into two canvases the
+ * size of the whole map, and the renderer copies the visible part out with one
+ * drawImage each.
+ *
+ * There are TWO canvases because the flood has to be drawn between the carpet
+ * and the wall faces: a partition standing in a flooded room stays dry.
+ *
+ * The patterns are anchored to the world grid. When they were drawn live, their
+ * position followed the camera and the speckles swam as the view moved. Baked,
+ * they are part of the building.
+ */
 export function bakeTiles(){
   G.tilesCv = document.createElement('canvas');
   G.tilesCv.width = MAP_W*TILE; G.tilesCv.height = MAP_H*TILE;
@@ -68,10 +61,10 @@ export function bakeTiles(){
   {
     const g = G.tilesCtx;
     g.setTransform(1,0,0,1,0,0);
-    /* ---------- carpet ---------- */
+    // ---------- Carpet ----------
     g.fillStyle = carpetPat;
     g.fillRect(0, 0, MAP_W*TILE, MAP_H*TILE);
-    // per-tile tonal variation
+    // A little random tonal variation on some tiles
     for (let y=0;y<MAP_H;y++) for (let x=0;x<MAP_W;x++){
       const h=hash2(x,y);
       if (h<0.14){
@@ -87,40 +80,40 @@ export function bakeTiles(){
   {
     const g = G.wallsCtx;
     g.setTransform(1,0,0,1,0,0);
-    /* ---------- wall faces + contact shadow ---------- */
-    // The face is the vertical side of a partition, drawn into the floor tile
-    // below it. A soft shadow on the carpet under it sells the height, which is
-    // what makes a top-down maze read as a photographed room instead of a
-    // colour-coded grid.
+    /* ---------- Wall faces and contact shadow ----------
+       The face is the vertical side of a partition, drawn into the floor tile
+       below the wall. A soft shadow on the carpet under it sells the height, and
+       is what makes a top-down maze look like a photographed room and not a
+       colour-coded grid. */
     const FACE = WALL_FACE;
     for (let y=0;y<MAP_H;y++) for (let x=0;x<MAP_W;x++){
       if (G.grid[y*MAP_W+x]!==WALL) continue;
       if (y+1>=MAP_H || G.grid[(y+1)*MAP_W+x]!==FLOOR) continue;
       const fx=x*TILE, fy=(y+1)*TILE;
 
-      // shadow cast onto the carpet
+      // Shadow cast onto the carpet
       const sh=g.createLinearGradient(0, fy, 0, fy+TILE*0.5);
       sh.addColorStop(0,'rgba(12,10,4,0.30)');
       sh.addColorStop(1,'rgba(12,10,4,0)');
       g.fillStyle=sh;
       g.fillRect(fx, fy, TILE, TILE*0.5);
 
-      // wallpapered face
+      // The wallpapered face
       g.fillStyle = wallPat;
       g.fillRect(fx, fy, TILE, FACE);
-      // hard line where the face meets the ceiling
+      // A hard line where the face meets the ceiling
       g.fillStyle='rgba(40,38,24,0.55)';
       g.fillRect(fx, fy, TILE, 2);
-      // skirting shadow at the base
+      // A skirting shadow at the base
       g.fillStyle='rgba(48,46,30,0.42)';
       g.fillRect(fx, fy+FACE-2, TILE, 2);
     }
 
-    /* ---------- wall tops ---------- */
-    // Seen from directly above, so they read as the top of a partition: cooler
-    // and clearly darker than the carpet. Deliberately NO per-tile banding —
-    // a lip/edge/seam on every tile made a solid wall block look like decking.
-    // Edges are drawn only where wall actually meets carpet.
+    /* ---------- Wall tops ----------
+       Seen from directly above, so they are cooler and clearly darker than the
+       carpet. There is no banding on each tile: a lip, edge and seam on every tile
+       made a solid wall block look like decking. Edges are only drawn where the
+       wall actually meets carpet. */
     for (let y=0;y<MAP_H;y++) for (let x=0;x<MAP_W;x++){
       if (G.grid[y*MAP_W+x]!==WALL) continue;
       g.fillStyle = ceilPat;

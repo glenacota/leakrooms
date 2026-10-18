@@ -1,3 +1,20 @@
+/* ============================================================
+   RENDER
+   This file owns the camera, clears the frame, and runs the passes in order.
+   Each pass gets the same frame context `rc`:
+
+     ground    carpet, the flood and its shine, the walls
+     markers   batteries and the door
+     actors    the player and lifeforms, sorted by y, at their smoothed position
+     lighting  the light bake, the visibility mask, the ceiling lights
+     leaks     the pipes (not hidden by the cone)
+     post      the danger wash, the vignette and the tape effects
+
+   The first three draw INSIDE the world transform that render() opens and
+   closes. The last three draw in device space, after it has been restored. That
+   boundary is why the passes are in this order.
+   ============================================================ */
+
 import { MAP_H, MAP_W, TILE } from '../config/constants.js';
 import { G } from '../sim/state.js';
 import { cvs, ctx, SCALE } from './canvas.js';
@@ -9,107 +26,77 @@ import { markers } from './passes/markers.js';
 import { post } from './passes/post.js';
 import { syncImages } from './pack.js';
 
-/* ============================================================
-   RENDER
-   The camera, the clear, and the order. Everything else is a
-   pass in ./passes, each handed the same frame context `rc`:
-
-     ground   carpet, the flood and its sheen, the walls
-     markers  batteries and doors
-     actors   the cast, y-sorted, at the interpolated position
-     lighting the bake, the mask, the fluorescents
-     leaks    the pipes, ungated by the cone
-     post     the danger wash, the vignette and the tape
-
-   The first three draw INSIDE the world transform that this
-   function opens and closes; the last three draw in device
-   space, after it has been restored. That boundary is the
-   whole reason the pass list is in this order.
-   ============================================================ */
-
-/* ---- camera ----
-     ONE mapping, used everywhere:
-        device_px = SCALE * (world_tiles*TILE + tx)
-     so the player's own tile always lands at the centre of the viewport, and
-     the light bake (which shares that origin) lines up with the geometry.
-     The previous version mixed a pre-scaled offset with a device-space one and
-     carried SCALE twice, which panned the world the wrong way and threw the
-     player off-screen. */
+/* ---------- Camera ----------
+   One mapping is used everywhere:
+      device_px = SCALE * (world_tiles*TILE + tx)
+   so the player's tile is always at the centre of the viewport, and the light
+   bake (which shares the same origin) lines up with the geometry. An earlier
+   version mixed an already-scaled offset with a device-space one, applied SCALE
+   twice, and panned the world the wrong way. */
 export const cam = {x:0, y:0, jx:0, jy:0};
 
 export { setSimAlpha, simAlpha } from './passes/actors.js';
 export { buildGlowSprite } from './passes/lighting.js';
 
+/**
+ * Draws one frame.
+ *
+ * @param {number} t - the browser's frame timestamp in milliseconds.
+ */
 export function render(t){
     if (!G) return;
     syncImages();
     const p=G.player;
 
-    // camera follow + breathing jitter.
-    // Exponential smoothing with a TIME CONSTANT, not a fixed per-frame
-    // fraction: 0.12/frame is twice as fast at 144fps as at 72fps, which
-    // makes the camera lag inconsistently across machines.
-    /* The camera eases toward the player on a wall-clock time constant, which
-       is correct precisely because the world now advances on its own fixed
-       clock: there is no longer a capped dt for the view to disagree with. */
-    /* The smoothing constant is a TIME CONSTANT against the wall clock, which
-       is correct now that the world advances on its own fixed clock: the camera
-       is easing toward a position the simulation owns, and the ease takes 90ms
-       regardless of how many steps got there. */
+    /* The camera eases toward the player with a time constant against the wall
+       clock, so it feels the same at any frame rate. A fixed fraction per frame
+       would be twice as fast at 144 fps as at 72 fps. This is correct because the
+       world now advances on its own fixed clock: the camera is easing toward a
+       position the simulation owns. */
     const dt   = Math.max(0.001, Math.min(0.1, (t - (render.prevT || t-16))/1000));
     render.prevT = t;
-    /* Elapsed seconds for the RATE clocks — the tube dropouts and the tape dropouts,
-       which must fire at the same frequency per second on every machine.
+    /* The seconds since the last frame, for effects that must happen at the same
+       rate per second on every machine (the tube and tape dropouts).
 
-       CLAMPED, and the clamp matters. Left unclamped, a tab that comes back from
-       the background arrives with a delta of however long it was away — tens of
-       seconds — and the dropout loops below run once per 50ms of it, so a single
-       frame after a long pause issues thousands of draws. The clamp is generous
-       enough that no real frame interval ever hits it (a quarter-second is a 4fps
-       frame) and tight enough that the worst case is five iterations. Making up
-       missed tape wear is not the point: nobody ever saw the frames they missed,
-       so replaying them is work for no one. */
+       It is clamped to a quarter of a second. A tab returning from the
+       background arrives with a delta of tens of seconds, and the dropout loops
+       run once per 50 ms of it, so one frame after a long pause would issue
+       thousands of draws. Nobody saw the frames they missed, so catching up on
+       them is wasted work. */
     render.dt = Math.min(0.25, Math.max(0, (t - (render.prevTRaw ?? (t-16)))/1000));
     render.prevTRaw = t;
     const k    = 1 - Math.exp(-dt/0.09);
     cam.x += (p.x - cam.x) * k;
     cam.y += (p.y - cam.y) * k;
     const breathe = Math.sin(t*0.0009)*0.06;
-    /* Shake is a multiplier on the camera jitter, not a new system — the
-       breathing motion and the VHS wobble were already here, and a settings
-       slider that scales them turns both off at 0. */
-    /* Camera jitter. Always on: the breathing sway and the handheld wobble were
-       here before the slider existed, and a "camera shake" preference could
-       only ever be OFF (0) or exactly what the game already did (1). Turning it
-       down did not make the game calmer, it made the camera less honest.
+    /* Camera jitter: a slow breathing sway plus a handheld wobble. It is always
+       on, since it is part of how the game looks.
 
-       SCALED BY dt. This offset is a per-frame random draw, so at 30fps it
-       delivers twice the displacement per second that it does at 60 — the
-       handheld wobble was in fact half as lively on a slow machine, which is
-       the opposite of what a struggling machine should look like. Scaling the
-       amplitude by the square root of the frame ratio keeps the per-second
-       character identical across refresh rates. */
+       The random wobble is scaled by the square root of the frame time. It is a
+       fresh random value every frame, so at 30 fps it would give twice the
+       movement per second that 60 fps does, and the wobble would be livelier on a
+       slow machine. This keeps the per-second feel the same at any refresh rate. */
     const jscale = Math.sqrt(dt/0.0167);
     cam.jx = (Math.random()-0.5)*0.10*jscale + breathe*0.35;
     cam.jy = (Math.random()-0.5)*0.10*jscale;
 
-    // clamp to the maze so the viewport is never half off-map void
+    // Clamp to the map, so the viewport never shows empty space beyond the edge
     const T = TILE*SCALE;
     const halfW = cvs.width /(2*T), halfH = cvs.height/(2*T);
     if (MAP_W > halfW*2) cam.x = Math.max(halfW, Math.min(MAP_W-halfW, cam.x));
     if (MAP_H > halfH*2) cam.y = Math.max(halfH, Math.min(MAP_H-halfH, cam.y));
 
-    // translate applied inside the scaled context, in world pixels
+    // The translation applied inside the scaled context, in world pixels
     const tx = -cam.x*TILE + cvs.width /(2*SCALE) + cam.jx;
     const ty = -cam.y*TILE + cvs.height/(2*SCALE) + cam.jy;
-    // same mapping, expressed in device pixels
+    // The same mapping, in device pixels
     const dx = tx*SCALE, dy = ty*SCALE;
     const w2sx = wx => SCALE*(wx*TILE + tx);
     const w2sy = wy => SCALE*(wy*TILE + ty);
 
-    // clean slate. Without this, anything the scene does not paint (the
-    // off-map margin at the maze edges) keeps last frame's pixels and the
-    // post-processors compound on top of it.
+    /* Clear the frame. Without this, anything the scene does not paint (the
+       margin beyond the map edge) would keep last frame's pixels and the
+       post-processing would pile up on top of it. */
     ctx.setTransform(1,0,0,1,0,0);
     ctx.globalAlpha=1;
     ctx.globalCompositeOperation='source-over';
@@ -120,6 +107,7 @@ export function render(t){
     ctx.save();
     ctx.translate(tx, ty);
 
+    // The visible tile range (with a margin), so the passes only draw what is on screen
     const tlx = Math.floor(cam.x - cvs.width /(2*T)) - 1;
     const tly = Math.floor(cam.y - cvs.height/(2*T)) - 1;
     const tw  = Math.ceil(cvs.width /T) + 3;

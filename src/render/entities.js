@@ -5,52 +5,47 @@ import { CATCH_R, DOOR_HOLD, FLOOR, HAND_OFF, MAP_H, MAP_W, TILE, WALL_FACE } fr
 import { G } from '../sim/state.js';
 import { ctx } from './canvas.js';
 
-/* THE DOOR.
-   Drawn before the lighting multiply, like everything else on this pass, so it
-   is there exactly when the wall it is in is — which is the right amount of help
-   for the one object whose position you already know to the tile. It needs no
-   reveal because you start the level standing in front of it and you finish the
-   level walking back into the room it is in.
+/* ============================================================
+   THE DOOR
+   It is drawn before the lighting multiply, like everything else in the world
+   pass, so it is visible exactly when its wall is. That is the right amount of
+   help for the one object whose position you already know: you start the level
+   standing in front of it and finish by walking back to it.
 
-   LOCAL SPACE. The origin is the centre of the door's own tile and +y points
-   INTO the room, so everything below is written once, in the one orientation
-   where the wall is above and the opening faces the viewer. `facing` rotates
-   that into whichever wall the placement actually landed in, which is why the
-   hinge, the swing and the frame are correct in all four of them.
+   LOCAL SPACE. The origin is the centre of the door's tile and +y points INTO the
+   room. Everything is written once, for the case where the wall is above and the
+   opening faces the viewer, and DOOR_ROT then turns it to match whichever wall
+   the door was really placed in. That keeps the hinge, the swing and the frame
+   correct in all four directions.
 
-   The lamp is the whole state read. It was text once — LOCKED above, LATCH
-   CLEAR below — and text on a door is a label stuck to a rectangle: it says
-   what the door is, not what it is doing, and it is only legible when the
-   multiply has already let enough light through to read small type. A lamp in
-   the frame corner survives the lighting, survives the distance across a dark
-   room on the way back, and is what a building with a functioning door system
-   would actually have fitted. */
+   THE LAMP shows the state: green means the level can end, red means it cannot.
+   A lamp survives the lighting and the distance across a dark room on the way
+   back, which small text on the door would not. (The word for the same state is
+   on the HUD.)
+   ============================================================ */
 const DOOR_ROT = { S:0, N:Math.PI, E:-Math.PI/2, W:Math.PI/2 };
-/* How far south of its own tile the door is PAINTED, and where in that tile.
-   This is not a nudge, it is the difference between a frame lying on the floor
-   and a door in a wall. The door tile is masonry: the renderer paints its
-   ceiling top dark, and the lit face — the wallpaper band with the hard ceiling
-   line above it — lives in the carpet tile BELOW, filling WALL_FACE of that
-   tile's height (bakeTiles). So the door is painted there, centred on the band
-   itself rather than on the tile, because the band is the wall and the rest of
-   that tile is floor.
 
-   Drawn in section 4, which is after both the flood and the wall bake, so
-   landing here paints straight over the lit face. The Rigger draws later still
-   (section 5), so standing in the doorway puts them in front of the frame,
-   which is where a person in a doorway is. */
+/**
+ * Draws the exit door.
+ *
+ * The door tile is masonry, and its lit face (the wallpaper band, with the hard
+ * ceiling line above it) is in the carpet tile BELOW it (see bakeTiles). So the
+ * door is painted there, centred on the band, because the band is the wall and
+ * the rest of that tile is floor. It is drawn after the flood and the wall
+ * layers, so it lands on top of the face, and the player (drawn later) stands in
+ * front of the frame.
+ *
+ * @param {object} e - the door: x, y, facing, and `open` (the swing, 0 to 1, written by tickDoor).
+ * @param {number} t - the frame timestamp, for the animations.
+ */
 export function drawDoor(e, t){
   const armed = G.leaksOpen === 0;
-  const open  = Math.max(0, Math.min(1, e.open));     // the swing, written by tickDoor
-  /* Sized to the face it is painted on. A door wider or taller than the band
-     stops being a door in the wall and becomes a free-standing frame standing
-     on the carpet in front of it — which is what the first version looked like
-     at 0.74 of a tile against a face of 0.46.
-
-     0.60 rather than something rounder because the opening is not the whole
-     object: the casing strokes sit 3px outside it on every side, and the door
-     only fits the face if the opening plus its own frame does. At 0.60 the
-     assembly spans exactly the band's height, which is the constraint. */
+  const open  = Math.max(0, Math.min(1, e.open));
+  /* The size is chosen to fit the wall face it is painted on. A door bigger than
+     the band stops being a door in the wall and becomes a frame standing on the
+     carpet in front of it. 0.60 is used because the casing strokes sit 3 px
+     outside the opening on every side, so the opening plus its frame just fits
+     the band's height. */
   const OW = TILE*0.40, OH = WALL_FACE*0.60;
   const hw = OW/2, hh = OH/2;
   const cycling = G.descend>0.02 && G.descend<DOOR_HOLD;
@@ -62,32 +57,28 @@ export function drawDoor(e, t){
   ctx.save();
   ctx.rotate(rot);
 
-  /* The lamp's own light, thrown onto the wall before anything is drawn over
-     it — the glow is how the state reads from the next room, which is the only
-     time you are far enough away for it to matter. */
+  /* The lamp's glow on the wall, drawn before the door itself. It is how the
+     state reads from the next room, which is the only time you are far enough
+     away for it to matter. */
   const gr = ctx.createRadialGradient(0, 0, 2, 0, 0, TILE*2.4);
   if (armed){
-    const p = 0.5 + 0.5*Math.sin(t*0.010);            // READY breathes
+    const p = 0.5 + 0.5*Math.sin(t*0.010);            // READY pulses
     gr.addColorStop(0, `rgba(143,208,122,${0.16+0.14*p})`);
   } else {
-    gr.addColorStop(0, 'rgba(143,208,122,0.10)');     // LOCKED barely registers
+    gr.addColorStop(0, 'rgba(143,208,122,0.10)');     // LOCKED barely shows
   }
   gr.addColorStop(1,'rgba(143,208,122,0)');
   ctx.fillStyle = gr;
   ctx.fillRect(-TILE*2.4, -TILE*2.4, TILE*4.8, TILE*4.8);
 
-  /* the opening — somewhere darker than the wall it is cut into */
+  // The opening, darker than the wall it is cut into
   ctx.fillStyle = 'rgba(16,20,12,0.88)';
   ctx.fillRect(-hw, -hh, OW, OH);
 
-  /* THE FRAME, as an outline rather than a fill.
-     This used to paint its own wall colour into the lintel and the jambs, which
-     was right when the door sat on the wall tile and had to bring its masonry
-     with it. Painted on the lit face there is nothing to bring: the wallpaper
-     band is already there, under us, and filling over it erased the one lit
-     surface the door was placed to be on. So the frame is now the casing — two
-     jambs and a head, stroked — and the wall face reads straight through the
-     gaps the way a real door frame sits in a real wall. */
+  /* The frame is an outline (two jambs and a head) and not a filled shape. It
+     used to paint its own wall colour, which made sense when the door sat on the
+     wall tile. Painted on the lit face, a fill would erase the wallpaper the
+     door was placed on, so now the wall shows through the gaps. */
   ctx.strokeStyle = '#9c9a68'; ctx.lineWidth = 2.5;
   ctx.strokeRect(-hw-1.5, -hh-1.5, OW+3, OH+3);
   ctx.strokeStyle = 'rgba(40,38,24,0.5)'; ctx.lineWidth = 1;
@@ -95,11 +86,11 @@ export function drawDoor(e, t){
   ctx.fillStyle = 'rgba(120,118,70,0.55)';
   ctx.fillRect(-hw-1.5, hh+1.5, OW+3, 1.5);            // the sill, catching the room light
 
-  /* THE LEAF. Hinged on the left jamb, so the free edge is the one that
-     travels: toward the hinge, and down toward the viewer, because a door in a
-     wall on a floor plan swings out into the room it opens onto. The far edge
-     cannot rise — it would leave its own frame — so the trapezoid is built from
-     the hinge edge, which never moves. */
+  /* The door leaf. It is hinged on the left jamb, so the free edge is the one
+     that moves: toward the hinge, and down toward the viewer, because a door in
+     a wall on a floor plan swings out into the room. The far edge cannot rise
+     (it would leave its own frame), so the shape is built from the hinge edge,
+     which never moves. */
   const hx = -hw;
   const fx = hx + OW*(1 - 0.52*open);
   const top = -hh + OH*0.26*open;
@@ -122,14 +113,13 @@ export function drawDoor(e, t){
     ctx.fillStyle = '#7d8288';                         // the handle, on the swinging edge
     ctx.fillRect(fx-3.5, top+OH/2-4.5, 2.5, 9);
   }
-  /* hinges — on the JAMB, not the leaf, so there is something fixed for the
-     crank to swing around */
+  // Hinges sit on the jamb, not the leaf, so there is something fixed for the crank to turn around
   ctx.fillStyle = '#6f6c47';
   ctx.fillRect(-hw-3.5, -hh+3, 2.5, 4.5); ctx.fillRect(-hw-3.5, hh-7.5, 2.5, 4.5);
 
-  /* THE CRANK. Drawn only while the door is actually cycling, which is the
-     one piece of feedback the 1.5s hold did not have at all: before this, the
-     whole descent existed as the prompt string and nothing in the world. */
+  /* The crank. It is drawn only while the door is cycling, and it is the
+     feedback for the 1.5 s hold: before it existed, the whole descent was only
+     the prompt text and nothing in the world. */
   if (cycling){
     const cx = -hw-2, cy = 0, r = 8, p = G.descend/DOOR_HOLD;
     ctx.strokeStyle = 'rgba(28,26,20,0.4)'; ctx.lineWidth = 2;
@@ -142,9 +132,7 @@ export function drawDoor(e, t){
     ctx.stroke();
   }
 
-  /* THE LAMP. Green means the level can end; red means it cannot. No word on
-     the door anywhere — the word is on the HUD, where the other four readings
-     are, and one label in one place is a label a player learns to read. */
+  // The lamp: green when the level can end, red when it cannot
   const lx = hw + 5, ly = -hh + 1;
   const lit = armed ? (0.6 + 0.4*Math.sin(t*0.010)) : 0.5;
   const col = armed ? '#cdf3bd' : '#d8503c';
@@ -158,28 +146,34 @@ export function drawDoor(e, t){
   ctx.strokeStyle = 'rgba(28,26,20,0.65)'; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.arc(lx, ly, 2.4, 0, TAU); ctx.stroke();
 
-  ctx.restore();          // pops the rotation, keeps the translate to the door
+  ctx.restore();          // undo the rotation, keep the translation to the door
 
   ctx.restore();
 }
 
-/* The avatar. Every part drawn INSIDE the collision disc (R = 0.33 tiles).
-   The body itself is the Rigger, drawn by drawRigger below; this function owns
-   the shadow, the facing, the gait clock and the radar in hand. */
+/**
+ * Draws the player. The Rigger sprite is drawn by drawRigger. This function owns
+ * the shadow, the facing, the walking cycle and the radar in the hand. Every part
+ * stays inside the collision circle (R = 0.33 tiles).
+ *
+ * @param {object} p - the player.
+ * @param {number} t - the frame timestamp.
+ * @param {number} [wx] - smoothed world position (see the y-sort in the actors
+ *   pass). They default to the player's own position, so a caller with no
+ *   smoothing still draws it in the right place.
+ * @param {number} [wy]
+ */
 export function drawPlayer(p, t, wx, wy){
-  /* wx/wy are the interpolated world position (see the y-sort in render).
-     They default to the entity's own, so any caller that has not got an
-     interpolation to offer still draws it exactly where it is. */
   const x=(wx===undefined?p.x:wx)*TILE, y=(wy===undefined?p.y:wy)*TILE;
 
-  // contact shadow, kept tight so it never spills onto a wall
+  // A tight contact shadow, kept small so it never spills onto a wall
   ctx.fillStyle='rgba(8,6,3,0.34)';
   ctx.beginPath(); ctx.ellipse(x+1.5, y+3, TILE*0.19, TILE*0.11, 0,0,6.283); ctx.fill();
 
-  /* The gait phase is the step timer — the same one that paces the footstep
-     audio — so a rig's feet are on the floor on the frame the sound lands.
-     Standing still, phase keeps its last value but gait drops to zero and
-     every stride in the table collapses with it. */
+  /* The walk phase is the footstep timer, the same one that paces the footstep
+     sound, so a foot is on the floor on the frame its sound plays. While standing
+     still the phase keeps its last value but `gait` drops to zero, and every
+     stride collapses with it. */
   const phase = p.stepDur ? 1 - p.stepT/p.stepDur : 0;
 
   ctx.save();
@@ -188,7 +182,7 @@ export function drawPlayer(p, t, wx, wy){
 
   drawRigger(ctx, { T:TILE, phase, gait: p.moving ? 1 : 0, t });
 
-  /* The radar, held out in front — same forward offset as vision cone. */
+  // The radar, held out in front at the same offset the vision cone starts from
   const rg = G.radar ? 1 : 0.35;
   ctx.fillStyle=`rgba(255,250,222,${0.5*rg})`;
   ctx.beginPath(); ctx.arc(0, -HAND_OFF*TILE, TILE*0.044, 0, 6.283); ctx.fill();
@@ -198,36 +192,40 @@ export function drawPlayer(p, t, wx, wy){
   ctx.restore();
 }
 
-/* The Lifeform. Dormant = static burst on carpet. Rising = the body
-   coalesces out of its own footprint. Hunting = fully up, one of six
-   the Stalker, drawn by drawStalker below. The shadow and the red rim are the
-   game's; the thing itself is the sprite's. */
-/* The dormant burst's twenty fill styles, built once at module load. See the
-   DORMANT branch in drawAgent: the brightness of speck `i` is a function of `i`
-   alone, so these strings never change and never needed to be rebuilt. */
+/* The twenty fill styles of the dormant "static" speck pattern, built once when
+   the module loads. The brightness of speck number i depends only on i, so
+   these strings never change and need not be rebuilt every frame. */
 const DORMANT_FILL = Array.from({length:20}, (_,i)=>{
   const br = Math.round(100 + Math.sin(i)*50);
   return `rgba(${br},${br},${br},0.3)`;
 });
 
+/**
+ * Draws a lifeform (the Stalker, drawn by drawStalker). Its look depends on
+ * `a.rise`, how far up it is:
+ *   dormant   a patch of static on the carpet
+ *   rising    the body gathers out of its own footprint
+ *   hunting   fully up
+ * The shadow and the red rim are drawn here and the body by the sprite.
+ *
+ * @param {object} a - the lifeform.
+ * @param {number} t - the frame timestamp.
+ * @param {number} [wx] - smoothed world position (defaults to its own).
+ * @param {number} [wy]
+ */
 export function drawAgent(a, t, wx, wy){
   const x=(wx===undefined?a.x:wx)*TILE, y=(wy===undefined?a.y:wy)*TILE;
   const h = a.rise;
 
-  // shadow, sized to the body rather than to the rise
+  // The shadow is sized to the body and not to the rise
   ctx.fillStyle='rgba(6,5,3,0.5)';
   ctx.beginPath();
   ctx.ellipse(x, y+4, TILE*0.36, TILE*0.20, 0,0,6.283);
   ctx.fill();
 
   if (h < 0.02){
-    /* DORMANT — a burst of static on the carpet.
-       The twenty fill styles are built ONCE, not per frame: `br` comes from
-       `Math.sin(i)` and `i` does not change, so every one of those template
-       literals was allocating a string sixty times a second to hold a value
-       that is the same string it held on the previous frame. Only the
-       POSITIONS animate — they drift on t — and those are two sines either
-       way, so the burst still crawls exactly as before. */
+    /* DORMANT: only the positions of the specks move (two sines each), so the
+       static crawls. Their fill styles are fixed (see DORMANT_FILL). */
     for (let i=0;i<20;i++){
       const sx = x + Math.sin(i*3.7 + t*0.01)*TILE*0.25;
       const sy = y + Math.cos(i*2.3 + t*0.008)*TILE*0.10;
@@ -237,19 +235,18 @@ export function drawAgent(a, t, wx, wy){
     return;
   }
 
-  /* Gait. The Lifeforms have no step timer of their own — they are not
-     walking anything, they are coming — so the phase runs off the frame
-     clock and the stride amount comes from the state: a HUNT strides,
-     a SEARCH drifts, a WALK is halfway between the two. */
+  /* Walk cycle. Lifeforms have no step timer, because they are not walking,
+     they are coming. The phase runs off the frame clock and the amount of stride
+     comes from the state: hunting strides fully, searching drifts, walking is in
+     between. */
   const gait = a.state==='HUNT' ? 1 : a.state==='WALK' ? 0.55 : 0.3;
 
   /* CLIP TO THE FLOOR. The Stalker's legs reach further than its collision
-     disc, so drawn unclipped it strides straight over the partition into the
-     next room — which reads as walking through walls, and a wall it can cross
-     is a wall that cannot save you. The clip is the walkable tiles within
-     reach of it, so the legs stop at the wall line exactly like the body
-     does. Built per frame from the grid: 25 rects, and the alternative is a
-     sprite that lies about where it is. */
+     circle, so drawn without a clip it would stride over a partition into the
+     next room, which looks like walking through walls (and a wall it can cross is
+     a wall that cannot save you). The clip is the walkable tiles within 2 tiles of
+     it, so its legs stop at the wall line like its body does. It is built every
+     frame from the grid, at most 25 rectangles. */
   const CR = 2;
   const cx0 = Math.max(0, Math.floor(a.x - CR)), cx1 = Math.min(MAP_W-1, Math.ceil(a.x + CR));
   const cy0 = Math.max(0, Math.floor(a.y - CR)), cy1 = Math.min(MAP_H-1, Math.ceil(a.y + CR));
@@ -264,15 +261,15 @@ export function drawAgent(a, t, wx, wy){
   ctx.translate(x, y);
   ctx.rotate(-a.face + Math.PI/2 + Math.sin(t*0.0018)*0.05);
 
-  /* `danger` is how close it is to hunting you: 0 when it is wandering,
-     1 when it is coming. It drives the rim on the hit zone below. */
+  /* `danger` is how close it is to hunting you: 0.25 while wandering, 1 while
+     chasing. It drives the rim on the hit zone. */
   drawStalker(ctx, { T:TILE, h, phase: (t*0.0009) % 1, gait, t,
                      danger: a.state==='HUNT' ? 1 : 0.25 });
 
-  ctx.restore();   // the transform
+  ctx.restore();   // the rotation and translation
   ctx.restore();   // the floor clip
 
-  // when it has you, a thin red rim on the hit zone itself
+  // When it has seen you, a thin red rim on the hit zone itself
   if (G.seenBy>0.35){
     ctx.strokeStyle=`rgba(216,80,60,${0.30*G.seenBy})`;
     ctx.lineWidth=2;
@@ -280,8 +277,8 @@ export function drawAgent(a, t, wx, wy){
   }
 }
 
-/* Entity-draw seam. The render loop draws the cast through ENT.player /
-   ENT.agent so a test can wrap one member without touching the loop. Extra
-   args are forwarded verbatim: the loop passes the interpolated wx/wy, and
-   dropping them would draw the figure at its un-interpolated position. */
+/* The drawing seam. The actors pass draws the cast through ENT.player and
+   ENT.agent, so a test can replace one of them without touching the render
+   loop. Extra arguments are passed straight through: the loop gives the smoothed
+   wx and wy, and dropping them would draw the figure at its unsmoothed position. */
 export const ENT = { player:(p,t,...r)=>drawPlayer(p,t,...r), agent:(a,t,...r)=>drawAgent(a,t,...r) };

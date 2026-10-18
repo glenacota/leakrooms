@@ -1,21 +1,20 @@
 import { G } from '../../sim/state.js';
 import { ENT } from '../entities.js';
 
-/* Where the fixed-step simulation has got into the step it is partway through.
-   The loop owns the number and this pass only reads it, so it lives here with
-   its one consumer and is written through a setter rather than assigned from
-   outside. */
+/* How far the fixed-step simulation has got into the step it is partway
+   through, from 0 to 1. The loop writes it through the setter and this pass only
+   reads it, so it lives here beside its one reader. */
 export let simAlpha = 0;
 export function setSimAlpha(v){ simAlpha = v; }
 
 export function actors(rc){
   const {t, p} = rc;
-/* ---------- 5. entities + player, y-sorted ----------
-   Drawn at the INTERPOLATED position: `lerp(prev, now, simAlpha)`, where
-   simAlpha is how far the fixed-step simulation has got into the step it is
-   currently partway through. The simulation is quantised to 1/60s; this is
-   not. The sort key is the interpolated y, so a figure also crosses in front
-   of a wall at the moment it visually does. */
+/* ---------- 5. The player and lifeforms, sorted by y ----------
+   Each figure is drawn at its SMOOTHED position: lerp(previous step, current
+   step, simAlpha). The simulation moves in steps of 1/60 s and the drawing does
+   not, so this is what makes movement continuous. The sort key is the smoothed y
+   as well, so a figure passes in front of a wall at the moment it visually does.
+   Figures lower on the screen are drawn later, so they appear in front. */
 const al = simAlpha;
 const ix = (e)=> e.px===undefined ? e.x : e.px + (e.x-e.px)*al;
 const iy = (e)=> e.py===undefined ? e.y : e.py + (e.y-e.py)*al;

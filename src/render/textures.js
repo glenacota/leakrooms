@@ -4,8 +4,10 @@ import { PAL } from '../config/palette.js';
 
 export let carpetPat, wallPat, ceilPat, scanPat, grainFull;
 
+/* Builds the repeating patterns used by the renderer. Everything is drawn in
+   code, so the game needs no image files. */
 export function buildPatterns(){
-  // --- carpet: 64x64 speckled, seamless-ish ---
+  // Carpet: a 64x64 speckled tile
   let c = document.createElement('canvas'); c.width=c.height=64;
   let g = c.getContext('2d');
   g.fillStyle=PAL.carpet; g.fillRect(0,0,64,64);
@@ -21,7 +23,7 @@ export function buildPatterns(){
   }
   carpetPat = ctx.createPattern(c,'repeat');
 
-  // --- wallpaper on wall faces: vertical dotted motif ---
+  // Wallpaper on wall faces: a vertical dotted pattern
   c = document.createElement('canvas'); c.width=32; c.height=48;
   g = c.getContext('2d');
   const grd = g.createLinearGradient(0,0,0,48);
@@ -32,7 +34,7 @@ export function buildPatterns(){
   g.fillStyle='rgba(228,230,168,0.16)'; g.fillRect(0,0,32,3);
   wallPat = ctx.createPattern(c,'repeat');
 
-  // --- wall top (seen from directly above) ---
+  // Wall top (seen from directly above)
   c = document.createElement('canvas'); c.width=c.height=24;
   g = c.getContext('2d');
   g.fillStyle=PAL.wallTop; g.fillRect(0,0,24,24);
@@ -42,7 +44,7 @@ export function buildPatterns(){
   }
   ceilPat = ctx.createPattern(c,'repeat');
 
-  // --- VHS scanlines ---
+  // VHS scanlines: one dark line every four pixels
   c = document.createElement('canvas'); c.width=1; c.height=4;
   g = c.getContext('2d');
   g.fillStyle='rgba(0,0,0,0)'; g.fillRect(0,0,1,4);
@@ -50,15 +52,14 @@ export function buildPatterns(){
   scanPat = ctx.createPattern(c,'repeat');
 }
 
-/* The viewport-sized grain. Same noise, same opacity — drawn once per frame as
-   one image instead of ~40 tiled copies. Rebuilt when the canvas size changes
-   (resize() calls it, and the renderer rebuilds lazily on the first frame
-   after boot, which runs before the first resize event). */
+/* Builds the film grain: one noise image the size of the screen, drawn once
+   per frame. This is much cheaper than tiling a small image about 40 times.
+
+   The canvas is resized and not recreated, since assigning width and height
+   clears it just like a new canvas. That matters because the grain is screen
+   sized, and a window drag or resolution change used to allocate a whole new
+   buffer every time. */
 export function buildGrainFull(){
-  /* Resized, not recreated. Assigning width/height clears a canvas exactly as a
-     fresh one is blank, so this is the same result — and the grain is SCREEN
-     sized, so a window drag or a resolution change used to allocate a whole
-     screen-sized buffer (and fill it with the same noise) every time it fired. */
   if (!grainFull) grainFull = document.createElement('canvas');
   grainFull.width = cvs.width; grainFull.height = cvs.height;
   const g = grainFull.getContext('2d');
@@ -70,9 +71,9 @@ export function buildGrainFull(){
   g.putImageData(im,0,0);
 }
 
-/* Only when the size actually changed. The window event is debounced now, but a
-   resize that lands on the same size — a DPR change that rounds the same way, a
-   synthetic event, a context restore — must not spend a screen-sized buffer of
+/* Rebuild the grain only when the canvas size really changed. A resize that
+   lands on the same size (a DPR change that rounds the same way, a synthetic
+   event, a context restore) would otherwise spend a screen-sized buffer of
    fresh noise to produce an identical picture. */
 on('resize', () => {
   if (cvs.width <= 0 || cvs.height <= 0) return;

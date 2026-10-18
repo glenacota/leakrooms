@@ -3,58 +3,48 @@ import { hash2 } from '../../util/hash.js';
 import { G } from '../../sim/state.js';
 import { ctx } from '../canvas.js';
 
+/* Scratch data for the water shine, one record per alpha bucket (SHEEN_STEPS,
+   see config/constants.js). It is reused every frame so the pass allocates
+   nothing. */
 const sheenBuckets = Array.from({length:SHEEN_STEPS}, ()=>({ n:0, x0:0, y0:0, x1:0, y1:0 }));
-/* Scratch for the sheen pass: one record per alpha bucket (SHEEN_STEPS, see
-   config/constants.js), reused every frame so the pass allocates nothing. */
 
 export function ground(rc){
   const {t, x0, y0, x1, y1, vw, vh} = rc;
-/* ---------- 1. carpet ----------
-   Baked at floor build: the carpet, the hash2 tonal variation, the wall
-   faces, the wall tops and their edge highlights are static, so the whole
-   viewport slice of them is one drawImage each. Source rect is the viewport
-   in TILES on the world-sized bake canvas; the destination is the same
-   rectangle in world pixels, inside the same camera transform the per-tile
-   fills used. */
+/* ---------- 1. Carpet ----------
+   The carpet, its tonal variation, the wall faces and the wall tops never change
+   while a floor is played, so they are baked once per floor (see bakeTiles). The
+   visible part of each layer is copied with one drawImage. The source rectangle
+   is the viewport in tiles on the map-sized canvas, and the destination is the
+   same rectangle in world pixels, inside the camera transform. */
 ctx.drawImage(G.tilesCv, x0*TILE, y0*TILE, vw*TILE, vh*TILE,
                           x0*TILE, y0*TILE, vw*TILE, vh*TILE);
 
-/* ---------- 1b. the flood ----------
-   Drawn AFTER the carpet and BEFORE the walls, which is what makes it read as
-   the floor being wet rather than a blue card floating over the room: the
-   wall faces and tops are painted on top of it, so a partition standing in a
-   flooded room stays dry and above the waterline.
+/* ---------- 1b. The flood ----------
+   Drawn AFTER the carpet and BEFORE the walls. That order is what makes it look
+   like the floor is wet and not like a blue card floating over the room: the wall
+   faces and tops are painted on top, so a partition in a flooded room stays dry.
 
-   One drawImage of a 76x76 image upscaled with smoothing. Per-tile fills were
-   the obvious alternative and would have been both slower (5776 draw calls)
-   and worse — hard tile-aligned water edges, the same quantised boundary the
-   vision cone has, on a feature whose entire job is a legible front. */
-/* The packed image is refreshed where G.wetArr changes, not here — see
-   waterDirty. Drawing it is still one drawImage. */
+   It is a single drawImage of a 76x76 image scaled up with smoothing. Per-tile
+   fills would be slower (5776 draw calls) and would give hard, tile-aligned water
+   edges on a feature whose whole job is a readable front. The image is refreshed
+   by syncImages() when the water changes, not here. */
 if (G.wetArr){
   ctx.globalAlpha = 1;
   ctx.drawImage(G.wetCv, 0, 0, MAP_W*TILE, MAP_H*TILE);
 
-  /* Specular sheen on the deep water. Without it a flooded room is a flat
-     tinted region and reads as "a blue filter is on" rather than as water;
-     the highlight is what makes it look like a surface you could sink
-     into. Drawn only on the deepest tiles and only where the mask can see
-     them, so a dark flooded room is still dark.
+  /* The shine on deep water. Without it a flooded room is a flat tinted area
+     that looks like a blue filter, and the highlight is what makes it look like a
+     surface. It is only drawn on the deepest tiles, and only where the mask lets
+     the player see them, so a dark flooded room stays dark.
 
-     BATCHED, in four alpha buckets. It used to set a fillStyle built from a
-     template literal and issue a fillRect for every qualifying tile — up to
-     four hundred of them in a flooded viewport, each one a separate blended
-     quad and a separate string allocation, measured at 7.8ms a frame on the
-     reference machine. Worse, it is the one pass whose cost scales with how
-     much of the view is underwater, so it got slower exactly when the player
-     was already under pressure.
-
-     One path and one fill per bucket is four draws for the whole sheen. The
-     shimmer survives because the alpha range is 0 to 0.05: quantised into
-     four steps that is a difference of 0.0125 on a 5%-alpha highlight, which
-     is below what the banding on a `lighter` pass can show, and the phase is
-     still per tile, so the sheen still crawls rather than pulsing as one
-     sheet. */
+     It is BATCHED into four alpha buckets: one path and one fill per bucket. It
+     used to set a fill style from a template string and call fillRect for each
+     tile (up to 400 per frame), measured at 7.8 ms. It was also the one pass whose
+     cost grew with how much of the view was underwater, so it got slower exactly
+     when the player was under pressure. The shimmer survives, because the alpha
+     range is only 0 to 0.05, so four steps differ by 0.0125, below what banding
+     on an additive pass can show. Each tile keeps its own phase, so the shine
+     crawls and does not pulse as one sheet. */
   ctx.globalCompositeOperation = 'lighter';
   const shx0=Math.max(0,x0), shy0=Math.max(0,y0);
   const ph0 = t*0.0011;
@@ -76,10 +66,10 @@ if (G.wetArr){
     else { if (x   < B.x0) B.x0 = x;   if (y   < B.y0) B.y0 = y;
            if (x+1 > B.x1) B.x1 = x+1; if (y+1 > B.y1) B.y1 = y+1; }
   }
-  /* Walk each bucket's rectangle rather than keeping a rect list: a bucket's
-     tiles are contiguous in practice because the alpha follows the water
-     depth, so the bounding box is a handful of tiles rather than four
-     hundred, and it is bounded by the viewport either way. */
+  /* Each bucket is drawn by walking its bounding rectangle, instead of keeping a
+     list of rectangles. The alpha follows the water depth, so a bucket's tiles
+     are close together and the box is a handful of tiles, never more than the
+     viewport. */
   for (let b=0;b<SHEEN_STEPS;b++){
     const B = bucket[b];
     if (!B.n) continue;
@@ -104,10 +94,10 @@ if (G.wetArr){
   ctx.globalCompositeOperation = 'source-over';
 }
 
-/* ---------- 2+3. wall faces and tops ----------
-   The second baked layer, drawn AFTER the flood so a partition standing in
-   a flooded room stays dry: the water lands on the carpet and the walls are
-   painted over it, exactly the order the per-tile passes used. */
+/* ---------- 2+3. Wall faces and tops ----------
+   The second baked layer, drawn after the flood so a partition standing in a
+   flooded room stays dry: the water lands on the carpet and the walls are painted
+   over it. */
 ctx.drawImage(G.wallsCv, x0*TILE, y0*TILE, vw*TILE, vh*TILE,
                            x0*TILE, y0*TILE, vw*TILE, vh*TILE);
 }

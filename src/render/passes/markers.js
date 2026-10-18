@@ -5,7 +5,7 @@ import { drawDoor } from '../entities.js';
 
 export function markers(rc){
   const {t} = rc;
-/* ---------- 4. world markers ---------- */
+/* ---------- 4. World markers: batteries and the door ---------- */
 for (const b of G.batteries){
   if (b.taken) continue;
   const bx=(b.x+0.5)*TILE, by=(b.y+0.5)*TILE;
@@ -17,9 +17,9 @@ for (const b of G.batteries){
   ctx.strokeRect(bx-7.5, by-9.5, 15, 19);
 }
 
-/* The leak itself is drawn AFTER the lighting multiply — see section 6b.
-   It is the one object in the world that is not gated by the cone, and the
-   reason is written where it is drawn. */
+/* The pipes are not drawn here. They are drawn after the lighting multiply (see
+   passes/leaks.js), because they are the one object in the world that the cone
+   of vision does not hide. */
 
 for (const e of G.exitTiles) drawDoor(e, t);
 }

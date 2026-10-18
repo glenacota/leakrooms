@@ -4,51 +4,43 @@ import { SETTINGS } from '../settings/store.js';
 import { takeWetBox } from '../sim/flood.js';
 import { G } from '../sim/state.js';
 
-/* packMask / packWet write an image nobody will read. The switch travels with
-   the packers: setHeadless() in game.js owns the call and setVision(), so the
-   harness still switches both off with one call. */
+/* The packers turn simulation arrays into small images. Switching this off
+   skips the work for the tests that never read the images. setHeadless() in the
+   test API controls it together with the vision flag. */
 export let wantPixels = true;
 export function setPixels(v){ wantPixels = !!v; }
 
 /* ============================================================
-   FLOOD FIELD -> IMAGE
-   One RGBA image at one pixel per tile, drawn scaled up with smoothing. The
-   water is a MULTIPLY-STYLE tint rather than an opaque fill, so it reads as
-   the same carpet under water instead of a blue card laid on top of it — the
-   yellow is still there underneath, darkened and shifted, which is what wet
-   carpet actually does.
+   FLOOD FIELD TO IMAGE
+   The water is one RGBA image with one pixel per tile, drawn scaled up with
+   smoothing. It is a tint over the carpet and not an opaque fill, so it looks
+   like the same carpet under water (darker and shifted in colour) and not like a
+   blue card laid on top.
+
+   Smoothing is not cosmetic. At one pixel per tile, a hard-edged waterline would
+   crawl along the tile grid like a rendering fault. Bilinear scaling softens the
+   front into an irregular edge at no per-frame cost.
+
+   Dry tiles are written with alpha 0, never opaque black. The image is drawn
+   over the carpet, and an untouched opaque black tile would paint black over it.
+
+   The colour ramp is a straight blend between the two ends of the chosen tint
+   (see WATER_TINTS). The ends were chosen by working out what the finished tile
+   looks like over the carpet. Choosing colours that look like water on their own
+   gave two bad versions: glowing ice, and a dark one that could not be told apart
+   from an unlit floor, which ruins the mechanic.
    ============================================================ */
-/* One pixel per tile, then upscaled with bilinear smoothing. The smoothing is
-   not cosmetic: at one pixel per tile a hard-edged square waterline crawls
-   along the tile grid as it advances and reads as a rendering fault, the same
-   way the cone boundary used to. Bilinear across the tile grid turns the front
-   into a soft irregular edge for free, and costs nothing per frame.
-
-   Dry tiles are written with alpha 0, NOT with alpha 255 and black RGB. That
-   is the bug this shape of the loop exists to prevent: the image is opaque, so
-   an untouched tile is black and paints black over the carpet it is drawn on.
-
-   The ramp is a straight lerp between the two ends of the selected tint, and
-   the ends are picked by SOLVING for what the composited tile should look like
-   over the carpet — see WATER_TINTS. Picking a colour that looks like water in
-   isolation is what produced two wrong versions: one that read as glowing ice,
-   and one so dark it was indistinguishable from an unlit floor, which defeats
-   the mechanic entirely. */
 export function packWet(){
   if (!wantPixels) return;
   const T = WATER_TINTS[SETTINGS.waterHue] || WATER_TINTS.slate;
   const contrast = SETTINGS.waterContrast;
   const d = G.wetImg.data;
-  /* PARTIAL REPACK. The dirty box names the tiles that changed since the last
-     pack, and only those rows are walked and only that rect is uploaded. With a
-     pipe open the water moves every frame, so this used to be a full 5776-tile
-     pass each time to repaint a band a few tiles across — and the upload was the
-     expensive half, pushing the whole 76x76 image when a tenth of it had
-     changed. An empty box means "repack everything", which is what initFlood, a
-     tint change and the first frame after a floor build all ask for.
-
-     The box is CONSUMED here: the pack is the upload, so after it the pending
-     region is empty and the next writer starts a fresh one. */
+  /* Partial repack. takeWetBox() returns the rectangle of tiles that changed
+     since the last pack, and only those rows are rewritten and uploaded. With a
+     pipe open the water moves every frame, but only in a thin band, so a full
+     5776-tile rewrite (and a full upload) was a lot of wasted work. A full box
+     means "repack everything", which a new floor and a tint change ask for. The
+     box is used up here, so the next change starts a fresh one. */
   const { x0, y0, x1, y1 } = takeWetBox();
   for (let y=y0; y<=y1; y++){
     let i = y*MAP_W + x0;
@@ -68,8 +60,9 @@ export function packWet(){
   G.wetCtx.putImageData(G.wetImg, 0, 0, x0, y0, w, h);
 }
 
-/* Mask -> image. 5776 writes on a turn, nothing at all while standing still.
-   Pure luminance: this is a visibility gate, not a colour. */
+/* Turns the visibility mask into an image. This is a pure brightness gate and
+   not a colour, so it only writes grey. It costs 5776 writes when the view
+   changes and nothing while you stand still. */
 export function packMask(){
   if (!wantPixels) return;
   const d = G.maskImg.data;
@@ -81,9 +74,9 @@ export function packMask(){
   G.maskCtx.putImageData(G.maskImg, 0, 0);
 }
 
-/* Pack any stale pixel images now, so render() never draws a frame from a
-   half-updated buffer. The pack functions themselves still gate on wantPixels,
-   so this is a no-op in headless mode. */
+/* Packs any stale image now, so render() never draws from a half-updated
+   buffer. The pack functions still check wantPixels, so this does nothing in
+   headless mode. */
 export function syncImages(){
   if (G.dirty.water){ packWet(); G.dirty.water = false; }
   if (G.dirty.mask){ packMask(); G.dirty.mask = false; }
