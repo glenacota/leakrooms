@@ -3,6 +3,7 @@ import { renderScaleIdx, resize, setRenderScaleIdx } from '../render/canvas.js';
 import { setSimAlpha } from '../render/passes/actors.js';
 import { update } from '../sim/update.js';
 import { G } from '../sim/state.js';
+import { on } from '../util/events.js';
 import { addRunTime, STATE } from './run.js';
 
 let frameMsAvg = 16.7;
@@ -71,6 +72,42 @@ let fails = 0, dead = false;
 let fatalHook = ()=>{};
 export function setFatalHook(fn){ fatalHook = fn; }
 
+/* ============================================================
+   WHEN A FRAME IS WORTH DRAWING
+
+   Off play the loop was still calling renderHook() sixty times a second to
+   paint a floor that is not stepping, under a card that does not move. That is
+   the most expensive thing in the game spent on the least interesting frame in
+   it: a full ground pass, light composite and post chain, sixty times, to
+   produce a pixel-identical image.
+
+   So: nothing at all on the splash (the canvas behind it is not visible — the
+   riser is opaque), and on the cards only when something actually changed — the
+   state, a resize, a settings change — plus a slow heartbeat, because the
+   renderer keeps time-based flicker in its passes and a card that never
+   refreshes is a card whose CRT is switched off.
+
+   The flag is a flag and not a diff: the things that change a frame are
+   announced on the bus and from outside, and re-deriving them per frame would
+   mean the loop knew about the HUD, the settings panel and the resize debounce.
+   ============================================================ */
+const IDLE_REDRAW_MS = 250;
+let needsRedraw = true;
+let lastRedraw  = 0;
+let lastState   = null;
+on('resize',          ()=>{ needsRedraw = true; });
+on('settings:changed',()=>{ needsRedraw = true; });
+
+function shouldRender(now){
+  if (STATE==='play')  return true;
+  if (STATE==='splash') return false;
+  if (STATE!==lastState){ lastState = STATE; needsRedraw = true; }
+  if (!needsRedraw && now - lastRedraw < IDLE_REDRAW_MS) return false;
+  needsRedraw = false;
+  lastRedraw  = now;
+  return true;
+}
+
 export function frame(now){
   if (dead) return;
   requestAnimationFrame(frame);
@@ -112,7 +149,7 @@ export function frame(now){
     lastRenderStart = now;
     if (frameMs > 0 && frameMs < 1000) adaptResolution(frameMs);
 
-    if (G) renderHook(now);
+    if (G && shouldRender(now)) renderHook(now);
 
     fails = 0;
   } catch (err){
@@ -132,7 +169,13 @@ function adaptResolution(ms){
 
   if (frameMsAvg > SCALE_DROP_MS){
     goodRun = 0; badRun++;
-    if (badRun > SCALE_BAD_FRAMES && renderScaleIdx < RENDER_SCALES.length-1){
+    /* Only while PLAYING, in both directions. On the splash and the cards the
+       canvas is not what the player is looking at — and after the render gate it
+       is not even being drawn — so a resolution change there re-bakes the grain,
+       the vignette and the splash plan for nothing, and a slow machine that
+       spent a second on the work order would come back to a cheaper canvas than
+       the one it left. */
+    if (badRun > SCALE_BAD_FRAMES && renderScaleIdx < RENDER_SCALES.length-1 && STATE==='play'){
       setRenderScaleIdx(renderScaleIdx+1);
       badRun = 0; frameMsAvg = 16.7;      // re-measure at the new size, not the old
       resize();
@@ -140,9 +183,6 @@ function adaptResolution(ms){
     }
   } else if (frameMsAvg < SCALE_RECOVER_MS){
     badRun = 0; goodRun++;
-    /* Only while PLAYING. On the splash the canvas is not what the player is
-       looking at, and a resolution change there re-bakes the grain, the
-       vignette and the splash plan for no reason. */
     if (goodRun > SCALE_GOOD_FRAMES && renderScaleIdx > 0 && STATE==='play'){
       setRenderScaleIdx(renderScaleIdx-1);
       goodRun = 0; frameMsAvg = 16.7;

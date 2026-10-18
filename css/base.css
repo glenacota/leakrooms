@@ -23,7 +23,11 @@
    standing water still reads as water when it is not moving. */
 @media (prefers-reduced-motion:reduce){
   .splash-water,.splash-water::before,.splash-drip,.splash-plate .go{ animation:none; }
-  .splash-water{ height:26%; }
+  /* Still the same standing water. Pinned by transform rather than height
+     because the rise is a transform now — height here would size the box and
+     leave the painted band sitting at 40% of it. 0.65 of the 40% band is the
+     26% the height used to be. */
+  .splash-water{ transform:scaleY(.65); }
   /* The plan stops rolling but stays painted: the map is information about
      the run, and removing it would change what the screen says. */
   .splash-plan canvas,.splash-track{ animation:none; }

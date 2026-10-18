@@ -19,6 +19,11 @@ const { setFrameHooks } = await import('../../src/game/loop.js');
 test('[40] the loop survives a throwing frame and gives up loudly', () => {
   let armed = 0;
   global.requestAnimationFrame = ()=>{ armed++; return 0; };
+  /* In PLAY, or the hook below is never called: the loop no longer draws on the
+     riser or the cards (see loop-redraw.test.js), and a boundary asserted
+     against a frame the loop has decided not to paint would be asserting about
+     nothing. */
+  A.STATE = 'play';
   setFrameHooks({ render(){ throw new Error('render blew up'); } });
 
   const fatal = document.getElementById('fatal');

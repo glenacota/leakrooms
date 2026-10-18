@@ -37,18 +37,44 @@
   backdrop-filter:none;
   overflow:hidden;
 }
+/* The rise is a TRANSFORM, not a height. Animating height re-lays-out this
+   element and everything below it on every frame of a nine-second loop, which
+   is the only thing on the title screen that touches layout at all — and the
+   frame it costs is the one that also has the canvas, the water gradient and
+   the pulse running. So the box is full-height from the start, pinned to the
+   bottom, and scaleY does the rising: the compositor moves the pixels it
+   already has. */
 .splash-water{
-  position:absolute; left:0; right:0; bottom:0; height:22%;
+  position:absolute; left:0; right:0; bottom:0; height:100%;
+  transform-origin:50% 100%;
   background:linear-gradient(180deg,#8fc4cc 0 3px,#3c5a60 4px 55%,#1d2f34 100%);
+  /* The gradient is sized to the TALLEST the water ever gets and sits at the
+     BOTTOM of the box, which is where the water is. The box itself is full
+     height and unpainted above the band, so at rest it is a short box pinned to
+     the floor of the frame and at full rise it is that band — with the crest
+     line at the top of the box, and therefore at the waterline, at every point
+     of the animation. See the keyframes below. */
+  background-size:100% 40%;
+  background-position:bottom;
+  background-repeat:no-repeat;
   animation:rise 9s cubic-bezier(.2,.7,.3,1) infinite alternate;
 }
 
+/* The crest sits on the TOP EDGE OF THE BAND, which is 40% up the box — the
+   same 40% the gradient is sized to. It rides the transform with the band, so
+   it is thinner when the water is low, which is the same thing the water being
+   lower looks like anyway. */
 .splash-water::before{
-  content:""; position:absolute; left:-50%; top:-3px; width:200%; height:6px;
+  content:""; position:absolute; left:-50%; bottom:40%; margin-bottom:-3px;
+  width:200%; height:6px;
   background:repeating-linear-gradient(90deg,#8fc4cc 0 18px,transparent 18px 36px);
   animation:drift 3.4s linear infinite; opacity:.55;
 }
-@keyframes rise{ from{height:12%} to{height:40%} }
+/* 0.30 and 1 are the waterline at 12% and at 40% of the frame: the box is the
+   full height, the painted band at its bottom is 40% of that, and scaleY about
+   the bottom edge moves the top of the box — which is where the crest line is
+   — up and down. Same two heights the height keyframes used, no layout. */
+@keyframes rise{ from{transform:scaleY(.30)} to{transform:scaleY(1)} }
 @keyframes drift{ to{transform:translateX(36px)} }
 .splash-drip{
   position:absolute; inset:0; pointer-events:none;

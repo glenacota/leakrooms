@@ -167,8 +167,12 @@
   display:flex;
   align-items:center;
   justify-content:center;
+  /* No backdrop-filter here. It looks like a small nicety, but it is a full
+     re-composite of everything behind the element on every frame it animates,
+     and these screens sit over a canvas that (see game/loop.js) is no longer
+     being drawn — so it was blurring a frozen picture sixty times a second.
+     The 0.86 ink behind it already reads as depth. */
   background:rgba(6,5,3,.86);
-  backdrop-filter:blur(2px);
   z-index:5;
   cursor:default;
 }
