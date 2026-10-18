@@ -1,6 +1,16 @@
-/* ------------------------------------------------------------
-   SPLASH 01
-   ------------------------------------------------------------ */
+/* ============================================================
+   TITLE SCREEN AND WORK ORDER FRAME
+   The animated title screen (rolling floor plan, rising water,
+   dripping lines, tape noise) and the layout that holds the work
+   order and pause tickets.
+   ============================================================ */
+
+/* ---------- Floor plan behind the title ---------- */
+
+/* Two copies of the plan scroll sideways at different speeds for a depth
+   effect. The plan is the level the player is about to play, but it is
+   faded so far that it only hints at a map. It is painted by
+   paintSplashPlan() in src/render/splash-plan.js. */
 .splash-plan{
   position:absolute; left:0; top:0; width:100%; height:100%; z-index:0;
   overflow:hidden; pointer-events:none; opacity:.085;
@@ -11,14 +21,18 @@
 .splash-plan canvas{ display:block; width:200%; height:100%; }
 .splash-plan       canvas{ animation:planroll 96s linear infinite; }
 .splash-plan.far   canvas{ animation:planroll 61s linear infinite; }
-/* -50% is exactly one period of the painting (game.js sizes the canvas so one
-   copy of the plan spans the frame), so the loop has no seam. */
+/* Each canvas is twice the frame width and holds the plan twice. Moving it
+   by -50% is exactly one copy, so the loop has no visible seam. */
 @keyframes planroll{ from{ transform:translateX(0); } to{ transform:translateX(-50%); } }
 
+/* ---------- Tape effects ---------- */
+
+/* Dark horizontal bands. */
 .splash-bands{
   position:absolute; inset:0; z-index:1; pointer-events:none; opacity:.45;
   background:repeating-linear-gradient(180deg,rgba(0,0,0,0) 0 5px,rgba(0,0,0,.55) 5px 7px);
 }
+/* Faint light lines, with a short sideways glitch every 7.5 seconds. */
 .splash-track{
   position:absolute; inset:0; z-index:1; pointer-events:none;
   background:repeating-linear-gradient(180deg,rgba(228,230,168,.045) 0 2px,transparent 2px 9px);
@@ -37,45 +51,36 @@
   backdrop-filter:none;
   overflow:hidden;
 }
-/* The rise is a TRANSFORM, not a height. Animating height re-lays-out this
-   element and everything below it on every frame of a nine-second loop, which
-   is the only thing on the title screen that touches layout at all — and the
-   frame it costs is the one that also has the canvas, the water gradient and
-   the pulse running. So the box is full-height from the start, pinned to the
-   bottom, and scaleY does the rising: the compositor moves the pixels it
-   already has. */
+
+/* ---------- Rising water ---------- */
+
+/* The water box is always full height and pinned to the bottom. Only its
+   bottom 40% is painted (see background-size), and scaleY from the bottom
+   edge moves the waterline up and down. A transform is used instead of
+   animating height so the browser does not redo layout on every frame. */
 .splash-water{
   position:absolute; left:0; right:0; bottom:0; height:100%;
   transform-origin:50% 100%;
   background:linear-gradient(180deg,#8fc4cc 0 3px,#3c5a60 4px 55%,#1d2f34 100%);
-  /* The gradient is sized to the TALLEST the water ever gets and sits at the
-     BOTTOM of the box, which is where the water is. The box itself is full
-     height and unpainted above the band, so at rest it is a short box pinned to
-     the floor of the frame and at full rise it is that band — with the crest
-     line at the top of the box, and therefore at the waterline, at every point
-     of the animation. See the keyframes below. */
   background-size:100% 40%;
   background-position:bottom;
   background-repeat:no-repeat;
   animation:rise 9s cubic-bezier(.2,.7,.3,1) infinite alternate;
 }
 
-/* The crest sits on the TOP EDGE OF THE BAND, which is 40% up the box — the
-   same 40% the gradient is sized to. It rides the transform with the band, so
-   it is thinner when the water is low, which is the same thing the water being
-   lower looks like anyway. */
+/* The wavy crest line. bottom:40% puts it on the top edge of the painted
+   band, so it moves with the waterline. */
 .splash-water::before{
   content:""; position:absolute; left:-50%; bottom:40%; margin-bottom:-3px;
   width:200%; height:6px;
   background:repeating-linear-gradient(90deg,#8fc4cc 0 18px,transparent 18px 36px);
   animation:drift 3.4s linear infinite; opacity:.55;
 }
-/* 0.30 and 1 are the waterline at 12% and at 40% of the frame: the box is the
-   full height, the painted band at its bottom is 40% of that, and scaleY about
-   the bottom edge moves the top of the box — which is where the crest line is
-   — up and down. Same two heights the height keyframes used, no layout. */
+/* 0.30 and 1 put the waterline at 12% and 40% of the frame height. */
 @keyframes rise{ from{transform:scaleY(.30)} to{transform:scaleY(1)} }
 @keyframes drift{ to{transform:translateX(36px)} }
+
+/* Three vertical drip lines that fall and repeat. */
 .splash-drip{
   position:absolute; inset:0; pointer-events:none;
   background:
@@ -86,12 +91,14 @@
 }
 @keyframes drip{ from{transform:translateY(-30px)} to{transform:translateY(30px)} }
 
+/* ---------- Title text ---------- */
+
 .splash-plate{ position:relative; z-index:2; text-align:center; padding:0 24px; }
 .screen.splash h1{
   font-size:clamp(34px,8.4vw,84px);
   letter-spacing:.26em;
   margin:0 0 12px;
-  text-indent:.26em;                 /* letter-spacing trails the last glyph; this re-centres the word */
+  text-indent:.26em;                 /* balances the trailing letter-spacing so the title looks centred */
   text-shadow:0 0 26px rgba(228,230,168,.28);
   font-weight: 900;
 }
@@ -102,15 +109,17 @@
 .splash-plate .go b{ color:var(--ink); background:var(--yellow); padding:2px 8px; font-weight:400; }
 @keyframes pulse{ 50%{ opacity:.35 } }
 
-/* ------------------------------------------------------------
-   SPLASH 02 — Backstory, controls list
-   ------------------------------------------------------------ */
+/* ---------- Work order and pause ticket frame ---------- */
+
+/* The wrapper that centres a ticket and its button row. It scrolls if the
+   window is too short to show everything. */
 .order-wrap{
   width:min(94vw,960px);
   max-height:94vh; overflow-y:auto; scrollbar-width:thin;
   display:flex; flex-direction:column; align-items:center; gap:18px;
 }
 #screen-order, #screen-pause{ background:rgba(6,5,3,.95); }
+/* Two columns: the main body and a 250px stub on the right. */
 .order{
   width:100%;
   display:grid; grid-template-columns:1fr 250px;

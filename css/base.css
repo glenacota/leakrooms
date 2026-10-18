@@ -1,11 +1,15 @@
-/* ------------------------------------------------------------
-   Narrow windows.
+/* ============================================================
+   RESPONSIVE RULES AND REDUCED MOTION
+   This file loads last so its overrides win over the earlier
+   stylesheets. Keep it last.
+   ============================================================ */
 
-   A permanent column is the one HUD shape that costs play area proportional to
-   the window, so below 900px it is the first thing to shed — the game is
-   playable, the HUD is not optional. Bars go before type, because the number
-   directly above a bar already says what the bar says.
-   ------------------------------------------------------------ */
+/* ---------- Narrow windows ---------- */
+
+/* The HUD sidebar takes a fixed share of the window, so on small screens
+   it is the first thing to shrink. The game stays playable and the HUD
+   stays visible. Bars go before text: the number above each bar already
+   says the same thing. */
 @media (max-width:900px){
   :root{ --side-w:104px; }
   .lbl{ font-size:10px; letter-spacing:.14em; }
@@ -19,16 +23,17 @@
   #val-clock{ font-size:19px; }
   .hud-side{ gap:7px; }
 }
-/* Motion is decoration here, and every one of these is decoration. The
-   standing water still reads as water when it is not moving. */
+
+/* ---------- Reduced motion ---------- */
+
+/* Everything here is decoration, so it is safe to switch off. The title
+   screen still looks like standing water without the movement. */
 @media (prefers-reduced-motion:reduce){
   .splash-water,.splash-water::before,.splash-drip,.splash-plate .go{ animation:none; }
-  /* Still the same standing water. Pinned by transform rather than height
-     because the rise is a transform now — height here would size the box and
-     leave the painted band sitting at 40% of it. 0.65 of the 40% band is the
-     26% the height used to be. */
+  /* Hold the water at a fixed height. The rise is a transform, so the
+     height is set with scaleY: 0.65 of the 40% band is 26% of the frame. */
   .splash-water{ transform:scaleY(.65); }
-  /* The plan stops rolling but stays painted: the map is information about
-     the run, and removing it would change what the screen says. */
+  /* The floor plan stops scrolling but stays painted, because it shows
+     information about the run. */
   .splash-plan canvas,.splash-track{ animation:none; }
 }

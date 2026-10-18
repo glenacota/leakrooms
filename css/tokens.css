@@ -1,35 +1,46 @@
 /* ============================================================
-   LEAKROOMS — analog horror shell
-   mono-yellow palette, CRT treatment, tape UI
+   TOKENS AND PAGE FRAME
+   Colours, shared variables, the page reset, and the boxes that
+   hold the game canvas.
+
+   Load order matters: this file comes first because every other
+   stylesheet reads the variables defined here.
    ============================================================ */
 
-/* The five colours of the place. These are the same five the canvas renders
-   the world from, so the shell and the game are one palette rather than two
-   that happen to be yellowish. Roles are the canvas's, for the same reason. */
+/* ---------- Colour palette and shared variables ---------- */
+
+/* The game is drawn in five yellows. The canvas uses the same five
+   (see src/config/palette.js), so the menus and the world look like
+   one place. Water blue and the danger red are the only colours that
+   sit outside this set, on purpose. */
 :root{
-  --bright:      #e4e6a8;   /* the pale end — brightest surface, wall faces */
+  --bright:      #e4e6a8;   /* palest yellow: wall faces, main text */
   --pale:        #e1e2bb;
   --mid:         #d6dea7;
-  --carpet:      #c3cb6e;   /* the saturated one — the colour it is named for */
+  --carpet:      #c3cb6e;   /* the saturated one the game is named for */
   --wall-top:    #c6c58b;
 
-  --yellow:      #e4e6a8;   /* alias: what the UI calls its primary */
+  /* Names the UI uses for the palette above */
+  --yellow:      #e4e6a8;   /* primary UI colour */
   --yellow-dim:  #c3cb6e;
-  --yellow-deep: #8f9445;
+  --yellow-deep: #8f9445;   /* darkest yellow: low-priority text only */
   --carpet-dark: #6d7434;
-  --ink:         #1c1a14;
-  --danger:      #d8503c;   /* deliberately off-palette: it is a UI accent */
-  --ok:          #8fd07a;
+  --ink:         #1c1a14;   /* near-black, used for text on yellow buttons */
+  --danger:      #d8503c;   /* red accent for warnings and destructive actions */
+  --ok:          #8fd07a;   /* green accent */
   --mono: "Courier New", "Courier", monospace;
 
-  /* The HUD sidebar's width. A variable because it is the one HUD dimension
-     that has to shrink on narrow windows, and because it is the number the
-     layout comment talks about — keep those two in sync. */
+  /* Width of the HUD sidebar. It is a variable because it shrinks on
+     narrow windows (see base.css), and the HUD and the play area must
+     always agree on the same number. */
   --side-w: 180px;
 }
 
+/* ---------- Page reset ---------- */
 *{ margin:0; padding:0; box-sizing:border-box; }
 
+/* The system cursor is hidden while playing. Screens turn it back on
+   (see .screen in screens.css). */
 html,body{
   width:100%; height:100%;
   background:#000;
@@ -42,6 +53,10 @@ html,body{
 
 body{ display:flex; align-items:center; justify-content:center; }
 
+/* ---------- Game frame ---------- */
+
+/* The outer frame. The play area, the HUD and every screen are
+   positioned inside it. */
 #crt{
   position:relative;
   width:100%; height:100%;
@@ -49,16 +64,16 @@ body{ display:flex; align-items:center; justify-content:center; }
   background:#000;
 }
 
-/* The play area: everything the game draws, and everything the player can see.
-   It starts where the instrument panel ends. The canvas sizes the camera, the
-   ambient bake, the visibility mask and the vignette to ITSELF, so a panel
-   painted over it is not a cosmetic overlap — it is a strip of the world that
-   gets rendered, lit, scoped and masked, and then never shown.
+/* The play area, which holds the canvas. It starts to the right of the
+   HUD sidebar (its left edge is --side-w), so the map is never drawn
+   underneath the HUD. The game sizes its camera, lighting and visibility
+   mask to the canvas, so any part hidden behind the HUD would still be
+   rendered and then never seen.
 
-   Absolute rather than a flex sibling of the panel: the panel's width is a
-   media-query variable, so the two boxes have to agree on one number, and a
-   flex row that resolves against a stale --side-w collapses the play area to
-   nothing instead of falling back to something playable. */
+   It uses absolute positioning instead of a flex row because the HUD
+   width comes from a media-query variable. Two boxes that read the same
+   variable always agree; a flex layout can collapse the play area to
+   nothing if it resolves against a stale value. */
 #stage{
   position:absolute;
   top:0; right:0; bottom:0;
@@ -66,6 +81,8 @@ body{ display:flex; align-items:center; justify-content:center; }
   overflow:hidden;
 }
 
+/* The canvas fills the stage. "pixelated" keeps the low-resolution
+   lighting and water layers crisp when they are scaled up. */
 #game{
   position:absolute;
   inset:0;

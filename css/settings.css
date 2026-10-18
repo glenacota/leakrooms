@@ -1,9 +1,12 @@
-/* ------------------------------------------------------------
-   SETTINGS
-   The controls are deliberately plain HTML — a range input and a
-   row of buttons — because the whole point is that they work, and a
-   custom widget would be reimplementing a slider badly.
-   ------------------------------------------------------------ */
+/* ============================================================
+   SETTINGS CONTROLS
+   Sliders, segmented buttons and button variants used on the pause
+   ticket's Settings page and in the difficulty chooser.
+   They are plain HTML inputs and buttons on purpose: a native
+   control already works, and a custom widget would only copy it.
+   ============================================================ */
+
+/* ---------- Layout ---------- */
 .settings-grid{
   display:grid; grid-template-columns:1fr 1fr; gap: 26px;
   margin:24px 0 6px; text-align:left; padding-top: 20px;
@@ -20,10 +23,14 @@
   margin-top:40px;
 }
 .setrow.buttons button {  font-weight: 900; padding:10px 15px}
-/* auto-fit rather than flex-wrap: a wrapped flex row stretches its lone
-   last button to full width, so a 4-option row rendered as 3 + 1 enormous.
-   auto-fit collapses the empty tracks, so 2-, 3- and 4-option rows each fill
-   their own width evenly. */
+
+/* ---------- Segmented buttons ---------- */
+
+/* A row of options where exactly one is pressed. auto-fit is used instead
+   of flex-wrap because a wrapped flex row stretches a lone last button to
+   full width (a 4-option row would show as 3 buttons plus 1 huge one).
+   auto-fit drops the empty columns, so rows with 2, 3 or 4 options all fill
+   their width evenly. */
 .seg{ display:grid; grid-template-columns:repeat(auto-fit,minmax(52px,1fr)); gap:6px; }
 .seg button{
   padding:6px 8px; font-size:12px; white-space:nowrap;
@@ -34,6 +41,8 @@
 .seg button[aria-pressed="true"]{
   background:var(--yellow); color:#1a1810; border-color:var(--yellow);
 }
+
+/* ---------- Sliders ---------- */
 input[type=range]{
   -webkit-appearance:none; appearance:none; width:100%; height:9px;
   background:rgba(20,17,10,.75); border:1px solid rgba(228,230,168,.28);
@@ -46,19 +55,26 @@ input[type=range]::-webkit-slider-thumb{
 input[type=range]::-moz-range-thumb{
   width:12px; height:18px; background:var(--yellow); border:none; cursor:pointer;
 }
-/* Keyboard focus has to be visible — the default ring is removed nowhere, but
-   it is a browser-grey ring that does not belong to this palette. */
+
+/* ---------- Keyboard focus ---------- */
+
+/* Shown only for keyboard focus. The browser's default grey ring does not
+   fit the palette, so this draws a yellow one instead. */
 :focus-visible{
   outline:2px solid var(--yellow); outline-offset:2px;
 }
+
+/* ---------- Button variants ---------- */
+
+/* Quieter button for secondary actions. */
 button.ghost{
   background:transparent; color:var(--yellow-dim);
   border:1px solid rgba(228,230,168,.35);
 }
 button.ghost:hover{ background:rgba(228,230,168,.10); color:var(--yellow); }
-/* RESET GAME is the one control on the ticket that ends a run, so it wears
-   the danger accent — the same off-palette red the death screen uses. It is
-   the only red on the ticket apart from a spent life. */
+
+/* The restart-game button is the only control on the ticket that ends a
+   run, so it wears the danger red. That red appears nowhere else on the
+   ticket except spent lives. */
 button.danger{ color:var(--danger); border-color:rgba(216,80,48,.45); }
 button.danger:hover{ background:var(--danger); color:var(--ink); border-color:var(--danger); }
-
