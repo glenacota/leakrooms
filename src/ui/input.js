@@ -25,8 +25,43 @@ export const MODAL_ACTION = {
   win:    ()=>document.getElementById('btn-again').click(),
 };
 
+/* The keys the game OWNS are read from e.code, and everything else from e.key.
+   A layout is a translation between a physical key and a character, and this
+   game wants the physical key: WASD is where the movement cluster sits on
+   QWERTY, on QWERTZ and on AZERTY alike, while e.key on those layouts is Z for
+   the key the player is actually pressing. Reading e.key meant a player on a
+   German or French keyboard drove the floor with the wrong four keys and the
+   suite never saw it, because the tests pressed characters. ESC and ENTER stay
+   on e.key: their names are the same on every layout, and every branch that
+   handles them is written in those names. */
+const GAME_CODES = {
+  KeyW:'w', KeyA:'a', KeyS:'s', KeyD:'d',
+  ArrowUp:'arrowup', ArrowDown:'arrowdown',
+  ArrowLeft:'arrowleft', ArrowRight:'arrowright',
+  KeyR:'r', KeyM:'m',
+};
+
+/* Drops the whole cluster. run.js does this when a run starts; losing the window
+   needs the same, because the browser stops delivering keyup to a window that
+   is not focused and a held key would otherwise stay held for ever. */
+function clearKeys(){
+  for (const k in keys) delete keys[k];
+}
+
 function onKeyDown(e){
-  const k = e.key.toLowerCase();
+  /* Not every keydown carries a character — some IMEs and some automation send
+     the event without one, and `undefined.toLowerCase()` is a throw inside the
+     one handler that must never throw. */
+  if (typeof e.key !== 'string') return;
+
+  /* A game key with a modifier on it is a browser or OS shortcut that happens
+     to pass through the same listener: Cmd+W, Ctrl+R, Alt+Arrow. The browser
+     will honour those whatever this handler does, so the game must not also act
+     on them — and it must not hold the key either, or a player who lets go
+     mid-shortcut keeps walking. */
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+  const k = GAME_CODES[e.code] || e.key.toLowerCase();
   keys[k] = true;
 
   /* Every key is a user gesture, and the AudioContext cannot start without
@@ -131,7 +166,7 @@ function onKeyDown(e){
      the frame is a form at that moment, and a form that starts a run on a
      stray keystroke is a form nobody fills in. */
   if ((STATE==='splash'||STATE==='order') && e.key!=='Escape'
-      && !e.metaKey && !e.ctrlKey && !e.altKey && !e.repeat
+      && !e.repeat
       && !(STATE==='order' && termsOpen)){
     advanceSplash();
     delete keys[k];
@@ -186,7 +221,14 @@ function onKeyDown(e){
 }
 
 function onKeyUp(e){
-  const k=e.key.toLowerCase();
+  if (typeof e.key !== 'string') return;
+  /* The modifier the browser takes the focus with: pressing Meta on a Mac opens
+     the app switcher and the keyup arrives after the window is back, on a
+     layout where Shift may already have been let go. Trusting that one keyup
+     leaves the run sprinting into a wall forever, so losing the modifier
+     clears the cluster instead of releasing a single key. */
+  if (e.key==='Meta'){ clearKeys(); return; }
+  const k = GAME_CODES[e.code] || e.key.toLowerCase();
   keys[k] = false;
 }
 
@@ -212,4 +254,20 @@ export function toggleMute(){
 export function bindInput(){
   window.addEventListener('keydown', onKeyDown);
   window.addEventListener('keyup', onKeyUp);
+
+  /* Losing the window mid-sprint used to leave the rigger running: the browser
+     stops sending keyup to a window that is not focused, so every held key came
+     back still held — the player returned to a character sprinting into a wall
+     with NOISE pegged, and nothing in the game could clear it. Blur and a hidden
+     tab are the same event from here, and both mean two things: no more input,
+     and a run nobody is watching. Pausing as well is what stops a backgrounded
+     tab from spending the floor clock on a run that is not being played. */
+  const lostFocus = () => {
+    clearKeys();
+    if (STATE==='play') togglePause();
+  };
+  window.addEventListener('blur', lostFocus);
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) lostFocus();
+  });
 }

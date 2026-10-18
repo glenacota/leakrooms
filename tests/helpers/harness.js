@@ -122,8 +122,14 @@ export async function loadGame(opts = {}){
     mod.boot();
     const { __api: A } = await import('./api.js');
     const G  = new Proxy({}, { get:(_,k)=>A.G[k], set:(_,k,v)=>{A.G[k]=v; return true;} });
+    /* `code` as well as `key`: the game reads the movement cluster, the radar
+       and the mute from the PHYSICAL key, so a press() that sends only the
+       character is pressing a letter rather than a key — and the layout bug
+       that distinction exists for would stay invisible in every test. A real
+       browser sends both, so the stub does too. */
     const press = (key, extra={}) => global.window._h.keydown({
       key, repeat:false, metaKey:false, ctrlKey:false, altKey:false,
+      code: /^[a-z]$/i.test(key) ? 'Key'+key.toUpperCase() : key,
       preventDefault(){}, ...extra });
     return { A, G, els, calls, store, press, recCtx: rec };
   }
