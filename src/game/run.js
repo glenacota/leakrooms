@@ -240,7 +240,29 @@ export function retryFloor(){
 if (lives<=0){
   document.getElementById('btn-start').click(); return;
 }
+/* Keep the leaks that were already sealed: capture their positions before the
+   floor is rebuilt, then re-seal them on the fresh floor. The flood is rebuilt
+   afterwards so it only spreads from the pipes that are still open. */
+const fixedKeys = new Set();
+if (G && Array.isArray(G.leaks)){
+  for (const L of G.leaks){
+    if (L.fixed) fixedKeys.add(`${L.x},${L.y},${L.sx},${L.sy}`);
+  }
+}
 buildFloor(floorIdx, RUN_SEED);
+let fixedCount = 0;
+for (const L of G.leaks){
+  if (fixedKeys.has(`${L.x},${L.y},${L.sx},${L.sy}`)){
+    L.fixed = true;
+    L.fixedAt = 0;
+    L.repair = 0;
+    fixedCount++;
+  }
+}
+G.leaksOpen = Math.max(0, G.leaks.length - fixedCount);
+// Rebuild the flood now that the fixed flags are in place, so sealed pipes
+// stop being water sources.
+initFlood();
 G.batt = Math.max(G.batt, 55);
 /* Same seed, so the pipes are in the same places and only the flood restarts.
    Dying costs a life and the repairs you made, but not what you learned about

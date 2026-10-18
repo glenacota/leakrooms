@@ -71,6 +71,7 @@ function floodField(){
   const d = new Int32Array(MAP_W*MAP_H).fill(-1);
   const q = [];
   for (const L of G.leaks){
+    if (L.fixed) continue;
     const s = L.sy*MAP_W + L.sx;
     if (d[s] >= 0) continue;
     d[s] = 0;
