@@ -1,4 +1,13 @@
+/* The one-shot sounds and the two continuous noise beds. Every voice is
+   synthesized from oscillators and the shared noise buffer, so the game needs no
+   audio files. Each one connects to `this.master` (see engine.js) and returns at
+   once when there is no audio context. */
 export const voices = {
+  /* How much louder a sound is for being a louder noise. Without it every voice
+     had a fixed peak, and the two loudest actions (a sprint and a wrench) could
+     only be told apart on the HUD. A walk (0.22) comes out at 1.09x and a sprint
+     at 2.0x, so the bar and the speakers agree. It scales the peaks of the
+     voices, never the master: this is the mix, not the volume slider. */
   powerVol(p){ return 0.8 + Math.min(2, Math.max(0, p||0))*1.3; },
 
   step(vol, power){                 // rubber sole on damp concrete thud
@@ -90,17 +99,15 @@ export const voices = {
     c.start(t+0.05); c.stop(t+0.15);
   },
 
-  /* THE KUDOS — what a sealed floor sounds like. seal() turned the right way
-     round: the same saw and the same filter sweep, but climbing instead of
-     falling, and the hiss-stop underneath it is the noise bed being pulled
-     shut as the chord opens. The room goes QUIET on success, which is the one
-     thing sting() never does, and the quiet is the reward — the whole level
-     has been four pipes hissing and something walking toward them.
+  /* THE KUDOS: what a sealed floor sounds like. It is seal() turned the right
+     way round: the pitch climbs instead of falling, and the noise beds are pulled
+     shut as the chord opens. The room goes QUIET on success, which the death
+     sting never does, and the quiet is the reward: the whole level has been
+     pipes hissing and something walking toward them.
 
-     A major triad a fifth and a fourth up, staggered by 90ms and detuned a
-     hair each side, so it lands as a chime on a tape deck rather than as a
-     chord from an instrument. Nothing here is tuned to a key; there is no
-     music in this building and the win sting is not going to start one. */
+     It is four notes of a major chord, 90 ms apart, so it lands as a chime on a
+     tape deck and not as an instrument. Nothing here is tuned to a key, and
+     there is no music in this building. */
   acclaim(){
     if (!this.ok) return;
     const a=this.ctx, t=a.currentTime;
@@ -170,14 +177,14 @@ export const voices = {
   },
 
   /* ---------- THE TWO NOISE BEDS ----------
-     Continuous voices: they move a gain that already exists rather than building
-     one per call. Both are driven from tickAudio, which is the only place that
-     knows the current noise level. */
+     Continuous voices: they move a gain that already exists instead of building
+     a new one per call. Both are driven from tickAudio (sim/update.js), the only
+     place that knows the current noise level. */
 
-  /* The HUD bar, in the speakers. `level` is G.noise/NOISE_FS, so the mix IS
-     the meter rather than a mood running alongside it. Gain follows the square,
-     because a bar a third full should sound like a third of the way to
-     shouting, not a third of shouting. */
+  /* The HUD noise bar, in the speakers. `level` is the noise divided by
+     NOISE_FS, so the mix IS the meter and not a mood running beside it. The gain
+     follows the square of the level, because a bar a third full should sound like
+     a third of the way to shouting, not a third of shouting. */
   noiseFloor(level){
     if (!this.ok) return;
     const t=this.ctx.currentTime;
@@ -186,10 +193,10 @@ export const voices = {
     this.floorFilter.frequency.setTargetAtTime(800 + l*1200, t, 0.1);
   },
 
-  /* The open pipes. `total` is their summed noise — the same number the
-     water-blue floor of the bar draws — and `dist` the distance to the nearest
-     one. Attenuation is squared so the pipe is a direction you can walk toward
-     rather than a level that is simply always on. */
+  /* The open pipes. `total` is their summed noise (the same number as the blue
+     part of the bar) and `dist` is the distance to the nearest one. The
+     attenuation is squared so the pipe is a direction you can walk toward and not
+     a level that is always on. */
   leakBed(total, dist){
     if (!this.ok) return;
     const t=this.ctx.currentTime;
@@ -200,7 +207,7 @@ export const voices = {
   },
 
   /* Both beds off. For death and for leaving play, where update() stops running
-     and would otherwise freeze them at whatever they last were told. */
+     and would otherwise leave them at whatever level they last had. */
   silenceBeds(){
     if (!this.ok) return;
     const t=this.ctx.currentTime;
@@ -217,11 +224,7 @@ export const voices = {
   },
   silence(){ if (this.ok) this.droneGain.gain.setTargetAtTime(0, this.ctx.currentTime, 0.2); },
 
-  /* Live volume. Ramped rather than assigned, and clamped to a small floor
-     rather than to zero: a mute slider that truly reaches 0 leaves the graph
-     in a state where a later unmute has to re-prime it, and a 0.0001 gain is
-     inaudible in practice. */
-  clink(vol=0.4){
+  clink(vol=0.4){                  // small metal rattle, played while the radar drains the battery
     if (!this.ok) return;
     const a=this.ctx, t=a.currentTime;
     for(let i=0;i<4;i++){
@@ -236,6 +239,10 @@ export const voices = {
     }
   },
 
+  /* A soft confirmation tone, so pressing M is never a guess. It is deliberately
+     not one of the game's own sounds: this is the shell talking and not the
+     building, and reusing a footstep for a UI acknowledgement would make the
+     control sound like it broke something. */
   blip(up){
     if (!this.ok) return;
     const a=this.ctx, t=a.currentTime;
@@ -246,24 +253,4 @@ export const voices = {
     o.connect(g); g.connect(this.master);
     o.start(t); o.stop(t+0.25);
   },
-
-  /* ---------- THE SPLASH BED ----------
-     A title screen with a noise floor and a held chord under it, so the first
-     thing you hear is the building rather than a menu. Three layers, all
-     synthesised, all very slow:
-
-       ROOM   filtered noise, the band drifting under 0.04Hz. Air handling in an
-              empty corridor. This is the "noise" half of the brief and it does
-              most of the work — it is the layer you stop hearing, which is the
-              point of putting it in.
-       PAD    three detuned saws (A1, A1 a third of a semitone up, E2) through
-              a lowpass whose cutoff is itself drifting at 0.02Hz. Low key,
-              literally: nothing here is above 165Hz.
-       NOTES  one triangle note every 7-14 seconds out of A minor pentatonic,
-              two seconds of attack and six of release. "Very slow" here is a
-              scheduling decision, not a tempo — there is no tempo.
-
-     Notes are scheduled a second ahead from an interval rather than fired by a
-     timeout at the moment they are due: setTimeout drifts by tens of
-     milliseconds and an LFO with a twenty second period cares about that. */
 };

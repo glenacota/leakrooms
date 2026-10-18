@@ -1,3 +1,19 @@
+/* ---------- THE TITLE-SCREEN BED ----------
+   A noise floor and a held chord under the title, so the first thing you hear is
+   the building and not a menu. Three layers, all synthesized and all very slow:
+
+     ROOM   filtered noise whose band drifts under 0.04 Hz. Air handling in an
+            empty corridor. It does most of the work, and it is the layer you stop
+            hearing, which is the point of having it.
+     PAD    three detuned saws (A1, A1 a third of a semitone up, E2) through a
+            lowpass whose cutoff drifts at 0.02 Hz. Nothing here is above 165 Hz.
+     NOTES  one triangle note every 7 to 14 seconds from an A minor pentatonic
+            scale, with two seconds of attack and six of release. "Very slow" is
+            a scheduling choice, not a tempo: there is no tempo.
+
+   Notes are scheduled about a second ahead from a timer and are not fired at the
+   moment they are due. setTimeout can be late by tens of milliseconds, and an LFO
+   with a twenty second period needs the timing to be exact. */
 export const ambience = {
   amb:null, ambOn:false, _ambTimer:null, _ambNext:0,
   ambience(on){
@@ -6,14 +22,14 @@ export const ambience = {
     if (on) this._ambStart(); else this._ambStop();
   },
   _ambStart(){
-    /* Guarded on the context as well as on `ok`: ambience() checks both, but a
-       half-built bed is the kind of thing that leaves a setInterval running
-       against a null context if anything ever reaches this directly. */
+    /* Checked on the context as well as on `ok`. ambience() checks both, but a
+       half-built bed would leave a setInterval running against a null context if
+       anything ever called this directly. */
     if (!this.ok || !this.ctx) return;
     const a=this.ctx, t=a.currentTime;
     const out=a.createGain(); out.gain.value=0; out.connect(this.master);
     const live=[];
-    /* up over about four seconds, so the bed is already there when the title is */
+    // Fades in over about four seconds, so the bed is already there when the title is
     out.gain.setTargetAtTime(0.85, t, 1.6);
 
     const n=a.createBufferSource(); n.buffer=this.noise; n.loop=true;
@@ -47,12 +63,11 @@ export const ambience = {
     const now=this.ctx.currentTime;
     while (this._ambNext < now + 1.2){
       this._ambNote(this._ambNext);
-      /* The gap runs from the NOTE, not from the tick. The tick fires up to a
-         second and a bit before the note is due, so measuring from it shaves
-         that lookahead off every single interval — which turned a 7-14 second
-         spacing into a 6-13 second one without anything looking wrong. Advance
-         from the note, and re-sync only if the tab was suspended long enough
-         for the schedule to fall behind the wall clock. */
+      /* The gap is measured from the NOTE, not from the tick. The tick fires
+         more than a second before the note is due, so measuring from it would
+         shave that lead time off every interval (a 7 to 14 second spacing became
+         6 to 13). If the tab was suspended long enough for the schedule to fall
+         behind the clock, it starts again from now. */
       this._ambNext += 7 + Math.random()*7;
       if (this._ambNext < now + 2) this._ambNext = now + 7 + Math.random()*7;
     }
@@ -76,9 +91,9 @@ export const ambience = {
   _ambStop(){
     if (!this.amb) return;
     const t=this.ctx ? this.ctx.currentTime : 0;
-    /* out over about a second and THEN stop the sources — not disconnected, not
-       cut to zero, because a hard stop on a pad is an audible click and these
-       nodes are cheaper than the click. */
+    /* Fades out over about a second and THEN stops the sources. They are not
+       disconnected or cut to zero, because a hard stop on a pad is an audible
+       click. */
     this.amb.out.gain.cancelScheduledValues(t);
     this.amb.out.gain.setTargetAtTime(0, t, 0.35);
     for (const n of this.amb.live){ try { n.stop(t+2.5); } catch(e){} }

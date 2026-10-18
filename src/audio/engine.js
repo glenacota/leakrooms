@@ -5,7 +5,7 @@ export const engine = {
   hum:null, humGain:null,
   hiss:null, hissGain:null,
   drone:null, droneGain:null, droneFilter:null,
-  /* The two continuous noise beds. See noiseFloor() and leakBed(). */
+  // The two continuous noise beds. See noiseFloor() and leakBed() in voices.js.
   floorGain:null, floorFilter:null,
   leakGain:null, leakFilter:null,
   master:null, mute:null, masterVol:0.7, muted:false,
@@ -17,52 +17,36 @@ export const engine = {
     this.ctx = new AC();
     const a = this.ctx;
 
-    // 2s white-noise buffer, reused for hiss / steps / sting
+    // One 2 second white-noise buffer, reused by the footsteps, the hiss, the sting and the beds
     const len = a.sampleRate * 2;
     const buf = a.createBuffer(1, len, a.sampleRate);
     const d = buf.getChannelData(0);
     for (let i=0;i<len;i++) d[i] = Math.random()*2-1;
     this.noise = buf;
 
-    /* --- MASTER. Every voice below connects to this and not to destination.
-       There is no other way to make a volume slider: each of the eleven voices
-       used to wire itself straight to the speakers, so turning the game down
-       meant editing eleven call sites. One node in front of all of them is the
-       whole feature. It is also the node the settings modal drives, and it is
-       created before anything connects to it.
-
-       ...and it connects to the DESTINATION. This line read
-       `connect(this.master)` — the master wired to itself — which builds a closed
-       loop: every voice in the game chains up into a node that goes nowhere, and
-       the result is total silence that behaves perfectly in every other
-       respect. No voice is missing, no voice throws, the master gain tracks the
-       slider; the graph simply terminates in a circle.
-
-       It survived because the headless harness runs with no AudioContext at all,
-       so every voice method returns on `if (!this.ok)` before it builds a node —
-       a graph bug is only findable by building the graph, so the suite now does
-       that too. */
+    /* --- MASTER. Every voice connects to this node and not to the
+       destination, so one gain node is the whole volume control (and the
+       settings panel drives it). It must connect onward to the mute node. An
+       earlier version connected it to ITSELF, which is a closed loop: every
+       voice fed a node that went nowhere, and the game was silent while
+       everything else worked. The headless tests run with no AudioContext, so
+       none of them could see it. The audio test now builds the graph and checks
+       that it reaches the destination. */
     this.master = a.createGain();
     this.master.gain.value = SETTINGS.master;
-    /* MUTE IS ITS OWN NODE, downstream of the volume slider. It used to be
-       folded into the master by pushing the slider to zero, which reads as a
-       game with no sound rather than a game you have turned the sound off, and
-       — worse — makes the two settings fight: raise the volume while muted and
-       the sound comes back by surprise. A separate gain means M is M, the slider
-       is the slider, and unmuting restores exactly the volume you had. */
+    /* Mute is its own node, after the volume. Folding it into the volume (set
+       it to zero) would make the two settings fight: raising the volume while
+       muted would bring the sound back. With a separate gain, M is M, the
+       slider is the slider, and unmuting restores exactly the volume you had. */
     this.mute = a.createGain();
     this.mute.gain.value = SETTINGS.muted ? 0 : 1;
     this.master.connect(this.mute);
-    /* THE COMPRESSOR, between the mute and the speakers. Twelve voices all
-       peaking at once is a thing this mix actually does — a door cycling while
-       a wrench is running while a stalker arrives — and without a limiter those
-       peaks sum past 0dB and clip, which on a laptop speaker is the loudest,
-       ugliest and least controllable sound the game can make. It sits AFTER the
-       mute rather than before it so that muting is still total, and after the
-       master so it never fights the volume slider. The settings are gentle on
-       purpose: this is a safety net against clipping, not a loudness contest
-       (the browser's own defaults are a 12:1 ratio above -24dB, which would
-       flatten a mix that was never in trouble). */
+    /* A compressor between the mute and the speakers. A door cycling while a
+       wrench runs while a Stalker arrives can sum past 0 dB and clip, which is
+       the loudest and ugliest sound the game could make. It sits AFTER the mute so
+       muting stays total, and after the master so it never fights the volume
+       slider. The settings are gentle on purpose: this is a safety net, not a
+       loudness effect. */
     this.comp = a.createDynamicsCompressor();
     this.comp.threshold.value = -3;
     this.comp.knee.value = 6;
@@ -103,13 +87,13 @@ export const engine = {
     o1.start(); o2.start();
 
     /* --- THE NOISE FLOOR.
-       A bandpassed noise layer whose gain IS the HUD's NOISE bar, plus a low
-       sine under it that only comes up as the bar fills. This is the layer that
-       makes the meter and the mix the same fact: every noise source in the game
-       is a one-shot with a fixed peak, so a bar that fills and a mix that does
-       not change are two different instruments reporting two different
-       numbers. It ramps at 0.06s — fast enough to answer the bar, slow enough
-       that a 0.26s sprint burst does not click. */
+       A band-limited noise layer whose gain follows the HUD's NOISE bar, plus a
+       low sine under it that only comes up as the bar fills. Every other noise
+       source is a one-shot with a fixed peak, so without this layer the bar could
+       fill while the mix stayed the same, and the meter and the speakers would be
+       two instruments reporting two different numbers. It ramps over 0.06 s:
+       fast enough to answer the bar, slow enough that a 0.26 s sprint burst does
+       not click. */
     this.floorGain = a.createGain();
     this.floorGain.gain.value = 0;
     this.floorFilter = a.createBiquadFilter();
@@ -120,21 +104,21 @@ export const engine = {
     const fn=a.createBufferSource(); fn.buffer=buf; fn.loop=true;
     fn.playbackRate.value=0.5;
     fn.connect(this.floorFilter); fn.start();
-    /* scuff cadence: a slow LFO on the gain so the bed pulses like footsteps */
+    // A slow LFO on the gain, so the bed pulses like footsteps
     const slfo=a.createOscillator(); slfo.frequency.value=2.2;
     const slg=a.createGain(); slg.gain.value=0.03;
     slfo.connect(slg); slg.connect(this.floorGain.gain); slfo.start();
-    /* the pressure under it — inaudible while you walk, there when you wrench */
+    // The pressure under it: inaudible while you walk, there when you wrench
     const fr=a.createOscillator(); fr.type='sine'; fr.frequency.value=74;
     const frg=a.createGain(); frg.gain.value=0.55;
     fr.connect(frg); frg.connect(this.floorGain); fr.start();
 
     /* --- THE LEAK BED.
-       What an open pipe actually sounds like: pressurised water, not a drip.
-       One shared voice, gain driven by the pipes' TOTAL noise and pulled down
-       with distance to the nearest open one, so a burst pipe is something you
-       can walk toward with your ears. It is under the wrench by construction —
-       the wrench has to stay the loudest decision in the game. */
+       What an open pipe sounds like: pressurised water, not a drip. One shared
+       voice, driven by the pipes' TOTAL noise and quieter with distance to the
+       nearest open pipe, so a burst pipe is something you can walk toward with
+       your ears. It stays under the wrench by construction, because the wrench
+       has to remain the loudest decision in the game. */
     this.leakGain = a.createGain();
     this.leakGain.gain.value = 0;
     this.leakFilter = a.createBiquadFilter();
@@ -145,7 +129,7 @@ export const engine = {
     const ln=a.createBufferSource(); ln.buffer=buf; ln.loop=true;
     ln.playbackRate.value=1.25;
     ln.connect(this.leakFilter); ln.start();
-    /* gurgle: the same noise, lowpassed and breathing slowly */
+    // gurgle: the same noise, lowpassed and breathing slowly
     const lg=a.createBiquadFilter(); lg.type='lowpass'; lg.frequency.value=260; lg.Q.value=2;
     lg.connect(this.leakGain);
     const ln2=a.createBufferSource(); ln2.buffer=buf; ln2.loop=true;
@@ -155,61 +139,51 @@ export const engine = {
     const llg=a.createGain(); llg.gain.value=140;
     llfo.connect(llg); llg.connect(lg.frequency); llfo.start();
 
-    /* The store is applied AFTER the graph exists rather than before, because
-       applySettings() runs at boot and could not reach a node that had not been
-       built yet — which is how a restored "muted" used to be silently ignored
-       for the whole session. `ok` goes true first: both setters guard on it. */
+    /* The saved settings are applied AFTER the graph exists. applySettings()
+       runs at boot, before there is a node to reach, which used to make a saved
+       "muted" be ignored for the whole session. `ok` goes true first because
+       both setters check it. */
     this.ok = true;
     this.setMaster(SETTINGS.master);
     this.setMuted(SETTINGS.muted);
   },
 
-  /* How much louder a one-shot sounds for making more noise. Without it every
-     voice had a fixed peak and the two loudest things in the game — a sprint at
-     1.0 and a wrench at 0.85 — were only distinguishable by the HUD. Walking
-     (0.22) comes out at 1.09x, sprinting at 2.0x, so the bar and the speakers
-     finally agree. Applied to the peaks, never to the master: this is the mix,
-     not the volume slider. */
+  /* Live volume. It ramps instead of jumping, and the floor is a small value
+     instead of zero: a gain that truly reaches 0 has to be re-primed on the next
+     unmute, and 0.02 is inaudible in practice. */
   setMaster(v){
     this.masterVol = Math.max(0.02, Math.min(1, v));
     if (this.ok && this.master) this.master.gain.setTargetAtTime(this.masterVol, this.ctx.currentTime, 0.05);
   },
 
-  /* M. Separate from the slider by design — see the note where the node is
-     built. Ramps rather than jumps, so toggling it mid-chord does not click. */
+  /* M. Separate from the slider on purpose (see the mute node above). It ramps
+     instead of jumping, so toggling it in the middle of a sound does not click. */
   setMuted(v){
     this.muted = !!v;
     if (this.ok && this.mute) this.mute.gain.setTargetAtTime(this.muted?0:1, this.ctx.currentTime, 0.04);
   },
 
-  /* Browsers will not let an AudioContext start without a user gesture, so the
+  /* Browsers will not start an AudioContext without a user gesture, so the
      context exists from boot and stays silent until the first key or click.
-     Every interaction that can start the game already runs through one of the
-     two entry points that call this, so there is nothing to add to the wiring.
+     Every key press and click that can start the game calls this.
 
-     `interrupted` is the third state and it is the one Safari and Chrome reach
-     on their own — an incoming call, a headphone unplug, a tab switch on some
-     platforms — so the game comes back to a suspended context that nothing is
-     going to resume. The gesture that gets the player back is the next key or
-     click, which is what this is. The promise is dropped rather than left
-     floating: a refused resume rejects, and an unhandled rejection now reaches
-     the error boundary and puts the fatal card over a game that is working
-     perfectly. */
+     `interrupted` is a third state that Safari and Chrome reach on their own (an
+     incoming call, unplugged headphones, a tab switch on some platforms). The
+     game comes back to a context nothing will resume, so the next key or click
+     does it. The promise's rejection is caught: an unhandled rejection reaches
+     the error boundary and would show the fatal card over a game that works. */
   unlock(){
     const st = this.ctx && this.ctx.state;
     if (this.ctx && (st === 'suspended' || st === 'interrupted') && this.ctx.resume)
       this.ctx.resume().catch(()=>{});
   },
 
-  /* The pause holds the clock, the flood and the simulation — and now the audio
-     context too. A paused game that is still rendering into a live graph is
-     doing work nobody is listening to, and on a laptop that is the difference
-     between a tab that idles and a tab that keeps a fan going. `suspend()` is
-     the one call that stops all of it at once.
+  /* Pausing also suspends the audio context. A paused game that keeps rendering
+     into a live graph does work nobody hears, and on a laptop that can keep a fan
+     going. suspend() stops the whole graph at once.
 
-     resume() is called without a gesture, so a browser that refuses it will
-     refuse it; the game stays silent until the next key, which calls unlock()
-     with a gesture and is the path that always works. */
+     resume() runs without a gesture, so a browser may refuse it. The game then
+     stays silent until the next key press, whose unlock() always works. */
   suspend(){
     if (!this.ctx) return;
     try { if (this.ctx.state === 'running' && this.ctx.suspend) this.ctx.suspend().catch(()=>{}); }
@@ -221,9 +195,4 @@ export const engine = {
     if ((st === 'suspended' || st === 'interrupted') && this.ctx.resume)
       try { this.ctx.resume().catch(()=>{}); } catch(e){}
   },
-
-  /* A soft confirmation tone, so pressing M is never a guess. Deliberately not
-     one of the game's own sounds: this is the shell talking, not the building,
-     and reusing a footstep for a UI acknowledgement is how a control ends up
-     sounding like it broke something. */
 };
