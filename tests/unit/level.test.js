@@ -362,3 +362,39 @@ console.log('[32] the door — the leaf, the facing, and the state that drives b
   t.done();
 });
 
+/* Every floor builds six canvases, and building the next one used to simply drop
+   the last six on the floor — bitmaps and all — for the GC to find at whatever
+   moment it liked, which on a slow machine is inside a frame. buildFloor now
+   releases them, and the release is observable: the old element is still a
+   reference a test (or a bug) can hold, and it is 0x0.
+
+   The assertion is on the ELEMENT and not on G, because a canvas that is gone
+   from G was never the problem: it was the pixels behind a live element. */
+test('[33] the floor it replaced is released, not abandoned', () => {
+  const t = softAssert();
+console.log('[33] the floor it replaced is released, not abandoned');
+{
+  buildFloor(0, 1);
+  const old = {
+    tiles: G.tilesCv, walls: G.wallsCv,
+    light: G.lightCv, mask: G.maskCv, wet: G.wetCv,
+  };
+  for (const [name, cv] of Object.entries(old))
+    t.assert(cv && cv.width > 0 && cv.height > 0,
+      `the first floor built no ${name} canvas to release`);
+
+  buildFloor(0, 2);
+
+  for (const [name, cv] of Object.entries(old))
+    t.assert(cv.width === 0 && cv.height === 0,
+      `the previous floor's ${name} canvas is still ${cv.width}x${cv.height} — buildFloor dropped it instead of releasing it`);
+  /* And the new floor is not caught by its own cleanup: this is the ordering
+     the release depends on, and getting it wrong disposes the floor being
+     built rather than the one being replaced. */
+  t.assert(G.tilesCv.width > 0 && G.tilesCv.height > 0,
+    'the floor just built is already 0x0 — dispose ran after setG');
+  t.assert(G.tilesCv !== old.tiles, 'the tile layer was reused across floors instead of rebuilt');
+  console.log(`  5 canvases released on rebuild; the new floor is ${G.tilesCv.width}x${G.tilesCv.height}`);
+}
+  t.done();
+});

@@ -55,7 +55,11 @@ export function buildPatterns(){
    (resize() calls it, and the renderer rebuilds lazily on the first frame
    after boot, which runs before the first resize event). */
 export function buildGrainFull(){
-  grainFull = document.createElement('canvas');
+  /* Resized, not recreated. Assigning width/height clears a canvas exactly as a
+     fresh one is blank, so this is the same result — and the grain is SCREEN
+     sized, so a window drag or a resolution change used to allocate a whole
+     screen-sized buffer (and fill it with the same noise) every time it fired. */
+  if (!grainFull) grainFull = document.createElement('canvas');
   grainFull.width = cvs.width; grainFull.height = cvs.height;
   const g = grainFull.getContext('2d');
   const im = g.createImageData(cvs.width, cvs.height);

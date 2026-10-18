@@ -14,7 +14,28 @@ import { initFlood } from '../sim/flood.js';
 import { G, setG } from '../sim/state.js';
 import { attachFloorImages } from '../render/bake.js';
 
+/* A canvas's bitmap is released when its element is dropped, and every floor
+   builds six of them — the two tile layers, the light bake, the mask and the
+   packed wet field, the largest at MAP_W*LS square. Five floors in a run is not
+   a leak worth measuring, but a floor that is rebuilt on every retry leaves the
+   old bitmaps for the GC, and a GC during a frame is a frame the loop has to
+   pay for. Zeroing the dimensions is the documented way to release the backing
+   store, and it is also honest: a canvas at 0x0 cannot be drawn from, so a stale
+   reference fails loudly instead of quietly painting the previous floor. */
+export function disposeFloor(g){
+  if (!g) return;
+  for (const cv of [g.tilesCv, g.wallsCv, g.lightCv, g.maskCv, g.wetCv, g.postCv]){
+    if (!cv) continue;
+    cv.width = 0; cv.height = 0;
+  }
+}
+
 export function buildFloor(floorNum, seed){
+  /* Before setG, so it is the floor being replaced and not the new one: the
+     canvases below are recreated a few lines after this and must not be the
+     ones released. */
+  disposeFloor(G);
+
   const rng = mulberry32(seed + floorNum*7919);
   const level = genLevel(rng, floorNum);
 
@@ -72,7 +93,6 @@ export function buildFloor(floorNum, seed){
     waterDist: null, wetByDist: [], wetFront: 0, wetMaxDist: 0, wetSum: 0,
     wetEdgeD: -1, wetIndexAtDist: null,
     wetCv: null, wetCtx: null, wetImg: null,
-    postCv: null,
     dirty: { water: true, mask: true }
   });
 
@@ -131,7 +151,6 @@ export function buildFloor(floorNum, seed){
     maskCv: G.maskCv, maskCtx: G.maskCtx, maskImg: G.maskImg,
     tilesCv: G.tilesCv, tilesCtx: G.tilesCtx,
     wallsCv: G.wallsCv, wallsCtx: G.wallsCtx,
-    wetCv: G.wetCv, wetCtx: G.wetCtx, wetImg: G.wetImg,
-    postCv: G.postCv
+    wetCv: G.wetCv, wetCtx: G.wetCtx, wetImg: G.wetImg
   };
 }

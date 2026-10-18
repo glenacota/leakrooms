@@ -3,6 +3,14 @@ import { G } from '../../sim/state.js';
 import { cvs, ctx } from '../canvas.js';
 import { buildGrainFull, grainFull, scanPat } from '../textures.js';
 
+/* The ghost source. QUARTER RES resolution and it does not belong to a floor —
+   it is a copy of the SCREEN, and the screen is the same size whichever floor
+   is under it. On G it was recreated (and abandoned to the GC) whenever a floor
+   changed, for a buffer whose size is decided by the canvas and nothing else.
+   The vigCv/dangerCv pair below already keeps its state here for the same
+   reason; this is the third member of that set. */
+let postCv = null;
+
 /* ---- full-screen overlays, baked once instead of evaluated per pixel ----
    The vignette and the awareness wash are both radial gradients covering the
    whole canvas, and both were rebuilt and re-filled EVERY frame. A gradient
@@ -104,11 +112,11 @@ const vhs = VHS_PASS;
 const POST_S = 0.25;
 const pw = Math.max(1, Math.round(cvs.width * POST_S));
 const ph = Math.max(1, Math.round(cvs.height * POST_S));
-if (!G.postCv || G.postCv.width!==pw || G.postCv.height!==ph){
-  G.postCv = document.createElement('canvas');
-  G.postCv.width = pw; G.postCv.height = ph;
+if (!postCv || postCv.width!==pw || postCv.height!==ph){
+  postCv = document.createElement('canvas');
+  postCv.width = pw; postCv.height = ph;
 }
-const pg = G.postCv.getContext('2d');
+const pg = postCv.getContext('2d');
 pg.globalCompositeOperation='copy';
 pg.setTransform(POST_S,0,0,POST_S,0,0);
 pg.drawImage(cvs,0,0);
@@ -148,8 +156,8 @@ ctx.globalCompositeOperation='lighter';
 ctx.globalAlpha=0.03*vhs;
 ctx.imageSmoothingEnabled = false;     // a 4x nearest upscale of a 3% smear
 const ca = 1 + Math.round(Math.random()*2);
-ctx.drawImage(G.postCv, -ca, 0, cvs.width, cvs.height);
-ctx.drawImage(G.postCv,  ca, 0, cvs.width, cvs.height);
+ctx.drawImage(postCv, -ca, 0, cvs.width, cvs.height);
+ctx.drawImage(postCv,  ca, 0, cvs.width, cvs.height);
 ctx.imageSmoothingEnabled = true;
 ctx.globalAlpha=1;
 ctx.globalCompositeOperation='source-over';
