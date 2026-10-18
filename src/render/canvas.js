@@ -42,4 +42,46 @@ export function resize(){
   view.w = cvs.width; view.h = cvs.height; view.scale = SCALE;
   if (cvs.width > 0 && cvs.height > 0) emit('resize');
 }
-window.addEventListener('resize', resize);
+
+/* A WINDOW DRAG IS NOT FIFTY RESIZE EVENTS.
+
+   Dragging a window edge fires 'resize' every frame of the drag, and this one is
+   expensive downstream: it reallocates the backing store, and the 'resize'
+   event rebuilds the screen-sized grain and repaints the splash plan. Fifty of
+   those is fifty screen-sized noise buffers generated and thrown away inside
+   one second of dragging, which is the most expensive thing in the game
+   available to a gesture that is not even supposed to be a workload.
+
+   So the LISTENER is debounced and the function is not: resize() above stays
+   synchronous, because adaptResolution() calls it in the middle of a frame when
+   it has just decided to change the backing store, and a deferred resize would
+   leave SCALE describing a canvas that does not exist yet. Only the browser's
+   event is held back — 80ms of quiet, which is short enough that the canvas is
+   never visibly the wrong shape and long enough that a drag is one resize. */
+const RESIZE_DEBOUNCE_MS = 80;
+let resizeTimer = null;
+function onWindowResize(){
+  if (resizeTimer) clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(()=>{ resizeTimer = null; resize(); }, RESIZE_DEBOUNCE_MS);
+}
+window.addEventListener('resize', onWindowResize);
+
+/* CONTEXT LOSS.
+
+   A canvas context can be taken away by the machine, not only by the tab being
+   closed: a GPU reset, a driver switch between the integrated and discrete
+   chip, a laptop lid, a machine switching graphics contexts. Every bitmap this
+   context owned — the grain, the patterns, the light bake, the two tile layers —
+   goes with it, and the renderer keeps running, drawing from canvases that now
+   have no backing store. Nothing throws and nothing appears: the game becomes a
+   black rectangle and keeps charging you for the clock.
+
+   preventDefault() on 'contextlost' is what buys the second event: without it the
+   browser does not promise to give the context back at all. The rebuild itself
+   belongs to whoever owns the pixels, so all this does is announce it — the
+   listeners live in ui/bind.js, with the rest of the DOM side of the bus. */
+cvs.addEventListener('contextlost', e => {
+  if (e && e.preventDefault) e.preventDefault();
+  emit('contextlost');
+});
+cvs.addEventListener('contextrestored', () => emit('contextrestored'));

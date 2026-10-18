@@ -55,7 +55,16 @@ export function fakeCtx(){
 
 export function fakeCanvas(){
   const cv = { width:0, height:0, clientWidth:1280, clientHeight:720,
-               getContext:()=>cv._ctx, style:{} };
+               getContext:()=>cv._ctx, style:{}, _listeners:{} };
+  /* The main canvas is where the context-loss events live, so the stub has to be
+     a thing events can be attached to — fakeEl always was, and a canvas made
+     here replaced it in the trace harness. */
+  cv.addEventListener = (t, fn)=>{ (cv._listeners[t] || (cv._listeners[t]=[])).push(fn); };
+  cv.removeEventListener = (t, fn)=>{
+    const l = cv._listeners[t];
+    if (l){ const i = l.indexOf(fn); if (i >= 0) l.splice(i,1); }
+  };
+  cv._fire = (t, arg)=>{ for (const fn of (cv._listeners[t]||[]).slice()) fn(arg); };
   cv._ctx = fakeCtx();
   return cv;
 }

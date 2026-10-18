@@ -70,6 +70,12 @@ export function buildGrainFull(){
   g.putImageData(im,0,0);
 }
 
+/* Only when the size actually changed. The window event is debounced now, but a
+   resize that lands on the same size — a DPR change that rounds the same way, a
+   synthetic event, a context restore — must not spend a screen-sized buffer of
+   fresh noise to produce an identical picture. */
 on('resize', () => {
-  if (cvs.width > 0 && cvs.height > 0) buildGrainFull();
+  if (cvs.width <= 0 || cvs.height <= 0) return;
+  if (grainFull && grainFull.width === cvs.width && grainFull.height === cvs.height) return;
+  buildGrainFull();
 });
