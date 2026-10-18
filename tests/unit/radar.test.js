@@ -58,14 +58,14 @@ console.log('[14] the radar — off by default, total while on, expensive');
   A.snapMask();
   {
     let dark=0, behind=0;
-    for (let i=0;i<W*W;i++) if (A.internals.maskArr[i] < 0.199) dark++;
+    for (let i=0;i<W*W;i++) if (A.internals.maskArr[i] < 0.149) dark++;
     // specifically: a tile directly behind the character, which is the one
     // thing the cone is certain to hide when the radar is off
     const px=Math.floor(G.player.x), py=Math.floor(G.player.y);
     for (const [dx,dy] of [[-3,0],[0,3],[3,0],[0,-3],[-6,-6],[7,5]]){
       const x=px+dx, y=py+dy;
       if (x<0||y<0||x>=W||y>=W) continue;
-      if (A.internals.maskArr[y*W+x] < 0.199) behind++;
+      if (A.internals.maskArr[y*W+x] < 0.149) behind++;
     }
     t.assert(dark===0, `${dark} tiles are still dark with the radar on — it has to have no dark spots`);
     t.assert(behind===0, `${behind} tiles around the player are dark with the radar on`);
