@@ -98,6 +98,13 @@ export function buildFloor(floorNum, seed){
        run's copy), because the simulation is what finds out and the rest of the
        frame has to be told to stop. See update(). */
     ended: false,
+    /* THE AGENT STREAM. Its own generator, seeded from the floor, because the
+       things that wander the building need randomness and the LEVEL must stay
+       reproducible from the seed: a retry hands the player the same pipes in the
+       same rooms, and a stream shared with the layout would give them a
+       different cast for the same floor. Separate from `rng`, and nothing below
+       ever draws from the generator the level was built with. */
+    arng: mulberry32((seed ^ 0xA6E27) + floorNum*131),
     dirty: { water: true, mask: true }
   });
 

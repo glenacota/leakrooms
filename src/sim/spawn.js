@@ -1,5 +1,7 @@
 /* Returns the cast for the level: one walker as far from the door as the
    geometry allows, the rest dormant coils spread across rooms. Pure. */
+import { hash2 } from '../util/hash.js';
+
 export function spawnAgents(level){
   const spawn = level.spawn;
   const spec = level.spec;
@@ -33,7 +35,12 @@ export function spawnAgents(level){
     agentRooms.add(firstFar);
     agents.push({
       x: firstFar.rx+firstFar.rw/2, y: firstFar.ry+firstFar.rh/2,
-      state:'WALK', t:0, rise:0, target:null, face:Math.random()*6.28,
+      state:'WALK', t:0, rise:0, target:null,
+      /* Hashed off the room it starts in, so the walker's opening facing is a
+         property of the level like everything else here. Math.random() made one
+         field of the cast unreproducible from the seed, and a run that cannot be
+         rebuilt is not a run. */
+      face: hash2(firstFar.rx, firstFar.ry)*6.28,
       wakeCd:0, stepT:0, born:3.5
     });
   }

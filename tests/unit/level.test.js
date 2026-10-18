@@ -280,8 +280,19 @@ console.log('[30] the level stages — genLevel is pure and well-formed');
       `${tag}: genLevel is not deterministic`);
     t.assert(JSON.stringify(again.exit) === JSON.stringify(level.exit),
       `${tag}: the door moved between two identical seeds`);
+    /* ...and not only the door and the pipes. The rest of the level used to be
+       checked for SHAPE — a fixture on the map, a cell not already taken, a
+       note with text in it — which every build passes and which says nothing
+       about whether two builds agree. Field by field is the claim that matters:
+       the same seed has to be the same building, down to which panel flickers
+       and how fast. Two of these three used to read the global RNG, so the
+       answer was no. */
+    for (const part of ['fixtures','batteries','graffiti'])
+      t.assert(JSON.stringify(again[part]) === JSON.stringify(level[part]),
+        `${tag}: ${part} differ between two identical seeds — the level is not reproducible`);
   }
   console.log('  20 seeds, no buildFloor: door, pipes, fixtures, pickups, graffiti all well-formed');
+  console.log('  ...and every one of them byte-identical across two builds of the same seed');
 }
   t.done();
 });
@@ -395,6 +406,44 @@ console.log('[33] the floor it replaced is released, not abandoned');
     'the floor just built is already 0x0 — dispose ran after setG');
   t.assert(G.tilesCv !== old.tiles, 'the tile layer was reused across floors instead of rebuilt');
   console.log(`  5 canvases released on rebuild; the new floor is ${G.tilesCv.width}x${G.tilesCv.height}`);
+}
+  t.done();
+});
+
+/* ---- the floor is reproducible, ten seconds in ----------------------------
+   genLevel is a pure function of its seed, and everything it builds was a pure
+   function of its seed — until the cast. A wandering Lifeform drew from
+   Math.random() for every step it took, so two runs of the same floor had the
+   same pipes in the same rooms and a different building around them, from the
+   first second. A retry that is supposed to be the same floor again is not, and
+   "the seed decides the level" is a claim about the whole floor, not about the
+   part that happens to be an argument to a function.
+
+   The agent stream is seeded separately from the layout so that making the cast
+   deterministic cannot shift a single pipe. */
+test('[43] the same seed builds the same cast, ten seconds in', () => {
+  const t = softAssert();
+console.log('[43] the same seed builds the same cast, ten seconds in');
+{
+  const run = () => {
+    A.buildFloor(0, 4242);
+    for (let i=0; i<600; i++) A.update(1/60);
+    return JSON.stringify(G.agents);
+  };
+  const first = run();
+  const second = run();
+  t.assert(first === second,
+    'two builds of seed 4242 drifted apart: the cast is not reproducible from the seed');
+
+  /* ...and the layout did not move to pay for it. Same seed, same floor, down
+     to the panel that flickers and the scrap of paper on the carpet. */
+  A.buildFloor(0, 4242);
+  const layout = JSON.stringify([G.grid, G.leaks, G.exitTiles, G.fixtures, G.batteries, G.graffiti]);
+  A.buildFloor(0, 4242);
+  t.assert(layout === JSON.stringify([G.grid, G.leaks, G.exitTiles, G.fixtures, G.batteries, G.graffiti]),
+    'the level itself is not identical across two builds of one seed');
+
+  console.log(`  ${G.agents.length} agents, 600 steps, identical both times`);
 }
   t.done();
 });

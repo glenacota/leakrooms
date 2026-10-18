@@ -2,6 +2,7 @@ import { genMaze } from './maze.js';
 import { MAP_W, MAP_H, WALL, FLOOR, PIPE_GAP, REPAIR_REACH, PIPE_FAR, R } from '../config/constants.js';
 import { LEVELS, LEVELS_N } from '../config/levels.js';
 import { NOTES } from '../config/notes.js';
+import { hash2 } from '../util/hash.js';
 export function genLevel(rng, floorNum=0){
   const maze = genMaze(rng);
   const grid = maze.grid;
@@ -265,7 +266,14 @@ export function genLevel(rng, floorNum=0){
         y: sp.y + 0.5,
         r: rad * (0.85 + rng()*0.3),
         i: 0.85 + rng()*0.2,
-        flicker: rng() < 0.16 ? (0.5 + Math.random()*2.4) : 0,
+        /* The flicker rate is hashed off the panel's own tile, not drawn from
+           the global RNG: it is a property of that light fitting, the same one
+           every time the level is built, and reading Math.random() here made
+           the one field in the level that no seed could reproduce the one field
+           the seed is supposed to cover. Nothing else about the panel moved,
+           and nothing is drawn from level.rng to pay for it — the layout is
+           bit-identical to what the previous build produced. */
+        flicker: rng() < 0.16 ? (0.5 + hash2(Math.floor(sp.x*7), Math.floor(sp.y*13))*2.4) : 0,
         phase: rng()*Math.PI*2
       });
     }

@@ -56,7 +56,7 @@ export function updateAgent(a, dt, p){
     a.rise = Math.min(1, a.rise + dt/1.0);
     if (!a.target || Math.hypot(a.x-a.target.x, a.y-a.target.y)<0.5 || a.t<=0){
       a.target = randomFloorNear(a.x,a.y, 14);
-      a.t = 2.6 + Math.random()*3;
+      a.t = 2.6 + G.arng()*3;
     }
     a.t -= dt;
     const spd = 1.5 + G.floor*0.1;
@@ -123,9 +123,14 @@ export function updateAgent(a, dt, p){
   }
 }
 
+/* Somewhere to walk to, from the floor's OWN generator — never Math.random().
+   A wandering Lifeform is the one thing in the game that keeps drawing numbers
+   long after the level was built, so it is the one thing that used to make two
+   runs on the same seed diverge within seconds of each other: the pipes, the
+   rooms and the door were all identical and the building around them was not. */
 export function randomFloorNear(x,y,rad){
   for (let i=0;i<60;i++){
-    const a=Math.random()*6.28, d=Math.random()*rad;
+    const a=G.arng()*6.28, d=G.arng()*rad;
     const nx=x+Math.cos(a)*d, ny=y+Math.sin(a)*d;
     if (!blocked(nx,ny,0.4)) return {x:nx,y:ny};
   }
