@@ -34,8 +34,16 @@ export function saveSettings(){
   catch(e){ return false; }
 }
 
-export function resetSettings(){
+/* RESET SETTINGS. `keepTerms` exists for one caller: the pause ticket's RESET
+   button, which lives on the page of a run that was clocked in on a stamped set
+   of terms. Terms are stamped once, at the door, for the whole shift — so
+   resetting them from a page of that run moved the floor clock and the repair
+   time out from under the player mid-run, and the button that says "reset
+   settings" did it silently. Every other caller gets the clean slate. */
+export function resetSettings(opts){
+  const terms = (opts && opts.keepTerms) ? SETTINGS.difficulty : null;
   SETTINGS = Object.assign({}, SETTINGS_DEFAULTS);
+  if (terms) SETTINGS.difficulty = terms;
   /* The 'settings:changed' listener in game.js raises waterDirty, which repacks the
      water image; nothing to call from here. */
   emit('settings:changed', '*');

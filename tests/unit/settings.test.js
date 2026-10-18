@@ -236,3 +236,42 @@ console.log('[27] the removed settings — frame counter, flicker, tape, shake')
   t.done();
 });
 
+
+/* ---- RESET SETTINGS on the pause ticket keeps the terms ------------------
+   The ticket's RESET button sits on the page of a run that was clocked in on a
+   stamped set of terms, and the terms are stamped at the door for the whole
+   shift. The reset used to clear them too, which rewrote the floor clock and
+   the repair time of the floor the player was standing on — mid-run, from a
+   button labelled with the word "settings". Asserted through the real button on
+   the real ticket, because a store option nobody passes is a store option that
+   does not exist. */
+test('[28] resetting the settings from the ticket leaves the terms alone', () => {
+  const t = softAssert();
+console.log('[28] resetting the settings from the ticket leaves the terms alone');
+{
+  /* The run is on HARD terms, stamped. */
+  A.setOption('difficulty', 'hard');
+  A.STATE = 'pause';
+  t.assert(A.SETTINGS.difficulty === 'hard' && A.REPAIR_TIME === A.DIFFICULTIES.hard.repairTime,
+    `the run is not on hard terms to begin with (difficulty ${A.SETTINGS.difficulty}, repair ${A.REPAIR_TIME})`);
+
+  /* Something on the ticket worth resetting, so the reset is not a no-op. */
+  A.setOption('waterContrast', 1.6);
+  els['btn-settings-reset'].click();
+
+  t.assert(A.SETTINGS.difficulty === 'hard',
+    `RESET SETTINGS on the ticket cleared the terms to '${A.SETTINGS.difficulty}' — the shift's terms are stamped at the door`);
+  t.assert(A.REPAIR_TIME === A.DIFFICULTIES.hard.repairTime,
+    `the repair time is ${A.REPAIR_TIME}s after the reset, want the hard terms' ${A.DIFFICULTIES.hard.repairTime}s`);
+  t.assert(A.SETTINGS.waterContrast === A.SETTINGS_DEFAULTS.waterContrast,
+    `water contrast is ${A.SETTINGS.waterContrast} after a reset — everything else still has to reset`);
+
+  /* ...and the plain call is still a clean slate, because that is what it means
+     everywhere else in the game. */
+  A.resetSettings();
+  t.assert(A.SETTINGS.difficulty === 'normal',
+    `resetSettings() without keepTerms left the terms at '${A.SETTINGS.difficulty}' — the default path changed`);
+  console.log('  ticket reset keeps HARD, plain reset is still a clean slate');
+}
+  t.done();
+});

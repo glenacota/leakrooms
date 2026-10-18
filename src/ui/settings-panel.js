@@ -36,7 +36,11 @@ export function buildSettingsUI(){
     el.addEventListener('input', ()=> setOption(key, parseFloat(el.value)));
   }
   const reset = document.getElementById('btn-settings-reset');
-  if (reset) reset.onclick = ()=>{ resetSettings(); syncSettingsUI(); };
+  /* keepTerms: this button is on the ticket of a LIVE run, and the terms are
+     stamped at the door rather than chosen here. Resetting the terms from here
+     rewrote the clock and the repair time of the floor the player is standing
+     in. The stamp owns difficulty; the ticket owns everything else. */
+  if (reset) reset.onclick = ()=>{ resetSettings({keepTerms:true}); syncSettingsUI(); };
   /* No BACK on the settings page: it is the page a pause lands on, so BACK
      would mean ESC, and a second control that does what the key under the
      player's hand already does is a control nobody needs. The briefing's BACK
