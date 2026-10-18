@@ -423,7 +423,7 @@ console.log('[13] cone of vision — 200 degrees, occluded by walls');
   {
     let lit=0, wall=0, tiles=0;
     for (let i=0;i<W*W;i++){
-      if (A.internals.maskArr[i] > 0.999) lit++;
+      if (A.internals.maskArr[i] > 0.199) lit++;
       tiles++;
       if (G.grid[i]===0 && A.internals.maskArr[i] > 0.999) wall++;
     }

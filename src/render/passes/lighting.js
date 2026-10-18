@@ -41,6 +41,21 @@ ctx.drawImage(G.lightCv, dx, dy, MAP_W*TILE*SCALE, MAP_H*TILE*SCALE);
    put there. That is the point of it. */
 ctx.drawImage(G.maskCv, dx, dy, MAP_W*TILE*SCALE, MAP_H*TILE*SCALE);
 
+/* Sonar pulse + semi-transparent hidden part */
+if (G.radar){
+  const px = rc.w2sx(G.player.x), py = rc.w2sy(G.player.y);
+  const time = rc.t/3000;
+  ctx.globalCompositeOperation = 'source-over';
+  for (let i=0;i<3;i++){
+    const r = ((time*180 + i*120) % 360);
+    ctx.strokeStyle = 'rgba(143,148,69,0.05)';
+    ctx.lineWidth = 10;
+    ctx.beginPath();
+    ctx.arc(px, py, r, 0, Math.PI*2);
+    ctx.stroke();
+  }
+}
+
 /* Flickering fluorescent tubes (additive, drawn above the bake).
 
    They are gated by visibility. The bake is a multiply, so an unlit room is

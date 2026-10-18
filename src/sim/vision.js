@@ -213,7 +213,6 @@ export function traceViewCone(force){
  * result directly, so the output must not change.
  */
 export function combineMask(){
-  if (G.radar){ G.maskTgt.fill(1); return; }
   const px2=G.player.x, py2=G.player.y;
   const vis=G.visArr, cone=G.coneArr, tgt=G.maskTgt;
   const fadeSpan = VIEW_FADE_FAR-VIEW_FADE_NEAR;
@@ -244,6 +243,11 @@ export function combineMask(){
      with hard zeros in it eats into the lit side of every edge. The mask canvas is
      drawn with bilinear scaling from 76x76 up to full screen, which already
      softens edges across about a tile without leaking. */
+  /* Radar: keep the normally visible part fully lit; only the dark part becomes 20% transparent. */
+  if (G.radar){
+    const tgt = G.maskTgt;
+    for (let i=0;i<tgt.length;i++) if (tgt[i] < 0.5) tgt[i] = 0.2;
+  }
 }
 
 /**
