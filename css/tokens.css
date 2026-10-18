@@ -1,0 +1,75 @@
+/* ============================================================
+   LEAKROOMS — analog horror shell
+   mono-yellow palette, CRT treatment, tape UI
+   ============================================================ */
+
+/* The five colours of the place. These are the same five the canvas renders
+   the world from, so the shell and the game are one palette rather than two
+   that happen to be yellowish. Roles are the canvas's, for the same reason. */
+:root{
+  --bright:      #e4e6a8;   /* the pale end — brightest surface, wall faces */
+  --pale:        #e1e2bb;
+  --mid:         #d6dea7;
+  --carpet:      #c3cb6e;   /* the saturated one — the colour it is named for */
+  --wall-top:    #c6c58b;
+
+  --yellow:      #e4e6a8;   /* alias: what the UI calls its primary */
+  --yellow-dim:  #c3cb6e;
+  --yellow-deep: #8f9445;
+  --carpet-dark: #6d7434;
+  --ink:         #1c1a14;
+  --danger:      #d8503c;   /* deliberately off-palette: it is a UI accent */
+  --ok:          #8fd07a;
+  --mono: "Courier New", "Courier", monospace;
+
+  /* The HUD sidebar's width. A variable because it is the one HUD dimension
+     that has to shrink on narrow windows, and because it is the number the
+     layout comment talks about — keep those two in sync. */
+  --side-w: 180px;
+}
+
+*{ margin:0; padding:0; box-sizing:border-box; }
+
+html,body{
+  width:100%; height:100%;
+  background:#000;
+  overflow:hidden;
+  font-family:var(--mono);
+  color:var(--yellow);
+  cursor:none;
+  -webkit-font-smoothing:antialiased;
+}
+
+body{ display:flex; align-items:center; justify-content:center; }
+
+#crt{
+  position:relative;
+  width:100%; height:100%;
+  overflow:hidden;
+  background:#000;
+}
+
+/* The play area: everything the game draws, and everything the player can see.
+   It starts where the instrument panel ends. The canvas sizes the camera, the
+   ambient bake, the visibility mask and the vignette to ITSELF, so a panel
+   painted over it is not a cosmetic overlap — it is a strip of the world that
+   gets rendered, lit, scoped and masked, and then never shown.
+
+   Absolute rather than a flex sibling of the panel: the panel's width is a
+   media-query variable, so the two boxes have to agree on one number, and a
+   flex row that resolves against a stale --side-w collapses the play area to
+   nothing instead of falling back to something playable. */
+#stage{
+  position:absolute;
+  top:0; right:0; bottom:0;
+  left:var(--side-w);
+  overflow:hidden;
+}
+
+#game{
+  position:absolute;
+  inset:0;
+  width:100%; height:100%;
+  display:block;
+  image-rendering:pixelated;
+}

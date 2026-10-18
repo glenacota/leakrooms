@@ -1,0 +1,96 @@
+/* ------------------------------------------------------------
+   SPLASH 01
+   ------------------------------------------------------------ */
+.splash-plan{
+  position:absolute; left:0; top:0; width:100%; height:100%; z-index:0;
+  overflow:hidden; pointer-events:none; opacity:.085;
+  -webkit-mask-image:linear-gradient(180deg,rgba(0,0,0,.35) 0%,#000 26%,#000 74%,rgba(0,0,0,.35) 100%);
+          mask-image:linear-gradient(180deg,rgba(0,0,0,.35) 0%,#000 26%,#000 74%,rgba(0,0,0,.35) 100%);
+}
+.splash-plan.far{ opacity:.03; filter:blur(2px); }
+.splash-plan canvas{ display:block; width:200%; height:100%; }
+.splash-plan       canvas{ animation:planroll 96s linear infinite; }
+.splash-plan.far   canvas{ animation:planroll 61s linear infinite; }
+/* -50% is exactly one period of the painting (game.js sizes the canvas so one
+   copy of the plan spans the frame), so the loop has no seam. */
+@keyframes planroll{ from{ transform:translateX(0); } to{ transform:translateX(-50%); } }
+
+.splash-bands{
+  position:absolute; inset:0; z-index:1; pointer-events:none; opacity:.45;
+  background:repeating-linear-gradient(180deg,rgba(0,0,0,0) 0 5px,rgba(0,0,0,.55) 5px 7px);
+}
+.splash-track{
+  position:absolute; inset:0; z-index:1; pointer-events:none;
+  background:repeating-linear-gradient(180deg,rgba(228,230,168,.045) 0 2px,transparent 2px 9px);
+  animation:splashjit 7.5s steps(1) infinite;
+}
+@keyframes splashjit{
+  0%,95.9%{ transform:none; }
+  96%{ transform:translateX(4px); }
+  97%{ transform:translateX(-6px); }
+  98%{ transform:translateX(2px); }
+  99%{ transform:translateX(-2px); }
+}
+
+.screen.splash{
+  background:#07060a;
+  backdrop-filter:none;
+  overflow:hidden;
+}
+.splash-water{
+  position:absolute; left:0; right:0; bottom:0; height:22%;
+  background:linear-gradient(180deg,#8fc4cc 0 3px,#3c5a60 4px 55%,#1d2f34 100%);
+  animation:rise 9s cubic-bezier(.2,.7,.3,1) infinite alternate;
+}
+
+.splash-water::before{
+  content:""; position:absolute; left:-50%; top:-3px; width:200%; height:6px;
+  background:repeating-linear-gradient(90deg,#8fc4cc 0 18px,transparent 18px 36px);
+  animation:drift 3.4s linear infinite; opacity:.55;
+}
+@keyframes rise{ from{height:12%} to{height:40%} }
+@keyframes drift{ to{transform:translateX(36px)} }
+.splash-drip{
+  position:absolute; inset:0; pointer-events:none;
+  background:
+    linear-gradient(#8fc4cc,#8fc4cc) 12% 8%  /2px 26px no-repeat,
+    linear-gradient(#8fc4cc,#8fc4cc) 78% 16% /2px 18px no-repeat,
+    linear-gradient(#8fc4cc,#8fc4cc) 46% 4%  /2px 32px no-repeat;
+  animation:drip 2.1s linear infinite;
+}
+@keyframes drip{ from{transform:translateY(-30px)} to{transform:translateY(30px)} }
+
+.splash-plate{ position:relative; z-index:2; text-align:center; padding:0 24px; }
+.screen.splash h1{
+  font-size:clamp(34px,8.4vw,84px);
+  letter-spacing:.26em;
+  margin:0 0 12px;
+  text-indent:.26em;                 /* letter-spacing trails the last glyph; this re-centres the word */
+  text-shadow:0 0 26px rgba(228,230,168,.28);
+  font-weight: 900;
+}
+.splash-plate .go{
+  margin:34px 0 0; font-size:14px; letter-spacing:.3em; font-weight: 900;
+  animation:pulse 2.2s ease-in-out infinite;
+}
+.splash-plate .go b{ color:var(--ink); background:var(--yellow); padding:2px 8px; font-weight:400; }
+@keyframes pulse{ 50%{ opacity:.35 } }
+
+/* ------------------------------------------------------------
+   SPLASH 02 — Backstory, controls list
+   ------------------------------------------------------------ */
+.order-wrap{
+  width:min(94vw,960px);
+  max-height:94vh; overflow-y:auto; scrollbar-width:thin;
+  display:flex; flex-direction:column; align-items:center; gap:18px;
+}
+#screen-order, #screen-pause{ background:rgba(6,5,3,.95); }
+.order{
+  width:100%;
+  display:grid; grid-template-columns:1fr 250px;
+  border:1px solid rgba(228,230,168,.32);
+  background:
+    repeating-linear-gradient(0deg,rgba(0,0,0,.14) 0 2px,transparent 2px 4px),
+    rgba(12,10,6,.96);
+  box-shadow:0 0 60px rgba(0,0,0,.9), inset 0 0 40px rgba(228,230,168,.05);
+}

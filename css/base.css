@@ -1,0 +1,30 @@
+/* ------------------------------------------------------------
+   Narrow windows.
+
+   A permanent column is the one HUD shape that costs play area proportional to
+   the window, so below 900px it is the first thing to shed — the game is
+   playable, the HUD is not optional. Bars go before type, because the number
+   directly above a bar already says what the bar says.
+   ------------------------------------------------------------ */
+@media (max-width:900px){
+  :root{ --side-w:104px; }
+  .lbl{ font-size:10px; letter-spacing:.14em; }
+  .val{ font-size:15px; }
+  #val-clock{ font-size:21px; }
+  .bar{ width:76%; height:6px; }
+}
+@media (max-width:680px){
+  :root{ --side-w:104px; }
+  .bar{ display:none; }
+  #val-clock{ font-size:19px; }
+  .hud-side{ gap:7px; }
+}
+/* Motion is decoration here, and every one of these is decoration. The
+   standing water still reads as water when it is not moving. */
+@media (prefers-reduced-motion:reduce){
+  .splash-water,.splash-water::before,.splash-drip,.splash-plate .go{ animation:none; }
+  .splash-water{ height:26%; }
+  /* The plan stops rolling but stays painted: the map is information about
+     the run, and removing it would change what the screen says. */
+  .splash-plan canvas,.splash-track{ animation:none; }
+}

@@ -505,7 +505,7 @@ test('[34] the floor-clear card — clock left, next floor, ENTER to descend', (
 console.log('[34] the floor-clear card — clock left, next floor, ENTER to descend');
 {
   const html = fs.readFileSync(__dirname+'/index.html','utf8');
-  const css  = fs.readFileSync(__dirname+'/style.css','utf8');
+  const css  = readCss();
 
   const at = html.indexOf('id="screen-clear"');
   const clearHtml = at>=0 ? html.slice(at, html.indexOf('id="screen-dead"')) : '';

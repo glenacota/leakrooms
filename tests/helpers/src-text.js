@@ -50,11 +50,14 @@ export function readHtml(){
 }
 
 export function readCss(){
-  let out = fs.readFileSync(path.join(root, 'style.css'), 'utf8');
-  const cssDir = path.join(root, 'css');
-  if (fs.existsSync(cssDir)) {
-    for (const f of fs.readdirSync(cssDir).filter(f => f.endsWith('.css')).sort())
-      out += '\n' + fs.readFileSync(path.join(cssDir, f), 'utf8');
+  /* Read in the order index.html links them, not sorted — the cascade depends
+     it. tokens.css must be first (:root variables), base.css must be last
+     (prefers-reduced-motion kills animations defined above). */
+  const ORDER = ['tokens','hud','screens','splash','settings','base'];
+  let out = '';
+  for (const name of ORDER){
+    const p = path.join(root, 'css', name + '.js'.replace('.js','.css'));
+    if (fs.existsSync(p)) out += '\n' + fs.readFileSync(p, 'utf8');
   }
   return out;
 }

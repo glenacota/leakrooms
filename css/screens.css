@@ -1,0 +1,315 @@
+/* ------------------------------------------------------------
+   THE PAUSE TICKET'S PAGES
+   The settings used to be their own screen; now they are the lower half of
+   the ticket, under a two-tab row. The tabs take the pressed style from the
+   segmented settings buttons, so "which page am I on" is answered the same
+   way everywhere on the ticket: the one that is filled in.
+   ------------------------------------------------------------ */
+.order-body .pause-page.hidden{ display:none; }
+.pause-tabs{ display:flex; gap:6px; margin-bottom: 20px; }
+.pause-tabs button{
+  padding:6px 14px; font-size:11px; font-weight:900; letter-spacing:.2em;
+  background:transparent; color:var(--yellow-deep);
+  border:1px solid rgba(228,230,168,.28); cursor:pointer;
+}
+.pause-tabs button:hover{ background:rgba(228,230,168,.10); color:var(--yellow); }
+.pause-tabs button[aria-selected="true"]{
+  background:var(--yellow); color:var(--ink); border-color:var(--yellow);
+}
+/* ------------------------------------------------------------
+   THE TERMS OF THE SHIFT — stamp + fold-out chooser on the work order
+   The stamp is a fact the building printed, so it gets the dashed border of
+   a correction, not the filled border of a control. CHANGE is the only
+   interactive part, and the chooser folds out of it: max-height rather than
+   display, so opening it reads as paper unfolding instead of a box popping.
+   ------------------------------------------------------------ */
+.stamp-terms{
+  display:flex; align-items:baseline; gap:10px; flex-wrap:wrap;
+  border:1px dashed rgba(228,230,168,.4); padding:8px 12px; margin:30px 0 0;
+  background:rgba(228,230,168,.03);
+}
+.stamp-terms .k{ font-size:12px; letter-spacing:.22em; color:var(--yellow-dim); font-weight:900; }
+.stamp-terms .v{ font-size:14px; letter-spacing:.2em; color:#8fc4cc; font-weight:900; }
+.stamp-terms .sub{ font-size:10px; letter-spacing:.12em; color:var(--yellow-deep); }
+.stamp-terms .chg{
+  margin-left:auto; padding:10px 15px; border: 1px solid rgba(228,230,168,.25); font-size:10px; font-weight:900; letter-spacing:.16em;
+  background:none; color:var(--yellow-deep);
+  cursor:pointer;
+}
+.stamp-terms .chg:hover{ color:var(--yellow); }
+.terms-fold{ overflow:hidden; max-height:0; transition:max-height .3s ease; }
+.terms-fold.open{ max-height:240px; }
+.terms{
+  border:1px solid rgba(228,230,168,.25); border-top:none; font-weight: 900; font-size:12px;
+  padding:10px 12px; background:rgba(228,230,168,.04);
+}
+.terms .seg button { font-weight: 900; font-size:12px; }
+.terms .note{ line-height:1.6; color:var(--yellow-dim); margin-top:8px; min-height:2.6em; }
+/* The briefing page is the longest thing on the ticket — SPLASH 02 whole,
+   backstory and controls list — so on a short window it is the one page that
+   scrolls, and it says so with a visible thumb rather than a mystery. */
+.pause-page{ scrollbar-width:thin; }
+.pause-page[data-pause-page="briefing"]{ max-height:52vh; overflow-y:auto; padding-right:6px; }
+
+
+/* ------------------------------------------------------------
+   prompts / found notes
+   ------------------------------------------------------------ */
+#prompt{
+  position:absolute;
+  left:0; right:0;
+  bottom:16%;
+  text-align:center;
+  font-size:13px;
+  letter-spacing:.22em;
+  text-transform:uppercase;
+  opacity:0;
+  transition:opacity .3s ease;
+  pointer-events:none;
+  text-shadow:0 0 12px rgba(0,0,0,.9);
+}
+#prompt.on{ opacity:.9; }
+
+#flashnote{
+  position:absolute;
+  left:0; right:0;
+  top:34%;
+  text-align:center;
+  font-size:15px;
+  line-height:1.9;
+  letter-spacing:.1em;
+  font-style:italic;
+  opacity:0;
+  pointer-events:none;
+  color:#e1e2bb;
+  text-shadow:0 0 18px rgba(0,0,0,1), 0 0 40px rgba(0,0,0,1);
+}
+#flashnote.on{ opacity:1; }
+
+/* Perforation down both long edges — a work order is paper, and paper
+   that goes through a machine has holes in it. */
+.order.perf{
+  background-image:
+    radial-gradient(circle at 0 8px,#000 0 2.5px,transparent 2.6px),
+    radial-gradient(circle at 100% 8px,#000 0 2.5px,transparent 2.6px),
+    repeating-linear-gradient(0deg,rgba(0,0,0,.14) 0 2px,transparent 2px 4px),
+    rgba(12,10,6,.96);
+  background-size:100% 16px,100% 16px,auto,auto;
+  background-position:left top,right top,0 0,0 0;
+  background-repeat:repeat-y,repeat-y,repeat,no-repeat;
+}
+
+.order-body{ padding:22px 26px 20px; text-align:left; }
+.order-head{ border-bottom:1px solid rgba(228,230,168,.2); padding-bottom:12px; margin-bottom:14px; }
+.order-head h2{
+  font-size:34px; letter-spacing:.22em; font-weight:400; margin:0;
+  text-shadow:2px 0 0 rgba(216,80,60,.45), -2px 0 0 rgba(80,150,216,.3);
+}
+.order-head .meta{
+  margin:8px 0 0; font-size:15px; letter-spacing:.18em; color:var(--yellow-deep); font-weight: 900;
+}
+.order-head .meta b{ color:#8fc4cc; }
+
+.order .field{ margin:12px 0; }
+.order .field span{
+  font-size:12px; font-weight: 900; line-height:2; letter-spacing:.22em; margin-bottom:4px; color:var(--yellow);
+}
+.order .field b{ font-size:15px; line-height:1.5; font-weight:400; color:var(--yellow-dim); }
+
+/* Controls: the payload of the screen. */
+.controls-big{ font-size:15px; letter-spacing:.06em; }
+.controls-big div{ display:flex; gap:10px; align-items:baseline; padding:3px 0; }
+.controls-big b{
+  min-width:78px; font-size:15px; padding:3px 9px;
+  color:var(--ink); background:var(--yellow); border:1px solid var(--yellow);
+}
+.controls-big span{ font-size:14px; color:var(--yellow-dim); }
+
+.order .notes{ margin:8px 0 0; padding:0; list-style:none; }
+.order .notes li{
+  font-size:15px; line-height:1.6; color:var(--yellow-dim); padding-left:18px; position:relative;
+}
+.order .notes li::before{ content:"\2610"; position:absolute; left:0; color:var(--yellow-deep); }
+.order .notes b{ color:var(--yellow); font-weight:400; }
+
+.order-side{
+  border-left:2px dashed rgba(228,230,168,.28);
+  padding:20px 16px;
+  background:repeating-linear-gradient(180deg,rgba(255,255,255,.02) 0 6px,transparent 6px 12px);
+  display:flex; flex-direction:column;
+}
+.order-side small{
+  display:block; font-size:11px; letter-spacing:.2em; color:var(--yellow-dim); font-weight: 900; margin-bottom:2px;
+}
+.order-side small:not(:first-child){ margin-top:16px; }
+.order-side .big{ font-size:36px; line-height:1; color:#8fc4cc; margin-bottom:2px; }
+.order-side .badge{ font-size:22px; letter-spacing:.3em; color:#8fc4cc; }
+.order-side .seed{ font-size:16px; color:#8fc4cc; letter-spacing:.1em; }
+/* The life pips read exactly as they do in the HUD, spent ones included, so the
+   count on the ticket is the count the player has been watching all along. */
+.order-side .seed.lives-row{ color:var(--danger); letter-spacing:.3em; }
+.order-side .seed.lives-row .gone{ opacity:.18; }
+.order-side .stub-note{
+  margin-top:auto; margin-bottom:0; padding-top:18px;
+  font-size:11px; line-height:1.8; letter-spacing:.12em; color:var(--yellow-deep);
+}
+
+.order-cta{ display:flex; font-weight: 900; align-items:center; gap:18px; flex-wrap:wrap; justify-content:center; }
+.cta-hint{ font-size:12px; letter-spacing:.2em; color:var(--yellow-deep); }
+.cta-hint b{ color:var(--yellow); font-weight:900; }
+
+/* ------------------------------------------------------------
+   screens (splash / order / settings / pause / dead / win)
+   ------------------------------------------------------------ */
+.screen{
+  position:absolute;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:rgba(6,5,3,.86);
+  backdrop-filter:blur(2px);
+  z-index:5;
+  cursor:default;
+}
+.screen.hidden{ display:none; }
+
+.tape{
+  max-width:660px;
+  padding:34px 40px;
+  text-align:center;
+  border:1px solid rgba(228,230,168,.22);
+  background:
+    repeating-linear-gradient(0deg, rgba(0,0,0,.16) 0 2px, transparent 2px 4px),
+    rgba(14,12,8,.9);
+  box-shadow:0 0 60px rgba(0,0,0,.9), inset 0 0 40px rgba(228,230,168,.05);
+}
+
+h1{
+  font-size:38px;
+  letter-spacing:.34em;
+  font-weight:400;
+  margin-bottom:6px;
+  text-shadow:2px 0 0 rgba(216,80,60,.5), -2px 0 0 rgba(80,150,216,.35);
+}
+h1.bad{ color:var(--danger); letter-spacing:.2em; font-size:32px; }
+
+.sub{
+  font-size:12px;
+  font-weight: 900;
+  letter-spacing:.4em;
+  color:var(--yellow-deep);
+  margin-bottom:32px;
+}
+
+blockquote{
+  font-size:12.5px;
+  line-height:2;
+  text-align:left;
+  color:var(--yellow-dim);
+  border-left:2px solid var(--yellow-deep);
+  padding-left:16px;
+  margin-bottom:26px;
+  font-style:italic;
+}
+
+.controls{
+  gap:8px 20px;
+  font-size:10px;
+  font-weight: 900;
+  letter-spacing:.1em;
+}
+.controls div{ display:flex; gap:9px; align-items:baseline; }
+.controls b{
+  color:var(--yellow);
+  background:rgba(228,230,168,.1);
+  border:1px solid rgba(228,230,168,.25);
+  padding:2px 7px;
+  min-width:56px;
+  text-align:center;
+  font-weight:400;
+}
+.controls span{ color:var(--yellow-deep); }
+
+.hint{
+  font-size:11.5px;
+  line-height:2;
+  color:var(--yellow-dim);
+  margin-bottom:26px;
+}
+.hint i{ color:var(--yellow); font-style:italic; }
+
+/* ------------------------------------------------------------
+   FLOOR CLEAR
+   The same ticket stock as every other modal, so it reads as paperwork
+   rather than as a score popup. Two blocks: what the floor cost you
+   (the clock you had left) and what the next one will (the briefing).
+   ------------------------------------------------------------ */
+#screen-clear{ background:rgba(6,5,3,.94); }
+.tape.clear{ max-width:520px; }
+.tape.clear h1{ font-size:30px; }
+
+/* The kudos, and the only number that is about YOU. Big, because it is the
+   thing the player just bought. */
+.clear-left{
+  font-size:11px; font-weight:900; letter-spacing:.28em; color:var(--yellow-deep);
+  margin-bottom:26px;
+}
+.clear-left b{
+  display:block; font-size:34px; letter-spacing:.14em; font-weight:400;
+  color:var(--yellow); margin-top:8px;
+}
+
+/* The next assignment. Dashed top edge like the chooser fold on the order
+   ticket, because it is the same document being re-issued one page on. */
+.clear-next{
+  border-top:2px dashed rgba(228,230,168,.28);
+  padding-top:16px; margin-bottom:28px; text-align:left;
+}
+.clear-next .k{
+  display:block; font-size:11px; font-weight:900; letter-spacing:.2em;
+  color:#8fc4cc; margin-bottom:12px;
+}
+.clear-next .k b{ color:var(--yellow); font-weight:900; }
+.clear-grid{
+  display:grid; grid-template-columns:1fr auto; gap:8px 24px; align-items:baseline;
+}
+.clear-grid span{ font-size:12px; font-weight:900; letter-spacing:.22em; color:var(--yellow); }
+.clear-grid b{ font-size:16px; font-weight:400; color:var(--yellow-dim); letter-spacing:.1em; }
+
+button{
+  font-family:var(--mono);
+  font-size:13px;
+  letter-spacing:.3em;
+  color:var(--ink);
+  background:var(--yellow);
+  border:none;
+  padding:13px 34px;
+  cursor:pointer;
+  transition:background .15s, box-shadow .15s, transform .1s;
+}
+button:hover{
+  background:#eef0c4;
+  box-shadow:0 0 26px rgba(228,230,168,.5);
+}
+button:active{ transform:translateY(1px); }
+
+@media (max-width:820px){
+  .order{ grid-template-columns:1fr; }
+  .order-side{
+    border-left:none; border-top:2px dashed rgba(228,230,168,.28);
+    flex-direction:row; flex-wrap:wrap; gap:0 20px; align-items:baseline;
+  }
+  .order-head h2{ font-size:20px; }
+}
+
+@media (max-width:620px){
+  .tape{ padding:22px; max-width:92vw; }
+  h1{ font-size:24px; }
+  blockquote{ font-size:11px; }
+  .controls{ grid-template-columns:1fr; }
+  .order-body{ padding:16px; }
+  .controls-big{ font-size:14px; }
+  .controls-big b{ min-width:64px; font-size:14px; }
+}
+
