@@ -6,7 +6,9 @@ import { emitNoise, sustainedNoise } from './noise.js';
 import { keys } from './keys.js';
 import { G } from './state.js';
 
-/* --- battery --- */
+/* ---------- Battery ----------
+   The radar drains the battery while it is on, and switches itself off at zero.
+   Walking over a battery pickup adds 50. */
 export function tickBattery(dt){
   const p = G.player;
   if (G.radar){
@@ -19,10 +21,14 @@ export function tickBattery(dt){
   }
 }
 
-/* --- movement ---
-   Returns the frame's movement facts for the stages that run after it:
-   whether the player moved, bumped, is sprinting, and how wet the tile they
-   ENDED the frame on is. */
+/**
+ * Moves the player from the held keys and makes the noise that goes with it.
+ *
+ * @param {number} dt - seconds since the last step.
+ * @returns {{moving: boolean, bumped: boolean, sprinting: boolean, wet: number}}
+ *   what happened this frame, for the steps that run after movement. `wet` is
+ *   how wet the tile the player ENDED the frame on is.
+ */
 export function tickMovement(dt){
   const p = G.player;
   let ix=0, iy=0;
@@ -31,14 +37,14 @@ export function tickMovement(dt){
   if (keys['w']||keys['arrowup'])    iy--;
   if (keys['s']||keys['arrowdown'])  iy++;
 
-  /* Wading is slower than dry walking. Sampled at the position BEFORE the move,
-     not after: sampling after would use last frame's tile at the boundary,
-     which reads as the speed changing a step after you leave the water rather
-     than as you entering it. */
+  /* Wading is slower than walking on dry floor. The wetness is read BEFORE the
+     move, so the speed changes when you enter the water. (Reading it after the
+     move would use the last frame's tile at a boundary, and the speed would
+     change a step after you leave the water.) */
   const preWet = wetAt(p.x, p.y);
 
   const sprinting = keys['shift'] && (ix||iy);
-  const wade = preWet > 0.25 ? 0.80 : 1;       // knee-deep costs you a fifth
+  const wade = preWet > 0.25 ? 0.80 : 1;       // knee-deep water costs you a fifth of your speed
   const spd = (sprinting ? SPRINT : WALK) * wade;
   let moving=false, bumped=false;
 
@@ -50,24 +56,23 @@ export function tickMovement(dt){
     const [dx,dy]=moveEnt(p, ix*spd*dt, iy*spd*dt, R);
     moving = (dx!==0 || dy!==0);
     p.face = Math.atan2(iy,ix);
-    if (!moving && (ix!==0||iy!==0)) bumped=true;   // walked into a partition
+    if (!moving && (ix!==0||iy!==0)) bumped=true;   // walked into a wall
   }
 
-  /* Wet at the position the frame ENDS on. This is the sample G.wet carries and
-     the one the stages after movement should read: the tile you are standing
-     in now, not the tile you left. The wading speed above deliberately still
-     uses preWet — the two answers are different questions. */
+  /* The wetness at the position the frame ENDS on. It is returned as `wet` and
+     stored on G.wet, so the later stages read the tile you are standing on now and
+     not the one you left. The wading speed above uses preWet on purpose: the two
+     answer different questions. */
   const wet = wetAt(p.x, p.y);
 
-  /* Wet walking is also louder than dry walking. It stays under LOUD on purpose
-     — wet boots must not wake anything, or following the water would be
-     strictly worse than sweeping, and the trail has to be the cheap option or
-     nobody follows it at all. */
+  /* Wet walking is louder than dry walking, but still under LOUD. Wet boots must
+     not wake anything, or following the water would be worse than sweeping with
+     the radar, and the water trail must be the cheap option. */
   if (moving){
     const inWater = preWet > 0.25;
-    /* One power, three consumers: the meter, what the agents hear, and how
-       loud the footstep is. Passing it to the voice as well is what makes a
-       sprinting step sound like a sprinting step instead of a louder walk. */
+    /* One value, three uses: the noise meter, what the lifeforms hear, and how
+       loud the footstep sounds. Passing it to the sound as well is what makes a
+       sprinting step sound like a sprint and not just a louder walk. */
     const stepPow = sprinting ? SPRINT_NOISE : (inWater ? 0.30 : 0.22);
     sustainedNoise(stepPow, p.x, p.y, true);
     p.stepT -= dt;
@@ -78,16 +83,13 @@ export function tickMovement(dt){
       else       emit('sfx', 'step', sprinting?1:0.5, stepPow);
     }
     p.moving = moving;
-    /* Waking pushes a ripple ahead of you. It is a readable trace of where you
-       have been, which is a second cue on top of the noise you already made. */
+    // Wading pushes a ripple ahead of you, a trace of where you have been on top of the noise you already made.
     if (preWet > 0.3){
       p.rippleT = (p.rippleT||0) - dt;
       if (p.rippleT <= 0){ p.rippleT = 0.22; seedSplash(p.x, p.y, preWet*0.55); }
     }
   }
-  /* Walking into a partition is the player's doing, so it is the player's noise
-     on the meter — the sharp little spike above whatever you were already
-     making. */
+  // Walking into a wall is the player's own noise, so it shows on the meter: a small spike above whatever you were already making.
   if (bumped && sprinting) emitNoise(0.55, p.x, p.y, true);
   else if (bumped) sustainedNoise(0.3, p.x, p.y, true);
 

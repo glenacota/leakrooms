@@ -10,44 +10,45 @@ import { tickRadarReveal } from './radar.js';
 import { tickBattery, tickMovement } from './player.js';
 import { G } from './state.js';
 
-/* --- the mix --- */
+/* The mix. Sends the audio levels for this frame: the lifeform drone, the noise
+   bed (the HUD's noise bar, so the speakers and the meter agree), and the leak
+   bed (the pipes' total noise, quieter with distance). */
 export function tickAudio(){
   const prox = Math.max(0, 1 - G.nearest/13);
   emit('sfx', 'drone', prox * (0.35 + G.seenBy*0.65));
-  /* The two beds. The floor is the NOISE bar itself, so a filling bar is a
-     filling room: this is the line that makes the meter true rather than
-     decorative. The leak bed is the pipes' total, pulled down by how far the
-     nearest one is — the standing hiss you can walk toward. */
-  /* The bed follows the loudest thing in earshot — which is what the bar's
-     NUMBER shows — while the bar's yellow fill is the player's own share. The
-     mix and the meter are both readings of the same frame, neither of them a
-     separate mood. */
+  // The noise bed follows the loudest thing in earshot, which is the number the bar shows. The yellow fill on the bar is only the player's own share.
   emit('sfx', 'noiseFloor', G.noise/NOISE_FS);
   emit('sfx', 'leakBed', G.leakTotal/NOISE_FS, G.leakDist);
 }
 
+/**
+ * Advances the whole simulation by one step. The loop calls this with a fixed
+ * 1/60 s, and the tests call it with any dt.
+ *
+ * The ORDER of the steps is part of the design:
+ *   1. clock       it can end the frame
+ *   2. battery
+ *   3. movement
+ *   4. everything that reads what movement produced: the visible area, the flood
+ *      you are standing in, the repair bar (which drains if you moved), the
+ *      lifeforms that noticed you, and the door you are cycling
+ * Each step is a function in its own file; this is only the sequence.
+ *
+ * @param {number} dt - seconds since the last step.
+ */
 export function update(dt){
-  /* The terminal latch is about THIS STEP, not about the floor: lose() raises
-     it part way through and the two guards below read it. It is cleared here so
-     the next step starts clean — one bad frame does not condemn the floor, and a
-     run resumed onto the same floor (which only the headless bot does, by
-     putting STATE back rather than rebuilding) ticks again. Nothing here is what
-     stops the world: the loop stops stepping the moment the run is over. This is
-     only what stops the rest of the frame. */
+  /* G.ended is cleared at the start of every step. lose() sets it part way
+     through a step, and the two checks below read it to stop the rest of THAT
+     step. It is not what stops the world: the loop stops stepping as soon as
+     the run is over. Clearing it here means one bad frame does not condemn the
+     floor. */
   G.ended = false;
-  /* ORDER IS THE DESIGN. The clock first because it can end the frame, then
-     the battery, then movement — and everything after movement reads what the
-     movement produced: the mask the room you walked into, the flood you are
-     standing in, the repair bar that decays because you walked, the things
-     that saw you move, and the door you are cycling. Each stage is a function
-     with the comment it was written next to; this is only the sequence. */
-  /* Snapshot for render interpolation, BEFORE anything moves. The renderer
-     draws each entity between its previous step position and this one, which is
-     what turns a 1/60s simulation into continuous motion at any refresh rate —
-     without this the player visibly advances in 16.7ms jumps on a 144Hz display,
-     and a frame-time spike shows up as a teleport rather than as a stride.
-     Written on every step rather than derived, because the collision solver can
-     refuse a move and `prev` has to be the position that was actually simulated
+  /* Remember last step's positions for the renderer, BEFORE anything moves. The
+     renderer draws each figure between its previous and current position, which
+     turns a 1/60 s simulation into smooth motion at any refresh rate. Without
+     this, the player would visibly jump in 16.7 ms steps on a 144 Hz display.
+     It is written every step and not worked out later, because collision can
+     refuse a move, and `prev` has to be the position that was really simulated
      from. */
   if (G.player){ G.player.px = G.player.x; G.player.py = G.player.y; }
   for (const a of G.agents){ a.px = a.x; a.py = a.y; }
@@ -56,42 +57,35 @@ export function update(dt){
   const mv = tickMovement(dt);
   G.wet = mv.wet;                  // the tile the player is standing on now
 
-  /* --- room-scoped light ---
-     Runs AFTER movement, so the room you just walked into is the room that
-     lights up this frame. Checked before, it would lag a frame behind and
-     read as the fluorescents chasing you. */
+  /* Room-scoped light. It runs AFTER movement, so the room you just walked into
+     lights up this frame. Run before movement, it would lag a frame behind and
+     look like the lights chasing you. */
   scopeRoomLight(dt, false);
   fadeRoomLight(dt);
-  /* Retrace on any movement, then EASE toward it. Both halves matter: the
-     retrace alone still steps a tile at a time, and the easing alone still
-     quantises to when the retrace happens.
+  /* Retrace the cone on any movement, then ease the mask toward it. Both halves
+     matter: retracing alone still steps a tile at a time, and easing alone
+     still depends on when the retrace happens.
 
-     Skipped wholesale when the harness has switched vision off. G.scopeDirty is
-     deliberately left alone: it is pending work, not stale state, so the first
-     frame after vision comes back on recombines whatever the room crossfade
-     moved while it was off rather than dropping it. */
+     The whole block is skipped when the tests switch vision off. G.scopeDirty is
+     left alone on purpose: it is pending work, so the first frame after vision
+     comes back recombines whatever the crossfade moved in the meantime. */
   if (wantVision){
     if (traceViewCone(false) || G.scopeDirty){ combineMask(); G.scopeDirty = false; }
     if (smoothMask(dt)) if (G) G.dirty.mask = true;
   }
 
-  /* --- the flood ---
-     Runs after movement so the water you are standing in this frame is the
-     water you walked into this frame. One pass over the tile array, and only
-     over tiles that are within the reachable radius of the leak — the front
-     cannot be further than LEAK_SPREAD seconds of travel from the source, so
-     the outer ring is skipped entirely instead of being tested and rejected. */
+  // The flood runs after movement, so the water you are standing in is the water you just walked into.
   tickFlood(dt);
 
   tickLeakNoise(dt);
   tickRepair(dt, mv.moving, mv.bumped);
   if (G.ended) return;
   tickAgents(dt);
-  /* The frame the run ends on. Everything below this line belongs to a run that
-     no longer exists — and the door is the dangerous one: caught on the
-     threshold, it still cycles, still emits door:cycled, and still builds the
-     next floor, so dying to step through your own front door advanced the level
-     and cost nothing. The same guard after the repair for the same reason. */
+  /* Once the run has ended, everything below belongs to a run that no longer
+     exists. The door is the dangerous one: if you were caught on the threshold it
+     would still cycle and build the next floor, so dying at your own front door
+     would advance the level at no cost. The same check comes after the repair
+     step for the same reason. */
   if (G.ended) return;
   tickRadarReveal();
   if (!tickDoor(dt)) return;

@@ -13,24 +13,28 @@ import { flash, renderLives } from './hud.js';
 import { syncAmbience } from './splash.js';
 import { syncSettingsUI } from './settings-panel.js';
 
+/**
+ * Copies the saved settings into the live game: difficulty values, volume and
+ * mute. Runs at boot and every time a setting changes.
+ */
 export function applySettings(){
   const d = DIFFICULTIES[SETTINGS.difficulty] || DIFFICULTIES.normal;
   applyDifficulty(d);
   Audio_.setMaster(SETTINGS.master);
-  /* Both of them, or the settings modal becomes a lie. M flips the stored flag
-     through setOption, which lands here — and this used to push only the volume,
-     so the mute persisted perfectly and changed nothing at all. A setting that
-     saves, survives a reload, and has no effect is the worst kind of setting,
-     because the reload appears to prove it worked. */
+  /* Both volume and mute are applied. The M key flips the stored mute flag and
+     ends up here, so applying only the volume would save the mute and change
+     nothing the player can hear. */
   Audio_.setMuted(SETTINGS.muted);
 }
 
-/* The DOM side of the event bus. Everything above this line reports a fact; the
-   handlers here are the only place a fact becomes a pixel. They are collected
-   into one bind function so the wiring is a single call at boot and the
-   subscription list can be read top to bottom in one place. */
+/* The DOM side of the event bus. The simulation and the run only report
+   facts ("flash this text", "the player died"). The handlers here turn those
+   facts into changes on screen, and are the only place that happens. They are
+   in one function so the whole list can be read in one place, and boot()
+   attaches them with a single call. */
 export function bindDom(){
   on('settings:changed', key => {
+    // A new water tint changes the packed water image, even though the water itself did not move.
     if ((key === '*' || key === 'waterHue' || key === 'waterContrast') && G) G.dirty.water = true;
     applySettings();
     syncSettingsUI();
@@ -47,23 +51,18 @@ export function bindDom(){
       `You sealed <b>${sealed}</b> pipes and got back through the door on all <b>${floors}</b> levels.<br>Deaths: <b>${deaths}</b> &nbsp; Noise made: <b>${noises}</b><br>Time: <b>${Math.floor(time/60)}:${String(Math.floor(time%60)).padStart(2,'0')}</b>`;
   });
   on('lives', renderLives);
-  /* The splash plan is the riser's picture of the building, drawn from the seed
-     the run will use. It is only visible on the title chain, and it costs a
-     full repaint of a screen-sized canvas — so it is repainted there and only
-     there. A resize during a run used to repaint it invisibly, fifty times a
-     drag, for a canvas nobody can see under the HUD. */
+  /* The title plan is only visible on the title and work order screens, so it
+     is only repainted there. Repainting it during play (for example while the
+     window is being resized) would redraw a large canvas that nobody can see. */
   on('resize', ()=>{
     if (G && (STATE==='splash' || STATE==='order')) paintSplashPlan();
   });
 
-  /* CONTEXT RESTORED. Every bitmap this renderer draws from belonged to the
-     context that was lost: the procedural patterns, the screen-sized grain, the
-     light bake and the two world-sized tile layers. All of them come back blank,
-     and the game does not notice — it keeps drawing from empty canvases at full
-     frame rate, which is a black rectangle with a clock running behind it. So
-     the restore rebuilds all of it and marks the packed fields dirty, because
-     the flood image and the visibility mask are the two things that are only
-     regenerated when something says they are stale. */
+  /* The browser can take the canvas context away (a graphics driver reset, a
+     switch between graphics chips). Every bitmap the renderer draws from is
+     lost with it, and the game would keep running and drawing blank canvases.
+     When the context comes back, rebuild everything and mark the packed water
+     and mask images as stale. */
   on('contextrestored', ()=>{
     buildPatterns();
     buildGrainFull();
@@ -75,20 +74,17 @@ export function bindDom(){
   });
   on('state', () => {
     syncAmbience();
-    /* Leaving play is the end of update(), and update() is what drives the two
-       continuous beds and the drone. Nothing would close them: the noise floor
-       of a level nobody is playing stays at whatever the last frame told it,
-       under the pause ticket, the death card or the win screen. Every state
-       change announces itself here now, so every one of them closes the mix. */
+    /* update() stops when play stops, and update() is what drives the noise
+       beds and the drone. Without this, they would stay at their last level
+       under the pause, death and win screens. */
     if (STATE!=='play'){ Audio_.silenceBeds(); Audio_.silence(); }
-    /* The pause holds the clock, the flood and the simulation; it now holds the
-       audio context too, and blur/visibilitychange reach the pause by pausing.
-       Resuming is attempted without a gesture, which a browser may refuse — the
-       next key goes through unlock() with one, which always works. */
+    /* Pausing also suspends the audio context so a paused game does no audio
+       work. Resuming here may be refused by the browser without a user
+       gesture; the next key press calls unlock(), which always works. */
     if (STATE==='pause') Audio_.suspend();
     else if (STATE==='play') Audio_.resume();
   });
-  // textures subscription registered at import of render/textures.js.
+  // The texture module subscribes to 'resize' by itself when it loads.
   on('flash', flash);
   on('sfx', (n, ...a) => Audio_[n](...a));
 }

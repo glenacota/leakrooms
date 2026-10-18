@@ -4,28 +4,27 @@ import { SETTINGS } from '../settings/store.js';
 import { keys } from '../sim/keys.js';
 
 /* ============================================================
-   THE TERMS OF THE SHIFT
-   The difficulty used to be a settings row the player could flip from the
-   pause ticket, mid-run — which rewrote FLOOR_CLOCK, REPAIR_TIME and the
-   hunt constants under a floor already being played, while runLives had
-   been read at clock-in and stayed where it was. Now it is chosen at the
-   door: the work order carries a stamp, CHANGE folds the chooser open on
-   the ticket, and whatever the stamp says when CLOCK IN lands is what the
-   run is built with. There is no difficulty control on the pause screen at
-   all — a run is on its terms from its first frame.
+   THE TERMS OF THE SHIFT (difficulty)
+   Difficulty is chosen on the work order screen, before the run starts, and
+   not on the pause screen. Changing it mid-run would rewrite the clock, repair
+   time and chase speed under a floor already being played, while the number of
+   lives was fixed at the start.
 
-   The value still lives in SETTINGS and still persists, so a returning
-   player's stamp is the run they always play; a fresh machine reads NORMAL,
-   the schema default, and is never unset. paintTerms is the one place the
-   stamp is written, and syncSettingsUI calls it, so every path that can
-   change the value — the chooser, the digits, RESET SETTINGS, a reloaded
-   store — leaves the three stamps and the note saying the same thing.
+   The work order shows the current choice as a stamp. CHANGE opens a chooser,
+   and whatever the stamp says when the player clocks in is what the run is
+   built with.
+
+   The value is saved, so a returning player sees their last choice, and a new
+   player sees NORMAL. paintTerms() is the one place the stamp is written, and
+   syncSettingsUI() calls it, so every way the value can change (the chooser,
+   the number keys, RESET SETTINGS, a reloaded save) leaves the stamps and the
+   note showing the same thing.
    ============================================================ */
 export let termsOpen = false;
 
-/* The work order is prose, and prose needs prose numbers: 240 is "4 minutes",
-   150 is "2 minutes 30 seconds", 90 is "90 seconds". The briefing used to say
-   "3 minutes" and "5 seconds" whatever the terms — a lie on two of the three. */
+/* Turns seconds into words for the work order text: 240 is "4 minutes", 150 is
+   "2 minutes 30 seconds". The briefing used to say "3 minutes" and "5 seconds"
+   whatever the difficulty, which was wrong for two of the three. */
 export function proseClock(s){
   const m = Math.floor(s/60), r = Math.round(s%60);
   const mins = m ? `${m} minute${m===1?'':'s'}` : '';
@@ -33,14 +32,15 @@ export function proseClock(s){
   return [mins, secs].filter(Boolean).join(' ') || 'no time at all';
 }
 
+/* Writes the current difficulty into every place that shows it: the stamp, the
+   pause screen, the clock and repair times in the work order and the briefing,
+   and the note under the chooser. */
 export function paintTerms(){
   const d = DIFFICULTIES[SETTINGS.difficulty] || DIFFICULTIES.normal;
   const set = (id, txt)=>{ const el = document.getElementById(id); if (el) el.textContent = txt; };
   set('order-terms', d.label);
   set('pause-terms', d.label);
-  /* The work order and the pause reprint of it are one document written
-     twice, so the numbers on both come from here: how long the shift is and
-     how long a pipe takes, in the terms' own numbers. */
+  // The work order and the pause screen's briefing are one text printed twice, so both get the same numbers.
   const ret = proseClock(d.clock);
   const fix = `${d.repairTime} second${d.repairTime===1?'':'s'}`;
   set('order-return', ret);
@@ -53,14 +53,14 @@ export function paintTerms(){
   }
 }
 
+// Opens or closes the difficulty chooser on the work order screen.
 export function setTermsOpen(v){
   termsOpen = v;
   const fold = document.getElementById('terms-fold');
   if (fold) fold.classList.toggle('open', v);
   if (!v){
-    /* The order screen has no movement, so a key held while the chooser was
-       open must not carry into the run: closing the fold is the moment the
-       frame goes back to being a splash, and splashes drop held keys. */
+    /* Keys held while the chooser was open must not carry into the run. The
+       work order has no movement, so closing the chooser clears them. */
     for (const kk in keys) keys[kk] = false;
   }
 }

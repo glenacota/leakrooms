@@ -1,39 +1,42 @@
 import { FLOOR, HOP_FALL, MAP_H, MAP_W } from '../config/constants.js';
 import { G } from './state.js';
 
-/* Fills G.regionOf, G.regionAdj and G.regionCount from the level's grid and
-   rooms. Pure apart from those G fields. */
+/**
+ * Splits the floor into "regions" and works out which regions touch.
+ * A region is one lit space: a room, or a stretch of floor between rooms (a
+ * gate tunnel). This is what makes "the room you are in" a well-defined thing.
+ * The whole maze is one connected area, so a simple flood fill from the player
+ * would light everything and the room-scoped light would do nothing.
+ *
+ * Fills G.regionOf (region id per tile), G.regionAdj (neighbours of each region)
+ * and G.regionCount.
+ *
+ * @param {object} level - the result of genLevel.
+ */
 export function labelRegions(level){
   const grid = level.grid;
   const at = (x,y)=> grid[y*MAP_W+x];
   const inB = (x,y)=> x>=0 && y>=0 && x<MAP_W && y<MAP_H;
 
-  /* --- room regions -------------------------------------------------
-     A region is one lit space: a BSP room, or a run of band floor between
-     rooms (a gate tunnel). Labelling them is what lets "the room you are in"
-     be a well-defined thing at all — the maze is one connected component,
-     so a flood fill from the player would light the entire floor and the
-     feature would be a no-op.
-
-     Room rects come from disjoint BSP leaves, so they never overlap. The
-     partition bands between them are not in any rect, and those tiles are
-     flood filled into their own regions: a gate tunnel is a lit space of its
-     own, which is exactly right — standing in a doorway lights the doorway,
-     not the room behind you. */
+  /* ---------- Rooms ----------
+     Room rectangles come from separate BSP leaves, so they never overlap. Only
+     FLOOR tiles inside a rectangle are labelled. Labelling the whole rectangle
+     would include the small wall stubs that rooms are carved with, and a stub
+     would then take its room's brightness directly and skip the
+     brightest-neighbour rule used for walls (see scopeRoomLight), so a wall in the
+     middle of a room rendered darker than the floor around it. Walls are lit BY
+     the spaces around them. This also keeps a stub from splitting a room into
+     two regions, which is right: a stub is furniture, not a doorway. */
   G.regionOf = new Int32Array(MAP_W*MAP_H).fill(-1);
   level.rooms.forEach((r, ri)=>{
-    /* FLOOR TILES ONLY. Labelling the whole rect swept up the stub
-       partitions that rooms are carved with, and a stub wall then carried its
-       room's scope directly and skipped the brightest-neighbour pass below —
-       so a wall standing in the middle of your own room rendered darker than
-       the floor it bordered. Walls are not lit spaces; they are lit BY the
-       spaces around them. Note this also keeps a stub from splitting a room
-       into two lit regions, which is what we want: a partition stub is
-       furniture, not a doorway. */
     for (let y=r.ry; y<r.ry+r.rh; y++)
       for (let x=r.rx; x<r.rx+r.rw; x++)
         if (at(x,y) === FLOOR) G.regionOf[y*MAP_W+x] = ri;
   });
+  /* ---------- Corridors ----------
+     The tiles between rooms are not in any rectangle. Each connected group of
+     them is flood filled into its own region, because standing in a doorway
+     lights the doorway, not the whole room behind you. */
   let nRegions = level.rooms.length;
   for (let y=0;y<MAP_H;y++) for (let x=0;x<MAP_W;x++){
     const i0=y*MAP_W+x;
@@ -50,10 +53,10 @@ export function labelRegions(level){
       }
     }
   }
-  /* adjacency: regions that share a 4-connected floor edge. Two rooms can
-     also be neighbours through a band, and a room with two gates has two
-     different neighbours — the BFS has to see the real graph, not just
-     "the next room over". */
+  /* ---------- Adjacency ----------
+     Two regions are neighbours when they share an edge of floor tiles. A room
+     with two gates has two different neighbours, so the search needs the real
+     graph and not just "the next room over". */
   const regAdj = Array.from({length:nRegions}, ()=>[]);
   const regSeen = new Set();
   for (let y=0;y<MAP_H;y++) for (let x=0;x<MAP_W;x++){
@@ -73,13 +76,13 @@ export function labelRegions(level){
   G.regionCount = nRegions;
 }
 
-/* Region visibility level: how much of the room's own light survives the
-   number of gates between you and it. See HOP_FALL. */
+// How much of a room's own light you can see through `hops` gates (see HOP_FALL).
 export function scopeFor(hops){
   if (hops < 0) return 0;
   return HOP_FALL[Math.min(hops, HOP_FALL.length-1)];
 }
 
+// The region id under a world point, or -1 (off the map, or a wall).
 export function regionAt(x,y){
   const tx=Math.floor(x), ty=Math.floor(y);
   if (tx<0||ty<0||tx>=MAP_W||ty>=MAP_H) return -1;

@@ -9,31 +9,26 @@ import { setPausePage, togglePause, pausePage } from './pause.js';
 import { advanceSplash, backSplash } from './splash.js';
 import { setTermsOpen, termsOpen } from './terms.js';
 
-/* ENTER is the confirm key for whichever modal is up: start, resume, rewind,
-   run again. It also fires when a button already has focus, so guard against
-   the click landing twice. */
+/* What ENTER does on each screen. It confirms whatever the screen is asking
+   for: start, resume, rewind, run again. */
 export const MODAL_ACTION = {
   splash: ()=>advanceSplash(),
   order:  ()=>advanceSplash(),
-  /* The pause ticket has no resume button — ESC is the resume, and the things
-     under it are the ticket's own pages and controls. Pointing ENTER at a
-     button that is not on the screen is how a modal ends up with a dead
-     confirm key. */
+  /* The pause screen has no resume button (ESC resumes), so ENTER calls the
+     same toggle directly. Pointing ENTER at a button that is not on screen
+     would leave the key doing nothing. */
   pause:  ()=>togglePause(),
   clear:  ()=>dismissClear(),
   dead:   ()=>document.getElementById('btn-retry').click(),
   win:    ()=>document.getElementById('btn-again').click(),
 };
 
-/* The keys the game OWNS are read from e.code, and everything else from e.key.
-   A layout is a translation between a physical key and a character, and this
-   game wants the physical key: WASD is where the movement cluster sits on
-   QWERTY, on QWERTZ and on AZERTY alike, while e.key on those layouts is Z for
-   the key the player is actually pressing. Reading e.key meant a player on a
-   German or French keyboard drove the floor with the wrong four keys and the
-   suite never saw it, because the tests pressed characters. ESC and ENTER stay
-   on e.key: their names are the same on every layout, and every branch that
-   handles them is written in those names. */
+/* Game keys are read from e.code (the physical key), and all other keys from
+   e.key (the character). WASD is where the movement keys sit on QWERTY,
+   QWERTZ and AZERTY keyboards alike, but the character on that key differs
+   (it is Z on a French keyboard). Reading e.key would give those players the
+   wrong four keys. ESC and ENTER keep using e.key because their names are
+   the same on every layout. */
 const GAME_CODES = {
   KeyW:'w', KeyA:'a', KeyS:'s', KeyD:'d',
   ArrowUp:'arrowup', ArrowDown:'arrowdown',
@@ -41,45 +36,37 @@ const GAME_CODES = {
   KeyR:'r', KeyM:'m',
 };
 
-/* Drops the whole cluster. run.js does this when a run starts; losing the window
-   needs the same, because the browser stops delivering keyup to a window that
-   is not focused and a held key would otherwise stay held for ever. */
+/* Releases every held key. Used when the window loses focus: the browser stops
+   sending keyup events to a window that is not focused, so a held key would
+   otherwise stay held forever. */
 function clearKeys(){
   for (const k in keys) delete keys[k];
 }
 
+/* The one keydown handler. The order of the branches matters, because several
+   of them use the same key (ESC and ENTER each mean different things on
+   different screens). Splitting them into separate listeners would make the
+   result depend on the order the listeners were registered. */
 function onKeyDown(e){
-  /* Not every keydown carries a character — some IMEs and some automation send
-     the event without one, and `undefined.toLowerCase()` is a throw inside the
-     one handler that must never throw. */
+  // Some input methods send a keydown with no character. Ignore those rather than crash.
   if (typeof e.key !== 'string') return;
 
-  /* A game key with a modifier on it is a browser or OS shortcut that happens
-     to pass through the same listener: Cmd+W, Ctrl+R, Alt+Arrow. The browser
-     will honour those whatever this handler does, so the game must not also act
-     on them — and it must not hold the key either, or a player who lets go
-     mid-shortcut keeps walking. */
+  /* A game key with Ctrl, Cmd or Alt held is a browser or system shortcut
+     (Ctrl+R reloads, Cmd+M minimises). The browser handles those itself, so
+     the game must not also act on them or hold the key. */
   if (e.ctrlKey || e.metaKey || e.altKey) return;
 
   const k = GAME_CODES[e.code] || e.key.toLowerCase();
   keys[k] = true;
 
-  /* Every key is a user gesture, and the AudioContext cannot start without
-     one. This is the single place the game hears about input, so it is the one
-     place the unlock has to live. */
+  /* Browsers only start audio after a user gesture. Every key is a gesture,
+     and this is the one place the game hears about all of them. */
   Audio_.unlock();
 
-  /* M, anywhere, at any time. Not just during play: a player who wants the
-     sound off usually wants it off BEFORE the title screen finishes its four
-     second fade-in, and a hotkey that only works once you are in a level is a
-     hotkey that arrives too late to be useful.
-
-     It RETURNS rather than falling through, which is load-bearing. On the
-     splash chain any unmodified key advances, so without this the mute key
-     doubles as "skip intro" — the title vanishes under the finger of someone
-     who is trying to turn the music off. It also drops the key state for the
-     same reason ENTER does: a held M would otherwise still be down when the run
-     starts, and M is not a movement key but the discipline is the same. */
+  /* M mutes from any screen. A player who wants silence usually wants it
+     before the title finishes fading in. It returns right away so the mute
+     key does not also advance the title screen, and it drops the key state so
+     a held M is not still down when the run starts. */
   if (k==='m'){
     if (!e.repeat) toggleMute();
     delete keys[k];
@@ -87,29 +74,23 @@ function onKeyDown(e){
     return;
   }
 
-  /* ESC on the work order dismisses the terms chooser before it walks the
-     splash chain. The chooser is the top layer of the order screen, and a
-     player who folded it open to change the terms should not fall out of the
-     ticket and onto the riser for one mistimed press. This has to run BEFORE
-     backSplash, or the chain claims the key first. */
+  /* ESC with the difficulty chooser open closes the chooser first. The chooser
+     is the top layer of the work order screen, and one mistimed ESC should not
+     throw the player back to the title. This must run before backSplash. */
   if (e.key==='Escape' && STATE==='order' && termsOpen){
     setTermsOpen(false);
     delete keys[k];
     return;
   }
 
-  /* ESC walks the splash chain backwards: from the work order to the pipe.
-     It does nothing on splash 03, which is the first frame — there is nothing
-     behind it, and a key that silently does nothing is worse than no key. */
+  /* ESC walks back through the title screens: work order to title. On the
+     title there is nothing behind it, so it does nothing. */
   if (e.key==='Escape'){
     if (backSplash()){ delete keys[k]; return; }
   }
 
-  /* ESC steps the pause ticket's pages backwards before it leaves the ticket:
-     the briefing page returns to the settings page, and only the settings
-     page resumes. Same shape as backSplash, applied to the pages instead of
-     the screens, so a player who opened the briefing to re-read a control
-     cannot lose the run to one mistimed press. */
+  /* ESC on the pause screen's Briefing page goes back to the Settings page.
+     Only the Settings page resumes the run. */
   if (e.key==='Escape' && STATE==='pause' && pausePage!=='settings'){
     setPausePage('settings');
     delete keys[k];
@@ -124,47 +105,39 @@ function onKeyDown(e){
               : STATE==='dead'   ? MODAL_ACTION.dead
               : STATE==='win'    ? MODAL_ACTION.win
               : null;
-    /* Auto-repeat is blocked, same as below: holding ENTER down would blow
-       through the splash and start a second run behind the first. */
+    // Auto-repeat is ignored, so holding ENTER cannot rush through the title and start a second run.
     if (act && !e.repeat){
       const focused = document.activeElement;
       const onButton = focused && focused.tagName === 'BUTTON';
-      /* ENTER folds the terms chooser shut rather than clocking in. The pick
-         is already made — every term button commits on click — so starting
-         the run from the key that dismissed the chooser is how a player clocks
-         in on terms they were still reading. preventDefault keeps the browser
-         from also activating the focused term button. */
+      /* ENTER closes the difficulty chooser instead of starting the run. The
+         choice is already saved when a term button is clicked, and starting
+         from the key that closed the chooser would clock the player in while
+         they were still reading. preventDefault stops the browser from also
+         pressing the focused button. */
       if (STATE==='order' && termsOpen){
         setTermsOpen(false);
         delete keys[k];
         e.preventDefault();
         return;
       }
-      /* The ticket carries real controls now. A focused tab or button answers
-         ENTER itself: the key falls through to the browser and activates the
-         control, instead of resuming the run over the top of the click. */
+      /* On the pause screen, a focused tab or button handles ENTER itself, so
+         the key is left to the browser instead of resuming the run over it. */
       if (STATE==='pause' && onButton
           && focused.closest && focused.closest('#screen-pause')) return;
-      act();                                  // close the modal
-      if (onButton) focused.blur();           // no second activation via Enter
-      /* The key that dismissed the splash must not carry into the run: the
-         same keydown set keys[k] above, and a held W would otherwise walk the
-         player out of the door they just came through. */
+      act();
+      if (onButton) focused.blur();           // avoids a second activation by the same ENTER
+      // The key that dismissed a screen must not stay held, or the player walks out of the door they entered by.
       delete keys[k];
     }
     e.preventDefault();
     return;
   }
 
-  /* On the splash chain, any unmodified key advances. Sprint and the arrow
-     keys are movement, so holding one through the splash should move the
-     player the instant the run starts — advance once per press, not per
-     repeat, and drop the key state with it. Escape is excluded: it walks
-     backwards, and on splash 03 it means "stay here".
-
-     One exception, and it is the work order while the terms chooser is open:
-     the frame is a form at that moment, and a form that starts a run on a
-     stray keystroke is a form nobody fills in. */
+  /* On the title and work order screens any key advances (once per press, not
+     per auto-repeat). Movement keys count too, and are dropped so they do not
+     carry into the run. ESC is excluded because it goes backwards. While the
+     difficulty chooser is open the screen acts like a form, and a stray key
+     must not start a run. */
   if ((STATE==='splash'||STATE==='order') && e.key!=='Escape'
       && !e.repeat
       && !(STATE==='order' && termsOpen)){
@@ -174,16 +147,12 @@ function onKeyDown(e){
     return;
   }
 
-  /* A key the open chooser swallowed is dropped, not held: it did nothing on
-     this screen, and a key that did nothing must not walk the player out of
-     the door the moment the run starts. The splash chain already drops the
-     key that advances it; this is the same discipline for the one branch that
-     does not advance. */
+  // A key the open chooser ignores is dropped, so it does not walk the player off the spawn once the run starts.
   if (STATE==='order' && termsOpen) delete keys[k];
 
-  /* The chooser owns the number row and the left/right arrows while it is
-     open: 1-3 are the three terms in DIFFICULTIES order, and the arrows cycle
-     the same way the segmented row does with a mouse. */
+  /* While the chooser is open it owns the number row and left/right arrows:
+     1-3 pick the three difficulties (in DIFFICULTIES order), and the arrows
+     cycle through them like clicking the buttons. */
   if (STATE==='order' && termsOpen){
     const list = Object.keys(DIFFICULTIES);
     const at = Math.max(0, list.indexOf(String(SETTINGS.difficulty)));
@@ -207,10 +176,10 @@ function onKeyDown(e){
   }
   if (e.key==='Escape' && (STATE==='play'||STATE==='pause')) togglePause();
   if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key)){
-    /* One exception: the ticket's own controls. Arrows drag the focused slider
-       and SPACE activates a focused button, so those keys belong to the pause
-       screen while the pause screen has focus. Everywhere else they are
-       movement, and a held arrow through the splash must not scroll anything. */
+    /* One exception: on the pause screen, arrows move a focused slider and
+       space presses a focused button, so those keys belong to the screen.
+       Everywhere else they are movement, and preventDefault stops the page
+       from scrolling. */
     if (STATE==='pause'){
       const el = document.activeElement;
       if (el && el.closest && el.closest('#screen-pause')
@@ -222,21 +191,18 @@ function onKeyDown(e){
 
 function onKeyUp(e){
   if (typeof e.key !== 'string') return;
-  /* The modifier the browser takes the focus with: pressing Meta on a Mac opens
-     the app switcher and the keyup arrives after the window is back, on a
-     layout where Shift may already have been let go. Trusting that one keyup
-     leaves the run sprinting into a wall forever, so losing the modifier
-     clears the cluster instead of releasing a single key. */
+  /* Pressing Meta on a Mac opens the app switcher, and its keyup can arrive
+     after the window is back and other keys have already been released.
+     Trusting a single keyup could leave the player sprinting forever, so
+     losing Meta releases every key. */
   if (e.key==='Meta'){ clearKeys(); return; }
   const k = GAME_CODES[e.code] || e.key.toLowerCase();
   keys[k] = false;
 }
 
-/* M. Goes through setOption rather than poking Audio_ directly, so the store is
-   written and the UI re-synced on the same path as every other setting — a mute
-   that only lives in a variable is a mute that forgets itself on reload. The
-   blip is fired AFTER, and only on unmute, because a confirmation you cannot
-   hear is not a confirmation. */
+/* Toggles mute (the M key). It goes through setOption, so the value is saved
+   and the UI updates the same way as any other setting. The confirmation
+   blip plays only when unmuting, since a blip while muted could not be heard. */
 export function toggleMute(){
   const next = !SETTINGS.muted;
   setOption('muted', next);
@@ -244,24 +210,14 @@ export function toggleMute(){
   if (!next) Audio_.blip(true);
 }
 
-/* ORDER IS THE WHOLE FILE. One keydown handler, and the branches inside it run
-   in a fixed order because several of them claim the same key: M everywhere, ESC
-   as the terms fold, as the splash chain's back, as the ticket's page step and
-   as the pause toggle, ENTER as the modal confirm and as the chooser's dismiss,
-   and any key as the splash chain's advance. Splitting these into listeners
-   would make the resolution depend on registration order and on the browser's
-   idea of it. */
+// Attaches the keyboard and focus listeners. Called once from boot().
 export function bindInput(){
   window.addEventListener('keydown', onKeyDown);
   window.addEventListener('keyup', onKeyUp);
 
-  /* Losing the window mid-sprint used to leave the rigger running: the browser
-     stops sending keyup to a window that is not focused, so every held key came
-     back still held — the player returned to a character sprinting into a wall
-     with NOISE pegged, and nothing in the game could clear it. Blur and a hidden
-     tab are the same event from here, and both mean two things: no more input,
-     and a run nobody is watching. Pausing as well is what stops a backgrounded
-     tab from spending the floor clock on a run that is not being played. */
+  /* Losing the window (switching tabs or apps) means two things: no more key
+     releases will arrive, and nobody is watching the run. So release every
+     key, and pause so the clock does not run out in the background. */
   const lostFocus = () => {
     clearKeys();
     if (STATE==='play') togglePause();

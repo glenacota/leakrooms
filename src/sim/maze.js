@@ -1,5 +1,18 @@
 import { hash2 } from '../util/hash.js';
 import { MAP_W, MAP_H, WALL, FLOOR } from '../config/constants.js';
+
+/**
+ * Generates the floor plan: rooms joined by short gates. Steps:
+ *   1. Split the map into cells (BSP, "binary space partitioning")
+ *   2. Carve a room in each cell
+ *   3. Punch gates through the walls between rooms
+ *   4. Add small wall stubs inside rooms
+ *   5. Make sure everything is one connected area
+ *
+ * @param {Function} rng - a seeded random number function (0 to 1).
+ * @returns {{grid: Uint8Array, rooms: object[], leaves: object[]}} grid has
+ *   WALL (0) or FLOOR (1) per tile, and rooms have rx, ry, rw, rh.
+ */
 export function genMaze(rng){
   const grid = new Uint8Array(MAP_W*MAP_H);       // 0 everywhere = solid
   const rooms = [];
@@ -7,13 +20,15 @@ export function genMaze(rng){
   const idx = (x,y)=> y*MAP_W + x;
 
   const leaves = [];
-  /* Subdivision is driven by SIZE, not by a depth counter. A fixed depth ran
-     out of budget while cells were still ~18 tiles across, so every floor
-     kept at least one room big enough to read as an empty field.
-     MAXROOM is a real ceiling: the cut is clamped so a child is never wider
-     than its parent, and splitting is refused only once the cell is too
-     narrow to divide without producing a closet. Always cut the longer axis
-     so children converge on the ceiling instead of drifting past it. */
+  /* ---------- Step 1: split into cells ----------
+     Splitting is driven by SIZE and not by a fixed depth. A fixed depth ran out
+     while cells were still about 18 tiles across, and every floor kept at least
+     one room big enough to feel like an empty field.
+
+     MAXROOM is a real ceiling: a cut is clamped so a child is never wider than
+     its parent, and splitting is only refused when a cell is too narrow to divide
+     without making a closet. The longer axis is always cut, so cells converge
+     toward the ceiling and do not drift past it. */
   const MAXROOM = 12, MINCUT = 6;
   (function split(x,y,w,h,depth){
     const tooNarrow = (w < MINCUT*2 && h < MINCUT*2);
@@ -28,7 +43,7 @@ export function genMaze(rng){
       cut = Math.max(MINCUT, Math.min(w-MINCUT, cut));
       split(x,      y, cut, h, depth-1);
       split(x+cut, y, w-cut, h, depth-1);
-      // vertical partition at column x+cut: a gate straddles COLUMNS at a row
+      // A vertical partition at column x+cut: its gate is a pair of rows
       const gateRow = () => y + 1 + Math.floor(rng()*Math.max(1,h-2));
       doors.push({axis:'x', cut:x+cut, along:gateRow(), width:2});
       if (rng() < 0.45) doors.push({axis:'x', cut:x+cut, along:gateRow(), width:2});
@@ -39,18 +54,19 @@ export function genMaze(rng){
       cut = Math.max(MINCUT, Math.min(h-MINCUT, cut));
       split(x, y,      w, cut, depth-1);
       split(x, y+cut, w, h-cut, depth-1);
-      // horizontal partition at row y+cut: a gate straddles ROWS at a column
+      // A horizontal partition at row y+cut: its gate is a pair of columns
       const gateCol = () => x + 1 + Math.floor(rng()*Math.max(1,w-2));
       doors.push({axis:'y', cut:y+cut, along:gateCol(), width:2});
       if (rng() < 0.45) doors.push({axis:'y', cut:y+cut, along:gateCol(), width:2});
     }
   })(1,1,MAP_W-2,MAP_H-2,12);
 
-  /* Carve each leaf as a room, inset unevenly so the partitions read as
-     temporary site walls rather than a regular grid. Insets are capped: with
-     smaller cells an uncapped inset of 3+3 could produce a room wider than
-     its cell, which spilled into the partition band and welded two
-     neighbouring rooms into one big open space. */
+  /* ---------- Step 2: carve the rooms ----------
+     Each room is inset unevenly in its cell, so the partitions look like
+     temporary site walls and not a regular grid. The insets are capped: with
+     small cells, an uncapped inset of 3+3 could make a room wider than its
+     cell, which spilled into the partition band and joined two rooms into one
+     big open space. */
   const MINROOM = 6;
   const inset = span => 1 + Math.floor(rng()*Math.min(2, Math.max(1, Math.floor((span-MINROOM)/2))));
   for (const L of leaves){
@@ -65,16 +81,15 @@ export function genMaze(rng){
     rooms.push(L);
   }
 
-  /* Punch doorways through the partition bands.
-     The band between two rooms is up to 6 tiles thick, so a 2-tile
-     punch would dead-end inside the wall. Instead, tunnel along the
-     door column in both directions until we actually break into a
-     room floor on each side. */
+  /* ---------- Step 3: punch the gates ----------
+     The wall between two rooms can be up to 6 tiles thick, so a fixed 2-tile
+     punch would end inside the wall. Instead, tunnel along the gate line in both
+     directions until it breaks into room floor on each side. */
   for (const d of doors){
     for (let k=0; k<d.width; k++){
       const a = d.along + k;
       if (d.axis === 'x'){
-        // vertical partition: tunnel sideways through it, gate spans 2 rows
+        // Vertical partition: tunnel sideways through it (the gate is 2 rows tall)
         for (let x=d.cut-1, g=0; g<14; x--, g++){
           if (x<1) break;
           grid[idx(x,a)] = FLOOR;
@@ -86,7 +101,7 @@ export function genMaze(rng){
           if (grid[idx(x+1,a)]===FLOOR) break;
         }
       } else {
-        // horizontal partition: tunnel vertically, gate spans 2 columns
+        // Horizontal partition: tunnel vertically (the gate is 2 columns wide)
         for (let y=d.cut-1, g=0; g<14; y--, g++){
           if (y<1) break;
           grid[idx(a,y)] = FLOOR;
@@ -101,11 +116,11 @@ export function genMaze(rng){
     }
   }
 
-  /* Extra partitions inside the larger rooms. The BSP alone still leaves
-     some cells big enough to read as an empty field. These stubs add wall
-     area and create alcoves WITHOUT dividing a room in two — a full split
-     can strand one half, which the connectivity repair would then tunnel
-     back through a visible hole in the partition. */
+  /* ---------- Step 4: wall stubs inside rooms ----------
+     The BSP alone still leaves some rooms big enough to feel empty. Short wall
+     stubs add wall area and make alcoves without cutting a room in two. (A full
+     split could strand one half, and the connection repair below would then
+     tunnel back through a visible hole in the wall.) */
   for (const L of rooms){
     if (L.rw < 6 && L.rh < 6) continue;
     const cym = L.ry + L.rh/2;
@@ -119,7 +134,7 @@ export function genMaze(rng){
         const th2 = 1 + (rng() < 0.45 ? 1 : 0);
         for (let y=y0; y<y0+len; y++){
           if (y<L.ry || y>=L.ry+L.rh) continue;
-          if (Math.abs((y+0.5)-cym) < 1.6) continue;   // leave the spawn clear
+          if (Math.abs((y+0.5)-cym) < 1.6) continue;   // keep the middle clear, where the player may spawn
           for (let k=0;k<th2;k++){
             if (sx+k < L.rx+L.rw) grid[idx(sx+k,y)] = WALL;
           }
@@ -140,10 +155,10 @@ export function genMaze(rng){
     }
   }
 
-  /* --- guarantee a single connected region ---
-     Belt and braces: flood fill from the biggest room, then tunnel
-     from any orphaned region straight into the main one until the
-     whole floor is one component. */
+  /* ---------- Step 5: one connected area ----------
+     A safety net. Label every connected group of floor, then tunnel from any
+     group that is cut off straight toward the main one until the whole floor is
+     a single area. */
   const label = new Int32Array(MAP_W*MAP_H).fill(-1);
   const comps = [];
   for (let y=0;y<MAP_H;y++) for (let x=0;x<MAP_W;x++){
@@ -174,7 +189,7 @@ export function genMaze(rng){
       for (const c of comps[cid]){
         if (inMain[c]) continue;
         const cx=c%MAP_W, cy=(c/MAP_W)|0;
-        // find the closest already-connected tile
+        // Find the closest tile that is already connected
         let best=null, bd=1e9;
         for (const m of comps[main]){
           const mx=m%MAP_W, my=(m/MAP_W)|0;
@@ -183,13 +198,13 @@ export function genMaze(rng){
           if (bd<=4) break;
         }
         if (!best) continue;
-        // L-shaped tunnel from (cx,cy) to best
+        // An L-shaped tunnel from this tile to the connected one
         let x=cx, y=cy;
         while (x!==best[0]){ grid[idx(x,y)]=FLOOR; inMain[idx(x,y)]=1; x+=Math.sign(best[0]-x); }
         while (y!==best[1]){ grid[idx(x,y)]=FLOOR; inMain[idx(x,y)]=1; y+=Math.sign(best[1]-y); }
         grid[idx(x,y)]=FLOOR; inMain[idx(x,y)]=1;
       }
-      // refresh main membership with everything we just joined
+      // Everything just joined now counts as part of the main area
       for (const c of comps[cid]) if (inMain[c]) comps[main].push(c);
     }
   }

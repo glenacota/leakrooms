@@ -5,20 +5,19 @@ import { armReset, resetArmed, resetRun } from '../game/run.js';
 import { paintTerms, setTermsOpen, termsOpen } from './terms.js';
 import { setPausePage } from './pause.js';
 
-/* Button label sets per segmented row. Declared here rather than in markup so
-   the enum and the labels cannot drift apart. */
+/* The buttons for each segmented row (value and label pairs). They are listed
+   here and not in the HTML, so the allowed values and their labels cannot
+   drift apart. */
 export const SEGMENTS = {
   difficulty: () => Object.keys(DIFFICULTIES).map(k => [k, DIFFICULTIES[k].label]),
   waterHue:   () => [['slate','SLATE'],['teal','TEAL'],['violet','VIOLET'],['grey','GREY']],
 };
 
+/* Builds and wires the settings controls from the empty rows in index.html.
+   Called once at boot. The settings are pages of the pause screen, so there is
+   no separate settings screen to return from: ESC steps from the briefing back
+   to the settings page. */
 export function buildSettingsUI(){
-  /* The controls used to live in a modal they shared with a BACK button, and
-     the return path was state juggling: remember where you were, swap STATE,
-     map it back on the way out. Now the ticket's pages ARE the menu, so the
-     return path is one line: the tab that is not pressed. Escape out of the
-     briefing page cannot strand the player anywhere, because there is only
-     ever the ticket. */
   for (const row of document.querySelectorAll('.seg[data-opt]')){
     const key = row.dataset.opt;
     const opts = (SEGMENTS[key] || (()=>[]))();
@@ -36,23 +35,18 @@ export function buildSettingsUI(){
     el.addEventListener('input', ()=> setOption(key, parseFloat(el.value)));
   }
   const reset = document.getElementById('btn-settings-reset');
-  /* keepTerms: this button is on the ticket of a LIVE run, and the terms are
-     stamped at the door rather than chosen here. Resetting the terms from here
-     rewrote the clock and the repair time of the floor the player is standing
-     in. The stamp owns difficulty; the ticket owns everything else. */
+  /* keepTerms: this button is on the pause screen of a live run, and the
+     difficulty is fixed when the run starts. Resetting it here would change
+     the clock and repair time of the floor the player is standing in. */
   if (reset) reset.onclick = ()=>{ resetSettings({keepTerms:true}); syncSettingsUI(); };
-  /* No BACK on the settings page: it is the page a pause lands on, so BACK
-     would mean ESC, and a second control that does what the key under the
-     player's hand already does is a control nobody needs. The briefing's BACK
-     is different — it goes somewhere, back to the settings page. */
+  /* The settings page has no BACK button because ESC already does that.
+     The briefing page's tabs are the way between the two pages. */
   for (const t of document.querySelectorAll('[data-pause-tab]'))
     t.onclick = ()=> setPausePage(t.dataset.pauseTab);
-  /* The terms chooser: the front door. CHANGE folds it out of the stamp on
-     the work order; the segmented row inside it is built by the loop above,
-     exactly as it was when it was a settings row. */
+  // CHANGE opens and closes the difficulty chooser on the work order screen.
   const change = document.getElementById('btn-terms-change');
   if (change) change.onclick = ()=> setTermsOpen(!termsOpen);
-  /* RESET GAME: arm on the first press, fire on the second. */
+  // RESET GAME needs two taps: the first arms it, the second ends the run.
   const resetRunBtn = document.getElementById('btn-reset-run');
   if (resetRunBtn) resetRunBtn.onclick = ()=>{
     if (!resetArmed){ armReset(); return; }
@@ -60,21 +54,20 @@ export function buildSettingsUI(){
   };
 }
 
+/* Makes every control show the current settings: slider positions, which
+   segmented button is pressed, and the difficulty stamps and note. Called after
+   any change to the settings. */
 export function syncSettingsUI(){
-  // sliders
   for (const el of document.querySelectorAll('input[type=range][data-opt]')){
     const v = SETTINGS[el.dataset.opt];
     if (v !== undefined && Number(el.value) !== v) el.value = v;
   }
-  // segmented buttons
   for (const row of document.querySelectorAll('.seg[data-opt]')){
     const key = row.dataset.opt, cur = String(SETTINGS[key]);
     for (const b of row.querySelectorAll('button')){
       b.setAttribute('aria-pressed', String(b.dataset.value === cur));
     }
   }
-  /* The stamp on the work order, on its stub, and on the pause stub are the
-     same fact as the segmented row, so they are painted from the same place
-     the row is synced — one writer, three stamps, the note line. */
+  // The difficulty text in three places is painted from here, so they always match.
   paintTerms();
 }

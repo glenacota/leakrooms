@@ -1,16 +1,24 @@
+/* ============================================================
+   THE LIFEFORMS
+   Each lifeform is a small state machine (a.state):
+     DORMANT  lies still on the carpet; wakes only to a LOUD noise
+     RISING   getting up after waking (about 1.4 s), then it hunts
+     WALK     wanders the floor; a noise turns it to SEARCH, a loud one to HUNT
+     SEARCH   walks to the place it heard something; may go back to sleep
+     HUNT     chases its target at HUNT_BASE plus HUNT_STEP per floor
+   Noise reactions are in noise.js (alert).
+   ============================================================ */
+
 import { CATCH_R, LEAK_LURE, MAP_W, RA } from '../config/constants.js';
-/* HUNT_BASE/HUNT_STEP are TUNABLE — applyDifficulty rewrites them per preset, so
-   the chase speed is a live binding and not a snapshot taken at import. */
 import { HUNT_BASE, HUNT_STEP } from '../config/tuning.js';
 import { blocked, moveEnt, unstick } from './collision.js';
 import { brush } from './noise.js';
 import { G } from './state.js';
 
-/* --- the agent loop ---
-   The agent loop plus the sight check that feeds G.seenBy and G.nearest:
-   what can see you, how close the nearest pipe of it is, and whether
-   anything is allowed to start hunting this frame. (This header read "the
-   radar reveals", copied from the pass below it; the radar has its own.) */
+/* Updates every lifeform for one step, and works out two things for the rest
+   of the frame:
+     G.seenBy   how much anything can see the player (drives the red warning)
+     G.nearest  the distance to the closest awake lifeform (drives the drone) */
 export function tickAgents(dt){
   const p = G.player;
   let seenBy = 0, nearest = 99;
@@ -18,14 +26,14 @@ export function tickAgents(dt){
     updateAgent(a, dt, p);
     const d = Math.hypot(a.x-p.x, a.y-p.y);
     if (a.state!=='DORMANT' && a.rise>0.5) nearest = Math.min(nearest, d);
-    // line of sight check
+    // Line-of-sight check: close enough, facing the player, and nothing in between
     if (a.rise>0.5 && d < 8){
       const vx=Math.cos(a.face), vy=Math.sin(a.face);
       const dot = ((p.x-a.x)*vx + (p.y-a.y)*vy) / (d||1);
       if (dot > 0.28 && G.los(a.x,a.y,p.x,p.y)){
-        /* What it can see you by is the BAKE times the VISIBILITY, not the
-           bake alone. Reading the bake would let it see you standing in a
-           room whose lights are, as far as the screen is concerned, off. */
+        /* It sees you by the light you stand in, which is the bake times the
+           room visibility. Using the bake alone would let it see you in a room
+           whose lights are, as far as the screen shows, off. */
         const pi = Math.floor(p.y)*MAP_W+Math.floor(p.x);
         const amb = (G.lightArr[pi] || 0) * (G.visArr[pi] || 0);
         if (amb > 0.30){
@@ -39,6 +47,13 @@ export function tickAgents(dt){
   G.nearest = nearest;
 }
 
+/**
+ * Runs one lifeform's state machine for one step.
+ *
+ * @param {object} a - the lifeform.
+ * @param {number} dt - seconds since the last step.
+ * @param {object} p - the player.
+ */
 export function updateAgent(a, dt, p){
   a.born = Math.max(0, a.born-dt);
   unstick(a, RA);
@@ -75,10 +90,11 @@ export function updateAgent(a, dt, p){
     a.face = ang;
     const [dx,dy] = moveEnt(a, Math.cos(ang)*spd*dt, Math.sin(ang)*spd*dt, RA);
     if (Math.hypot(dx,dy)<0.001){
-      // blocked — sidestep along the wall
+      // Blocked: sidestep along the wall
       moveEnt(a, Math.cos(ang+1.57)*spd*dt, Math.sin(ang+1.57)*spd*dt, RA);
     }
     if (Math.hypot(a.x-p.x,a.y-p.y) < CATCH_R) brush(a, p);
+    // After about 8 seconds with nothing new to chase, give up and search nearby
     if (a.t < -8){ a.state='SEARCH'; a.t=6; a.target=randomFloorNear(a.x,a.y,9); }
     return;
   }
@@ -86,21 +102,19 @@ export function updateAgent(a, dt, p){
   if (a.state==='SEARCH'){
     a.t -= dt;
 
-    /* THE LURE. An open pipe is a standing noise source, and something already
-       searching will go and stand next to it. This is what makes the leak a
-       shield as well as a hazard: while one is open, anything curious in the
-       building is being pulled to a pipe rather than to you, so the five seconds
-       at the pipe are not spent with a hunter closing from wherever it
-       happened to be — they are spent with one closing from a known place.
+    /* THE LURE. An open pipe is a standing noise source, and a searching
+       lifeform will walk to it. That is why a leak is a shield as well as a
+       hazard: while a pipe is open, anything curious in the building is pulled
+       toward a pipe and not toward you, so the repair is done with a hunter
+       coming from a known place.
 
-       With four of them the NEAREST open one takes it, which is the correct
-       reading: a thing standing at a pipe you have not reached yet is a shield
-       you have not got yet, and it should not walk across the building to a pipe
-       four rooms away just to be somewhere else.
+       With several pipes open, the nearest one takes the lifeform. A lifeform
+       standing at a pipe you have not reached yet is a shield you do not have
+       yet, and it should not cross the building to a far pipe.
 
-       It only applies to SEARCH, never to HUNT. If a hunting Lifeform were
-       also diverted it would abandon a chase you caused by sprinting, which
-       would delete the sprint decision the entire noise layer exists for. */
+       This applies to SEARCH only, never to HUNT. If a hunting lifeform were also
+       pulled away it would give up a chase you caused by sprinting, and that
+       would remove the sprint decision the whole noise system is built around. */
     for (const L of G.leaks){
       if (L.fixed) continue;
       const ld = Math.hypot(a.x-(L.sx+0.5), a.y-(L.sy+0.5));
@@ -123,11 +137,11 @@ export function updateAgent(a, dt, p){
   }
 }
 
-/* Somewhere to walk to, from the floor's OWN generator — never Math.random().
-   A wandering Lifeform is the one thing in the game that keeps drawing numbers
-   long after the level was built, so it is the one thing that used to make two
-   runs on the same seed diverge within seconds of each other: the pipes, the
-   rooms and the door were all identical and the building around them was not. */
+/* A random walkable spot near (x, y). It uses the floor's OWN generator
+   (G.arng) and never Math.random(). A wandering lifeform keeps drawing random
+   numbers long after the level is built, so using Math.random() would make two
+   runs on the same seed drift apart within seconds, even with identical pipes,
+   rooms and door. */
 export function randomFloorNear(x,y,rad){
   for (let i=0;i<60;i++){
     const a=G.arng()*6.28, d=G.arng()*rad;

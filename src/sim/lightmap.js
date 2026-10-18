@@ -2,15 +2,23 @@ import { BAKE_FLOOR, FLOOR, MAP_H, MAP_W, WALL } from '../config/constants.js';
 import { makeLos } from '../util/grid.js';
 import { G } from './state.js';
 
-/* Fills G.lightArr from the level's fixtures and grid. Pure apart from that
-   one G field — the pixels are packed out of it by attachFloorImages(). */
+/**
+ * Works out how bright each tile is under its own ceiling lights (the "bake").
+ * This does not decide what the player can see; that is the visibility mask
+ * (see vision.js). It fills G.lightArr and returns it. The pixels are made
+ * from it later by attachFloorImages().
+ *
+ * @param {object} level - the result of genLevel (grid and fixtures are used).
+ * @param {Function} [los] - a line-of-sight function; built from the grid if omitted.
+ * @returns {Float32Array} brightness per tile.
+ */
 export function computeLightArr(level, los){
   const grid = level.grid;
   const at = (x,y)=> grid[y*MAP_W+x];
   const inB = (x,y)=> x>=0 && y>=0 && x<MAP_W && y<MAP_H;
   if (!los) los = makeLos(grid);
 
-  /* --- bake ambient light --- */
+  // Step 1: each fixture lights the tiles it can see, fading with distance. A tile keeps the brightest light that reaches it.
   G.lightArr = new Float32Array(MAP_W*MAP_H);
   for (const f of level.fixtures){
     const R2 = f.r*f.r;
@@ -27,8 +35,8 @@ export function computeLightArr(level, los){
       if (v > G.lightArr[i0]) G.lightArr[i0] = v;
     }
   }
-  // 3x3 blur for soft falloff (a wider kernel dilutes single lit tiles
-  // into nothing, which leaves the floor pitch black between fixtures)
+  /* Step 2: a 3x3 blur for a soft falloff. A wider blur would dilute a single
+     lit tile into nothing and leave the floor black between fixtures. */
   const tmp = new Float32Array(G.lightArr);
   for (let y=0;y<MAP_H;y++) for (let x=0;x<MAP_W;x++){
     let s=0,n=0;
@@ -39,23 +47,19 @@ export function computeLightArr(level, los){
     }
     G.lightArr[y*MAP_W+x] = s/n;
   }
-  /* The ambient floor is high, and that is a change of what this number
-     MEANS. It used to be 0.42 because the bake was the only thing deciding
-     brightness, so a floor had to stop the darkest corner of a lit room
-     collapsing into black. Darkness is now the MASK's job — a room you cannot
-     see is multiplied by zero regardless of what its fluorescents are doing.
-     So the bake only describes LIT SURFACES, and its floor is set high enough
-     that a room you can see shows the palette essentially at full strength,
-     with the fixtures as bright pools on top rather than as the only light. */
+  /* Step 3: a minimum brightness for floor tiles. It is high (BAKE_FLOOR), because
+     darkness is the mask's job: a room you cannot see is multiplied by zero
+     whatever its lights are doing. The bake only describes lit surfaces, so a
+     visible room shows the palette at full strength with the fixtures as bright
+     pools on top. */
   for (let y=0;y<MAP_H;y++) for (let x=0;x<MAP_W;x++){
     const i=y*MAP_W+x;
     if (at(x,y)===FLOOR && G.lightArr[i] < BAKE_FLOOR) G.lightArr[i] = BAKE_FLOOR;
   }
-  // walls catch light from adjacent floor (their face is visible).
-  // This MUST read the post-blur, post-floor values. It used to read `tmp`
-  // (pre-blur and pre-ambient-floor), so a wall beside unlit floor got ~0
-  // light, multiplied to near-black, and every partition read as a hole in
-  // the ground rather than a wall.
+  /* Step 4: walls catch light from the floor beside them, because their faces
+     are visible. This must read the values AFTER the blur and the minimum.
+     Reading the earlier values gave walls next to unlit floor almost no light,
+     and every partition looked like a hole in the ground. */
   const wallSrc = new Float32Array(G.lightArr);
   for (let y=0;y<MAP_H;y++) for (let x=0;x<MAP_W;x++){
     const i=y*MAP_W+x;
@@ -65,7 +69,7 @@ export function computeLightArr(level, los){
     if (inB(x-1,y)&&at(x-1,y)===FLOOR) m=Math.max(m,wallSrc[i-1]);
     if (inB(x,y+1)&&at(x,y+1)===FLOOR) m=Math.max(m,wallSrc[i+MAP_W]);
     if (inB(x,y-1)&&at(x,y-1)===FLOOR) m=Math.max(m,wallSrc[i-MAP_W]);
-    // a wall deep inside a block still catches some bounce from its room
+    // A wall deep inside a block still gets a little bounce light from its room.
     G.lightArr[i] = Math.max(m*0.95, BAKE_FLOOR*0.80);
   }
   return G.lightArr;

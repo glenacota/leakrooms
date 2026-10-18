@@ -2,29 +2,26 @@ import { dismissClear, retryFloor, runAgain, startRun, STATE } from '../game/run
 import { advanceSplash } from './splash.js';
 import { setTermsOpen, termsOpen } from './terms.js';
 
-/* ---------- buttons ---------- */
-/* The wiring, not the work: each control calls the run function that owns it,
-   and this function is the ONLY place any of it is attached. The screen
-   listeners below used to exist here as well as inside bindButtons(), and a
-   second copy is not a no-op: addEventListener appends, so one click on the
-   riser ran advanceSplash() twice and skipped the work order. */
+/* Attaches the buttons and screen clicks to the run functions that do the
+   work. This function is the only place where that wiring happens. Adding the
+   same listener twice is not harmless: one click on the title screen would
+   advance twice and skip the work order. */
 export function bindButtons(){
   document.getElementById('btn-start').onclick   = ()=>startRun();
   document.getElementById('btn-descend').onclick = ()=>dismissClear();
   document.getElementById('btn-retry').onclick   = ()=>retryFloor();
   document.getElementById('btn-again').onclick   = ()=>runAgain();
 
-  /* Click anywhere on either splash advances it, so a player who never reads
-     the keyboard prompt is not stuck. The listeners call the same advance the
-     key chain does, so a click and a key cannot disagree about where the
-     player is.
+  /* Clicking anywhere on the title or work order screen advances it, so a
+     player who never reads the keyboard hint is not stuck. It uses the same
+     advanceSplash() as the key handler, so a click and a key cannot disagree.
 
-     Two guards, both for the work order now that it carries controls. A click
-     that lands on a control — a term button, a slider, CHANGE, CLOCK IN itself
-     — is a choice, not an advance: bubbling it up to the screen is how a
-     player who meant to read the terms starts a run on HARD. And while the
-     chooser is open, a click on the frame dismisses it the way ESC does,
-     because an open chooser is the top layer of the screen. */
+     Two guards:
+       1. A click on a control (a button, a slider, the difficulty chooser) is
+          a choice and not an advance. Letting it bubble up would start a run on
+          HARD for someone who only meant to read the difficulty options.
+       2. While the difficulty chooser is open, a click on the background
+          closes it, the same as ESC. */
   for (const id of ['screen-splash','screen-order']){
     const el = document.getElementById(id);
     if (el) el.addEventListener('click', (e)=>{

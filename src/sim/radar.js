@@ -2,17 +2,15 @@ import { emit } from '../util/events.js';
 import { onScreen } from './vision.js';
 import { G } from './state.js';
 
-/* --- the radar reveals ---
-   Sweeping lights the whole level, so "can you see it" stops being a question
-   about angles and walls and becomes exactly what it says: is it on your
-   screen. That is checked against the same rectangle the renderer draws
-   into, so a thing is revealed on the frame it appears, not a frame before.
+/* The radar lights the whole floor, so "can you see it" is no longer a question
+   about angles and walls: it is just "is it on your screen". That is checked
+   against the same rectangle the renderer draws, so something is revealed on
+   the frame it appears.
 
-   There is nothing in the world that NEEDS finding any more — the door is
-   where you came in and you know it — so the radar is down to what it was
-   always honestly good for: reading the carpet. The scrawls are the only
-   thing it surfaces, and they are worth a battery because they are free
-   information about a building that lies to you. */
+   Nothing in the world needs finding any more (the door is where you came in,
+   and the pipes show themselves in water). So the radar's one remaining job is
+   reading the notes on the carpet. They are free information about a building
+   that lies to you, and worth a battery. */
 export function tickRadarReveal(){
   if (!G.radar) return;
   for (const gr of G.graffiti){

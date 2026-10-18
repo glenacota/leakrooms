@@ -1,26 +1,26 @@
 import { emit } from '../util/events.js';
 import { G } from './state.js';
 
-/* --- THE CLOCK ---
-   Runs before everything, and it is the only thing on this level that cannot
-   be argued with. It does not stop while you wrench, it does not stop while
-   something is standing over you, and it does not reset because you sealed a
-   pipe. Three minutes to find the work, do the work, and walk all the way back
-   to the door you came in through — and every second of it is spent on the
-   return trip, which is why the return trip is the part the level is about.
-
-   The last thirty seconds are announced once, loudly, because a clock that is
-   only ever visible in a corner of the HUD is a clock most players will watch
-   the ceiling instead.
-
-   Returns false when the clock has run out: the level is over and the caller
-   must stop the frame there, exactly as it did when this code sat inline. */
+/**
+ * The level clock. It runs first in every step, because it can end the frame.
+ * It does not stop while you repair, it does not stop while something stands
+ * over you, and it does not reset when you seal a pipe. Three minutes (on
+ * NORMAL) cover finding the work, doing it, and walking back to the door, and
+ * the walk back is where most of that time goes.
+ *
+ * The last 30 seconds are announced once, loudly, because a clock that only
+ * lives in the corner of the HUD is one players ignore.
+ *
+ * Also advances the floor time and decays the noise meters.
+ *
+ * @param {number} dt - seconds since the last step.
+ * @returns {boolean} false when the clock ran out. The level is over and the
+ *   caller must stop the frame there.
+ */
 export function tickClock(dt){
   G.time += dt;
   G.noise = Math.max(0, G.noise - dt*1.55);
-  /* The player's own share decays on exactly the same curve as the total, so the
-     yellow part of the bar empties at the rate the building's hiss appears
-     under it rather than at a rate of its own invention. */
+  // The player's own noise decays at the same rate as the total, so the yellow part of the bar empties as fast as the building's hiss appears under it.
   G.selfNoise = Math.max(0, G.selfNoise - dt*1.55);
 
   G.clock = Math.max(0, G.clock - dt);

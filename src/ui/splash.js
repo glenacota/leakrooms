@@ -3,39 +3,39 @@ import { RUN_SEED, setState, STATE } from '../game/run.js';
 import { setTermsOpen } from './terms.js';
 import { show } from './dom.js';
 
-/* The bed follows STATE, not the individual screens. It is keyed off the names
-   rather than off `show()` because `show()` is also how the pause screen comes
-   up, and a title drone leaking into a pause menu is the sort of thing nobody
-   reports and everybody notices.
+/* Starts or stops the ambient room sound to match the current state. It
+   follows STATE and not the individual screens, because show() is also how the
+   pause screen appears, and the title sound must not leak into the pause menu.
 
-   The floor-clear card is a menu like the other two: the room hum keeps
-   running under it. What stops there is the FLOOR — acclaim() kills the leak
-   and noise beds, which belong to the level that just ended. */
+   The floor clear card counts as a menu: the room hum keeps playing under it.
+   What stops there is the level's own sound (the leak and noise beds), which
+   is closed by the 'state' event. */
 export function syncAmbience(){
   Audio_.ambience(STATE==='splash' || STATE==='order' || STATE==='clear');
 }
 
+/* Moves one step forward: title to work order, then work order to the run.
+   Called by key presses, clicks and ENTER, so all three behave the same. */
 export function advanceSplash(){
   Audio_.unlock();
   if (STATE==='splash'){
     setState('order');
-    /* The seed goes on the stub so each run's ticket reads as authored
-       rather than generated. It is RUN_SEED — the same number that builds
-       the floor when the player clocks in — so it is not decoration. */
+    /* Show the run seed on the ticket's stub. It is the same number that
+       builds the floor when the player clocks in. */
     const seedEl = document.getElementById('order-seed');
     if (seedEl) seedEl.textContent = '#88D-' + (RUN_SEED>>>0).toString(16).toUpperCase().slice(-4);
     show('order');
   } else if (STATE==='order'){
-    /* The chooser folds itself shut on the way in: the next time this ticket
-       is seen — after a death, or a finished run — it should show the stamped
-       terms, not last boot's open fold. */
+    // Close the difficulty chooser on the way in, so the next time this ticket is seen it shows the chosen terms and not an open fold.
     setTermsOpen(false);
     document.getElementById('btn-start').click();
   }
   syncAmbience();
 }
+
+// ESC: one step back (work order to title). Returns false when there is nothing behind the current screen.
 export function backSplash(){
   Audio_.unlock();
   if (STATE==='order'){ setState('splash'); show('splash'); syncAmbience(); return true; }
-  return false;                       // nothing behind splash 03: it is the first frame
+  return false;
 }
