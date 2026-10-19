@@ -3,7 +3,7 @@ import { SETTINGS, setOption } from '../settings/store.js';
 import { Audio_ } from '../audio/index.js';
 import { keys } from '../sim/keys.js';
 import { G } from '../sim/state.js';
-import { STATE, dismissClear } from '../game/run.js';
+import { STATE, dismissClear, retryFloor, runAgain } from '../game/run.js';
 import { flash } from './hud.js';
 import { setPausePage, togglePause, pausePage } from './pause.js';
 import { advanceSplash, backSplash } from './splash.js';
@@ -19,8 +19,8 @@ export const MODAL_ACTION = {
      would leave the key doing nothing. */
   pause:  ()=>togglePause(),
   clear:  ()=>dismissClear(),
-  dead:   ()=>document.getElementById('btn-retry').click(),
-  win:    ()=>document.getElementById('btn-again').click(),
+  dead:   ()=>retryFloor(),
+  win:    ()=>runAgain(),
 };
 
 /* Game keys are read from e.code (the physical key), and all other keys from

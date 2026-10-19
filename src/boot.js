@@ -22,7 +22,8 @@ import { bindDom } from './ui/bind.js';
 import { bindInput } from './ui/input.js';
 import { bindButtons } from './ui/buttons.js';
 import { setFatalHook, setFrameHooks } from './game/loop.js';
-import { render } from './render/render.js';
+import { adaptResolution } from './render/adaptive.js';
+import { render, setSimAlpha } from './render/render.js';
 import { updateHUD, setPrompt } from './ui/hud.js';
 import { frame } from './game/loop.js';
 
@@ -100,10 +101,13 @@ export function boot(){
   buildFloor(0, RUN_SEED);
   paintSplashPlan();
 
-  /* The loop does not know about rendering or the HUD, so both are passed in:
-     `render` draws a frame, and `afterUpdate` refreshes the HUD and the
-     prompt line after each simulation step. */
-  setFrameHooks({ render, afterUpdate: ()=>{ updateHUD(); setPrompt(); } });
+  /* The loop does not know about rendering, the HUD or the resolution, so all
+     three are passed in: `render` draws a frame, `simAlpha` tells the renderer
+     how far into the next simulation step the picture is, `adaptive` decides
+     whether the machine is keeping up, and `afterUpdate` refreshes the HUD and
+     the prompt line after each simulation step. */
+  setFrameHooks({ render, simAlpha: setSimAlpha, adaptive: adaptResolution,
+                  afterUpdate: ()=>{ updateHUD(); setPrompt(); } });
 
   requestAnimationFrame(frame);
 }

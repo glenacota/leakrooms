@@ -4,25 +4,20 @@
    keeps the frame rate healthy.
    ============================================================ */
 
-import { SCALE_BAD_FRAMES, SCALE_DROP_MS, SCALE_GOOD_FRAMES, SCALE_RECOVER_MS, RENDER_SCALES } from '../config/constants.js';
-import { renderScaleIdx, resize, setRenderScaleIdx } from '../render/canvas.js';
-import { setSimAlpha } from '../render/passes/actors.js';
 import { update } from '../sim/update.js';
 import { G } from '../sim/state.js';
 import { on } from '../util/events.js';
 import { addRunTime, STATE } from './run.js';
 
-let frameMsAvg = 16.7;
-let badRun = 0, goodRun = 0;
-
 /* The loop does not know how a frame is drawn or what the shell does after a
-   step. boot() passes both in, so the loop can be read and tested without a
-   renderer or a HUD. */
-let renderHook = ()=>{};
-let afterUpdate = ()=>{};
+   step. boot() passes all of it in, so the loop can be read and tested without
+   a renderer or a HUD. */
+let renderHook = ()=>{}, afterUpdate = ()=>{}, simAlphaHook = ()=>{}, adaptiveHook = ()=>{};
 export function setFrameHooks(h){
-  if (h.render)     renderHook = h.render;
+  if (h.render)      renderHook = h.render;
   if (h.afterUpdate) afterUpdate = h.afterUpdate;
+  if (h.simAlpha)    simAlphaHook = h.simAlpha;
+  if (h.adaptive)    adaptiveHook = h.adaptive;
 }
 
 /* ---------- Fixed simulation step ----------
@@ -112,7 +107,7 @@ export function frame(now){
            carry into the new floor. */
         if (STATE!=='play'){ simAcc = 0; break; }
       }
-      setSimAlpha(simAcc / SIM_STEP);   // 0..1: how far we are into the next step
+      simAlphaHook(simAcc / SIM_STEP);  // 0..1: how far we are into the next step
       // Steps owed beyond MAX_STEPS are dropped instead of building up a debt.
       if (simAcc >= SIM_STEP) simAcc = 0;
       afterUpdate();
@@ -121,10 +116,8 @@ export function frame(now){
     }
     /* Frame time is measured across the whole frame, because that is what the
        player experiences as smoothness. It is the only honest input for the
-       adaptive resolution. */
-    const frameMs = now - lastRenderStart;
-    lastRenderStart = now;
-    if (frameMs > 0 && frameMs < 1000) adaptResolution(frameMs);
+       adaptive resolution, which is why the decision lives in the renderer. */
+    adaptiveHook(now);
 
     if (G && shouldRender(now)) renderHook(now);
 
@@ -132,40 +125,4 @@ export function frame(now){
   } catch (err){
     if (++fails >= MAX_FAILURES){ dead = true; fatalHook(err); }
   }
-}
-let lastRenderStart = performance.now();
-
-/* ---------- Adaptive resolution ----------
-   Lowers the canvas resolution one step when frames are slow for a while, and
-   raises it again when they are fast for a long while. The thresholds are in
-   config/constants.js. This is kept out of resize() so that a window resize
-   is never mistaken for a slow machine. */
-function adaptResolution(ms){
-  /* Use a running average, so one slow frame (garbage collection, a tab
-     switch) does not cost a resolution step. */
-  frameMsAvg += (ms - frameMsAvg) * 0.05;
-
-  if (frameMsAvg > SCALE_DROP_MS){
-    goodRun = 0; badRun++;
-    /* Only while playing, in both directions. On the title screen and the
-       cards the canvas is not drawn, and changing resolution there would
-       rebuild the grain and the splash plan for nothing. */
-    if (badRun > SCALE_BAD_FRAMES && renderScaleIdx < RENDER_SCALES.length-1 && STATE==='play'){
-      setRenderScaleIdx(renderScaleIdx+1);
-      badRun = 0; frameMsAvg = 16.7;      // measure again at the new size
-      resize();
-      return 'drop';
-    }
-  } else if (frameMsAvg < SCALE_RECOVER_MS){
-    badRun = 0; goodRun++;
-    if (goodRun > SCALE_GOOD_FRAMES && renderScaleIdx > 0 && STATE==='play'){
-      setRenderScaleIdx(renderScaleIdx-1);
-      goodRun = 0; frameMsAvg = 16.7;
-      resize();
-      return 'raise';
-    }
-  } else {
-    badRun = 0; goodRun = 0;
-  }
-  return null;
 }

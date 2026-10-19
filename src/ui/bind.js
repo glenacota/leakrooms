@@ -1,10 +1,10 @@
 import { DIFFICULTIES } from '../config/presets.js';
 import { SETTINGS } from '../settings/store.js';
-import { applyDifficulty } from '../config/tuning.js';
+import { applyDifficulty, FLOOR_CLOCK } from '../config/tuning.js';
 import { Audio_ } from '../audio/index.js';
 import { on } from '../util/events.js';
 import { G } from '../sim/state.js';
-import { STATE } from '../game/run.js';
+import { clearCard, clockText, STATE } from '../game/run.js';
 import { paintSplashPlan } from '../render/splash-plan.js';
 import { attachFloorImages } from '../render/bake.js';
 import { buildGrainFull, buildPatterns } from '../render/textures.js';
@@ -51,6 +51,28 @@ export function bindDom(){
       `You sealed <b>${sealed}</b> pipes and got back through the door on all <b>${floors}</b> levels.<br>Deaths: <b>${deaths}</b> &nbsp; Noise made: <b>${noises}</b><br>Time: <b>${Math.floor(time/60)}:${String(Math.floor(time%60)).padStart(2,'0')}</b>`;
   });
   on('lives', renderLives);
+  /* The run owns the numbers on the floor-clear card; writing them is the
+     shell's job. The praise depends only on how much clock was left — barely
+     making it gets the cooler line. */
+  on('clear:show', () => {
+    const el = id => document.getElementById(id);
+    el('clear-clock').textContent = clockText(clearCard.clock);
+    el('clear-floor').textContent  = clearCard.floor+1;
+    el('clear-leaks').textContent  = clearCard.leaks;
+    el('clear-forms').textContent  = clearCard.forms;
+    el('clear-sub').textContent =
+      clearCard.clock >= FLOOR_CLOCK*0.34 ? 'GOOD WORK. MANAGEMENT NOTICES.'
+                                        : 'SEALED. MANAGEMENT HAS NO COMMENT.';
+  });
+  /* RESET GAME arms on the first press; the label is what tells the player
+     the second press is the one that ends the run. */
+  on('reset', armed => {
+    const b = document.getElementById('btn-reset-run');
+    if (b) b.textContent = armed ? 'TAP AGAIN — LOSES THE RUN' : 'RESET GAME';
+  });
+  /* A new building means a new plan behind the title. The run says so; the
+     renderer paints it. */
+  on('splash:repaint', ()=>{ paintSplashPlan(); });
   /* The title plan is only visible on the title and work order screens, so it
      is only repainted there. Repainting it during play (for example while the
      window is being resized) would redraw a large canvas that nobody can see. */

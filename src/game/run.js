@@ -16,7 +16,6 @@ import { initFlood } from '../sim/flood.js';
 import { keys } from '../sim/keys.js';
 import { snapMask } from '../sim/vision.js';
 import { G } from '../sim/state.js';
-import { paintSplashPlan } from '../render/splash-plan.js';
 import { buildFloor } from './floor.js';
 
 /* The variables below are live bindings. Other modules can read them,
@@ -45,7 +44,9 @@ export let runStat = { noises:0, deaths:0, sealed:0 };
 export function rollRunSeed(){
   setRunSeed((Math.random()*1e9)|0);
   buildFloor(0, RUN_SEED);
-  paintSplashPlan();
+  /* The title plan is painted by the renderer, which the run does not know
+     about. The event is the whole of the dependency. */
+  emit('splash:repaint');
 }
 
 /* ============================================================
@@ -61,18 +62,11 @@ export function rollRunSeed(){
    ============================================================ */
 export let clearCard = { floor:0, clock:0, leaks:0, forms:0 };
 
-// Fills in the card and shows it.
+/* Fills in the card and asks the shell to show it. The numbers live here and
+   the writing on them lives in ui/, because this file must never touch the
+   document — that is what makes it readable, and testable, without a DOM. */
 export function showClear(){
-  const el = id => document.getElementById(id);
-  el('clear-clock').textContent = clockText(clearCard.clock);
-  el('clear-floor').textContent  = clearCard.floor+1;
-  el('clear-leaks').textContent  = clearCard.leaks;
-  el('clear-forms').textContent  = clearCard.forms;
-  // The praise depends only on how much clock was left. Barely making it
-  // gets the cooler line.
-  el('clear-sub').textContent =
-    clearCard.clock >= FLOOR_CLOCK*0.34 ? 'GOOD WORK. MANAGEMENT NOTICES.'
-                                      : 'SEALED. MANAGEMENT HAS NO COMMENT.';
+  emit('clear:show');
   transition('clear');
   Audio_.acclaim();
 }
@@ -164,23 +158,22 @@ export function clockText(s){
    ============================================================ */
 export let resetArmed = false;
 let resetArmTimer = 0;
-const RESET_LABEL  = 'RESET GAME';
-const RESET_ARMED  = 'TAP AGAIN — LOSES THE RUN';
 
-export function paintResetButton(){
-  const b = document.getElementById('btn-reset-run');
-  if (b) b.textContent = resetArmed ? RESET_ARMED : RESET_LABEL;
+/* The label on the button is the shell's business; this file only decides
+   whether the run is armed, and says so. */
+function announceReset(){
+  emit('reset', resetArmed);
 }
 export function disarmReset(){
   resetArmed = false;
   clearTimeout(resetArmTimer);
-  paintResetButton();
+  announceReset();
 }
 export function armReset(){
   resetArmed = true;
   clearTimeout(resetArmTimer);
   resetArmTimer = setTimeout(disarmReset, 5000);
-  paintResetButton();
+  announceReset();
 }
 export function resetRun(){
   /* Follows the same steps as boot: new seed, floor built from it, plan
@@ -237,9 +230,7 @@ transition('play');
 
 // REWIND: replays the same floor after a death, or starts a new run if no lives are left.
 export function retryFloor(){
-if (lives<=0){
-  document.getElementById('btn-start').click(); return;
-}
+if (lives<=0){ startRun(); return; }
 /* Keep the leaks that were already sealed: capture their positions before the
    floor is rebuilt, then re-seal them on the fresh floor. The flood is rebuilt
    afterwards so it only spreads from the pipes that are still open. */
@@ -274,7 +265,7 @@ transition('play');
 // RUN IT AGAIN (win screen): a new building, then a normal start.
 export function runAgain(){
 rollRunSeed();
-document.getElementById('btn-start').click();
+startRun();
 }
 
 /* ============================================================

@@ -1,5 +1,5 @@
 import { Audio_ } from '../audio/index.js';
-import { RUN_SEED, setState, STATE } from '../game/run.js';
+import { RUN_SEED, setState, startRun, STATE } from '../game/run.js';
 import { setTermsOpen } from './terms.js';
 import { show } from './dom.js';
 
@@ -28,7 +28,7 @@ export function advanceSplash(){
   } else if (STATE==='order'){
     // Close the difficulty chooser on the way in, so the next time this ticket is seen it shows the chosen terms and not an open fold.
     setTermsOpen(false);
-    document.getElementById('btn-start').click();
+    startRun();
   }
   syncAmbience();
 }
