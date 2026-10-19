@@ -1,5 +1,6 @@
 import { VHS_PASS } from '../../config/constants.js';
 import { G } from '../../sim/state.js';
+import { SETTINGS } from '../../settings/store.js';
 import { cvs, ctx } from '../canvas.js';
 import { buildGrainFull, grainFull, scanPat } from '../textures.js';
 
@@ -88,8 +89,13 @@ ctx.drawImage(vigCv, 0, 0);
    always on: it was once a setting, but the two things players turned it down for
    (the scanline crawl and the shake) are still here at full strength, so a middle
    setting could not have been honest. The snapshot is taken before the passes
-   that read it. */
-const vhs = VHS_PASS;
+   that read it.
+
+   The strength is now a setting again (SETTINGS.crt). The default is 1.0, which
+   is the full VHS_PASS and the exact look the game has always shipped. The
+   setting is a fraction of the constant, not a replacement for it: VHS_PASS is
+   still the ceiling and the identity of the tape look. */
+const vhs = VHS_PASS * SETTINGS.crt;
 /* The snapshot gives the chroma ghost something to read that does not include
    the ghost itself. It was a full-size copy of the canvas, and the ghost then
    drew that copy twice more at screen size: three full-screen operations for a

@@ -8,6 +8,12 @@ export const engine = {
   // The two continuous noise beds. See noiseFloor() and leakBed() in voices.js.
   floorGain:null, floorFilter:null,
   leakGain:null, leakFilter:null,
+  /* The beds' own gain node, between the beds and the master. The continuous
+     layers (hum, hiss, floor, leak, drone, title ambience) connect here instead
+     of straight to master, so the ambience setting can turn them down without
+     also turning down the one-shot SFX — the information channel stays at the
+     master level while the atmosphere gets its own knob. */
+  beds:null, bedsVol:0.6,
   master:null, mute:null, masterVol:0.7, muted:false,
 
   init(){
@@ -56,10 +62,18 @@ export const engine = {
     this.mute.connect(this.comp);
     this.comp.connect(a.destination);
 
+    /* --- BEDS BUS. Every continuous layer connects to this node and not to the
+       master, so the ambience setting can turn the atmosphere down without
+       touching the one-shot SFX. It sits before the mute and the master, so
+       muting stays total and the volume slider still scales everything. */
+    this.beds = a.createGain();
+    this.beds.gain.value = SETTINGS.ambience;
+    this.beds.connect(this.master);
+
     // --- 60Hz fluorescent hum + its 2nd/3rd harmonics ---
     this.humGain = a.createGain();
     this.humGain.gain.value = 0.035;
-    this.humGain.connect(this.master);
+    this.humGain.connect(this.beds);
     [[60,0.55],[120,0.3],[180,0.12]].forEach(([f,g])=>{
       const o = a.createOscillator(); o.type='sine'; o.frequency.value=f;
       const gg = a.createGain(); gg.gain.value=g;
@@ -71,7 +85,7 @@ export const engine = {
     this.hissGain.gain.value = 0.006;
     const hp = a.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=3800;
     const hs = a.createBufferSource(); hs.buffer=buf; hs.loop=true;
-    hs.connect(hp); hp.connect(this.hissGain); this.hissGain.connect(this.master);
+    hs.connect(hp); hp.connect(this.hissGain); this.hissGain.connect(this.beds);
     hs.start();
 
     // --- proximity drone (Lifeform) ---
@@ -79,7 +93,7 @@ export const engine = {
     this.droneGain.gain.value = 0;
     this.droneFilter = a.createBiquadFilter();
     this.droneFilter.type='lowpass'; this.droneFilter.frequency.value=180;
-    this.droneGain.connect(this.droneFilter); this.droneFilter.connect(this.master);
+    this.droneGain.connect(this.droneFilter); this.droneFilter.connect(this.beds);
     const o1=a.createOscillator(); o1.type='sawtooth'; o1.frequency.value=41;
     const o2=a.createOscillator(); o2.type='sine';     o2.frequency.value=55.5;
     const g2=a.createGain(); g2.gain.value=0.6;
@@ -100,7 +114,7 @@ export const engine = {
     this.floorFilter.type='lowpass';
     this.floorFilter.frequency.value=1200; this.floorFilter.Q.value=0.7;
     this.floorFilter.connect(this.floorGain);
-    this.floorGain.connect(this.master);
+    this.floorGain.connect(this.beds);
     const fn=a.createBufferSource(); fn.buffer=buf; fn.loop=true;
     fn.playbackRate.value=0.5;
     fn.connect(this.floorFilter); fn.start();
@@ -125,7 +139,7 @@ export const engine = {
     this.leakFilter.type='bandpass';
     this.leakFilter.frequency.value=1400; this.leakFilter.Q.value=0.6;
     this.leakFilter.connect(this.leakGain);
-    this.leakGain.connect(this.master);
+    this.leakGain.connect(this.beds);
     const ln=a.createBufferSource(); ln.buffer=buf; ln.loop=true;
     ln.playbackRate.value=1.25;
     ln.connect(this.leakFilter); ln.start();
@@ -161,6 +175,14 @@ export const engine = {
   setMuted(v){
     this.muted = !!v;
     if (this.ok && this.mute) this.mute.gain.setTargetAtTime(this.muted?0:1, this.ctx.currentTime, 0.04);
+  },
+
+  /* Live beds level. Same ramp pattern as setMaster, so changing it mid-session
+     does not click. The floor is 0.02 for the same reason: a gain that truly
+     reaches 0 has to be re-primed on the next change. */
+  setBeds(v){
+    this.bedsVol = Math.max(0.02, Math.min(1, v));
+    if (this.ok && this.beds) this.beds.gain.setTargetAtTime(this.bedsVol, this.ctx.currentTime, 0.05);
   },
 
   /* Browsers will not start an AudioContext without a user gesture, so the

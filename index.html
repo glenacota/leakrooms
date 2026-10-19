@@ -237,10 +237,7 @@
           <div class="pause-page" data-pause-page="settings">
             <div class="settings-grid">
 
-              <div class="setrow">
-                <label for="set-contrast">WATER CONTRAST</label>
-                <input type="range" id="set-contrast" min="0.4" max="2" step="0.1" data-opt="waterContrast">
-              </div>
+              <div class="setrow section"><span>AUDIO</span></div>
 
               <div class="setrow">
                 <label for="set-master">VOLUME</label>
@@ -248,9 +245,31 @@
               </div>
 
               <div class="setrow">
+                <label for="set-ambience">AMBIENCE BEDS</label>
+                <input type="range" id="set-ambience" min="0" max="1" step="0.05" data-opt="ambience">
+              </div>
+
+              <div class="setrow section"><span>DISPLAY</span></div>
+
+              <div class="setrow">
+                <label for="set-contrast">WATER CONTRAST</label>
+                <input type="range" id="set-contrast" min="0.4" max="2" step="0.1" data-opt="waterContrast">
+              </div>
+
+              
+              <div class="setrow">
+                <label for="set-crt">CRT INTENSITY</label>
+                <input type="range" id="set-crt" min="0" max="1" step="0.05" data-opt="crt">
+              </div>
+              
+              <div class="setrow">
                 <span class="lbl">WATER TINT</span>
                 <div class="seg" id="set-hue" data-opt="waterHue" role="group" aria-label="WATER TINT"></div>
-                <p class="note">The leak is the only colour in the building. Pick the one you can actually see.</p>
+              </div>
+
+              <div class="setrow">
+                <span class="lbl">FLASH</span>
+                <div class="seg" id="set-flash" data-opt="flash" role="group" aria-label="FLASH"></div>
               </div>
 
             </div>

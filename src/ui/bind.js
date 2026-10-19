@@ -25,6 +25,9 @@ export function applySettings(){
      ends up here, so applying only the volume would save the mute and change
      nothing the player can hear. */
   Audio_.setMuted(SETTINGS.muted);
+  /* The beds level is applied with the same live binding: it is read by the
+     audio graph through the beds gain node, not stored on a voice. */
+  Audio_.setBeds(SETTINGS.ambience);
 }
 
 /* The DOM side of the event bus. The simulation and the run only report

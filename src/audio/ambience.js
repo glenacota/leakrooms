@@ -27,7 +27,7 @@ export const ambience = {
        anything ever called this directly. */
     if (!this.ok || !this.ctx) return;
     const a=this.ctx, t=a.currentTime;
-    const out=a.createGain(); out.gain.value=0; out.connect(this.master);
+    const out=a.createGain(); out.gain.value=0; out.connect(this.beds);
     const live=[];
     // Fades in over about four seconds, so the bed is already there when the title is
     out.gain.setTargetAtTime(0.85, t, 1.6);

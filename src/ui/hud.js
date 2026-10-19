@@ -5,6 +5,7 @@
 import { BATT_MAX, LOUD, NOISE_FS } from '../config/constants.js';
 import { FLOORS, REPAIR_TIME } from '../config/tuning.js';
 import { G } from '../sim/state.js';
+import { SETTINGS } from '../settings/store.js';
 import { clockText, lives, runLives } from '../game/run.js';
 
 export { clockText } from '../game/run.js';
@@ -38,9 +39,16 @@ let flashT = 0;
 export function flash(text){
   const el=document.getElementById('flashnote');
   el.textContent = text;
+  /* The flash intensity is an inline opacity, not a class change. The class
+     still drives the fade-in transition (the CSS eases opacity toward 1 when
+     .on is present); the inline value caps where that fade lands, so a player
+     who finds the sudden bright text uncomfortable can dial it down without
+     losing the message entirely. It is cleared when the timeout hides the note,
+     so the next flash starts from a known state. */
+  el.style.opacity = SETTINGS.flash ? '1' : '0';
   el.classList.add('on');
   clearTimeout(flashT);
-  flashT = setTimeout(()=>el.classList.remove('on'), 3400);
+  flashT = setTimeout(()=>{ el.classList.remove('on'); el.style.opacity=''; }, 3400);
   if (flashT.unref) flashT.unref();   // a browser returns a number
 }
 

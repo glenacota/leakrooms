@@ -9,18 +9,40 @@
 /* ---------- Layout ---------- */
 .settings-grid{
   display:grid; grid-template-columns:1fr 1fr; gap: 26px;
-  margin:24px 0 6px; text-align:left; padding-top: 20px;
+  margin:24px 0 6px; text-align:left;
 }
 .setrow{ display:flex; flex-direction:column; gap:6px; }
 .setrow label, .setrow .lbl{
-  color:var(--yellow-dim); font-size:13px; font-weight: 900; letter-spacing:.2em;
+  color:var(--yellow-dim); font-size:12px; font-weight: 600; letter-spacing:.2em;
+}
+/* A section header row. It spans both columns of the grid, so the controls
+   below it read as a group. The thin rule under the label is the only
+   decoration: the ticket is a paper form, not a card UI, and a full-width
+   divider is enough to say "new subject" without becoming a banner. */
+.setrow.section{
+  grid-column: 1 / -1;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 10px;
+}
+.setrow.section span{
+  color:var(--yellow); font-size:14px; font-weight:900; letter-spacing:.3em;
+  white-space: nowrap;
+}
+.setrow.section::after{
+  content: "";
+  flex: 1;
+  border-bottom: 1px solid rgba(228,230,168,.18);
+  transform: translateY(-3px);
 }
 .setrow .note{
   margin:0; font-size:13px; font-weight: 900; line-height:1.5; opacity:.55; max-width:46ch;
 }
 .setrow.buttons{
   flex-direction:row; gap:12px; justify-content:flex-end;
-  margin-top:40px;
+  margin-top:50px;
 }
 .setrow.buttons button {  font-weight: 900; padding:10px 15px}
 

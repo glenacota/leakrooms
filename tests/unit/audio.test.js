@@ -89,7 +89,7 @@ console.log('[23] audio — the graph reaches the destination');
      itself so a new sound cannot skip the test — with the shell's own methods
      named out, because those move gains and start timers rather than making a
      sound, and "built no nodes" is the correct answer for all of them. */
-  const SHELL = ['init','setMaster','setMuted','unlock','suspend','resume','ambience',
+  const SHELL = ['init','setMaster','setMuted','setBeds','unlock','suspend','resume','ambience',
                  '_ambStart','_ambTick','_ambStop','_ambNote',
                  /* the two continuous noise beds, their silencer, and the
                     gain curve they share with the one-shots: all four move gains

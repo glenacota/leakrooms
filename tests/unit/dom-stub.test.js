@@ -34,9 +34,9 @@ test('[37] the DOM stub resolves the markup it claims to', () => {
   assert.equal(loud.classList.contains('loud'), true, 'the resolved node is not the loud mark');
 
   /* The five collection shapes, against the counts the markup declares:
-     two segmented rows, two range inputs, two pause tabs, two pause pages. */
-  assert.equal(querySelectorAll('.seg[data-opt]').length, 2, 'wrong number of segmented rows');
-  assert.equal(querySelectorAll('input[type=range][data-opt]').length, 2, 'wrong number of range inputs');
+     three segmented rows, four range inputs, two pause tabs, two pause pages. */
+  assert.equal(querySelectorAll('.seg[data-opt]').length, 3, 'wrong number of segmented rows');
+  assert.equal(querySelectorAll('input[type=range][data-opt]').length, 4, 'wrong number of range inputs');
   assert.equal(querySelectorAll('[data-pause-tab]').length, 2, 'wrong number of pause tabs');
   assert.equal(querySelectorAll('[data-pause-page]').length, 2, 'wrong number of pause pages');
   /* Ten since the fatal card shipped its RELOAD: the markup gained a button, so
