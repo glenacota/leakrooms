@@ -3,10 +3,17 @@ import { hash2 } from '../../util/hash.js';
 import { G } from '../../sim/state.js';
 import { ctx } from '../canvas.js';
 
-/* Scratch data for the water shine, one record per alpha bucket (SHEEN_STEPS,
-   see config/constants.js). It is reused every frame so the pass allocates
-   nothing. */
-const sheenBuckets = Array.from({length:SHEEN_STEPS}, ()=>({ n:0, x0:0, y0:0, x1:0, y1:0 }));
+/* Scratch data for the water shine, one tile list per alpha bucket (SHEEN_STEPS,
+   see config/constants.js). The lists are sized to the viewport and reused, so
+   the pass allocates nothing. */
+const bucketTiles = Array.from({length:SHEEN_STEPS}, ()=>null);
+const bucketCount = new Int32Array(SHEEN_STEPS);
+
+function bucketList(b, cap){
+  let a = bucketTiles[b];
+  if (!a || a.length < cap){ a = new Int32Array(cap); bucketTiles[b] = a; }
+  return a;
+}
 
 export function ground(rc){
   const {t, x0, y0, x1, y1, vw, vh} = rc;
@@ -37,19 +44,18 @@ if (G.wetArr){
      surface. It is only drawn on the deepest tiles, and only where the mask lets
      the player see them, so a dark flooded room stays dark.
 
-     It is BATCHED into four alpha buckets: one path and one fill per bucket. It
-     used to set a fill style from a template string and call fillRect for each
-     tile (up to 400 per frame), measured at 7.8 ms. It was also the one pass whose
-     cost grew with how much of the view was underwater, so it got slower exactly
-     when the player was under pressure. The shimmer survives, because the alpha
+     It is BATCHED into four alpha buckets, one path and one fill each. The alpha
      range is only 0 to 0.05, so four steps differ by 0.0125, below what banding
      on an additive pass can show. Each tile keeps its own phase, so the shine
      crawls and does not pulse as one sheet. */
   ctx.globalCompositeOperation = 'lighter';
   const shx0=Math.max(0,x0), shy0=Math.max(0,y0);
   const ph0 = t*0.0011;
-  let bucket = sheenBuckets;
-  for (let b=0;b<SHEEN_STEPS;b++) bucket[b].n = 0;
+  const cap = vw*vh;
+  for (let b=0;b<SHEEN_STEPS;b++) bucketCount[b] = 0;
+  /* First pass: classify each deep, visible tile once and remember it. The alpha
+     needs a sine, and recomputing it per bucket meant a flooded view paid for
+     every tile up to four times over. */
   for (let y=shy0;y<=y1;y++) for (let x=shx0;x<=x1;x++){
     const i=y*MAP_W+x;
     const w = G.wetArr[i];
@@ -60,34 +66,20 @@ if (G.wetArr){
     if (a <= 0.003) continue;
     let k = (a/0.05*SHEEN_STEPS)|0;
     if (k >= SHEEN_STEPS) k = SHEEN_STEPS-1;
-    const B = bucket[k];
-    B.n++;
-    if (B.n === 1) B.x0 = x, B.y0 = y, B.x1 = x+1, B.y1 = y+1;
-    else { if (x   < B.x0) B.x0 = x;   if (y   < B.y0) B.y0 = y;
-           if (x+1 > B.x1) B.x1 = x+1; if (y+1 > B.y1) B.y1 = y+1; }
+    bucketList(k, cap)[bucketCount[k]++] = i;
   }
-  /* Each bucket is drawn by walking its bounding rectangle, instead of keeping a
-     list of rectangles. The alpha follows the water depth, so a bucket's tiles
-     are close together and the box is a handful of tiles, never more than the
-     viewport. */
+  /* Second pass: one path and one fill per bucket, over the tiles it owns. */
   for (let b=0;b<SHEEN_STEPS;b++){
-    const B = bucket[b];
-    if (!B.n) continue;
+    const n = bucketCount[b];
+    if (!n) continue;
     const mid = ((b+0.5)/SHEEN_STEPS)*0.05;
     if (mid <= 0.003) continue;
     ctx.fillStyle = 'rgba(150,196,206,'+mid.toFixed(4)+')';
     ctx.beginPath();
-    for (let y=B.y0;y<B.y1;y++) for (let x=B.x0;x<B.x1;x++){
-      const i=y*MAP_W+x;
-      const w = G.wetArr[i];
-      if (w < 0.55 || G.maskArr[i] < 0.05) continue;
-      const n = hash2(x*7+3, y*11+5);
-      const a = (w-0.55)/0.45 * 0.05 * (0.5+0.5*Math.sin(ph0 + n*6.28));
-      if (a <= 0.003) continue;
-      let k = (a/0.05*SHEEN_STEPS)|0;
-      if (k >= SHEEN_STEPS) k = SHEEN_STEPS-1;
-      if (k !== b) continue;
-      ctx.rect(x*TILE, y*TILE, TILE, TILE);
+    const list = bucketTiles[b];
+    for (let j=0;j<n;j++){
+      const i = list[j];
+      ctx.rect((i%MAP_W)*TILE, ((i/MAP_W)|0)*TILE, TILE, TILE);
     }
     ctx.fill();
   }

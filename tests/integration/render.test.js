@@ -273,3 +273,57 @@ console.log('[29] canvas state — nothing outlives the frame that opened it');
 });
 
 
+/* ---- the water shine pays one sine per tile it draws ----
+   The shine used to keep each bucket's bounding box and then re-scan that box
+   once per bucket, recomputing the phase on the way. Boxes of neighbouring
+   buckets overlap whenever the deep water is spread out, so a wide flood paid
+   for the same tile up to four times — exactly when the frame budget is
+   thinnest. It now collects the tiles once and draws the lists.
+
+   The cost is counted in Math.sin calls, which is the work being paid for: one
+   per deep, visible tile. The tiles that count are found by wrapping maskArr,
+   which the sheen reads only once a tile is deep enough. */
+test('[47] the water shine scales with the tiles it draws, not the buckets', () => {
+  const t = softAssert();
+console.log('[47] the water shine scales with the tiles it draws, not the buckets');
+{
+  buildFloor(2, 60606);
+  for (let i=0;i<3600;i++) update(1/60);            // let the floor flood
+  let now = Date.now();
+  for (let i=0;i<60;i++) render(now += 16.7);       // settle the camera
+
+  const realSin = Math.sin, mask = G.maskArr, wet = G.wetArr;
+  const frame = ()=>{
+    const seen = new Set();
+    let calls = 0;
+    G.maskArr = new Proxy(mask, { get(a, k){
+      if (typeof k === 'string' && /^\d+$/.test(k)) seen.add(+k);
+      return a[k];
+    }});
+    Math.sin = (...a)=>{ calls++; return realSin(...a); };
+    try { render(now += 16.7); } finally { Math.sin = realSin; G.maskArr = mask; }
+    return { calls, deep: seen.size };
+  };
+
+  /* A real flood: deep water sits around the open pipes, in tight pools. */
+  const flooded = frame();
+  t.assert(flooded.calls <= 1.2*flooded.deep + 200,
+    `a flooded view spent ${flooded.calls} sines on ${flooded.deep} deep visible tiles — `+
+    'more than one per tile drawn');
+
+  /* The case the boxes made expensive: deep water spread across the whole view,
+     in patches, so every bucket's box covers ground the other buckets also
+     hold. Deep water really does look like this on a floor that has been
+     flooding for a while. */
+  for (let i=0;i<wet.length;i++) wet[i] = ((i%76)+((i/76)|0))%2 ? 0 : 0.6+0.4*(i%7)/7;
+  for (let i=0;i<mask.length;i++) mask[i] = 1;
+  const spread = frame();
+  t.assert(spread.calls <= 1.2*spread.deep + 200,
+    `a spread-out flood spent ${spread.calls} sines on ${spread.deep} deep visible tiles `+
+    `(budget ${Math.round(1.2*spread.deep+200)}) — the shine is scanning tiles it does not draw`);
+
+  console.log(`  flooded ${flooded.calls}/${flooded.deep} sines per deep tile, `+
+              `spread ${spread.calls}/${spread.deep} (budget ${Math.round(1.2*spread.deep+200)})`);
+}
+  t.done();
+});

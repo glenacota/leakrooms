@@ -25,6 +25,33 @@ import { ctx } from './canvas.js';
    ============================================================ */
 const DOOR_ROT = { S:0, N:Math.PI, E:-Math.PI/2, W:Math.PI/2 };
 
+/* The lamp and its glow on the wall are radial gradients, drawn every frame for
+   every door. They never change shape — only how bright they are, which the
+   pulse scales — so each is baked once into a small canvas and drawn back with
+   globalAlpha set to the brightness for this frame. */
+const GLOW_R = TILE*2.4, LAMP_R = 7;
+
+function radialSprite(r, innerR, inner, outer){
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = Math.ceil(r*2);
+  const c = cv.getContext('2d');
+  const g = c.createRadialGradient(r, r, innerR, r, r, r);
+  g.addColorStop(0, inner);
+  g.addColorStop(1, outer);
+  c.fillStyle = g;
+  c.fillRect(0, 0, cv.width, cv.height);
+  return cv;
+}
+
+let glowSprite = null, lampReady = null, lampLocked = null;
+
+function doorSprites(){
+  if (glowSprite) return;
+  glowSprite = radialSprite(GLOW_R, 2, 'rgba(143,208,122,1)', 'rgba(143,208,122,0)');
+  lampReady  = radialSprite(LAMP_R, 0.5, '#cdf3bd', 'rgba(0,0,0,0)');
+  lampLocked = radialSprite(LAMP_R, 0.5, '#d8503c', 'rgba(0,0,0,0)');
+}
+
 /**
  * Draws the exit door.
  *
@@ -60,16 +87,14 @@ export function drawDoor(e, t){
   /* The lamp's glow on the wall, drawn before the door itself. It is how the
      state reads from the next room, which is the only time you are far enough
      away for it to matter. */
-  const gr = ctx.createRadialGradient(0, 0, 2, 0, 0, TILE*2.4);
+  doorSprites();
   if (armed){
     const p = 0.5 + 0.5*Math.sin(t*0.010);            // READY pulses
-    gr.addColorStop(0, `rgba(143,208,122,${0.16+0.14*p})`);
+    ctx.globalAlpha = 0.16+0.14*p;
   } else {
-    gr.addColorStop(0, 'rgba(143,208,122,0.10)');     // LOCKED barely shows
+    ctx.globalAlpha = 0.10;                           // LOCKED barely shows
   }
-  gr.addColorStop(1,'rgba(143,208,122,0)');
-  ctx.fillStyle = gr;
-  ctx.fillRect(-TILE*2.4, -TILE*2.4, TILE*4.8, TILE*4.8);
+  ctx.drawImage(glowSprite, -GLOW_R, -GLOW_R);
 
   // The opening, darker than the wall it is cut into
   ctx.fillStyle = 'rgba(16,20,12,0.88)';
@@ -136,10 +161,8 @@ export function drawDoor(e, t){
   const lx = hw + 5, ly = -hh + 1;
   const lit = armed ? (0.6 + 0.4*Math.sin(t*0.010)) : 0.5;
   const col = armed ? '#cdf3bd' : '#d8503c';
-  const lg2 = ctx.createRadialGradient(lx, ly, 0.5, lx, ly, 7);
-  lg2.addColorStop(0, col); lg2.addColorStop(1, 'rgba(0,0,0,0)');
-  ctx.globalAlpha = 0.45*lit; ctx.fillStyle = lg2;
-  ctx.beginPath(); ctx.arc(lx, ly, 7, 0, TAU); ctx.fill();
+  ctx.globalAlpha = 0.45*lit;
+  ctx.drawImage(armed ? lampReady : lampLocked, lx-LAMP_R, ly-LAMP_R);
   ctx.globalAlpha = 1;
   ctx.fillStyle = col;
   ctx.beginPath(); ctx.arc(lx, ly, 2.4, 0, TAU); ctx.fill();
