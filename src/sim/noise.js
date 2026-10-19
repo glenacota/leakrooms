@@ -6,13 +6,13 @@
    LOUD). Loud sounds wake sleepers and start hunts.
    ============================================================ */
 
-import { LOUD, BRUSH_NOISE, MAP_W, MAP_H, NOISE } from '../config/constants.js';
+import { MAP_W, MAP_H, NOISE } from '../config/constants.js';
 import { G } from './state.js';
 import { emit } from '../util/events.js';
 import { solid } from './collision.js';
 
 // How far a sound of this power carries through open floor, in tiles.
-export const hearRadius = power => 4 + power*12;
+export const hearRadius = power => NOISE.HEAR_BASE + power*NOISE.HEAR_GAIN;
 
 /* The walk along a sound's path counts walls and stops after this many.
    Beyond six walls the sound is long gone, so counting a seventh changes
@@ -50,7 +50,7 @@ function wallSteps(ax, ay, x, y){
    Lifeforms still in their opening grace period (born > 0) ignore everything
    except waking from dormancy. */
 export function alert(a, x, y, power){
-  const loud = (power||0) >= LOUD;
+  const loud = (power||0) >= NOISE.LOUD;
 
   if (a.state==='DORMANT'){
     if (!loud) return;
@@ -112,7 +112,7 @@ export function brush(a, p){
   if (a.state==='HUNT'){ emit('caught'); return; }
   a.state='HUNT'; a.target={x:p.x, y:p.y}; a.t=0;
   a.rise=Math.max(a.rise, 0.85);
-  emitNoise(BRUSH_NOISE, p.x, p.y);
+  emitNoise(NOISE.BRUSH, p.x, p.y);
   emit('flash', 'IT TOUCHED YOU');
   emit('sfx', 'rattle', 1);
 }

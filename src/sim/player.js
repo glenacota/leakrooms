@@ -1,4 +1,4 @@
-import { BATT_MAX, RADAR_DRAIN, R, SPRINT, SPRINT_NOISE, WALK } from '../config/constants.js';
+import { BATT_MAX, NOISE, RADAR_DRAIN, R, SPRINT, WALK } from '../config/constants.js';
 import { emit } from '../util/events.js';
 import { moveEnt, unstick } from './collision.js';
 import { seedSplash, wetAt } from './flood.js';
@@ -77,7 +77,7 @@ export function tickMovement(dt){
     /* One value, three uses: the noise meter, what the lifeforms hear, and how
        loud the footstep sounds. Passing it to the sound as well is what makes a
        sprinting step sound like a sprint and not just a louder walk. */
-    const stepPow = sprinting ? SPRINT_NOISE : (inWater ? 0.30 : 0.22);
+    const stepPow = sprinting ? NOISE.SPRINT : (inWater ? NOISE.WADE : NOISE.WALK);
     sustainedNoise(stepPow, p.x, p.y, true);
     p.stepT -= dt;
     if (p.stepT<=0){
@@ -94,8 +94,8 @@ export function tickMovement(dt){
     }
   }
   // Walking into a wall is the player's own noise, so it shows on the meter: a small spike above whatever you were already making.
-  if (bumped && sprinting) emitNoise(0.55, p.x, p.y, true);
-  else if (bumped) sustainedNoise(0.3, p.x, p.y, true);
+  if (bumped && sprinting) emitNoise(NOISE.BUMP_SPRINT, p.x, p.y, true);
+  else if (bumped) sustainedNoise(NOISE.BUMP_WALK, p.x, p.y, true);
 
   return { moving, bumped, sprinting, wet };
 }

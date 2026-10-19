@@ -142,18 +142,20 @@ console.log('[20] settings — persistence, validation, and the difficulty contr
 
   /* --- THE CONTRACT: no preset touches the noise table --- */
   {
-    const noiseBefore = { LOUD:A.LOUD, repair:A.REPAIR_NOISE,
-                          base:A.LEAK_NOISE_BASE, gain:A.LEAK_NOISE_GAIN,
-                          wade:0.30, walk:0.22, sprint:1.0 };
+    const noiseBefore = { ...A.NOISE };
+    const leakBefore = { base:A.LEAK_NOISE_BASE, gain:A.LEAK_NOISE_GAIN };
     const seen = [];
     for (const k of Object.keys(A.DIFFICULTIES)){
       A.setOption('difficulty', k);
       seen.push({ k, levels:A.FLOORS, clock:A.FLOOR_CLOCK, lives:A.DIFFICULTIES[k].lives,
                   repair:A.REPAIR_TIME, hunt:A.HUNT_BASE, step:A.HUNT_STEP });
-      t.assert(A.LOUD===noiseBefore.LOUD, `preset ${k} changed LOUD`);
-      t.assert(A.REPAIR_NOISE===noiseBefore.repair, `preset ${k} changed the wrench noise`);
-      t.assert(A.LEAK_NOISE_BASE===noiseBefore.base, `preset ${k} changed the leak's base noise`);
-      t.assert(A.LEAK_NOISE_GAIN===noiseBefore.gain, `preset ${k} changed the leak's noise gain`);
+      for (const key of Object.keys(noiseBefore))
+        t.assert(A.NOISE[key]===noiseBefore[key],
+          `preset ${k} changed NOISE.${key} — a difficulty must not reach the noise contract`);
+      t.assert(A.LEAK_NOISE_BASE===leakBefore.base,
+        `preset ${k} changed the leak's base noise`);
+      t.assert(A.LEAK_NOISE_GAIN===leakBefore.gain,
+        `preset ${k} changed the leak's noise gain`);
       /* The five levels are the run. A preset that trimmed one made the game
          have a different number of endings depending on the menu, so every
          preset plays all five and only the pressure around them moves. */
@@ -161,10 +163,10 @@ console.log('[20] settings — persistence, validation, and the difficulty contr
         `preset ${k} plays ${A.FLOORS} levels — the five-level run is not a setting`);
     }
     /* and the ordering that makes the stealth layer work still holds */
-    t.assert(A.LEAK_NOISE_BASE + A.LEAK_NOISE_GAIN < A.LOUD,
+    t.assert(A.LEAK_NOISE_BASE + A.LEAK_NOISE_GAIN < A.NOISE.LOUD,
       'the leak can cross LOUD under some preset — the lure becomes a hunt trigger');
-    t.assert(A.LEAK_NOISE_BASE < 0.30, 'wading is no longer quieter than a wet step');
-    t.assert(A.REPAIR_NOISE >= A.LOUD, 'the repair is no longer the loud decision');
+    t.assert(A.LEAK_NOISE_BASE < A.NOISE.WADE, 'wading is no longer quieter than a wet step');
+    t.assert(A.NOISE.REPAIR >= A.NOISE.LOUD, 'the repair is no longer the loud decision');
     t.assert(seen.length===3, `expected 3 difficulty presets, saw ${seen.length}`);
     for (const p of seen) t.assert(p.levels>=1 && p.lives>=1 && p.clock>0, `preset ${p.k} is degenerate`);
     console.log(`  3 presets move lives/clock/repair/chase only — noise table and level count untouched`);

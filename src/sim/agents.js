@@ -9,7 +9,7 @@
    Noise reactions are in noise.js (alert).
    ============================================================ */
 
-import { CATCH_R, LEAK_LURE, MAP_W, RA } from '../config/constants.js';
+import { AGENT, CATCH_R, LEAK_LURE, MAP_W, RA } from '../config/constants.js';
 import { HUNT_BASE, HUNT_STEP } from '../config/tuning.js';
 import { blocked, moveEnt, unstick } from './collision.js';
 import { brush } from './noise.js';
@@ -27,16 +27,16 @@ export function tickAgents(dt){
     const d = Math.hypot(a.x-p.x, a.y-p.y);
     if (a.state!=='DORMANT' && a.rise>0.5) nearest = Math.min(nearest, d);
     // Line-of-sight check: close enough, facing the player, and nothing in between
-    if (a.rise>0.5 && d < 8){
+    if (a.rise>0.5 && d < AGENT.SIGHT){
       const vx=Math.cos(a.face), vy=Math.sin(a.face);
       const dot = ((p.x-a.x)*vx + (p.y-a.y)*vy) / (d||1);
-      if (dot > 0.28 && G.los(a.x,a.y,p.x,p.y)){
+      if (dot > AGENT.SIGHT_DOT && G.los(a.x,a.y,p.x,p.y)){
         /* It sees you by the light you stand in, which is the bake times the
            room visibility. Using the bake alone would let it see you in a room
            whose lights are, as far as the screen shows, off. */
         const pi = Math.floor(p.y)*MAP_W+Math.floor(p.x);
         const amb = (G.lightArr[pi] || 0) * (G.visArr[pi] || 0);
-        if (amb > 0.30){
+        if (amb > AGENT.SIGHT_AMBIENT){
           seenBy = Math.max(seenBy, 1);
           if (a.born<=0){ a.state='HUNT'; a.target={x:p.x,y:p.y}; a.t=0; }
         }
@@ -74,7 +74,7 @@ export function updateAgent(a, dt, p){
       a.t = 2.6 + G.arng()*3;
     }
     a.t -= dt;
-    const spd = 1.5 + G.floor*0.1;
+    const spd = AGENT.WALK_SPEED + G.floor*AGENT.WALK_STEP;
     const ang = Math.atan2(a.target.y-a.y, a.target.x-a.x);
     a.face = ang;
     moveEnt(a, Math.cos(ang)*spd*dt, Math.sin(ang)*spd*dt, RA);
@@ -128,7 +128,7 @@ export function updateAgent(a, dt, p){
     }
     const ang = Math.atan2(a.target.y-a.y, a.target.x-a.x);
     a.face = ang;
-    moveEnt(a, Math.cos(ang)*2.3*dt, Math.sin(ang)*2.3*dt, RA);
+    moveEnt(a, Math.cos(ang)*AGENT.SEARCH_SPEED*dt, Math.sin(ang)*AGENT.SEARCH_SPEED*dt, RA);
     if (Math.hypot(a.x-p.x,a.y-p.y) < CATCH_R) brush(a, p);
     if (a.t<=0){
       a.state = 'DORMANT'; a.rise=0.3; a.target=null;

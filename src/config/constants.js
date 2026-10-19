@@ -132,16 +132,8 @@ export const LEAK_HEADSTART = 42;
    choose to be immobile and loud in a building with something in it. */
 export const REPAIR_REACH = 1.25;   // how close you must be to the pipe's standing spot
 export const REPAIR_DECAY = 2.6;    // whole bars lost per second once you move
-export const REPAIR_NOISE = 0.85;   // above LOUD, and louder than a sprint on purpose
-
-/* The loudest noise you can make while moving. It is below the wrench, so the
-   noise meter can show which of the two loud choices you are making. It was
-   once 1.0, which beat the wrench and pegged the bar.
-
-   0.72 is still 3.3 times a walk (0.22) and well above LOUD, so a sprint still
-   wakes a sleeping coil. How far each carries (hearRadius): walk 6.6 tiles,
-   sprint 12.6, wrench 14.2. */
-export const SPRINT_NOISE = 0.72;
+/* The wrench's noise power is NOISE.REPAIR: above LOUD, and louder than a
+   sprint on purpose. */
 
 /* ---------- Tiles ---------- */
 export const WALL = 0, FLOOR = 1;
@@ -235,18 +227,61 @@ export const SCALE_GOOD_FRAMES = 180;  // fast frames needed before raising
 export const WET_DRAW = 0.015;          // below this a tile is fully transparent
 export const WET_EDGE = WET_DRAW*0.8;   // below this the simulation stops updating the tile
 
-/* ---------- Noise ---------- */
+/* ---------- Noise ----------
+   Every noise power in the game, in one frozen table. They were named
+   constants scattered through the simulation, which meant the relationships
+   between them (a walk under LOUD, a sprint over it, the wrench above both)
+   could only be checked by reading every file. Read them here instead.
 
-/* The threshold between "makes a lifeform curious" and "wakes or hunts". Walking
-   and wading are below it, sprinting and the wrench are above it. */
-export const LOUD = 0.5;
+   Frozen because this is the stealth contract: a difficulty preset must not
+   be able to nudge a number that decides what a lifeform hears. */
+export const NOISE = Object.freeze({
+  /* What the player makes. */
+  WALK: 0.22,          // a dry step; the quiet end of the contract
+  WADE: 0.30,          // a wet step — louder, still under LOUD on purpose
+  SPRINT: 0.72,        // 3.3 times a walk, and well above LOUD
+  REPAIR: 0.85,        // the wrench: the loud decision, above LOUD
+  BUMP_SPRINT: 0.55,   // walked into a wall while sprinting
+  BUMP_WALK: 0.3,      // walked into a wall
 
-/* How much one wall takes off the distance a sound travels, in tiles. A walk is
-   heard 6.6 tiles away in the open, so two walls leave it near the edge of
-   hearing and three put it out of range. That makes walls real cover. This
-   changes how far sounds carry, not how loud anything is, so LOUD and the noise
-   powers are untouched. */
-export const NOISE = { WALL_COST: 3.0 };
+  /* What the building makes, and what happens to you. */
+  DOOR: 1.8,           // the door is the loudest thing in the building
+  BRUSH: 1.2,          // a lifeform touching you is heard across the floor
+
+  /* The threshold between "makes a lifeform curious" and "wakes or hunts".
+     Walking and wading are below it, sprinting and the wrench are above it. */
+  LOUD: 0.5,
+
+  /* How far a sound carries: a floor of HEAR_BASE tiles plus HEAR_GAIN per
+     unit of power. A walk reaches 6.6 tiles, a sprint 12.6, the wrench 14.2. */
+  HEAR_BASE: 4,
+  HEAR_GAIN: 12,
+
+  /* How much one wall takes off the distance a sound travels, in tiles. A walk
+     is heard 6.6 tiles away in the open, so two walls leave it near the edge of
+     hearing and three put it out of range. That makes walls real cover. This
+     changes how far sounds carry, not how loud anything is, so LOUD and the
+     noise powers are untouched. */
+  WALL_COST: 3.0,
+});
+
+/* ---------- Lifeforms ----------
+   The things hunting you are not tuning: every number here is the same on
+   every difficulty, which is why they are frozen constants and not preset
+   values. The chase SPEED lives in config/tuning.js, because a preset is
+   allowed to move it. */
+export const AGENT = Object.freeze({
+  WALK_SPEED: 1.5,     // tiles per second while wandering
+  WALK_STEP: 0.1,      // extra wander speed per floor
+  SEARCH_SPEED: 2.3,   // tiles per second toward a noise it is investigating
+  SIGHT: 8,            // tiles — closer than this and it looks
+  SIGHT_DOT: 0.28,     // and only inside this cone of its facing
+  SIGHT_AMBIENT: 0.30, // ...and only if the light you stand in is above this
+});
+
+/* ---------- Names the rest of the tree already imports ----------
+   These read off the table, so there is one place to change a noise power and
+   every existing import keeps working. */
 
 /* What a full noise bar means: the loudest sustained thing you can do, the
    wrench. It must not be BATT_MAX: the bar used to divide by that, so a sprint
@@ -254,10 +289,10 @@ export const NOISE = { WALL_COST: 3.0 };
 
    On the bar: walk 26%, wading 35%, sprint 85%, wrench 100%, and LOUD sits at
    59%. The standing hiss of four open pipes is 14% to 56%. */
-export const NOISE_FS = REPAIR_NOISE;
+export const NOISE_FS = NOISE.REPAIR;
 
-/* Two powers outside the normal range. The door is the loudest thing in the
-   building (the bar clamps there), and being touched by a lifeform is loud
-   enough to be heard across the floor. */
-export const DOOR_NOISE = 1.8;
-export const BRUSH_NOISE = 1.2;
+export const LOUD        = NOISE.LOUD;
+export const SPRINT_NOISE= NOISE.SPRINT;
+export const REPAIR_NOISE= NOISE.REPAIR;
+export const DOOR_NOISE  = NOISE.DOOR;
+export const BRUSH_NOISE = NOISE.BRUSH;
