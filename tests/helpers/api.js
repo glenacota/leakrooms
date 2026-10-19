@@ -51,7 +51,7 @@ import { attachFloorImages } from '../../src/render/bake.js';
 import { packMask, packWet, setPixels } from '../../src/render/pack.js';
 import { paintSplashPlan } from '../../src/render/splash-plan.js';
 import { buildGlowSprite, render, setSimAlpha } from '../../src/render/render.js';
-import { ENT, drawAgent, drawPlayer } from '../../src/render/entities.js';
+import { ENT, drawAgent, drawDoor, drawPlayer } from '../../src/render/entities.js';
 import { SETTINGS, loadSettings, saveSettings, resetSettings, setOption } from '../../src/settings/store.js';
 import { on, emit } from '../../src/util/events.js';
 import * as _C from '../../src/config/constants.js';
@@ -165,5 +165,5 @@ set runTime(v){ setRunTime(v); },
 get runLives(){ return runLives; },
 get runStat(){ return runStat; },
 /* the cast, inlined: the avatar's rig and the thing hunting it */
-drawRigger, drawStalker, ENT,
+drawRigger, drawStalker, drawDoor, ENT,
 };

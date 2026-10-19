@@ -327,3 +327,42 @@ console.log('[47] the water shine scales with the tiles it draws, not the bucket
 }
   t.done();
 });
+
+/* ---- the door's body is drawn at full alpha ----
+   The lamp glow is a cached sprite whose brightness comes from globalAlpha.
+   Forgetting to restore it left the rest of the door — opening, frame, leaf,
+   hinges — drawn at the glow's alpha, and the player behind it too, which made
+   the door look like glass. A stub canvas neither composites nor restores, so
+   the check is on the alpha in force at each fill: the glow and the lamp are
+   drawImage, and every fill in the door must be opaque. */
+test('[48] the door draws its glow without dimming the rest of the frame', () => {
+  const t = softAssert();
+console.log('[48] the door draws its glow without dimming the rest of the frame');
+{
+  buildFloor(0, 24601);
+  const door = G.exitTiles[0];
+  const c = A.ctxRef;
+
+  /* READY and LOCKED set different glow alphas (0.16 to 0.30 against 0.10), so
+     both are worth walking. */
+  for (const sealed of [true, false]){
+    G.leaksOpen = sealed ? 0 : 1;
+    const alphas = [];
+    const realFillRect = c.fillRect, realFill = c.fill;
+    c.fillRect = (...a)=>{ alphas.push(c.globalAlpha); return realFillRect.apply(c, a); };
+    c.fill     = (...a)=>{ alphas.push(c.globalAlpha); return realFill.apply(c, a); };
+    calls.list.length = 0;
+    try { A.drawDoor(door, 1000); } finally { c.fillRect = realFillRect; c.fill = realFill; }
+
+    const faint = alphas.filter(a => a !== 1);
+    t.assert(alphas.length > 0, `${sealed ? 'READY' : 'LOCKED'}: the door drew no fills at all`);
+    t.assert(faint.length === 0,
+      `${sealed ? 'READY' : 'LOCKED'}: ${faint.length} of ${alphas.length} door fills were drawn at alpha `+
+      `${[...new Set(faint)]} — the glow's alpha was never restored`);
+    t.assert(calls.list.some(k => k[0] === 'drawImage'),
+      `${sealed ? 'READY' : 'LOCKED'}: the glow sprite was not drawn`);
+  }
+  console.log('  every fill in both door states is drawn at alpha 1');
+}
+  t.done();
+});

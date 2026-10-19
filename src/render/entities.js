@@ -95,6 +95,7 @@ export function drawDoor(e, t){
     ctx.globalAlpha = 0.10;                           // LOCKED barely shows
   }
   ctx.drawImage(glowSprite, -GLOW_R, -GLOW_R);
+  ctx.globalAlpha = 1;      // the glow carries its own brightness; the door does not
 
   // The opening, darker than the wall it is cut into
   ctx.fillStyle = 'rgba(16,20,12,0.88)';
