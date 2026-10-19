@@ -1,19 +1,7 @@
-/* THE REDRAW GATE.
-
-   Off play the loop was calling render() sixty times a second to paint a floor
-   that is not stepping, under a card that does not move — a full ground pass,
-   light composite and post chain, per frame, producing a pixel-identical image.
-   The gate is asserted here as a count of calls to the render hook, because
-   that is the thing the loop actually controls and the thing the player pays
-   for.
-
-   Three states, three numbers: nothing on the splash, a state change plus a
-   250ms heartbeat on the cards, every frame on play. The heartbeat matters and
-   is easy to drop — the renderer keeps time-based flicker in its passes, so a
-   card that is only ever drawn once is a card whose CRT is switched off.
-
-   Its own file because tests/unit/loop.test.js ends with three consecutive
-   throwing frames, and the loop stops for good after the third. */
+/* The loop must not repaint sixty times a second to draw a floor that is not
+   stepping, so the saving is measured as a count of render calls. Nothing on
+   the splash, a state change plus a 250ms heartbeat on the cards, every frame
+   on play. */
 import test from 'node:test';
 import { strict as assert } from 'node:assert';
 import { loadGame } from '../helpers/harness.js';
@@ -21,12 +9,14 @@ import { setFrameHooks } from '../../src/game/loop.js';
 
 const { A } = await loadGame();
 
-test('[46] a frame is only drawn when there is something new to draw', () => {
+/* Its own file because tests/unit/loop.test.js ends with three consecutive
+   throwing frames, and the loop stops for good after the third. */
+test('a frame is only drawn when there is something new to draw', () => {
   let renders = 0;
   setFrameHooks({ render(){ renders++; } });
 
-  /* One second of real frames at 60Hz — the same drive the clock assertions
-     use, so the heartbeat has a real number of frames to appear in. */
+  /* One second of real frames at 60Hz, the same drive the clock assertions use,
+     so the heartbeat has a real number of frames to appear in. */
   const second = (state)=>{
     let now = 0;
     for (let i=0;i<60;i++) A.frame(now += 1000/60);
@@ -48,13 +38,12 @@ test('[46] a frame is only drawn when there is something new to draw', () => {
   assert.ok(onPause <= 5, `${onPause} renders on the pause ticket in one second — `+
     'the gate is holding the state change and the heartbeat but not dropping the frames between them');
 
-  /* And play is untouched: the gate is a saving on the frozen states, not a
-     change to the one that moves. */
+  /* Play is untouched: the gate is a saving on the frozen states, not a change
+     to the one that moves. */
   A.STATE = 'play';
   renders = 0;
   const onPlay = second();
   assert.equal(onPlay, 60, `play drew ${onPlay} frames out of 60 — the gate is in the way of the running game`);
 
-  console.log('[46] a frame is only drawn when there is something new to draw');
   console.log(`  60 frames each: splash ${onSplash}, pause ${onPause} (state change + 4 heartbeats), play ${onPlay}`);
 });

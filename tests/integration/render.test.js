@@ -9,10 +9,11 @@ const buildFloor = A.buildFloor;
 const update = A.update;
 const render = A.render;
 
-/* ============ TEST 5: render does not throw ============ */
-test('[5] render — 400 frames of full draw', () => {
+/* Every draw pass has to survive a real frame on a real floor. Rendering is the
+   one place a bad coordinate or an unimplemented stub method throws, so this
+   drives 400 frames of draw plus update and asserts no exception escapes. */
+test('render survives 400 frames of full draw', () => {
   const t = softAssert();
-console.log('[5] render — 400 frames of full draw');
 {
   buildFloor(2, 4242);
   let now=Date.now(), err=null;
@@ -26,13 +27,11 @@ console.log('[5] render — 400 frames of full draw');
 });
 
 
-/* ============ TEST 7: camera mapping ==============================
-   The first playable build panned the world the wrong way and threw the
-   player off-screen: the camera offset mixed a pre-scaled value with a
-   device-space one and carried SCALE twice. Lock the mapping down.        */
-test('[7] camera mapping — player centred, world not inverted', () => {
+/* The camera mixes world and device coordinates, so a mistake here inverts the
+   view or applies SCALE twice without throwing anything. This locks the mapping:
+   the player centred, a tile to the left on the left, one transform only. */
+test('the camera centres the player and keeps the world upright', () => {
   const t = softAssert();
-console.log('[7] camera mapping — player centred, world not inverted');
 {
   buildFloor(2, 31337);
   G.player.x = 51.25; G.player.y = 18.6; G.player.face = 0;
@@ -111,21 +110,12 @@ console.log('[7] camera mapping — player centred, world not inverted');
 });
 
 
-/* ============ TEST 19: the leak is actually DRAWN =============================
-   Test 5 renders 400 frames and throws no exception, and the leak visual was
-   absent from every one of them. It was being filled at WORLD coordinates in
-   the one pass that runs after ctx.restore(), so it landed at raw pixel 1360
-   and off the edge of a 1218px canvas — correctly sized, correctly gated,
-   correctly computed, and completely invisible.
-
-   The general shape of that bug is not specific to the leak: anything drawn
-   after the world transform is restored has to convert coordinates itself, and
-   nothing about the arithmetic looks wrong. So this test does what test 5
-   cannot and checks WHERE the pixels landed — if the pipe is on screen, the
-   pipe's tile must have changed colour. */
-test('[19] the leak is drawn where it is, not just where it is computed', () => {
+/* A pass that throws is caught elsewhere. What this defends is a pass that
+   computes the right numbers in the wrong coordinate space: run after the world
+   transform is restored, a world-space fill lands off the canvas and the pipe is
+   invisible while every assertion about it still passes. So check the pixels. */
+test('the leak is drawn where it is, not just where it is computed', () => {
   const t = softAssert();
-console.log('[19] the leak is drawn where it is, not just where it is computed');
 {
   const W=76;
   buildFloor(2, 2468);

@@ -8,24 +8,17 @@ const buildFloor = A.buildFloor;
 const update = A.update;
 A.setHeadless(false, false);
 
-/* ============ TEST 15: the leak ===============================
-   A new mandatory objective, and every one of these is a way the mechanic
-   silently stops working. The three that matter most:
-
-   - the leak must be REACHABLE, or the floor is unwinnable and no other test
-     in this file would notice, because none of them require the repair;
-   - water must never appear on a WALL, because the renderer draws the flood
-     under the walls and a wet wall tile is either invisible (harmless) or,
-     worse, visible through the lighting multiply and reads as a hole;
-   - the leak must never reach LOUD. A leak at LOUD stops being a lure and
-     becomes a floor-wide hunt trigger, which deletes the repair's tension. */
-test('[15] the pipes — placement, reachability, and the flood field', () => {
+/* Three things break the repair mechanic quietly. An unreachable pipe makes the
+   floor unwinnable, and no other assertion here would notice because none of
+   them needs the repair. Water on a wall draws under the walls, so a wet wall
+   tile either disappears or reads as a hole in the lighting. And a pipe that
+   reaches LOUD stops being a lure and becomes a level-wide hunt trigger. */
+test('leaks are placed on walls, stay reachable, and flood downhill', () => {
   const t = softAssert();
-console.log('[15] the pipes — placement, reachability, and the flood field');
 {
   const W=76;
 
-  /* --- placement over 200 levels, and every riser on every level --- */
+  /* placement, across 200 floors and every riser on each one */
   let unreachable=0, onWall=0, tooClose=0, noSpot=0, sealedAtStart=0, wrongCount=0, pipes=0;
   for (let s=0; s<200; s++){
     buildFloor(s % A.LEVELS_N, s*7907+31);
@@ -40,9 +33,9 @@ console.log('[15] the pipes — placement, reachability, and the flood field');
       if (G.grid[L.y*W+L.x] !== 0) onWall++;
       if (L.fixed) sealedAtStart++;
 
-      /* the repair spot must be floor the player can physically stand on, and it
-         must be inside the map. An unreachable repair is an unwinnable level —
-         and with a clock on the level, an unwinnable one is a dead one. */
+      /* The repair spot must be standable floor inside the map. A pipe the player
+         cannot reach makes the level unwinnable, and with a clock running that
+         is a lost life, not a puzzle. */
       if (L.sx<0||L.sy<0||L.sx>=W||L.sy>=W || G.grid[L.sy*W+L.sx]!==1) noSpot++;
       if (blocked(L.sx+0.5, L.sy+0.5, 0.33)) unreachable++;
 
@@ -58,7 +51,7 @@ console.log('[15] the pipes — placement, reachability, and the flood field');
   t.assert(sealedAtStart===0, `${sealedAtStart} pipes start already sealed`);
   console.log(`  200 levels, ${pipes} pipes: every one on a wall, every repair spot standable`);
 
-  /* --- water can only exist on floor it can actually reach --- */
+  /* water can only exist on floor it can actually reach */
   buildFloor(2, 60606);
   {
     let bad=0, unreachableWet=0;
@@ -72,12 +65,10 @@ console.log('[15] the pipes — placement, reachability, and the flood field');
     console.log(`  water field: ${G.wetFloor} reachable tiles, no wall tiles, none unreachable`);
   }
 
-  /* --- the distance field is a real distance field ---
-     MULTI-SOURCE: distance to the NEAREST riser. Every riser's own standing
-     spot must therefore sit at zero, and the field must still be monotone — a
-     multi-source BFS that seeded the second riser without checking whether the
-     first had already reached it would produce a field with two zero basins and
-     water arriving in the wrong order between them. */
+  /* The field holds distance to the NEAREST riser, so every riser's own spot
+     must sit at zero and the field must stay monotone across each floor edge.
+     Seeding a second riser without checking whether the first already reached
+     it would leave two zero basins and let water arrive in the wrong order. */
   {
     let missing=0, jumps=0;
     for (const L of G.leaks){
@@ -102,11 +93,10 @@ console.log('[15] the pipes — placement, reachability, and the flood field');
     console.log(`  distance field seeded from all ${G.leaks.length} pipes and monotone across every floor edge`);
   }
 
-  /* --- there IS a trail from the first second ---
-     The flood is pre-warmed by LEAK_HEADSTART. Without it a level opens bone
-     dry and the player has no cue at all until water happens to reach them,
-     which is the exact opposite of "follow the wet floor downhill" and turns
-     the first half-minute into a blind search. */
+  /* there is a trail from the first second
+     The flood is pre-warmed by LEAK_HEADSTART. Without it a floor opens dry and
+     the player has no cue until water happens to reach them, which turns the
+     opening half-minute into a blind search. */
   {
     let floorsWithTrail=0, dryAtStart=0;
     for (let s=0;s<40;s++){
@@ -121,7 +111,7 @@ console.log('[15] the pipes — placement, reachability, and the flood field');
     console.log(`  every level opens with water already standing (${floorsWithTrail}/40)`);
   }
 
-  /* --- the flood rises, is bounded, and never touches a wall --- */
+  /* the flood rises, is bounded, and never touches a wall */
   {
     for (let i=0;i<600;i++) update(1/30);      // 20 seconds
     let over=0, wallWet=0, nan=0;
@@ -139,19 +129,16 @@ console.log('[15] the pipes — placement, reachability, and the flood field');
     console.log(`  after 20s: ${(cover*100).toFixed(0)}% of the floor is wet, no wall is wet`);
   }
 
-  /* --- the incremental flood gauge agrees with a straight re-sum ---
-     G.floodCover is maintained by adding the DELTA as the waterline band
-     moves, and it is read by the leak's own noise level and by the HUD. An
-     incremental sum that genuinely drifted would be invisible in every other
-     assertion here: the tiles would be exactly right and the number would be
-     wrong, which shows up as a gauge reading 40% on a dry floor.
+  /* The incremental flood gauge agrees with a straight re-sum.
+     G.floodCover is maintained by adding the DELTA as the waterline band moves,
+     and it is read by the leak's own noise level and by the HUD. An incremental
+     sum that drifts leaves the tiles exactly right and the number wrong, which
+     shows up as a gauge reading 40% on a dry floor.
 
-     The tolerance is NOT 1e-6, which is what the first version of this asked
-     for and which fails. wetArr is a Float32Array: every stored wetness is
-     rounded to ~6e-8, and the sum accumulates that rounding once per tile per
-     update, so the drift is bounded by roughly eps x tiles and grows slowly.
-     What must be ruled out is drift of a different KIND — a band recomputed
-     twice, or a splash that does not update the sum — and those are orders of
+     The tolerance is not 1e-6. wetArr is a Float32Array, so every stored value
+     is rounded to about 6e-8 and the sum accumulates that once per tile per
+     update. What must be ruled out is drift of a different kind, such as a band
+     recomputed twice or a splash that skips the sum, and those are orders of
      magnitude larger than the bound below. */
   {
     let worst=0;

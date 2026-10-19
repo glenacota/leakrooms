@@ -9,14 +9,14 @@ const emitNoise = A.emitNoise;
 const inWall = makeInWall(G);
 A.setHeadless(false, false);
 
-/* ============ TEST 3: entities stay on floor, stay finite ============ */
-test('[3] entity AI — 20000 frames', () => {
+/* Entities move on the same collision disc as the player, so their AI can walk
+   them into geometry or into NaN. A long noisy run must also reach HUNT, or the
+   AI has stopped responding to sound. */
+test('agents stay out of geometry and react to noise', () => {
   const t = softAssert();
-console.log('[3] entity AI — 20000 frames');
 {
-  /* Level 5, deliberately. The count of things in the building is a property of
-     the level now and level 1 has exactly one, so a test that wanted both a
-     dormant coil and a woken hunter has to ask a level that has both. */
+  /* Level 5, deliberately: it is the level with both a dormant coil and a
+     woken hunter in it, and level 1 has exactly one thing in the building. */
   buildFloor(A.LEVELS_N-1, 999);
   let bad=0, hunted=0, dormant=0;
   for (let i=0;i<20000;i++){

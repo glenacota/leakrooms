@@ -1,14 +1,13 @@
-/* DOM/canvas/Web-Audio stubs for the headless harness. Moved verbatim from
-   test.js — the behaviour they encode (recording draw calls, remembering
-   scheduled AudioParam values, round-tripping packed pixels) is load-bearing
-   for the render, audio and flood tests. */
+/* DOM, canvas and Web Audio stubs for the headless harness.
+   Recording draw calls, remembering scheduled AudioParam values and
+   round-tripping packed pixels are all load-bearing for the render, audio and
+   flood tests, so these stubs are not cosmetic. */
 export const calls = { pattern:0, imageData:0, gradient:0, list:[] };
 
-/* getImageData reads back what putImageData last wrote. That round-trip is not
-   incidental: the flood is rendered through a packed image, and asserting on
-   wetArr alone would pass while the renderer drew nothing — the exact class of
-   bug the README says several of these tests missed. Reading the pixels is the
-   only way to see what the frame actually contains. */
+/* getImageData reads back what putImageData last wrote. The flood is rendered
+   through a packed image, and asserting on wetArr alone would pass while the
+   renderer drew nothing. Reading the pixels is the only way to see what the
+   frame actually contains. */
 export function fakeCtx(){
   const noop = ()=>{};
   const grad = { addColorStop: noop };
@@ -30,17 +29,12 @@ export function fakeCtx(){
     createLinearGradient: (...a)=>{ calls.gradient++; calls.list.push(['createLinearGradient',...a]); return grad; },
     createRadialGradient: (...a)=>{ calls.gradient++; calls.list.push(['createRadialGradient',...a]); return grad; },
     fillRect(...a){ calls.list.push(['fillRect',...a]); },
-    /* arc and stroke are recorded because the repair ring is drawn with them
-       and nothing else. It used to be asserted through the leak's gradients
-       instead, which is measuring a different object two inches away and lands
-       exactly on the tolerance boundary for any pipe north or south of the
-       spot — a test that passes or fails on the seed. */
+    /* arc and stroke are recorded because the repair ring is drawn with them and
+       nothing else, so they are the only way to find the ring's radius. */
     arc(...a){ calls.list.push(['arc',...a]); },
-    /* ellipse is recorded for the same reason arc is, and for the same reason it
-       was missing: both sprites open with a contact shadow drawn as an ellipse,
-       so it is the first primitive that reveals where the figure was actually
-       placed. Without it the harness silently swallowed the one call that
-       answers "is this drawn at its true position". */
+    /* ellipse is recorded for the same reason: both sprites open with a contact
+       shadow drawn as an ellipse, so it is the first primitive that reveals
+       where a figure was actually placed. */
     ellipse(...a){ calls.list.push(['ellipse',...a]); },
     stroke(...a){ calls.list.push(['stroke',...a]); },
     measureText: ()=>({width:10}),
@@ -57,8 +51,7 @@ export function fakeCanvas(){
   const cv = { width:0, height:0, clientWidth:1280, clientHeight:720,
                getContext:()=>cv._ctx, style:{}, _listeners:{} };
   /* The main canvas is where the context-loss events live, so the stub has to be
-     a thing events can be attached to — fakeEl always was, and a canvas made
-     here replaced it in the trace harness. */
+     a thing events can be attached to. */
   cv.addEventListener = (t, fn)=>{ (cv._listeners[t] || (cv._listeners[t]=[])).push(fn); };
   cv.removeEventListener = (t, fn)=>{
     const l = cv._listeners[t];
@@ -81,9 +74,9 @@ export function fakeEl(id){
     addEventListener(){}, removeEventListener(){},
     getContext:()=>fakeCtx(),
     width:0,height:0,
-    /* The game drives modal transitions through button.click(), including
-       from the key handler, so the stub has to activate the handler the same
-       way a browser would — not just hold the property. */
+    /* The game drives modal transitions through button.click(), including from the
+       key handler, so the stub has to activate the handler the way a browser
+       would rather than just hold the property. */
     click(){ if (this.onclick) this.onclick(); },
   };
   return el;
@@ -91,15 +84,13 @@ export function fakeEl(id){
 
 export const els = {};
 
-/* An AudioParam that remembers what it was last TOLD to do. The real one does
-   not write `.value` back when you schedule a ramp — setTargetAtTime is a
-   schedule, not an assignment — so a test that reads `.value` to find out where
-   a gain is going is reading the wrong number in the browser and in here. */
+/* An AudioParam that remembers what it was last told to do. The real one does
+   not write `.value` back when you schedule a ramp, so a test that reads
+   `.value` to find out where a gain is going reads the wrong number. */
 export function fakeParam(v){
-  /* _hist keeps EVERY value the param was told, in order. _scheduled alone is
-     the last one, which is the right answer for "where is this gain going" and
-     the wrong answer for "how loud did this voice peak" — a one-shot schedules
-     attack then decay, so its last value is always silence. */
+  /* _hist keeps every value the param was told, in order. _scheduled alone is
+     the last one, which is wrong for "how loud did this voice peak": a one-shot
+     schedules attack then decay, so its last value is always silence. */
   return { value:v, _scheduled:null, _hist:[],
     setValueAtTime(x){ this._scheduled=x; this._hist.push(x); },
     setTargetAtTime(x){ this._scheduled=x; this._hist.push(x); },
@@ -111,8 +102,8 @@ export function fakeAudioNode(kind){
   const n = {
     kind, _out: [], _starts: 0, _stops: 0, _mod: false,
     connect(x){
-      /* A node connected to something that is not a node is a MODULATOR: an
-         LFO feeding filter.frequency, or a gain feeding a panner. It has no
+      /* A node connected to something that is not a node is a MODULATOR: an LFO
+         feeding filter.frequency, or a gain feeding a panner. It has no
          node-path to the destination by design and is not an orphan. */
       if (!x || x.kind===undefined) n._mod = true;
       else n._out.push(x);
@@ -130,16 +121,13 @@ export function fakeAudioNode(kind){
   global.__audioNodes.push(n);
   return n;
 }
-/* A Web Audio stub that RECORDS THE GRAPH.
+/* A Web Audio stub that records the graph.
 
-   The harness deliberately runs the whole suite with no AudioContext, which is
-   the right call for exercising the fallback path and is also why a completely
-   silent game stayed silent through every run: with no context `Audio_.ok` is
-   false and every voice method returns on its first line without building a
-   single node. Nothing in this file had ever constructed the audio graph.
-
-   So this builds one on demand and remembers every node, so the wiring can be
-   walked. A synthesis bug is only findable by synthesising. */
+   The suite runs with no AudioContext by default, so with `Audio_.ok` false
+   every voice method returns on its first line without building a node, and a
+   completely silent game stays silent through every run. This builds the graph
+   on demand and remembers every node so the wiring can be walked: a synthesis
+   bug is only findable by synthesising. */
 export function fakeAudioContext(){
   return {
     currentTime: 0, sampleRate: 48000, state: 'running',
@@ -150,8 +138,8 @@ export function fakeAudioContext(){
     createBiquadFilter: ()=>fakeAudioNode('biquad'),
     createDelay: ()=>fakeAudioNode('delay'),
     createStereoPanner: ()=>fakeAudioNode('pan'),
-    /* The compressor between the mute and the destination. Its parameters live
-       on the node itself rather than under `gain`, so the node carries them. */
+    /* The compressor between the mute and the destination keeps its controls on
+       the node itself rather than under `gain`. */
     createDynamicsCompressor: ()=>fakeAudioNode('comp'),
     createBuffer: (ch,len)=>({ length:len, getChannelData: ()=>new Float32Array(len) }),
     resume(){ this.state='running'; return Promise.resolve(); },

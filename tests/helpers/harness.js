@@ -1,27 +1,24 @@
-/* Headless harness for game.js.
-   Installs the fake DOM / canvas / audio / storage globals game.js boots
-   against, loads the real module, and hands the suite its handles:
-   A (__api), G (live proxy), els, calls, store, press.
-   test.js keeps only what is test-specific. */
+/* Headless harness.
+   Installs the fake DOM, canvas, audio and storage globals that src/boot.js
+   expects, boots the real game against them, and returns the handles the suite
+   works through: A (the API), G (a live proxy on the game state), els, calls,
+   store and press. */
 import { calls, els, fakeCanvas, fakeEl, fakeCtx } from './stubs.js';
 import * as dom from './dom.js';
 
-/* Every id the game asks for. The stub invents an element for an id the markup
-   does not carry, so a write to one fails silently; test [45] in
-   ui-flow.test.js checks this list against index.html. */
+/* Every id the game has asked for so far.
+   An id the markup does not carry still gets an element invented for it, so a
+   write to a missing element fails silently. Recording the lookups lets a test
+   check the whole list against index.html. */
 export const askedIds = [];
 
 /* ---- fake DOM ----
-   Backed by the shipped markup (see helpers/dom.js): the element table is read
-   out of index.html so that wiring the game does by QUERYING the document is
-   built in tests the way it is in the browser. An id the markup does not carry
-   still gets a bare element, because the suite asks for ids the game creates
-   at runtime and those must not start returning null. */
+   Backed by the shipped markup (see dom.js), so wiring the game does by querying
+   the document is built in tests the way it is in the browser. */
 global.document = {
-  /* `els` first: a test that plants an element under an id owns it. The trace
-     harness does exactly that — it replaces #game with a recording canvas before
-     game.js is imported — and a markup lookup would otherwise hand the renderer
-     the element from index.html and quietly stop recording the frame. */
+  /* `els` wins over the markup: a test that plants an element under an id owns
+     it. The trace harness relies on this to swap #game for a recording canvas
+     before the game boots. */
   getElementById(id){
     askedIds.push(id);
     if (id in els) return els[id];
@@ -34,20 +31,20 @@ global.document = {
     return (els[sel] = found || fakeEl(sel));
   },
   querySelectorAll(sel){ return dom.querySelectorAll(sel); },
-  /* The game builds its own canvases (the light bake, the mask, the packed
-     flood field, the procedural textures) rather than declaring them in markup,
-     so the harness has to hand out elements too. Without this the module fails
-     to LOAD, which is worth stating plainly: a stub gap here does not fail one
-     assertion, it kills the entire suite before a single test runs. */
+  /* The game creates its own canvases (the light bake, the mask, the packed
+     flood field, the procedural textures) instead of declaring them in markup,
+     so the harness has to hand out elements too. A gap here stops the module
+     from loading at all, which kills the whole suite rather than one
+     assertion. */
   createElement(tag){ return tag==='canvas' ? fakeCanvas() : dom.createElement(tag); },
   addEventListener(){},
   body: { appendChild(){} },
 };
 global.__audioNodes = [];
 global.window = {
-  /* Key handlers are kept so tests can press real keys. Every screen change
-     in this game is a key handler away, and a suite that could not press a
-     key could not tell a working menu from a decorative one. */
+  /* Key handlers are kept so tests can press real keys. Every screen change in
+     this game is a key handler away, so a suite that cannot press a key cannot
+     tell a working menu from a decorative one. */
   _h:{},
   addEventListener(t,f){ this._h[t]=f; },
   devicePixelRatio:1,
@@ -57,10 +54,9 @@ global.requestAnimationFrame = ()=>0;
 global.performance = { now: ()=> Date.now() };
 
 /* ---- a real localStorage ----
-   The settings store's whole job is surviving a round trip. A stub that
-   silently did nothing would let the persistence code be entirely untested,
-   which is the one part of it that can fail silently in production. Tests can
-   reach the store to corrupt it deliberately. */
+   Persistence is the part of the settings store that fails silently in
+   production, so tests get a store that actually round-trips. Tests can reach
+   `store` to corrupt it deliberately. */
 const store = new Map();
 global.__store = store;
 global.localStorage = {
@@ -70,10 +66,9 @@ global.localStorage = {
   clear(){ store.clear(); },
 };
 
-/* ---- load game.js as an ES module ----
-   Dynamic import: the stubs above must be installed first, and static
-   imports hoist above any other module code. game.js boots against the fake
-   DOM: buildFloor, paintSplashPlan, requestAnimationFrame. */
+/* ---- load the game as an ES module ----
+   The import has to be dynamic: the stubs above must be installed first, and
+   static imports hoist above any other module code. */
 function normalizeArg(v){
   if (v === null || v === undefined) return v;
   if (typeof v === 'number') return Number(v.toFixed(6));
@@ -117,7 +112,7 @@ function makeRecordingCtx(){
 
 export async function loadGame(opts = {}){
   if (opts.recordMain) {
-    // make #game a recording canvas before game.js reads it
+    // make #game a recording canvas before the game boots
     const rec = makeRecordingCtx();
     const cv = fakeCanvas();
     cv._ctx = rec;
@@ -128,11 +123,10 @@ export async function loadGame(opts = {}){
     mod.boot();
     const { __api: A } = await import('./api.js');
     const G  = new Proxy({}, { get:(_,k)=>A.G[k], set:(_,k,v)=>{A.G[k]=v; return true;} });
-    /* `code` as well as `key`: the game reads the movement cluster, the radar
-       and the mute from the PHYSICAL key, so a press() that sends only the
-       character is pressing a letter rather than a key — and the layout bug
-       that distinction exists for would stay invisible in every test. A real
-       browser sends both, so the stub does too. */
+    /* `code` as well as `key`: the game reads the movement cluster, the radar and
+       the mute from the physical key, so a press that sends only the character
+       would be pressing a letter rather than a key and the layout bug that
+       distinction exists for would stay invisible. A real browser sends both. */
     const press = (key, extra={}) => global.window._h.keydown({
       key, repeat:false, metaKey:false, ctrlKey:false, altKey:false,
       code: /^[a-z]$/i.test(key) ? 'Key'+key.toUpperCase() : key,

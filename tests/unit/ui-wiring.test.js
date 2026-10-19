@@ -1,15 +1,10 @@
 /* Every control the shell ships is wired, and every wired handler runs clean.
 
-   The harness used to answer `querySelectorAll()` with `[]`, so the settings
-   panel, the segmented rows, the sliders and the pause tabs were never built in
-   a test — and a handler body could name something nothing imports without a
-   single test going red. That is not theoretical: step 32 shipped a
-   `btn-terms-change` handler calling an unimported `setTermsOpen`, plus an
-   unimported `SETTINGS_SCHEMA`, `resetSettings` and `setPausePage` in the same
-   module. The whole suite passed. Clicking it in a browser is how it was found.
-
-   The DOM stub is now backed by index.html, so this asserts on the wiring the
-   game really builds rather than on the wiring it can reach without a document. */
+   A handler that names something it never imported only throws when the line
+   runs, so a wiring test that only checks `typeof handler === 'function'`
+   misses it entirely. The DOM stub is backed by index.html, so this asserts on
+   the wiring the game really builds rather than on what it can reach without
+   a document. */
 import test from 'node:test';
 import { softAssert } from '../helpers/soft-assert.js';
 import { loadGame } from '../helpers/harness.js';
@@ -23,7 +18,7 @@ const { A } = await loadGame();
 const SHIPPED = [...readHtml().matchAll(/<button[^>]*id="([^"]+)"/g)].map(m => m[1]);
 const el = id => document.getElementById(id);
 
-test('[35] the shell ships no dead control', () => {
+test('the shell ships no dead control', () => {
   const t = softAssert();
 
   t.assert(SHIPPED.length >= 9, `only ${SHIPPED.length} buttons found in the markup — the parse is wrong`);

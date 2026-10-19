@@ -1,17 +1,14 @@
-/* Source-text readers for the markup/stylesheet/renderer tests. The suite
-   asserts on the SHAPE of the shipped files (does index.html still wire the
-   HUD? does game.js still dispatch through a sprite table?), so these read the
-   real bytes once per test instead of reimplementing regexes over a copy.
+/* Source-text readers for the markup, stylesheet and renderer tests.
 
-   readSrc() covers game.js plus every *.js under src/ — when the monolith is
-   split, source-shape assertions keep working without being rewritten. The
-   list grew as the monolith split: sim/ (steps 24-28) and render/ (step 29)
-   now hold bodies that assertions used to find in game.js, and cast/ holds the
-   sprites. An assertion that reads a moved function must keep reading it, and
-   the walk is RECURSIVE — render/passes/ (step 30) is a subdirectory, and an
-   assertion that silently stopped seeing the scanline pass because someone
-   made a subfolder is the exact failure this reader exists to prevent.
-   readCss() covers style.css plus css/*.css if that directory ever appears. */
+   Some tests assert on the shape of the shipped files rather than on runtime
+   behaviour: does index.html still wire the HUD, does the renderer still
+   dispatch through a sprite table. These read the real bytes once per test
+   instead of keeping a copy of the files around to regex.
+
+   readSrc() covers every *.js under src/, walked recursively. The walk is
+   recursive on purpose: the draw passes live in a subdirectory, and an
+   assertion that silently stopped seeing a file because someone made a
+   subfolder is the failure this reader exists to prevent. */
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -50,9 +47,9 @@ export function readHtml(){
 }
 
 export function readCss(){
-  /* Read in the order index.html links them, not sorted — the cascade depends
-     it. tokens.css must be first (:root variables), base.css must be last
-     (prefers-reduced-motion kills animations defined above). */
+  /* Read in the order index.html links them, not sorted: the cascade depends
+     on it. tokens.css must come first (it defines the :root variables) and
+     base.css last (prefers-reduced-motion overrides animations set above). */
   const ORDER = ['tokens','hud','screens','splash','settings','base'];
   let out = '';
   for (const name of ORDER){

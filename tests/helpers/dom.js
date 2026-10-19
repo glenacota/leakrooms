@@ -1,22 +1,20 @@
 /* A DOM stub backed by the shipped markup.
 
-   The harness used to answer `querySelectorAll()` with `[]`, which meant every
-   piece of wiring the game does by QUERYING the document — the settings panel,
-   the segmented rows, the sliders, the pause tabs — was never constructed in a
-   test. A handler body could reference a name nothing imports and the whole
-   suite would stay green, because the handler was never created. That is not a
+   The harness used to answer querySelectorAll() with [], which meant every
+   piece of wiring the game does by querying the document was never constructed
+   in a test. A handler could reference a name nothing imports and the suite
+   would stay green, because the handler was never created. (That is not
    hypothetical: `btn-terms-change` was wired to a closure calling an unimported
-   `setTermsOpen` for the whole of step 32, and every test passed.
+   `setTermsOpen` for the whole of step 32, and every test passed.)
 
-   So the element table is read from index.html. Not a DOM implementation — a
-   flat list of the elements that carry an id, a `data-*` attribute, a class or a
-   range input, with enough parent/child structure for the seven query shapes the
-   game actually uses. Anything it does not recognise answers `[]`, exactly as
-   it did before, so an unfamiliar selector degrades instead of breaking boot.
+   So the element table is read from index.html. Not a DOM implementation: a
+   flat list of the elements that carry an id, a data attribute, a class or a
+   range input, with enough parent/child structure for the query shapes the game
+   actually uses. Anything unrecognised answers [], so an unfamiliar selector
+   degrades instead of breaking boot.
 
-   What is read: id, tag, class tokens, data-*, type, and the `hidden` class for
-   the two pause pages. What is modelled: children (for the segmented rows the
-   game rebuilds), dataset, attributes, and listeners. What is not modelled:
+   Read: id, tag, class tokens, data-*, type, and the `hidden` class for the two
+   pause pages. Modelled: children, dataset, attributes, listeners. Not modelled:
    layout, events beyond direct dispatch, and the cascade. */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -82,7 +80,7 @@ function datasetOf(n){
 /* Which nodes can this stub answer for? Anything the game can look up: an id, a
    class (the HUD's `.bar.noise` and its `u.loud` child), a data attribute, or a
    range input. Plain <i>/<u>/<span> with neither an id nor a class are not
-   addressable by any selector the game uses and are left out. */
+   addressable by any selector the game uses, so they are left out. */
 const ADDRESSABLE = n =>
   n.attrs.id !== undefined || classesOf(n).length > 0 ||
   dataKeys(n).length > 0 || n.tag === 'button' || n.tag === 'input';
@@ -91,8 +89,8 @@ export const ELEMENTS = NODES.filter(ADDRESSABLE);
 
 /* ---- matching ---------------------------------------------------------- */
 
-/* The seven shapes the game uses, matched exactly. A selector this does not
-   understand is simply not a selector it answers — see `select`. */
+/* The query shapes the game uses, matched exactly. A selector this does not
+   understand is simply not a selector it answers: see `select`. */
 const MATCHERS = [
   { sel: '.bar.noise u.loud', test: n => n.tag === 'u' && classesOf(n).includes('loud') && !!closestNode(n, '.bar.noise') },
   { sel: '.bar.noise',       test: n => classesOf(n).includes('bar') && classesOf(n).includes('noise') },
@@ -121,10 +119,9 @@ function select(sel, within){
 }
 
 /* Both trees: the markup's, and whatever the game appended at runtime. The
-   segmented rows are rebuilt on every boot with createElement + appendChild,
-   so a descendant query that only walked the markup would find the row and
-   none of its buttons — which is precisely the thing a test wants to assert
-   about. */
+   segmented rows are rebuilt on every boot with createElement + appendChild, so
+   a descendant query that only walked the markup would find the row and none of
+   its buttons. */
 function descendants(n){
   const out = [];
   const walkEl = e => { for (const c of e.childNodes){ out.push(c); walkEl(c); } };
@@ -138,10 +135,9 @@ function descendants(n){
 
 /* ---- the element ------------------------------------------------------- */
 
-/* Everything the harness's old `fakeEl` had, plus the four things the wiring
-   actually reaches for: dataset, attributes, children, and listeners that a
-   test can fire. `node` is the markup record; when it is absent this is a bare
-   element created on demand, exactly as before. */
+/* Everything a test needs from an element: dataset, attributes, children, and
+   listeners a test can fire. `node` is the markup record; when it is absent this
+   is a bare element created on demand. */
 export function makeEl(id, node){
   const listeners = {};
   const children = [];
@@ -149,9 +145,8 @@ export function makeEl(id, node){
   const classes = new Set(node ? classesOf(node) : []);
 
   /* `tag` and `attrs` are on the element as well as on the markup record, so a
-     node the GAME created answers the same matchers a parsed one does —
-     otherwise the segmented row rebuilds to four buttons that no descendant
-     query can see. */
+     node the game created answers the same matchers a parsed one does. Otherwise
+     the segmented row rebuilds to four buttons no descendant query can see. */
   const el = {
     id: id !== undefined ? id : (node ? node.attrs.id : undefined),
     tag: node ? node.tag : 'div',
@@ -165,8 +160,8 @@ export function makeEl(id, node){
     clientWidth: 1280, clientHeight: 720,
     width: 0, height: 0,
 
-    /* className mirrors classList so a test reads the same string the DOM
-       would show, whichever one it happens to look at. */
+    /* className mirrors classList so a test reads the same string whichever one it
+       happens to look at. */
     get className(){ return [...classes].join(' '); },
     set className(v){ classes.clear(); for (const c of String(v).split(/\s+/).filter(Boolean)) classes.add(c); },
 
@@ -222,14 +217,14 @@ export function makeEl(id, node){
 
     /* Marks this as an element rather than a markup record. A ref to one is the
        element itself: rebuilding it would copy the shape and lose the handler
-       and the text the game assigned, which is how a row full of working
-       buttons reads as a row full of dead ones. */
+       and the text the game assigned, so a row of working buttons would read as
+       a row of dead ones. */
     __el: true,
     click(){ if (el.onclick) el.onclick(); },
     /* The recording context, not a private one. The render, trace and cast
-       tests assert on what was drawn, and the splash plan canvas is an ELEMENT
-       from the markup rather than a canvas the game created — handing it a
-       different context would silently stop recording there. */
+       tests assert on what was drawn, and the splash plan canvas is an element
+       from the markup rather than one the game created: handing it a different
+       context would silently stop recording there. */
     getContext(){ return fakeCtx(); },
   };
 

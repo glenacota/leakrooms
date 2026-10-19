@@ -1,4 +1,7 @@
-/* Shared bot navigation helpers (verbatim from the playthrough tests). */
+/* Navigation helpers shared by the playthrough tests.
+
+   Breadth-first search over floor tiles. Returns the tile list from start to
+   goal, or null when either end is a wall or no path exists. */
 export function bfsPath(sx, sy, gx, gy, grid, W, H){
   if(sx===gx && sy===gy) return [];
   const IDX=(x,y)=>y*W+x;

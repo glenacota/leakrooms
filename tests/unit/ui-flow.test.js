@@ -19,18 +19,17 @@ const update = A.update;
 const render = A.render;
 
 
-/* ============ TEST 21: the splash chain — 03 riser, 04 work order, then the run
-   Two splash frames sit in front of the game now, so the path a player walks
-   to reach the first frame is part of the build and has to be tested like
-   one: which screen is up, what each key does, what is left held afterwards. */
-test('[21] the splash chain — 03 riser, 04 work order, then the run', () => {
+/* Two splash frames sit in front of the game, so the path a player walks to reach
+   the first frame is part of the build: which screen is up, what each key does,
+   and what is left held afterwards. */
+test('the splash chain walks the riser, then the work order, then the run', () => {
   const t = softAssert();
-console.log('[21] the splash chain — 03 riser, 04 work order, then the run');
 {
   const html = readHtml();
   const css  = readCss();
 
-  /* --- the markup contract --- */
+  /* The markup contract: both splash screens are present, and only the riser
+     ships visible. */
   t.assert(!/screen-title/.test(html), 'the old title screen is still wired into index.html');
   const splashHtml = html.slice(html.indexOf('id="screen-splash"'), html.indexOf('id="screen-order"'));
   const orderHtml  = html.slice(html.indexOf('id="screen-order"'), html.indexOf('id="screen-pause"'));
@@ -40,16 +39,15 @@ console.log('[21] the splash chain — 03 riser, 04 work order, then the run');
   t.assert(/class="screen hidden"/.test(orderHtml), 'work order 04 ships visible over the riser');
   t.assert(/id="btn-start"/.test(orderHtml), 'work order 04 has no clock-in button for btn-start to bind');
 
-  /* --- the controls summary is the reason screen 04 exists --- */
+  /* The controls summary is the reason the work order screen exists. */
   for (const key of ['WASD','SHIFT','ESC']){
     t.assert(new RegExp('>'+key+'[^<]*<').test(orderHtml), `work order 04 never lists ${key}`);
   }
   t.assert(/>R</.test(orderHtml), 'work order 04 never lists R, the radar');
   t.assert(/>M</.test(orderHtml), 'work order 04 never lists M, the mute');
 
-  /* --- and it is legible, not merely present.
-         The old title screen was 11px and nobody read it, so the requirement
-         is a floor on rendered size, not the existence of the text. --- */
+  /* Legibility, not just presence: the requirement is a floor on rendered size,
+     not the existence of the text. */
   const px = (sel)=>{ const m = css.match(sel); return m ? Number(m[1]) : NaN; };
   t.assert(px(/\.controls-big span\{[^}]*font-size:(\d+)px/)>=14,
          'the controls summary body text is under 14px');
@@ -62,7 +60,7 @@ console.log('[21] the splash chain — 03 riser, 04 work order, then the run');
   console.log(`  work order type: title ${px(/\.order-head h2\{[^}]*font-size:(\d+)px/)}px, `+
               `body ${px(/\.order \.field b\{[^}]*font-size:(\d+)px/)}px, controls ${px(/\.controls-big b\{[^}]*font-size:(\d+)px/)}px`);
 
-  /* --- the chain itself, driven through the real key handler --- */
+  /* The chain itself, driven through the real key handler rather than the API. */
   const keydown = global.window._h.keydown;
   t.assert(typeof keydown==='function', 'no keydown handler was registered');
   const press = (key, extra={})=> keydown({ key, repeat:false, metaKey:false, ctrlKey:false,
@@ -86,12 +84,9 @@ console.log('[21] the splash chain — 03 riser, 04 work order, then the run');
   press('q');
   t.assert(A.STATE==='order', 'an ordinary key did not advance the splash');
 
-  /* --- the terms chooser on the work order --------------------------------
-     The order screen is a form while the chooser is open: the any-key advance
-     has to stop clocking the player in, the number row picks a term, the
-     arrows cycle, and both dismiss keys fold the chooser shut before they do
-     anything else. Driven through the real handler, because the any-key
-     advance is exactly the branch a chooser has to survive. */
+  /* While the chooser is open the work order is a form: an ordinary key must not
+     clock the player in or stay held, and both dismiss keys fold the chooser
+     shut before they do anything else. */
   A.setTermsOpen(true);
   t.assert(A.termsOpen, 'the terms chooser did not open');
 
@@ -118,13 +113,12 @@ console.log('[21] the splash chain — 03 riser, 04 work order, then the run');
   t.assert(A.STATE==='order', 'ESC with the chooser open left the ticket instead of folding it shut');
   t.assert(!A.termsOpen, 'ESC did not fold the terms chooser shut');
 
-  /* ESC on a shut chooser still walks the chain — the guard is only for the
-     open fold */
+  /* The guard covers the open fold only. ESC on a shut chooser walks the chain. */
   press('Escape');
   t.assert(A.STATE==='splash', 'ESC with the chooser shut did not walk back to the riser');
   press('q');
 
-  /* and with the chooser shut the frame is a splash again */
+  /* With the chooser shut the frame is a splash again. */
   A.setOption('difficulty','normal');
   press('w');
   t.assert(A.STATE==='play', `the clock-in did not start the run (STATE=${A.STATE})`);
@@ -132,7 +126,7 @@ console.log('[21] the splash chain — 03 riser, 04 work order, then the run');
   t.assert(els['hud'].classList.contains('on'), 'the HUD did not come up with the run');
   t.assert(vis().length===0, `${vis().join()} still up on top of the run`);
 
-  /* repeat is how a held key behaves, and it must not advance twice */
+  /* Auto-repeat is how a held key behaves, and it must not advance twice. */
   A.hideAll(); A.STATE='splash'; A.show('splash');
   press('Enter', {repeat:true});
   t.assert(A.STATE==='splash', 'an auto-repeating ENTER advanced the splash');
@@ -142,10 +136,9 @@ console.log('[21] the splash chain — 03 riser, 04 work order, then the run');
   press('Enter');
   t.assert(A.STATE==='play', `two ENTER presses on the chain did not reach the run (STATE=${A.STATE})`);
 
-  /* --- M, on the real key handler, in every state ---
-     It is the one control with no button, so the key path IS the feature: a
-     hotkey that is wired to the wrong state, or that fires on auto-repeat, or
-     that also advances the splash, is a hotkey that does not work. */
+  /* M is the one control with no button, so the key path is the feature. A hotkey
+     wired to the wrong state, or one that also advances the splash, does not
+     work. */
   const mutedAt = ()=> A.SETTINGS.muted;
   const storeAt = ()=> JSON.parse(global.__store.get(A.SETTINGS_KEY) || '{}');
   const stored = ()=> {
@@ -163,20 +156,19 @@ console.log('[21] the splash chain — 03 riser, 04 work order, then the run');
     press('m');
     t.assert(mutedAt()===false, `M did not unmute from the ${st} screen`);
   }
-  /* auto-repeat must not toggle twenty times while the key is held */
+  /* A held M must not toggle twenty times. */
   A.STATE='play';
   press('m', {repeat:true});
   t.assert(mutedAt()===false, 'a held M toggled the mute anyway');
   press('m');
   t.assert(mutedAt()===true, 'M stopped working after an auto-repeat');
 
-  /* and it is the muted one that persists */
+  /* The muted value is the one that persists. */
   t.assert(stored().muted===true, 'the mute did not survive a save/load round trip');
   A.setOption('muted', false);
   t.assert(stored().muted===false, 'unmuting did not persist');
 
-  /* M must NOT be a splash advance: pressing it on the title leaves you on the
-     title. A mute key that doubles as "skip intro" is a bug report. */
+  /* M is not a splash advance. A mute key that doubles as "skip intro" is a bug. */
   A.hideAll(); A.STATE='splash'; A.show('splash');
   press('m');
   t.assert(A.STATE==='splash', 'M advanced the splash chain');
@@ -186,39 +178,36 @@ console.log('[21] the splash chain — 03 riser, 04 work order, then the run');
 }
   t.done();
 });
-/* ============ TEST 25: the plan behind the title — it is the level you get
-   The splash paints a floor plan. The only version of that worth shipping is
-   the one the run is actually built from, so the seed contract is the test:
-   the painting cannot be re-rolled by anything the player does between seeing
-   it and playing it. */
-test('[25] the splash plan — painted from the seed the run uses', () => {
+/* The splash paints a floor plan, and the only version of that worth shipping is
+   the one the run is actually built from. Nothing the player does between seeing
+   the plan and playing it may re-roll the seed. */
+test('the splash plan is painted from the seed the run uses', () => {
   const t = softAssert();
-console.log('[25] the splash plan — painted from the seed the run uses');
 {
   const html = readHtml();
   const css  = readCss();
   const splashHtml = html.slice(html.indexOf('id="screen-splash"'), html.indexOf('id="screen-order"'));
 
-  /* --- markup: two layers plus the tape pass --- */
+  /* Two layers plus the tape pass over the plan. */
   t.assert(/id="splash-plan"/.test(splashHtml),  'the splash has no plan canvas');
   t.assert(/id="splash-plan-far"/.test(splashHtml), 'the parallax layer is missing from the splash');
   t.assert(/splash-bands/.test(splashHtml) && /splash-track/.test(splashHtml),
     'the tape pass over the plan is missing');
 
-  /* --- the roll has to loop: -50% of the canvas must be exactly one period
-         of the painting, or there is a seam travelling across the title. --- */
+  /* The roll has to loop: -50% of the canvas must be exactly one period of the
+     painting, or a seam travels across the title. */
   const roll = css.match(/@keyframes planroll\{[\s\S]*?translateX\(-50%\)/);
   t.assert(roll, 'the plan does not roll, or does not end at -50% — the period is not the frame width');
   t.assert(/\.splash-plan\s+canvas\{[^}]*animation:planroll/.test(css), 'the plan layer is not wired to the roll');
   t.assert(/prefers-reduced-motion[\s\S]*\.splash-plan canvas[^{]*\{[^}]*animation:none/.test(css),
     'the plan still rolls when the system asks for reduced motion');
 
-  /* --- it is faded. A plan at full strength is a tutorial. --- */
+  /* The plan is faded. At full strength it is a tutorial. */
   const op = css.match(/\.splash-plan\{[^}]*opacity:([\d.]+)/);
   t.assert(op && Number(op[1])>0 && Number(op[1])<=0.15,
     `the plan sits at opacity ${op?op[1]:'unset'} — it is supposed to be a hint, not a map`);
 
-  /* --- painting runs headless, and sizes itself so one period is one frame --- */
+  /* Painting runs headless, and sizes itself so one period is one frame. */
   buildFloor(0, 4242);
   const cv = els['splash-plan'], far = els['splash-plan-far'];
   const before = calls.list.length;
@@ -229,15 +218,14 @@ console.log('[25] the splash plan — painted from the seed the run uses');
   t.assert(far.width === cv.width && far.height === cv.height,
     'the parallax layer is not the same painting at a different speed');
 
-  /* --- the seed contract: nothing between seeing the plan and playing it may
-         re-roll the seed. This is the assertion that stops the splash from
-         quietly becoming a picture of a building you will never walk. --- */
+  /* The seed contract. This is the assertion that stops the splash from becoming
+     a picture of a building the player never walks. */
   const seedAtBoot = A.RUN_SEED;
   document.getElementById('btn-start').click();
   t.assert(A.RUN_SEED===seedAtBoot, 'clocking in re-rolled the seed — the splash was showing a different level');
   t.assert(G.seed===A.RUN_SEED, 'the run was not built from the seed the splash was painted with');
 
-  /* ...but a finished run is entitled to a new building. */
+  /* A finished run is entitled to a new building. */
   A.rollRunSeed();
   t.assert(A.RUN_SEED!==seedAtBoot, 'a new run kept the old seed — RUN IT AGAIN is the same building');
   t.assert(G.seed===A.RUN_SEED, 'the re-rolled seed did not reach the level');
@@ -245,15 +233,11 @@ console.log('[25] the splash plan — painted from the seed the run uses');
 }
   t.done();
 });
-/* ============ TEST 26: the pause screen IS the work order
-   Splash 04 and the pause modal are the same document. That is a design claim,
-   so it is asserted as one: same ticket markup, same controls block, and the
-   numbers on it are the run's real numbers rather than the static copy the
-   splash ships with. A pause screen showing stale text is worse than a plain
-   one, because the player trusts it. */
-test('[26] the pause screen — the work order, with the run written on it', () => {
+/* The work order and the pause modal are the same document, which is a design
+   claim worth asserting: same ticket markup, same controls block, and numbers
+   that belong to the run in front of you rather than the static splash copy. */
+test('the pause screen shows the work order with the run written on it', () => {
   const t = softAssert();
-console.log('[26] the pause screen — the work order, with the run written on it');
 {
   const html = readHtml();
   const splash = html.slice(html.indexOf('id="screen-splash"'));
@@ -261,15 +245,11 @@ console.log('[26] the pause screen — the work order, with the run written on i
   const pause  = html.slice(html.indexOf('id="screen-pause"'),   html.indexOf('id="screen-dead"'));
   t.assert(pause.length>0, 'the pause screen is missing from index.html');
 
-  /* --- same furniture --- */
+  /* Same furniture: the pause screen is the ticket. */
   t.assert(/class="order perf"/.test(pause), 'the pause screen is not the ticket');
   t.assert(!/class="tape"/.test(pause), 'the pause screen still has its own layout');
 
-  /* --- the settings that remain are pages of the ticket ---
-     The modal they used to live in is gone, and the rows it held are inside
-     the ticket — that inversion is the assertion: the old test demanded the
-     settings link sit BELOW the ticket, and that is exactly what is no
-     longer true. */
+  /* The settings rows live inside the ticket, not in a modal of their own. */
   t.assert(!/id="screen-settings"/.test(html),
     'the settings modal is still in index.html — the settings belong on the ticket');
   for (const id of ['set-master','set-hue','set-contrast','btn-settings-reset'])
@@ -278,12 +258,9 @@ console.log('[26] the pause screen — the work order, with the run written on i
   t.assert(pause.indexOf('id="set-master"') > pause.indexOf('class="order perf"'),
     'the settings rows are outside the ticket instead of inside it');
 
-  /* --- and the difficulty is not one of them. The terms are taken at the
-     door: the chooser lives on the work order, the run is built with whatever
-     the stamp says at clock-in, and the pause screen prints the terms as a
-     fact. A difficulty control on the pause ticket is the mid-run rewrite
-     this move exists to kill — applySettings() would move FLOOR_CLOCK and
-     REPAIR_TIME under a floor already being played. --- */
+  /* Difficulty is not one of them. The terms are taken at the door and the run is
+     built with whatever the stamp says, so a difficulty control on the pause
+     ticket would rewrite FLOOR_CLOCK under a floor already being played. */
   t.assert(!/id="set-difficulty"/.test(pause),
     'the difficulty chooser is still on the pause ticket — the terms belong at the door');
   t.assert(!/id="note-difficulty"/.test(pause),
@@ -296,42 +273,35 @@ console.log('[26] the pause screen — the work order, with the run written on i
   t.assert(/id="pause-terms"/.test(pause),
     'the pause ticket does not print the shift terms the run is on');
   
-  /* --- and SPLASH 02 is a page of the ticket too --- */
+  /* The briefing is a page of the ticket too. */
   t.assert(/data-pause-page="briefing"/.test(pause), 'the pause ticket has no briefing page');
   t.assert(/data-pause-tab="settings"/.test(pause) && /data-pause-tab="briefing"/.test(pause),
     'the pause ticket has no tabs for its two pages');
 
-  /* --- the same controls, in the same place: the stub, under CONTROLS --- */
+  /* The same controls in the same place: the stub, under CONTROLS. */
   const ctrlBlock = (s)=>{ const m = s.match(/<small>CONTROLS<\/small>([\s\S]*?)<\/div>\s*<\/(?:p|div)>/); return m?m[1]:''; };
   const keysOf = (s)=> [...ctrlBlock(s).matchAll(/<b>([^<]+)<\/b>/g)].map(m=>m[1]);
   const pk = keysOf(pause), ok = keysOf(order);
   t.assert(ctrlBlock(pause).length>0, 'the pause ticket has no controls block');
   t.assert(ctrlBlock(order).length>0, 'the splash ticket has no controls block');
-  /* The chips are styled with letter-spacing, so the labels are free to be
-     written in prose case ("WASD / arrows"); matching is case-insensitive. */
+  /* The chips are styled with letter-spacing, so their labels can be written in
+     prose case ("WASD / arrows") and matching stays case-insensitive. */
   const has = (list, k)=> list.some(x=>x.toUpperCase().includes(k.toUpperCase()));
   for (const k of ['WASD','ARROWS','SHIFT','R','M','ESC']){
     t.assert(has(pk, k), `the pause ticket never lists ${k}`);
   }
-  /* ENTER is chipped on the splash's list as the confirm key. The pause stub
-     lists the keys you use while playing plus ESC, and ENTER is not among
-     them — it resumes, as the strip under the ticket says, but a chip list
-     and a resume hint are different furniture and the stub only carries the
-     first. A key listed as doing something it does not do is worse than a key
-     missing from a list. */
+  /* ENTER resumes the run but is not among the chips: a chip list and a resume
+     hint are different furniture, and listing a key as doing something it does
+     not do is worse than leaving it out. */
   t.assert(!has(pk, 'ENTER'), 'the pause stub still lists ENTER, which resumes nothing');
   for (const k of ok.filter(x=>!x.toUpperCase().includes('ENTER'))){
     t.assert(has(pk, k), `the pause ticket dropped ${k}, which the splash lists`);
   }
 
-  /* --- the briefing page reprints the ticket's WORK: scope and notes ---
-     It is SPLASH 02's payload without the 88D letterhead and without a second
-     copy of the controls list — the stub carries the controls on every page,
-     so reprinting them would be a second thing to keep in sync for no reader.
-     What the briefing owes the splash is the work itself, so that is what is
-     asserted, line by line, rather than by vibe. Scoped to the briefing page
-     alone: the slice stops at the stub, or the stub's own chips would answer
-     for the page and the check would pass on a page that says nothing. */
+  /* The briefing page reprints the ticket's work: scope and notes. It drops the
+     letterhead and the controls list, because the stub already carries the
+     controls on every page. Scoped to the briefing slice alone: if the slice ran
+     past the stub, the stub's own chips would answer for the page. */
   const body = pause.slice(pause.indexOf('data-pause-page="briefing"'),
                            pause.indexOf('class="order-side"'));
   t.assert(/Scope of work/i.test(body), 'the briefing page has no scope of work');
@@ -340,10 +310,9 @@ console.log('[26] the pause screen — the work order, with the run written on i
   const notesOf = (s)=> [...s.matchAll(/<li>([\s\S]*?)<\/li>/g)].map(m=>m[1].trim());
   const splashNotes = notesOf(order);
   t.assert(splashNotes.length>0, 'the splash ticket has no notes to reprint');
-  /* The apostrophe may be encoded on one ticket and typed on the other, and
-     the numbers on it are wrapped in spans now, so the comparison flattens
-     the entities and strips the tags first — checking the words the player
-     reads, not the markup that carries them. */
+  /* The apostrophe may be encoded on one ticket and typed on the other, so the
+     comparison flattens entities and strips tags first: check the words the
+     player reads, not the markup that carries them. */
   const flat = (s)=> s.replace(/<[^>]+>/g,'')
                       .replace(/&rsquo;/g,"'").replace(/&lsquo;/g,"'")
                       .replace(/&#39;/g,"'").replace(/&amp;/g,"&");
@@ -353,20 +322,19 @@ console.log('[26] the pause screen — the work order, with the run written on i
   t.assert(!/controls-big/.test(body),
     'the briefing page reprints the controls list — the stub already carries it');
 
-  /* --- and the numbers are the run's --- */
+  /* The numbers are the run's. */
   buildFloor(2, 9090);
   G.leaksOpen = G.pipes; G.floodCover = 0.31; G.batt = 42; G.stat.noises = 7;
   A.STATE = 'play';
   A.togglePause();
   t.assert(A.STATE==='pause', 'ESC did not pause');
-  /* A pause lands on the settings page — it is the page with something to
-     change on it, and the reason most players come back to the ticket. */
+  /* A pause lands on the settings page: it is the page with something to change
+     on it, and the reason most players come back to the ticket. */
   t.assert(A.pausePage==='settings', 'a pause does not land on the settings page');
 
-  /* ESC walks the pages backwards before it leaves the ticket: briefing back
-     to settings, settings back to the run. Driven through the real key
-     handler, because a chain asserted only at the API level is a chain that
-     disagrees with the key the player actually presses. */
+  /* ESC walks the pages backwards before it leaves the ticket. Driven through the
+     real key handler, because a chain asserted only at the API level is not the
+     chain the player walks. */
   const keydown = global.window._h.keydown;
   t.assert(typeof keydown==='function', 'no keydown handler was registered');
   const press = (key, extra={})=> keydown({ key, repeat:false, metaKey:false, ctrlKey:false,
@@ -382,30 +350,27 @@ console.log('[26] the pause screen — the work order, with the run written on i
   t.assert(txt('pause-pipes').includes('0/'), `the riser tally reads "${txt('pause-pipes')}"`);
   t.assert(txt('pause-clock')===A.clockText(G.clock), 'the clock on the ticket is not the clock in state');
   
-  /* the life pips are spent ones included — the count the HUD has been showing */
+  /* The life pips include the spent ones, matching the count the HUD shows. */
   A.lives = Math.max(1, A.runLives-1);
   A.STATE='play'; A.togglePause();
   t.assert(/gone/.test(txt('pause-lives')), 'a spent life is not drawn as spent on the ticket');
   A.lives = A.runLives;
 
-  /* once every riser is sealed the LEAKS FIXED tally says so instead of stalling */
+  /* Once every riser is sealed the tally says so instead of stalling. */
   G.leaksOpen = 0;
   A.STATE='play'; A.togglePause();
   t.assert(txt('pause-pipes')===`${G.pipes}/${G.pipes}`,
     `with every riser sealed the tally reads "${txt('pause-pipes')}"`);
 
-  /* the strip under the ticket promises ENTER resumes as well as ESC. With no
-     control focused, ENTER is the modal confirm key — assert the promise,
-     through the real key handler, on the page a pause lands on. */
+  /* The strip under the ticket promises ENTER resumes as well as ESC, so the
+     promise is asserted through the real key handler on the page a pause
+     lands on. */
   A.STATE='play'; A.togglePause();
   t.assert(A.pausePage==='settings', 'a pause does not land on the settings page');
   press('Enter');
   t.assert(A.STATE==='play', 'ENTER did not resume from the settings page');
 
-  /* --- the run is built with the stamped terms, and the ticket says so -----
-     The whole move in a few asserts: the chooser moves the constants the run
-     is built with, clocking in reads them, and the work order's stamp names
-     the shift. */
+  /* The run is built with the stamped terms, and the ticket says so. */
   A.setOption('difficulty','hard');
   t.assert(A.FLOOR_CLOCK===A.DIFFICULTIES.hard.clock,
     'choosing HARD did not move the clock the run is built with');
@@ -418,10 +383,8 @@ console.log('[26] the pause screen — the work order, with the run written on i
   t.assert(txt('pause-terms')==='HARD',
     `the pause stub reads "${txt('pause-terms')}" — the run is on terms the ticket never names`);
 
-  /* --- the briefing is written for the terms, not for NORMAL ----------------
-     The work order used to say "3 minutes" and "5 seconds" whatever the
-     terms, which is a lie on two of the three. Both copies of the document —
-     the work order and the pause reprint — follow the choice. */
+  /* The briefing is written for the terms. Both copies of the document follow the
+     choice rather than printing fixed minutes and seconds. */
   const prose = (id)=> (els[id] ? els[id].textContent : '');
   A.setOption('difficulty','hard');
   t.assert(prose('order-return')==='2 minutes 30 seconds',
@@ -437,13 +400,11 @@ console.log('[26] the pause screen — the work order, with the run written on i
   t.assert(prose('order-return')==='3 minutes' && prose('order-repair')==='5 seconds',
     'the work order did not return to the NORMAL numbers');
 
-  /* leave the store as the next test expects to find it */
+  /* Leave the store as the next test expects to find it. */
   A.setOption('difficulty','normal');
   document.getElementById('btn-start').click();
-  /* --- RESET GAME: two-stage, then a fresh run at the riser ---
-     The only control on the ticket that ends a run, so it arms first: the
-     first press must change nothing but the label, and the second press is
-     the one that moves the player. */
+  /* RESET GAME is the only control on the ticket that ends a run, so it arms
+     first: the first press changes the label, the second moves the player. */
   A.togglePause();
   t.assert(A.STATE==='pause' && A.pausePage==='settings',
     'the ticket did not open on the settings page for the reset check');
@@ -457,14 +418,14 @@ console.log('[26] the pause screen — the work order, with the run written on i
   t.assert(A.RUN_SEED===seedBefore, 'arming RESET GAME rolled the seed — nothing should have moved');
   t.assert(A.resetArmed, 'RESET GAME did not report itself armed');
 
-  /* an armed reset does not survive the player's attention moving on */
+  /* An armed reset does not survive the player's attention moving on. */
   A.setPausePage('briefing');
   t.assert(!A.resetArmed, 'the armed RESET GAME survived a page switch');
   t.assert(!/TAP AGAIN/.test(resetBtn.textContent),
     'the button still reads armed after the page switch');
   A.setPausePage('settings');
 
-  /* the second press is the one that fires */
+  /* The second press is the one that fires. */
   resetBtn.click();
   resetBtn.click();
   t.assert(A.STATE==='splash', `RESET GAME did not return to the riser (STATE=${A.STATE})`);
@@ -476,7 +437,7 @@ console.log('[26] the pause screen — the work order, with the run written on i
   t.assert(A.lives===A.runLives, 'RESET GAME did not restore the attempts');
   t.assert(!els['hud'].classList.contains('on'), 'the HUD stayed up over the riser');
 
-  /* and the run it starts from the riser is a full one on the same terms */
+  /* The run it starts from the riser is a full one on the same terms. */
   const termsKept = A.SETTINGS.difficulty;
   document.getElementById('btn-start').click();
   t.assert(A.STATE==='play' && A.lives===A.runLives, 'the run after RESET GAME did not start whole');
@@ -489,20 +450,12 @@ console.log('[26] the pause screen — the work order, with the run written on i
   t.done();
 });
 
-/* ============ TEST 34: the floor-clear card ==============================
-   The one screen between two levels. It is asserted on three axes, because each
-   of them can fail alone and none of them implies the others:
-
-     markup    the card exists, ships hidden, and has something to press
-     content   the briefing is the LEVELS row for the floor being entered, and
-                the clock is the one that was left on the floor just finished
-     behaviour it holds the player out of a floor that is already built and
-                already running, the clock is frozen while it is up, and ENTER
-                lets go with every key released
-   ============================================================ */
-test('[34] the floor-clear card — clock left, next floor, ENTER to descend', () => {
+/* The one screen between two levels, asserted on three axes because each of
+   them can fail alone: the markup, the content (the next floor's briefing and
+   the clock just left behind), and the behaviour (the floor under the card is
+   real, its clock is frozen, ENTER lets go). */
+test('the floor-clear card shows the clock left and the next floor', () => {
   const t = softAssert();
-console.log('[34] the floor-clear card — clock left, next floor, ENTER to descend');
 {
   const html = fs.readFileSync(__dirname+'/index.html','utf8');
   const css  = readCss();
@@ -518,7 +471,7 @@ console.log('[34] the floor-clear card — clock left, next floor, ENTER to desc
   t.assert(A.SCREENS.includes('clear'),
     `'clear' is not in SCREENS, so show()/hideAll() will never bring the card up`);
 
-  /* --- the content: the next floor's briefing is LEVELS, not a guess --- */
+  /* The content: the briefing is the LEVELS row for the floor being entered. */
   buildFloor(0, 24601);
   A.floorIdx=0;
   A.STATE = 'play';
@@ -542,15 +495,15 @@ console.log('[34] the floor-clear card — clock left, next floor, ENTER to desc
     'the clear card came up without dismissing the screens behind it');
   t.assert(els['hud'].classList.contains('on')===false, 'the HUD is still lit behind the clear card');
 
-  /* --- and the card is styled, not just present: an unstyled div inherits the
-         body font, and a briefing nobody can read is a briefing nobody reads --- */
+  /* An unstyled div inherits the body font, and a briefing nobody can read is a
+     briefing nobody reads. */
   t.assert(/\.clear-next\{/.test(css), 'the clear card has no stylesheet rule — it ships unstyled');
   console.log(`  card: ${A.clearCard.leaks} bursts / ${A.clearCard.forms} lifeforms on floor `+
     `${A.floorIdx+1}, ${A.clockText(A.clearCard.clock)} left on the floor behind it, ENTER to descend`);
 
-  /* --- behaviour: the floor under the card is REAL, and its clock is not
-         running. Driven through frame(), not update(): the freeze is the loop's
-         gate, and update() called directly is not a state a player is ever in. --- */
+  /* The floor under the card is real and its clock is not running. Driven through
+     frame(), not update(): the freeze is the loop's gate, and a direct update()
+     call is not a state a player is ever in. */
   t.assert(G.pipes===spec.leaks && G.leaksOpen===spec.leaks,
     `the floor under the card has ${G.leaksOpen} of ${G.pipes} bursts open — it is not built`);
   const c0 = G.clock;
@@ -560,8 +513,7 @@ console.log('[34] the floor-clear card — clock left, next floor, ENTER to desc
     `the clock moved from ${c0.toFixed(2)} to ${G.clock.toFixed(2)} while the card was up — `+
     'the card is not a frozen state, so reading the next floor costs the player time');
 
-  /* --- and it is held the way a key is: nothing is simulating underneath, and
-         ENTER lets go with every key released --- */
+  /* ENTER lets go with every key released. */
   A.keys['w'] = true; A.keys['shift'] = true;     // the player walked to the door
   A.dismissClear();
   t.assert(A.STATE==='play', `dismissClear left STATE '${A.STATE}', want 'play'`);
@@ -575,7 +527,7 @@ console.log('[34] the floor-clear card — clock left, next floor, ENTER to desc
   t.assert(A.STATE==='play' && G.clock < c1,
     `after the card the clock stood at ${G.clock.toFixed(2)} from ${c1.toFixed(2)} — the run is not running`);
 
-  /* --- the LAST floor goes to the win card instead: no level six --- */
+  /* The last floor goes to the win card instead: there is no level six. */
   buildFloor(4, 24601);
   A.floorIdx=4;
   A.STATE = 'play';
@@ -586,14 +538,10 @@ console.log('[34] the floor-clear card — clock left, next floor, ENTER to desc
   t.done();
 });
 
-/* ---- every id the game asks for is an id the markup carries ----
-   The stub invents an element for anything index.html does not carry, so a
-   write to a missing id succeeds: the number goes somewhere, the assertion on
-   it passes, and the player never sees it. `pause-batt` survived that way.
-
-   The harness records every id the game asked for. Each is either in
-   index.html, or an id the game creates at runtime and lists below. */
-test('[45] every id the game asks the document for exists', () => {
+/* The stub invents an element for any id index.html does not carry, so a write
+   to a missing id succeeds and the player never sees it. Every id the game asked
+   for must be in the markup, unless the game creates it at runtime. */
+test('every id the game asks the document for exists in index.html', () => {
   const html = readHtml();
   const inMarkup = new Set([...html.matchAll(/\bid="([^"]+)"/g)].map(m => m[1]));
 
@@ -611,6 +559,5 @@ test('[45] every id the game asks the document for exists', () => {
   assert.deepEqual(unused, [],
     `these runtime ids are allowlisted but never asked for:\n  ${unused.join('\n  ')}`);
 
-  console.log(`[45] every id the game asks the document for exists`);
   console.log(`  ${asked.length} ids asked, all in index.html, ${RUNTIME.size} runtime ids allowed`);
 });

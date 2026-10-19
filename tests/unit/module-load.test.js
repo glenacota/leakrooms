@@ -5,8 +5,8 @@
    and no behavioural test reaches: a module that imports a name nobody
    exports, a module that nothing imports so nobody ever loads it, a pair of
    modules that import each other. All three are invisible until something
-   actually imports the file, and the suite only ever imports `game.js` — which
-   reaches most of the tree and none of the rest.
+   actually imports the file, and the suite only ever imports `src/main.js` —
+   which reaches most of the tree and none of the rest.
 
    During the module split this caught four real ones: a missing `addRunTime`
    export, a missing `drawDoor` export, `REPAIR_TIME` imported from constants
@@ -72,7 +72,7 @@ test('every production module loads', async () => {
     `module(s) failed to load — an import names something the target does not export:\n  ${broken.join('\n  ')}`);
 });
 
-test('only the composition root imports game.js', () => {
+test('only the composition root imports the entry point', () => {
   const offenders = [...graph.entries()]
     .filter(([f]) => f !== ENTRY)
     .filter(([, deps]) => deps.includes(ENTRY))

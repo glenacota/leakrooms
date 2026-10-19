@@ -8,15 +8,11 @@ const update = A.update;
 const keys = A.keys;
 A.setHeadless(false, false);
 
-/* ============ TEST 31: the update stages — G.wet is the tile you end on ===
-   update() is now named stages in a fixed order. The one order fact that can
-   be asserted from outside is tickMovement's return: G.wet must describe the
-   tile the player is standing on AFTER the move. Sampled before the move it
-   would describe the tile left behind, and no other test in the suite can
-   tell the difference. */
-test('[31] the update stages — G.wet tracks where you ended up', () => {
+/* G.wet must describe the tile the player is standing on after the move, not
+   the one left behind. The suite reads wetness through wetAt everywhere else,
+   so only this file can tell the two apart. */
+test('G.wet describes the tile the player ends the frame on', () => {
   const t = softAssert();
-console.log('[31] the update stages — G.wet tracks where you ended up');
 {
   buildFloor(0, 4242);
   const W = 76;

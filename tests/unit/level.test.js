@@ -6,15 +6,15 @@ const { A, G } = await loadGame();
 const buildFloor = A.buildFloor;
 A.setHeadless(false, false);
 
-test('[1] maze generation — 400 floors', () => {
+test('every generated floor is connected, playable and lit', () => {
   const t = softAssert();
-console.log('\n[1] maze generation — 400 floors');
 {
   let totalFloors=0, totalTiles=0, minOpen=1, maxOpen=0;
   for (let s=0; s<400; s++){
     buildFloor(s % 5, s*104729+17);
     const g = G.grid, W = 76, H = 76;
-    // flood fill from every floor tile; count reachable components
+    // A floor with a second region is unplayable, so the regions are counted
+    // rather than spot-checked.
     const seen = new Uint8Array(W*H);
     const comps = [];
     for (let y=0;y<H;y++) for (let x=0;x<W;x++){
@@ -38,10 +38,10 @@ console.log('\n[1] maze generation — 400 floors');
     totalTiles += comps[0];
     minOpen=Math.min(minOpen,comps[0]); maxOpen=Math.max(maxOpen,comps[0]);
 
-    /* THE DOOR: exactly one, on a wall tile, touching walkable floor, and it
-       is where the player came in — i.e. in the room they spawn in. A door the
-       player has to search for is a different game, and a door they cannot
-       walk back to inside three minutes is an unwinnable level. */
+    /* Exactly one door, on a wall tile, touching walkable floor, and it is
+       where the player came in. A door the player has to search for is a
+       different game, and one they cannot reach inside three minutes is an
+       unwinnable level. */
     t.assert(G.exitTiles.length===1, `seed ${s}: got ${G.exitTiles.length} exits, want 1`);
     const door = G.exitTiles[0];
     t.assert(g[door.y*W+door.x]===0, `seed ${s}: the door at ${door.x},${door.y} is not a wall tile`);
@@ -51,8 +51,8 @@ console.log('\n[1] maze generation — 400 floors');
     t.assert(door.found===undefined && door.open===0,
       `seed ${s}: the door carries discovery state — there is nothing left to find`);
 
-    /* THE RISERS: exactly what this level says it has, every one on a wall tile
-       with a standable spot beside it. */
+    /* Exactly the pipes this level says it has, every one on a wall tile with a
+       standable spot beside it. */
     const spec = A.LEVELS[Math.min(s%A.LEVELS.length, A.LEVELS_N-1)];
     t.assert(G.leaks.length===spec.leaks,
       `seed ${s}: level ${s%A.LEVELS.length} has ${G.leaks.length} pipes, want ${spec.leaks}`);
@@ -63,9 +63,9 @@ console.log('\n[1] maze generation — 400 floors');
       t.assert(g[L.sy*W+L.sx]===1, `seed ${s}: a riser's repair spot is not floor`);
       t.assert(L.fixed===false && L.repair===0, `seed ${s}: a riser starts already worked`);
     }
-    /* The pipes must not be stacked on one wall: four bursts four tiles apart
-       are four repairs in the same breath, which is a counting exercise and not
-       a level. Measured on the STANDING SPOTS, because that is what decides
+    /* The pipes must not be stacked on one wall: four bursts four tiles apart are
+       four repairs in the same breath, which is a counting exercise and not a
+       level. Measured on the standing spots, since that is what decides
        whether one five-second hold can reach two pipes. */
     for (let a=0;a<G.leaks.length;a++) for (let b=a+1;b<G.leaks.length;b++){
       const d = Math.hypot(G.leaks[a].sx-G.leaks[b].sx, G.leaks[a].sy-G.leaks[b].sy);
@@ -75,11 +75,11 @@ console.log('\n[1] maze generation — 400 floors');
       t.assert(dw>=3, `seed ${s}: two pipes are ${dw.toFixed(1)} tiles apart`);
     }
 
-    /* THE LIFEFORMS: exactly what this level says it has, and never standing in
-       the room the player walks into. */
+    /* Exactly the lifeforms this level says it has, and never standing in the
+       room the player walks into. */
     t.assert(G.agents.length===spec.forms,
       `seed ${s}: level ${s%A.LEVELS.length} has ${G.agents.length} lifeforms, want ${spec.forms}`);
-    // player spawn must be on floor and not stuck
+    // the spawn must be on open floor, not embedded in a wall stub
     {
       let ins=false;
       for(const [sx,sy] of [[-.3,-.3],[.3,-.3],[-.3,.3],[.3,.3],[0,-.3],[0,.3],[-.3,0],[.3,0]]){
@@ -89,7 +89,7 @@ console.log('\n[1] maze generation — 400 floors');
       t.assert(!ins, `seed ${s}: player spawns inside geometry`);
     }
     t.assert(g[Math.floor(G.player.y)*W+Math.floor(G.player.x)]===1, `seed ${s}: spawn not on floor`);
-    // light bake sane
+    // the light bake must cover the floor, so NaN and coverage are both checked
     let lit=0, maxL=0, nan=0;
     for (let i=0;i<g.length;i++){
       const v=A.internals.lightArr[i];
@@ -110,7 +110,7 @@ console.log('\n[1] maze generation — 400 floors');
     const vf=visible/floorTiles, bf=bright/floorTiles;
     t.assert(vf>0.99, `seed ${s}: only ${(vf*100).toFixed(0)}% of floor is visible (want 100% — never pitch black)`);
     t.assert(bf>0.15, `seed ${s}: only ${(bf*100).toFixed(0)}% of floor is strongly lit`);
-    // every ROOM must contain at least one genuinely lit tile
+    // every room needs one genuinely lit tile, or it reads as a hole in the floor
     let darkRooms=0, litRooms=0;
     for(const rm of G.rooms){
       let best=0;
@@ -131,14 +131,11 @@ console.log('\n[1] maze generation — 400 floors');
   t.done();
 });
 
-/* ============ TEST 11: room shape and gate size ====================
-   Spec: "smaller rooms, like mostly not above 120 tiles large, flowing one
-   into the other through smaller door-like gates, e.g. 2 tiles large."
-   So: room area capped, and the openings that link rooms are 2 tiles wide
-   rather than full-width gaps.                                             */
-test('[11] room shape (area cap) and 2-tile gates', () => {
+/* Rooms are capped in area and linked by 2-tile gates, per the level spec.
+   A 1-tile pinhole turns the floor into a set of sealed boxes, and an
+   oversized room breaks the sightlines the whole vision model rests on. */
+test('rooms stay small and link to each other through 2-tile gates', () => {
   const t = softAssert();
-console.log('[11] room shape (area cap) and 2-tile gates');
 {
   let rooms=0, floors=0, side=[], maxArea=0, over120=0;
   for (let f=0; f<30; f++){
@@ -159,8 +156,8 @@ console.log('[11] room shape (area cap) and 2-tile gates');
   t.assert(over120 === 0, `${over120} rooms exceed 120 tiles of area (max was ${maxArea})`);
 
   /* Gate width. A doorway through a wall band shows as W O O W along an axis;
-     a 1-tile gap shows as W O W. Tunnels flare where they meet a room, so
-     wide runs are expected — but 1-tile pinholes should be rare. */
+     a 1-tile gap shows as W O W. Tunnels flare where they meet a room, so wide
+     runs are expected, but 1-tile pinholes should be rare. */
   buildFloor(0, 4000);
   const sol=(x,y)=> (x<0||y<0||x>=76||y>=76) ? true : G.grid[y*76+x]===0;
   let one=0, two=0;
@@ -178,7 +175,7 @@ console.log('[11] room shape (area cap) and 2-tile gates');
   t.assert(two > one*2, `only ${two} two-tile gates vs ${one} one-tile — gates are too narrow`);
   t.assert(ratio < 0.5, `${(ratio*100).toFixed(0)}% of gates are 1 tile wide — rooms are pinholed, not linked`);
 
-  // rooms must actually link to each other, not sit sealed in solid rock
+  // rooms must link to each other, not sit sealed in solid rock
   let isolated=0;
   for (const r of G.rooms){
     let opens=0;
@@ -196,15 +193,11 @@ console.log('[11] room shape (area cap) and 2-tile gates');
   t.done();
 });
 
-/* ============ TEST 30: the level stages — genLevel is pure ============
-   buildFloor is now four pure stages and assembly. genLevel is the stage
-   that decides everything about the geometry — door, pipes, fixtures,
-   pickups, graffiti — so it is tested here WITHOUT a floor: twenty seeds,
-   no buildFloor, every field asserted well-formed, and the same seed must
-   produce the same level twice. */
-test('[30] the level stages — genLevel is pure and well-formed', () => {
+/* genLevel is the pure stage that decides the whole geometry: door, pipes,
+   fixtures, pickups, graffiti. It is checked here without building a floor,
+   over twenty seeds, plus the determinism claim that one seed gives one level. */
+test('genLevel is pure and produces a well-formed level', () => {
   const t = softAssert();
-console.log('[30] the level stages — genLevel is pure and well-formed');
 {
   for (let s=0; s<20; s++){
     const seed = 1000 + s*7777;
@@ -225,11 +218,10 @@ console.log('[30] the level stages — genLevel is pure and well-formed');
       t.assert(g(e.x,e.y)===0, `${tag}: exit at ${e.x},${e.y} is not wall`);
       t.assert(floor(e.x+1,e.y)||floor(e.x-1,e.y)||floor(e.x,e.y+1)||floor(e.x,e.y-1),
         `${tag}: exit at ${e.x},${e.y} touches no floor`);
-      /* The facing is what the whole door is drawn around, and it is a claim
-         about the geometry: the side it names must be the side with floor on
-         it. A facing derived from anything but this tile produces a door in
-         the east wall whose leaf opens into the west one, and nothing else in
-         the suite would notice. */
+      /* The facing is a claim about the geometry: the side it names must be
+         the side with floor on it. A facing derived from anything but this
+         tile gives a door whose leaf opens into the opposite wall, and nothing
+         else in the suite would notice. */
       const DIR = { S:[0,1], N:[0,-1], E:[1,0], W:[-1,0] };
       t.assert(DIR[e.facing], `${tag}: exit facing is ${JSON.stringify(e.facing)}, want one of S N E W`);
       const [dx,dy] = DIR[e.facing];
@@ -238,10 +230,8 @@ console.log('[30] the level stages — genLevel is pure and well-formed');
       /* South only, and this is a rendering contract rather than a taste one:
          bakeTiles paints exactly one face per wall tile, the south one, so a
          door anywhere else is drawn on an unlit ceiling top. Slot selection
-         (wallSlotFor) and wallFacing both have to agree on this, and the only
-         way that stays true as either is edited is for it to be asserted here.
-         Test 32 proves the leaf follows the hold; this proves the door is on a
-         wall that exists to be painted. */
+         (wallSlotFor) and wallFacing both have to agree on this, so it is
+         asserted here rather than left to either of them. */
       t.assert(e.facing === 'S',
         `${tag}: exit at ${e.x},${e.y} faces ${e.facing}, but only a south-facing wall has a lit face to sit on`);
       t.assert(floor(e.x, e.y+1),
@@ -280,13 +270,11 @@ console.log('[30] the level stages — genLevel is pure and well-formed');
       `${tag}: genLevel is not deterministic`);
     t.assert(JSON.stringify(again.exit) === JSON.stringify(level.exit),
       `${tag}: the door moved between two identical seeds`);
-    /* ...and not only the door and the pipes. The rest of the level used to be
-       checked for SHAPE — a fixture on the map, a cell not already taken, a
-       note with text in it — which every build passes and which says nothing
-       about whether two builds agree. Field by field is the claim that matters:
-       the same seed has to be the same building, down to which panel flickers
-       and how fast. Two of these three used to read the global RNG, so the
-       answer was no. */
+    /* ...and not only the door and the pipes. Checking the rest for shape (a
+       fixture on the map, a cell not already taken, a note with text in it)
+       passes on every build and says nothing about whether two builds agree.
+       Field by field is the claim that matters: the same seed has to be the
+       same building, down to which panel flickers and how fast. */
     for (const part of ['fixtures','batteries','graffiti'])
       t.assert(JSON.stringify(again[part]) === JSON.stringify(level[part]),
         `${tag}: ${part} differ between two identical seeds — the level is not reproducible`);
@@ -296,18 +284,11 @@ console.log('[30] the level stages — genLevel is pure and well-formed');
 }
   t.done();
 });
-/* ============ TEST 32: the door is a door ========================
-   `e.open` was written once, at placement, and never again — so every door
-   on every floor rendered permanently shut, and the renderer's read of it was
-   a value that could not change. The state of the one door on the floor was
-   therefore a stroke alpha and a word, and the 1.5s hold had no representation
-   in the world at all. None of that is visible to a bot that walks to the door
-   and waits, which is why the suite was green through all of it.
-
-   These assertions are on the field the renderer actually reads. */
-test('[32] the door — the leaf, the facing, and the state that drives both', () => {
+/* These assertions are on the door fields the renderer actually reads: the leaf
+   angle and the facing. If the hold has no representation in the world, a bot
+   that walks to the door and waits still leaves the suite green. */
+test('the door leaf follows the hold and the door faces south', () => {
   const t = softAssert();
-console.log('[32] the door — the leaf, the facing, and the state that drives both');
 {
   const settle = n => { for (let i=0;i<n;i++) A.update(1/60); };
   const standAt = (e, tiles) => {
@@ -322,38 +303,38 @@ console.log('[32] the door — the leaf, the facing, and the state that drives b
 
   for (const seed of [4242, 88, 9001]){
     /* buildFloor takes the floor number as an argument and does not touch the
-       run's own floorIdx, so a loop that descends has to put it back — the
-       second seed otherwise starts on floor 1 with a floor 0 layout and every
-       assertion about it is about a level that does not exist. */
+       run's own floorIdx, so a loop that descends has to put it back. Without
+       that the second seed starts on floor 1 with a floor 0 layout. */
     A.lives=3; A.floorIdx=0; A.runTime=0;
     buildFloor(0, seed);
     const e = G.exitTiles[0];
     const tag = `seed ${seed}`;
 
-    /* SHUT. With a pipe still open the door cannot end the level, so the leaf
-       must be at zero and must STAY at zero no matter how long you stand on
-       the threshold — this is the state that was silently untestable before. */
+    /* Shut. With a pipe still open the door cannot end the level, so the leaf
+       must sit at zero and stay there however long you stand on the
+       threshold. */
     standAt(e, 0.9); settle(30);
     t.assert(G.leaksOpen > 0, `${tag}: nothing is leaking, the shut state cannot be tested`);
     t.assert(G.descend === 0, `${tag}: descended with ${G.leaksOpen} pipe(s) open`);
     t.assert(e.open < 0.02, `${tag}: the leaf is ${e.open.toFixed(3)} open on a floor with pipes still leaking`);
 
-    /* AJAR. The last seal puts it on the latch, not through it: enough swing
-       to read as READY from across the room, nowhere near a floor change. */
+    /* Ajar. The last seal puts the door on the latch, not through it: enough
+       swing to read as READY from across the room, nowhere near a floor
+       change. */
     sealAll(); standAt(e, 4); settle(60);
     t.assert(e.open > 0.2 && e.open < 0.6,
       `${tag}: an armed door rests at ${e.open.toFixed(3)}, want the ajar stop near 0.34`);
     t.assert(A.floorIdx === 0, `${tag}: standing four tiles away ended the level`);
 
-    /* CRANKING. On the threshold the swing follows G.descend, so the thing the
-       player watches is the thing the sim is doing — and the descent itself is
-       still monotonic and still gated on the pipes. */
+    /* Cranking. On the threshold the swing follows G.descend, so the thing the
+       player watches is the thing the sim is doing, and the descent is still
+       monotonic and still gated on the pipes. */
     standAt(e, 0.9); settle(30);
     t.assert(G.descend > 0.3, `${tag}: the hold is not accumulating (${G.descend.toFixed(2)}s)`);
     t.assert(e.open > 0.34, `${tag}: the leaf did not follow the hold (${e.open.toFixed(3)})`);
     const midOpen = e.open;
 
-    /* BACKING OFF drains the cycle, and with it the leaf — a door that stayed
+    /* Backing off drains the cycle, and the leaf with it. A door that stayed
        cranked open while the progress drained would be lying twice. */
     G.descend = 1.2; e.open = 0.9; standAt(e, 6); settle(60);
     t.assert(G.descend === 0, `${tag}: stepping off left ${G.descend.toFixed(2)}s on the clock`);
@@ -373,17 +354,13 @@ console.log('[32] the door — the leaf, the facing, and the state that drives b
   t.done();
 });
 
-/* Every floor builds six canvases, and building the next one used to simply drop
-   the last six on the floor — bitmaps and all — for the GC to find at whatever
-   moment it liked, which on a slow machine is inside a frame. buildFloor now
-   releases them, and the release is observable: the old element is still a
-   reference a test (or a bug) can hold, and it is 0x0.
-
-   The assertion is on the ELEMENT and not on G, because a canvas that is gone
-   from G was never the problem: it was the pixels behind a live element. */
-test('[33] the floor it replaced is released, not abandoned', () => {
+/* Every floor builds six canvases, and building the next one has to release
+   the last six rather than leave their bitmaps for the collector to find
+   whenever it likes, which on a slow machine is inside a frame. The assertion
+   is on the element and not on G: a canvas gone from G was never the problem,
+   it was the pixels behind a live element. */
+test('the canvases of a replaced floor are released, not dropped', () => {
   const t = softAssert();
-console.log('[33] the floor it replaced is released, not abandoned');
 {
   buildFloor(0, 1);
   const old = {
@@ -399,9 +376,8 @@ console.log('[33] the floor it replaced is released, not abandoned');
   for (const [name, cv] of Object.entries(old))
     t.assert(cv.width === 0 && cv.height === 0,
       `the previous floor's ${name} canvas is still ${cv.width}x${cv.height} — buildFloor dropped it instead of releasing it`);
-  /* And the new floor is not caught by its own cleanup: this is the ordering
-     the release depends on, and getting it wrong disposes the floor being
-     built rather than the one being replaced. */
+  /* The new floor must not be caught by its own cleanup: getting the order
+     wrong disposes the floor being built rather than the one being replaced. */
   t.assert(G.tilesCv.width > 0 && G.tilesCv.height > 0,
     'the floor just built is already 0x0 — dispose ran after setG');
   t.assert(G.tilesCv !== old.tiles, 'the tile layer was reused across floors instead of rebuilt');
@@ -410,20 +386,13 @@ console.log('[33] the floor it replaced is released, not abandoned');
   t.done();
 });
 
-/* ---- the floor is reproducible, ten seconds in ----------------------------
-   genLevel is a pure function of its seed, and everything it builds was a pure
-   function of its seed — until the cast. A wandering Lifeform drew from
-   Math.random() for every step it took, so two runs of the same floor had the
-   same pipes in the same rooms and a different building around them, from the
-   first second. A retry that is supposed to be the same floor again is not, and
-   "the seed decides the level" is a claim about the whole floor, not about the
-   part that happens to be an argument to a function.
-
-   The agent stream is seeded separately from the layout so that making the cast
-   deterministic cannot shift a single pipe. */
-test('[43] the same seed builds the same cast, ten seconds in', () => {
+/* genLevel is a pure function of its seed, and everything it builds came
+   straight back from that seed, but the cast did not. "The seed decides the
+   level" is a claim about the whole floor, so two builds of one seed have to
+   agree ten seconds in, agents included. The agent stream is seeded separately
+   from the layout so that making the cast deterministic cannot shift a pipe. */
+test('the same seed builds the same cast ten seconds in', () => {
   const t = softAssert();
-console.log('[43] the same seed builds the same cast, ten seconds in');
 {
   const run = () => {
     A.buildFloor(0, 4242);
@@ -435,8 +404,8 @@ console.log('[43] the same seed builds the same cast, ten seconds in');
   t.assert(first === second,
     'two builds of seed 4242 drifted apart: the cast is not reproducible from the seed');
 
-  /* ...and the layout did not move to pay for it. Same seed, same floor, down
-     to the panel that flickers and the scrap of paper on the carpet. */
+  /* And the layout did not move to pay for it: same seed, same floor, down to
+     the panel that flickers and the scrap of paper on the carpet. */
   A.buildFloor(0, 4242);
   const layout = JSON.stringify([G.grid, G.leaks, G.exitTiles, G.fixtures, G.batteries, G.graffiti]);
   A.buildFloor(0, 4242);
@@ -448,18 +417,14 @@ console.log('[43] the same seed builds the same cast, ten seconds in');
   t.done();
 });
 
-/* ---- the static bake is cached, and the floor state is not ----
-   A retry rebuilds the same building from the same seed, so the carpet, the
-   walls, the light bake and the region map come straight back: repainting
-   116k pixels to arrive at the same picture is the cost being removed.
-
-   The other half must NOT come back. A floor that has been played is not the
-   floor that gets retried — the sealed pipes and the taken batteries have to
-   be gone, or a retry would hand back a floor the player had already fixed.
-   That is why the cache holds the layout and the state holds the clones. */
-test('[44] the static bake is cached, and a played floor leaves no mark', () => {
+/* A retry rebuilds the same building from the same seed, so the carpet, the
+   walls, the light bake and the region map can come straight back instead of
+   repainting 116k pixels to the same picture. The floor state must not come
+   back: a played floor has sealed pipes and taken batteries, and returning
+   those would hand the player a floor they had already fixed. The cache holds
+   the layout and the state holds the clones. */
+test('the static bake is cached and a played floor leaves no mark', () => {
   const t = softAssert();
-console.log('[44] the static bake is cached, and a played floor leaves no mark');
 {
   buildFloor(1, 7);
   const tiles = G.tilesCv, walls = G.wallsCv, light = G.lightCv;
@@ -492,7 +457,7 @@ console.log('[44] the static bake is cached, and a played floor leaves no mark')
     `the cached tile layer came back at ${G.tilesCv.width}x${G.tilesCv.height} — it was released on the way past`);
 
   /* A different building is a different key: new pixels, and the old ones are
-     released rather than left to the collector (test 33 asserts this shape). */
+     released rather than left to the collector. */
   buildFloor(1, 8);
   t.assert(G.tilesCv !== tiles, 'a new seed returned the old floor canvases');
   t.assert(tiles.width === 0 && tiles.height === 0,

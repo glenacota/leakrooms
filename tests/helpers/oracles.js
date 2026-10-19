@@ -1,5 +1,5 @@
 export function makeInWall(G){
-/* Independent collision oracle: exact circle-vs-tile-AABB, written from
+/* An independent collision oracle: exact circle-vs-tile-AABB, written from
    scratch rather than calling the game's blocked(), so a bug in the game
    cannot hide behind a matching bug in the test. */
 function inWall(x, y, r, strict){

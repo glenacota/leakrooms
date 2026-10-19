@@ -62,9 +62,8 @@ function setHeadless(px, vis){ setPixels(px); setVision(vis); }
 export const __api = {
 
 get G(){ return G; },
-/* The floor's scratch state moved onto G wholesale — one internals object
-   instead of a getter per array, so the suite reads each buffer through the
-   floor it belongs to. */
+/* A floor's scratch state, gathered in one object so tests read each buffer
+   through the floor it belongs to instead of through a getter per array. */
 get internals(){ return {
   lightArr: G.lightArr, lightCv: G.gfx.lightCv, lightImg: G.gfx.lightImg, lightCtx: G.gfx.lightCtx,
   visArr: G.visArr, visTgt: G.visTgt, visFrom: G.visFrom, visScratch: G.visScratch,
@@ -85,15 +84,11 @@ get RADAR_DRAIN(){ return RADAR_DRAIN; },
 buildFloor, genLevel, blocked, moveEnt, render, emitNoise, setPrompt, drawPlayer,
 frame,
 updateReal: update,
-/* Every test that is not ABOUT the clock holds it open.
-   The game now ends a level when the clock runs out, and update() returns
-   immediately once it has — so a test that drives twenty thousand frames
-   spends its whole run dead on arrival and reports it as "the AI stopped
-   working" or "the battery stopped draining". The failure is indistinguishable
-   from a real bug unless it is impossible by construction, so it is: the
-   default harness entry point pushes the deadline out of the way, and the two
-   tests that genuinely care about it (the playthrough's clock headroom, and
-   the clock test itself) call updateReal. */
+/* Every test that is not about the clock holds it open.
+   update() returns immediately once the clock has run out, so a test that
+   drives twenty thousand frames would spend its whole run dead on arrival and
+   report it as "the AI stopped working". The two tests that do care about the
+   clock (the playthrough's headroom check, and run-rules) call updateReal. */
 update(dt){ if (G) G.clock = 1e6; return update(dt); },
 scopeRoomLight, regionAt, traceViewCone, packMask, snapMask, combineMask,
 smoothMask, onScreen, setHeadless,
@@ -141,11 +136,10 @@ loadSettings, saveSettings, resetSettings, applySettings, setOption,
 settingsValid, get SETTINGS_KEY(){ return SETTINGS_KEY; },
 advanceSplash, backSplash, show, hideAll, get SCREENS(){ return SCREENS; },
 nextFloor, dismissClear, get clearCard(){ return clearCard; },
-/* the real frame loop, not update(): the floor clock is frozen by the GATE in
-   frame() and not by update() refusing to run, so a test that drives update()
-   directly is measuring the wrong thing and will happily "prove" a clock that
-   ticks while the player is reading the clear card. requestAnimationFrame is
-   stubbed to a no-op, so calling frame() is one frame, not a loop. */
+/* the real frame loop, not update(): the floor clock is frozen by the gate in
+   frame() rather than by update() refusing to run, so a test that drives
+   update() directly is measuring the wrong thing. requestAnimationFrame is
+   stubbed to a no-op, so calling frame() runs one frame, not a loop. */
 frame,
 paintSplashPlan, rollRunSeed, get RUN_SEED(){ return RUN_SEED; },
 set RUN_SEED(v){ setRunSeed(v); },
@@ -164,6 +158,6 @@ get lives(){ return lives; }, set lives(v){ setLives(v); },
 set runTime(v){ setRunTime(v); },
 get runLives(){ return runLives; },
 get runStat(){ return runStat; },
-/* the cast, inlined: the avatar's rig and the thing hunting it */
+/* the cast: the avatar's rig and the thing hunting it */
 drawRigger, drawStalker, drawDoor, ENT,
 };

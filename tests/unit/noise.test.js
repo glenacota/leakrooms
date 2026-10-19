@@ -10,19 +10,12 @@ const update = A.update;
 const render = A.render;
 const keys = A.keys;
 
-/* ============ TEST 33: the noise meter ==========================
-   The NOISE bar was drawn as G.noise/BATT_MAX — a sprint at 1.0 filled 1% of it
-   and the door at 1.8 filled 1.8%, while the `hot` class fired on the raw level
-   and turned the bar red at a level it could not show. Every value in the game
-   is between 0 and 1.8, and the bar is divided by 100.
-
-   Nothing in the sim noticed: the level is played by a bot, the HUD is read by
-   a human, and a bar nobody in the suite looks at can be wrong forever. These
-   are the numbers on the instrument, and the instrument is what tells the player
-   what the Lifeform is hearing. */
-test('[33] the noise meter — the scale, the marks, and the pipe that emits', () => {
+/* The bar is drawn from the noise level divided by NOISE_FS, and every value the
+   game produces is between 0 and NOISE_FS. A bar that divides by something else
+   cannot show a sprint or mark the LOUD threshold, and the sim never notices:
+   bots do not read the HUD. */
+test('the noise meter uses the scale the game actually produces', () => {
   const t = softAssert();
-console.log('[33] the noise meter — the scale, the marks, and the pipe that emits');
 {
   A.lives=3; A.floorIdx=0;
   buildFloor(1, 60606);
@@ -50,9 +43,8 @@ console.log('[33] the noise meter — the scale, the marks, and the pipe that em
   near(walk, pct(0.22), 'walking');
   near(wade, pct(0.30), 'wading');
   near(loud, pct(A.LOUD), 'LOUD — the threshold has no position on the instrument');
-  /* 0.72 of 0.85 is 84.7%: the bar says 85, which is the whole claim. Asserted
-     at the rounding the player actually sees, not at a number picked to make a
-     test tidy. */
+  /* 0.72 of 0.85 is 84.7%, so the bar reads 85. Asserted at the rounding the
+     player sees, not at a number picked to make the test tidy. */
   t.assert(Math.abs(sprint-85) < 0.5, `a sprint fills the bar to ${sprint.toFixed(1)}%, expected 85`);
   near(wrench, 100, 'the wrench, the loudest sustained thing you do');
   near(door, 100, 'the door — past full scale is clamped, not overflowing');
@@ -62,32 +54,29 @@ console.log('[33] the noise meter — the scale, the marks, and the pipe that em
   /* and the threshold is marked where it actually is, from the constant */
   near(parseFloat(H.noiseLoud.style.left), pct(A.LOUD), 'the LOUD hairline');
 
-  /* and the red is LOUD, on YOUR noise, not a stale copy of it. 0.45 was
-     hard-coded next to a threshold that lives at 0.5. */
+  /* the red comes from the LOUD constant on your own noise, not a number
+     hard-coded beside it */
   show(0.46);
   t.assert(!H.noiseWrap.classList.contains('hot'),
     'the bar goes red below LOUD — it is still testing the old 0.45');
   show(A.LOUD);
   t.assert(H.noiseWrap.classList.contains('hot'), 'LOUD does not turn the bar red');
 
-  /* the standing hiss of the open pipes, as its own fill UNDER yours. It is the
-     number the agents steer by, and it is not about you. */
+  /* the open pipes get their own fill under yours: that is the level the agents
+     steer by, and it is not about the player */
   show(0.22, 0.24);
   near(parseFloat(H.noiseLeak.style.width), pct(0.24), 'the leak fill');
   show(0.22, 0);
   t.assert(H.noiseLeak.style.width==='0%', 'the leak fill is still drawn with every pipe sealed');
 
-  /* --- and the thing this whole split exists for: standing still ---
-     Standing beside a burst pipe used to fill the bar to the top, which reads as
-     "you are screaming" when you are standing perfectly still and something is
-     on its way to the PIPE. Your share has to be zero when you have done
-     nothing, and the building's has to still be there. */
+  /* standing still is the case this split exists for: the player's share of the
+     meter must be zero when they have done nothing, and the building's share
+     must still be there, because something is on its way to the pipe */
   {
     buildFloor(1, 60606);
     const L = G.leaks.find(l=>!l.fixed);
-    /* two tiles from the pipe, not ON it: standing inside REPAIR_REACH starts a
-       repair, and a repair is the loudest thing you can do — which is the whole
-       point of it, and not what this block is about */
+    /* two tiles out, not on the pipe: standing inside REPAIR_REACH starts a
+       repair, and a repair is the loudest thing the player can do */
     let spot = null;
     for (let r=2; r<=4 && !spot; r++)
       for (const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,-1],[1,-1],[-1,1]]){
@@ -114,8 +103,8 @@ console.log('[33] the noise meter — the scale, the marks, and the pipe that em
     keys['d'] = true;
     for (let i=0;i<20;i++) update(1/60);
     A.updateHUD();
-    /* wet boots are louder than dry ones, and this spot may be flooded — so the
-       number to check is the one the movement stage itself used */
+    /* wet boots are louder than dry ones and this spot may be flooded, so compare
+       against the step power the movement stage itself chose */
     const stepPower = A.wetAt(G.player.x, G.player.y) > 0.25 ? 0.30 : 0.22;
     near(G.selfNoise, stepPower, 'your own noise after twenty frames of walking');
     keys['d'] = false;
@@ -125,21 +114,18 @@ console.log('[33] the noise meter — the scale, the marks, and the pipe that em
   }
 
 
-  /* and the peak, because a sprint is 0.26s long and the fill alone cannot say
-     whether it happened */
-  /* below full scale, so the decay is visible at all — a peak of 1.0 would sit
-     clamped at the right-hand end for its whole life */
+  /* the peak marker exists because a sprint is 0.26s long and the fill alone
+     cannot show it. It is held below full scale so the decay is visible. */
   show(0.1); G.noisePeak = 0.6; A.updateHUD();
-  /* one frame of decay (0.004) happens before the draw, so the tick sits a
-     fraction under the level it is holding */
+  /* one frame of decay (0.004) happens before the draw */
   near(parseFloat(H.noisePeak.style.left), pct(0.6-0.004), 'the peak tick');
   const before = parseFloat(H.noisePeak.style.left);
   for (let i=0;i<30;i++) A.updateHUD();
   const after = parseFloat(H.noisePeak.style.left);
   t.assert(after < before, `the peak tick never came down (${before}% -> ${after}%)`);
 
-  /* --- and it holds up while the game is actually being played, which is the
-     only place the numbers above are a lie if the sim does not produce them --- */
+  /* and it holds up across a real frame, the only place the numbers above can be
+     wrong if the sim does not produce them */
   buildFloor(1, 60606);
   keys['d'] = true;
   for (let i=0;i<24;i++) update(1/60);
@@ -159,17 +145,10 @@ console.log('[33] the noise meter — the scale, the marks, and the pipe that em
   console.log(`  walking ${moving.toFixed(0)}%, wading ${Math.round(pct(0.30))}%, LOUD ${Math.round(pct(A.LOUD))}%, `+
     `sprint ${running.toFixed(0)}%, wrench 100%, door clamps; peak ${before.toFixed(0)}% -> ${after.toFixed(0)}%`);
 
-  /* ============ WHERE THE PIPE MAKES ITS NOISE ============
-     A pipe is broken in a WALL; you stand on the floor tile beside it to wrench
-     it. The noise was emitted from the wall tile — L.x/L.y, the masonry — and
-     alert() hands the source coordinate straight to the entity as the place to
-     walk to. So a Lifeform that heard a pipe was sent to the inside of a wall
-     and stood there grinding its collision disc against brick, which is a bug
-     no bot in this suite can see because a bot never walks toward a leak.
-
-     It is asserted the way it fails: stand an entity next to an open pipe, run
-     one real frame, and check that where it was told to go is a tile it can
-     stand on. */
+  /* A pipe is broken in a wall and is repaired from the floor tile beside it, and
+     alert() hands the noise source straight to the entity as the place to walk
+     to. So the source must be that floor tile, or a Lifeform grinds its
+     collision disc against brick. No bot catches this: none walks to a leak. */
   let witness = null;
   for (const seed of [60606, 4242, 9001, 88, 31337, 2718]){
     buildFloor(1, seed);
@@ -180,8 +159,8 @@ console.log('[33] the noise meter — the scale, the marks, and the pipe that em
       `seed ${seed}: the pipe's stand tile is not walkable — the two coordinates are not what this test assumes`);
     t.assert(G.grid[L.y*W+L.x] !== 1,
       `seed ${seed}: the pipe is not in a wall, so there is no wrong address to give`);
-    /* a walkable neighbour of the stand tile: close enough that the pipe's own
-       noise reaches it, which is the whole point of a standing noise source */
+    /* a walkable neighbour of the stand tile, close enough that the pipe's own
+       noise reaches it */
     let spot = null;
     for (const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1]]){
       const nx = L.sx+dx, ny = L.sy+dy;
@@ -196,9 +175,8 @@ console.log('[33] the noise meter — the scale, the marks, and the pipe that em
 
   {
     const { seed, L, spot, R } = witness;
-    /* park the player at the far side of the map: the claim under test is about
-       hearing, and a Lifeform that can SEE the player is hunting for a reason
-       this test did not set up */
+    /* park the player far away: the claim is about hearing, and a Lifeform that
+       can see the player is hunting for a reason this test did not set up */
     let far = {x:1,y:1,d:-1};
     for (let y=0;y<W;y++) for (let x=0;x<W;x++){
       if (G.grid[y*W+x] !== 1) continue;
@@ -230,31 +208,21 @@ console.log('[33] the noise meter — the scale, the marks, and the pipe that em
 });
 
 
-/* ---- WALLS MUFFLE A SOUND -------------------------------------------------
-   hearRadius() says how far a power carries through open floor. Until now
-   nothing subtracted the building: the only thing between a sound and an ear
-   was the distance, and the line of walls between them was sampled on a
-   diagonal, which counts the walls that happen to lie on that diagonal and
-   ignores the ones you are looking at. So a walk three walls away was heard
-   exactly as loudly as a walk five tiles away in the open, which is the one
-   piece of cover this maze offers.
-
-   Three claims: a walk is lost behind three walls and not in the open, and a
-   sprint — LOUD, 12.6 tiles — still crosses one wall and wakes a sleeping coil.
-   The powers themselves are asserted unchanged: this is the shape of the room,
-   not the loudness of the game. */
-test('[44] walls muffle a sound, and the loudest one still carries', () => {
+/* hearRadius() measures distance through open floor. Without counting the walls
+   on the line of sound, a walk three walls away carries as far as a walk five
+   tiles away in the open, which removes the only cover this maze offers. A
+   sprint must still cross one wall, so cover cannot mean silence. */
+test('walls muffle a sound, and a sprint still crosses one', () => {
   const t = softAssert();
-console.log('[44] walls muffle a sound, and the loudest one still carries');
 {
   const W = 76, H = 76;
   const FLOOR_T = 1;
   const at = (x,y)=> (x<0||y<0||x>=W||y>=H) ? FLOOR_T : G.grid[y*W+x];
 
-  /* A straight run of floor with exactly `walls` masonry tiles in it, and one
-     more floor tile past them — so the listener is five tiles from the sound,
-     three walls in. Scanned, not planted: a real maze position is the claim,
-     and a hand-built grid would only prove the arithmetic. */
+  /* A straight run of floor with exactly `walls` masonry tiles in it and one
+     floor tile past them, so the listener is five tiles away. Scanned, not
+     planted: the claim is about a real maze position, and a hand-built grid
+     would only prove the arithmetic. */
   const findRun = (walls) => {
     for (let y=0; y<H; y++)
       for (let x=0; x<W-walls-2; x++){
@@ -287,9 +255,8 @@ console.log('[44] walls muffle a sound, and the loudest one still carries');
     return G.agents[0];
   };
 
-  /* Search a few seeds for a floor that has the geometry to ask the question
-     in — a BSP maze at this size almost always does, and the fallback is a
-     second building rather than a skipped assertion. */
+  /* Search a few seeds for a floor with the geometry to ask this in. A BSP maze
+     at this size almost always does, so the fallback is another seed. */
   let murdled = null, clear = null;
   for (const seed of [4242, 60606, 88, 9001, 31337, 12345]){
     A.buildFloor(0, seed);
@@ -298,7 +265,7 @@ console.log('[44] walls muffle a sound, and the loudest one still carries');
   }
   t.assert(!!(murdled && clear), 'no floor in six seeds has three walls and five clear tiles in a row — the scan is wrong');
 
-  /* BEHIND THREE WALLS: a walk is 6.6 tiles, three walls take nine off that. */
+  /* behind three walls: a walk reaches 6.6 tiles and three walls cost 9.0 */
   A.buildFloor(0, 4242);
   {
     const a = put(murdled.ear, 'WALK');
@@ -307,7 +274,7 @@ console.log('[44] walls muffle a sound, and the loudest one still carries');
       `a walk three walls and five tiles away still turned the listener to ${a.state} — the walls are not in the way`);
   }
 
-  /* THE SAME DISTANCE, NOTHING IN BETWEEN. */
+  /* the same distance, with nothing in between */
   A.buildFloor(0, 4242);
   {
     const a = put(clear.ear, 'WALK');
@@ -316,7 +283,7 @@ console.log('[44] walls muffle a sound, and the loudest one still carries');
       `a walk four tiles away in the open left the listener ${a.state} — and now nothing carries at all`);
   }
 
-  /* ...and one wall is not cover from a sprint. LOUD crosses masonry. */
+  /* one wall is not cover from a sprint */
   {
     const one = findRun(1);
     t.assert(!!one, 'no single-wall run on this floor — the scan is wrong');
@@ -328,8 +295,8 @@ console.log('[44] walls muffle a sound, and the loudest one still carries');
       `a sprint woke the coil into '${a.state}', want it rising or hunting`);
   }
 
-  /* The table itself is untouched: this is the shape of the room, not the
-     loudness of the game. */
+  /* the noise powers are unchanged: this is the shape of the room, not the
+     loudness of the game */
   t.assert(A.LOUD===0.5, `LOUD is ${A.LOUD} — the noise contract is not this task's to move`);
   t.assert(A.SPRINT_NOISE===0.72 && A.REPAIR_NOISE===0.85,
     'a noise power moved — only WALL_COST was supposed to change');

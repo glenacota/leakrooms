@@ -11,10 +11,11 @@ const seededRNG = A.mulberry32(0xC0FFEE);
 const inWall = makeInWall(G);
 A.setHeadless(false, false);
 
-/* ============ TEST 2: player is never soft-locked in geometry ============ */
-test('[2] collision — 20000 random walks must not enter walls', () => {
+/* The player is a disc of a fixed radius, so a frame that resolves movement
+   wrongly can leave that disc inside masonry. A NaN coordinate is worse: it
+   stops movement for the rest of the run and nothing else reports it. */
+test('random walks never put the player inside walls', () => {
   const t = softAssert();
-console.log('[2] collision — 20000 random walks must not enter walls');
 {
   buildFloor(0, 999);
   let inside=0;
@@ -32,15 +33,12 @@ console.log('[2] collision — 20000 random walks must not enter walls');
   t.done();
 });
 
-/* ============ TEST 6: configuration-space connectivity =============
-   Tile connectivity is NOT the same as navigability: a 1-wide corridor can be
-   connected on the grid yet still trap a disc of the player's radius. This
-   samples the player's collision disc across free space at 1/4-tile
-   resolution and flood-fills it. If every free position is reachable from
-   the spawn, then no position on the map can soft-lock the player.        */
-test('[6] config-space connectivity — 25 floors at 1/4-tile resolution', () => {
+/* Tile connectivity is not navigability: a one-tile corridor can be connected on
+   the grid and still trap a disc of the player's radius. Sampling the disc over
+   free space and flood-filling it proves every legal position is reachable from
+   the spawn, so no position on the map can soft-lock the player. */
+test('every legal position is reachable by the player disc', () => {
   const t = softAssert();
-console.log('[6] config-space connectivity — 25 floors at 1/4-tile resolution');
 {
   const STEP=0.25, R=0.33;
   const NX=Math.floor(76/STEP), NY=Math.floor(76/STEP);
@@ -104,15 +102,11 @@ console.log('[6] config-space connectivity — 25 floors at 1/4-tile resolution'
   t.done();
 });
 
-/* ============ TEST 9: wall contact must not accelerate ===============
-   The corner assist used a fixed 0.30-tile perpendicular nudge, applied every
-   frame. Holding into a wall therefore slid the avatar sideways at ~18 tiles
-   per second — it looked like the player sped up on contact. The nudge must be
-   bounded by the step, so pressing into a wall can never move you faster
-   along the wall than you move normally.                                     */
-test('[9] wall contact does not accelerate the avatar', () => {
+/* The nudge that slides the player along a wall must be bounded by the step.
+   An unbounded nudge slides the player along a wall faster than they walk, which
+   reads as a speed bonus. The bound must not cap a free sprint either. */
+test('wall contact does not accelerate, and a free sprint still runs', () => {
   const t = softAssert();
-console.log('[9] wall contact does not accelerate the avatar');
 {
   buildFloor(3, 8642);
   const keys = A.keys;
@@ -137,14 +131,13 @@ console.log('[9] wall contact does not accelerate the avatar');
     const creep = Math.abs(G.player.x - x0);
     console.log(`  1s pushing into a wall: lateral drift ${drift.toFixed(3)} tiles, `+
                 `along-wall creep ${creep.toFixed(3)}`);
-    // walk speed is 3.3 tiles/s. A step-bounded nudge cannot exceed that,
-    // and certainly not the ~18 tiles/s the fixed 0.30 nudge produced.
+    // walk speed is 3.3 tiles/s, so a step-bounded nudge cannot beat that
     t.assert(drift < 3.4, `pressing into a wall slid the avatar ${drift.toFixed(2)} tiles in 1s — faster than walking (3.3)`);
     t.assert(creep < 3.4, `pressing into a wall crept ${creep.toFixed(2)} tiles along it in 1s`);
   }
   keys.w=keys.a=keys.s=keys.d=false;
 
-  // and a free sprint must still reach full speed (the bound must not cap it)
+  // a free sprint must still reach full speed: the bound must not cap it
   buildFloor(3, 8642);
   let room=null;
   for (let y=2;y<74 && !room;y++) for (let x=2;x<74;x++){
@@ -167,16 +160,11 @@ console.log('[9] wall contact does not accelerate the avatar');
   t.done();
 });
 
-/* ============ TEST 10: pressing into a wall must not slide sideways ====
-   Reported as: "going up facing a wall, the avatar moves faster towards the
-   right, and when the wall is over the avatar it is teleported far right."
-   The perpendicular corner-assist tried its two signs in a FIXED order, so it
-   always picked +x — holding up against a wall walked the avatar right until
-   it left the screen — and the immobile fallback could relocate 0.9 tiles in
-   one frame.                                                                     */
-test('[10] pressing into a wall produces no lateral drift and no teleport', () => {
+/* Pressing into a wall must move the player only along the wall. The nudge
+   tries its two perpendicular signs, so a fixed order always slides the player
+   the same way; a fallback that relocates the player outright is a teleport. */
+test('pressing into a wall drifts sideways not at all', () => {
   const t = softAssert();
-console.log('[10] pressing into a wall produces no lateral drift and no teleport');
 {
   const keys = A.keys;
   const release = ()=>{ keys.w=keys.a=keys.s=keys.d=false; keys.shift=false; };
@@ -214,7 +202,7 @@ console.log('[10] pressing into a wall produces no lateral drift and no teleport
       `avatar drifted ${dx.toFixed(3)} tiles sideways while pressing straight up into a wall — should be 0`);
     t.assert(maxJump < 0.20,
       `single-frame jump of ${maxJump.toFixed(3)} tiles — that is a teleport, not a nudge`);
-    // it should end up FLUSH with the wall: centre-to-face distance == radius
+    // the player should end up flush with the wall: centre-to-face distance == radius
     const wallFace = Math.floor(G.player.y);          // boundary below the wall tile
     const gap = G.player.y - wallFace;
     console.log(`  final gap to wall face ${gap.toFixed(3)} tiles (collision radius ${A.R})`);

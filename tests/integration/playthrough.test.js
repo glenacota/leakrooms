@@ -12,19 +12,22 @@ const blocked = A.blocked;
 const keys = A.keys;
 const emitNoise = A.emitNoise;
 
-/* ============ TEST 4: end-to-end playthroughs =========================
-   A bot drives real key state through the real update(). It walks to the
-   nearest open riser, holds still to seal it, then walks back to the door it
-   came in through — which is the entire level. This proves the game is
-   FINISHABLE, and that three minutes is enough of a budget to do five levels of
-   it in. Note it is a weak player: it ignores the Lifeform until it is 9 tiles
-   away, so its death rate is reported but is NOT a difficulty signal.        */
-test('[4] end-to-end — bot drives REAL keys through update()', () => {
+/* The bot finishes floors using the same key state a player presses, so a pass
+   here proves the game is finishable and not just the simulation. Three minutes
+   a level has to be enough for a careful player, and that is the number checked
+   below. */
+test('a bot driving real key events can finish all five levels', () => {
   const t = softAssert();
-console.log('[4] end-to-end — bot drives REAL keys through update()');
 {
   const W=76,H=76, IDX=(x,y)=>y*W+x;
 
+  /**
+   * Breadth-first walk distances out from one tile.
+   * @param {number} gx start tile column
+   * @param {number} gy start tile row
+   * @returns {Int32Array|null} step counts indexed by y*W+x, -1 where unreachable,
+   *   or null when the start tile is not walkable
+   */
   function distField(gx,gy){
     const dist=new Int32Array(W*H).fill(-1);
     const g0=IDX(gx|0,gy|0);
@@ -42,7 +45,13 @@ console.log('[4] end-to-end — bot drives REAL keys through update()');
     }
     return dist;
   }
-  // an exit is a WALL tile, so goal at a floor tile that touches it
+  /* The exit is a wall tile, so the goal is a floor tile that touches it. */
+  /**
+   * The floor tile beside the door, nearest the player.
+   * @param {{x:number,y:number}} e the exit tile
+   * @returns {{x:number,y:number,tile:number}|null} the tile to path to, or null
+   *   when the door touches no floor
+   */
   function exitGoal(e){
     const cand=[[e.x+1,e.y],[e.x-1,e.y],[e.x,e.y+1],[e.x,e.y-1]]
       .filter(([x,y])=>x>=0&&y>=0&&x<W&&y<H&&G.grid[IDX(x,y)]===1);
@@ -57,7 +66,15 @@ console.log('[4] end-to-end — bot drives REAL keys through update()');
   }
   const distTo=(f,tile)=> f ? (f[tile]>=0?f[tile]:9999) : 9999;
 
-  // BFS path from a tile to a tile, inclusive of the start
+  /**
+   * The shortest walkable route from one tile to another.
+   * @param {number} sx start tile column
+   * @param {number} sy start tile row
+   * @param {number} gx goal tile column
+   * @param {number} gy goal tile row
+   * @returns {number[][]|null} tile pairs from start to goal inclusive, or null
+   *   when no route exists
+   */
   function bfsPath(sx,sy,gx,gy){
     if(sx===gx && sy===gy) return [];
     const prev=new Int32Array(W*H).fill(-1);
@@ -82,11 +99,19 @@ console.log('[4] end-to-end — bot drives REAL keys through update()');
     return out.reverse();
   }
 
+  /**
+   * Plays one five-level run with the bot.
+   * @param {number} seed floor seed, also installed as RUN_SEED
+   * @param {boolean} withEntity whether lifeforms stay in the floor
+   * @param {number} maxMinutes the bot's own deadline, far longer than the game's
+   * @returns {{depth:number, t:number, deaths:number, lowestBatt:number,
+   *   minMargin:number, why:string, escapes:number}} how far it got and why it stopped
+   */
   function play(seed, withEntity, maxMinutes){
     const SF=0;
     const sd = seed;
-    // mirror what the start button does, so nextFloor() keeps deriving floors
-    // from THIS seed — otherwise every seed plays the identical floor 1..4
+    // Mirror what the start button does, so nextFloor() keeps deriving floors
+    // from this seed instead of replaying the same level 1 to 4.
     A.RUN_SEED = sd;
     buildFloor(SF, sd);
     A.STATE='play';
@@ -102,24 +127,16 @@ console.log('[4] end-to-end — bot drives REAL keys through update()');
       const live=G.batteries.filter(b=>!b.taken);
       const px=G.player.x, py=G.player.y, cur=IDX(Math.floor(px),Math.floor(py));
 
-      /* --- THE LEVEL, IN ORDER.
-         Seal every riser, then get back to the door. There is no third thing to
-         find any more, so the bot's whole objective is a work list and a
-         journey home, and the journey home only starts when the list is empty.
-
-         The repair is modelled exactly: no keys, no radar, no movement, for as
-         many frames as the bar takes. Releasing the keys IS the repair input —
-         there is no button — so a hold is five seconds of doing nothing, which
-         the loop has to actually run. */
+      /* The objective list is the level: seal every riser, then walk back to the
+         door, and the walk home starts only once the list is empty. Sealing is
+         a hold with no button, so the keys go down and nothing else is pressed
+         for as long as the bar takes. */
       const open = G.leaks.filter(L=>!L.fixed);
       if (open.length){
-        /* Nearest open riser by WALKING distance, from one BFS out from the
-           player's own tile. Straight-line distance is the trap here: on a BSP
-           floor the pipe nearest as the crow flies is regularly the furthest
-           one to walk to, so a Euclidean bot spends most of its three minutes
-           crossing the building twice and reports that the clock is impossible
-           when what it actually measured is its own routing. One field per leg,
-           rebuilt when the player has left the neighbourhood it describes. */
+        /* Nearest riser by walking distance, from one BFS out from the player's
+           tile. On a BSP floor the pipe nearest in a straight line is often the
+           furthest to reach on foot. One field per leg, rebuilt once the player
+           has left the area it describes. */
         if (!fromHere || Math.hypot(px-fromX0, py-fromY0) > 4){
           fromHere = distField(Math.floor(px), Math.floor(py));
           fromX0 = px; fromY0 = py;
@@ -129,10 +146,9 @@ console.log('[4] end-to-end — bot drives REAL keys through update()');
           const d = distTo(fromHere, IDX(L.sx, L.sy));
           if (d<bd){ bd=d; best=L; }
         }
-        /* Ask the GAME's own predicate whether we are in reach, rather than a
-           tighter radius of the test's own. A bot that starts holding at 0.34
-           while the game allows REPAIR_REACH is testing a stricter game than
-           the one that ships. */
+        /* Reach is the game's own predicate, not a tighter radius from the
+           test. Holding early would measure a stricter game than the one that
+           ships. */
         if (A.leakReach(px, py)){
           keys.w=keys.s=keys.a=keys.d=false; keys.shift=false;
           A.updateReal(1/60); t+=1/60;
@@ -145,12 +161,10 @@ console.log('[4] end-to-end — bot drives REAL keys through update()');
           }
           continue;
         }
-        /* The path is NOT nulled on a goal change. It was, and that single line
-           made this the slowest thing in the suite by an order of magnitude:
-           the rebuild condition is `!path || off-course`, so a null every frame
-           rebuilt a 5776-entry BFS on every frame of what is the longest walk in
-           the game. Invalidating when the player leaves the corridor they were
-           given is enough. */
+        /* The path survives a goal change on purpose: nulling it here made the
+           rebuild condition true on every frame, running a 5776-entry BFS each
+           time down the longest walk in the game. Invalidating once the player
+           leaves the corridor they were given is enough. */
         const rk = best.sx+','+best.sy;
         if (rk !== lastRiserKey){ lastRiserKey = rk; goalId=-1; }
         riserGoal={x:best.sx, y:best.sy};
@@ -158,7 +172,7 @@ console.log('[4] end-to-end — bot drives REAL keys through update()');
         riserGoal=null; lastRiserKey='';
       }
 
-      /* --- the goal: riser, then recharge, then the door --- */
+      /* The goal for this frame: riser, then recharge, then the door. */
       const doorGoal = exitGoal(G.exitTiles[0]);
       let goal=null, kind=null;
       if (riserGoal){ goal=riserGoal; kind='riser'; }
@@ -181,20 +195,15 @@ console.log('[4] end-to-end — bot drives REAL keys through update()');
       if(!field) field=distField(goal.x,goal.y);
       if(!field){ why='no field'; break; }
 
-      /* --- no sweeping.
-         The radar used to be an exit-finder and there is nothing left in the
-         world that needs finding: the door is where you came in and the pipes
-         announce themselves in water. So a sweep is pure waste against a
-         three-minute budget, and the bot travelling dark is exactly the play the
-         clock is asking for. It still has to SURVIVE the budget, so a dead radar
-         must not be a soft-lock — hence the battery-margin assertion below. */
+      /* No radar sweeps. The door is where you came in and the pipes show in
+         water, so a sweep is pure waste against a three-minute budget. The bot
+         still has to survive that budget, so a dead radar must not soft-lock it,
+         which the battery-margin assertion below covers. */
       G.radar = false;
 
-      /* --- steer by FOLLOWING AN EXPLICIT PATH ---
-         Descending a distance field with single-axis steps gets trapped in
-         local minima (it walks into a pocket where every neighbour is a
-         "hill" and shuffles forever). Following a real path with waypoints
-         cannot get stuck. Rebuilt whenever the player's tile changes. */
+      /* Steer along an explicit path rather than downhill on the distance field.
+         Single-axis steps downhill get stuck in pockets where every neighbour is
+         a hill. A real path with waypoints cannot. */
       keys.w=keys.s=keys.a=keys.d=false; keys.shift=false;
       const cx=Math.floor(px), cy=Math.floor(py);
       const here=field[cur];
@@ -212,7 +221,7 @@ console.log('[4] end-to-end — bot drives REAL keys through update()');
         /* Rebuild only when genuinely off-course. Rebuilding on every tile
            change thrashes: standing at exactly x=9.0 makes floor(x) flicker
            between 8 and 9, so the path flipped every few frames and the bot
-           paced on the spot forever. */
+           paced on the spot. */
         const stale = !path || wi>=path.length ||
                       Math.hypot(px-pathFromX, py-pathFromY) > 2.5 ||
                       IDX(goal.x,goal.y)!==goalId;
@@ -229,7 +238,7 @@ console.log('[4] end-to-end — bot drives REAL keys through update()');
 
       let tgt=null;
       if(ta && td<9){
-        // FLEE: step away from the hunter
+        // Step away from the hunter.
         const nb=[[cx+1,cy],[cx-1,cy],[cx,cy+1],[cx,cy-1]];
         let fa=td;
         for(const [nx,ny] of nb){
@@ -244,9 +253,8 @@ console.log('[4] end-to-end — bot drives REAL keys through update()');
 
       if(tgt){
         const dx=tgt[0]-px, dy=tgt[1]-py;
-        // Axis preference FLIPS when the previous press produced no movement.
-        // Committed to one axis, the bot jams at wall corners that a human
-        // trivially walks around by sliding the other way.
+        // Flip the axis preference when the previous press moved nothing.
+        // Holding one axis jams the bot at corners a human slides around.
         const X=[dx>0?'d':'a', dx>0?1:-1, 0];
         const Y=[dy>0?'s':'w', 0, dy>0?1:-1];
         const wantFirst = Math.abs(dx)>Math.abs(dy);
@@ -272,9 +280,9 @@ console.log('[4] end-to-end — bot drives REAL keys through update()');
       A.updateReal(1/60); t+=1/60;
       if(Math.abs(G.player.x-bx0)+Math.abs(G.player.y-by0) > 1e-6) hasMovedLastFrame=true;
       lowestBatt=Math.min(lowestBatt,G.batt);
-      /* Clock headroom, not battery headroom: the number that can end a level
-         is now seconds left, and the tightest moment is the last frame of the
-         walk home with the work already done. */
+      /* Clock headroom, not battery headroom: seconds left is the number that can
+         end a level, and the tightest moment is the last frame of the walk home
+         with the work already done. */
       minMargin=Math.min(minMargin, G.clock);
 
       if(A.STATE!=='play'){
@@ -293,7 +301,7 @@ console.log('[4] end-to-end — bot drives REAL keys through update()');
     return { depth:A.floorIdx, t, deaths, lowestBatt, minMargin, why, escapes };
   }
 
-  // --- 4a: level-design feasibility (no monster) ---
+  // Level-design feasibility, with the lifeforms removed.
   let feas=0, ft=[], worstMargin=1e9, worstBatt=100, escA=0;
   globalThis.TRACE=false;
   for(let s=0;s<6;s++){
@@ -303,50 +311,45 @@ console.log('[4] end-to-end — bot drives REAL keys through update()');
     worstMargin=Math.min(worstMargin,r.minMargin); escA+=r.escapes;
     worstBatt=Math.min(worstBatt,r.lowestBatt);
   }
-  console.log(`[4a] feasibility — ${feas}/6 runs cleared all 5 levels with no monster`);
-  /* The bot's own deadline is deliberately far longer than the game's. What is
-     being measured here is the game's clock: if a bot that walks in straight
-     lines, ignores the lifeforms entirely and never sweeps cannot get five
-     levels done inside three minutes a level, then neither can a player, and
-     the clock is the thing that is wrong rather than the bot. */
+  console.log(`feasibility — ${feas}/6 runs cleared all 5 levels with no monster`);
+  /* The bot's deadline is far longer than the game's on purpose. This measures
+     the game's clock: if a bot that walks straight lines, ignores the lifeforms
+     and never sweeps cannot clear five levels in three minutes a level, neither
+     can a player. */
   if(ft.length) console.log(`     avg ${(ft.reduce((a,b)=>a+b,0)/ft.length/60).toFixed(1)} min per 5-level run`);
   console.log(`     tightest clock headroom: ${worstMargin.toFixed(0)}s (negative = ran out)`);
   console.log(`     lowest battery observed: ${worstBatt.toFixed(0)}   bot escapes: ${escA}`);
 
   t.assert(worstMargin>0, 'clock headroom goes negative — a careful player would run out of time');
 
-  // --- 4b: full game with the monster ---
+  // The full game, with the lifeforms in play.
   let wins=0, rt=[], dsum=0, reach=0, escSum=0;
   for(let s=0;s<6;s++){
     const r=play(s*3319+11, true, 5);
     if(r.depth>=5){ wins++; rt.push(r.t); }
     dsum+=r.deaths; reach=Math.max(reach,r.depth); escSum+=r.escapes;
   }
-  console.log(`[4b] with monster — ${wins}/6 runs cleared all 5 levels, deepest ${reach}/5, deaths ${dsum}, bot escapes ${escSum}`);
+  console.log(`with monster — ${wins}/6 runs cleared all 5 levels, deepest ${reach}/5, deaths ${dsum}, bot escapes ${escSum}`);
   if(rt.length) console.log(`     avg completed run ${(rt.reduce((a,b)=>a+b,0)/rt.length/60).toFixed(1)} min`);
-  // Informational only. The bot ignores the entity until it is 9 tiles away and
-  // flees into whatever dead end is nearest, so its death rate is NOT a valid
-  // difficulty signal — only a human playtest can tune that.
+  // Informational only. The bot ignores the lifeform until it is 9 tiles away
+  // and flees into whatever dead end is nearest, so its death rate says nothing
+  // about difficulty. Only a human playtest can tune that.
   console.log(`     (informational: bot deaths are not a difficulty signal)`);
 }
   t.done();
 });
 
 
-/* ============ TEST 18: a level is FINISHABLE, pipes and all =========
-   The whole level is one objective set — every riser, then the door — so it
-   has to be inside the completion path the end-to-end bot already walks. This
-   drives the bot at one riser, then the next, then the door it came in by, and
-   asserts the level actually completes through the real update() with real key
-   state. Level 5 is the one that matters: four pipes is where a placement bug
-   or a tally bug shows up, because with one there is nothing to get wrong. */
-test('[18] end-to-end — the bot seals every riser, then walks back out', () => {
+/* Every level has to be completable through the real update() with real key
+   state, so this drives the bot at one riser, then the next, then the door.
+   All five are walked because the level table is the thing under test: a level
+   that is unreachable where its neighbour is fine only shows up here. */
+test('the bot seals every riser, then walks back out the door', () => {
   const t = softAssert();
-console.log('[18] end-to-end — the bot seals every riser, then walks back out');
 {
   const W=76, H=76, IDX=(x,y)=>y*W+x;
 
-  /* --- navigation: the SAME path machinery test 4 uses, pointed at a pipe --- */
+  // The same path machinery the earlier bot uses, pointed at a riser.
   function bfsPath(sx,sy,gx,gy){
     if(sx===gx && sy===gy) return [];
     const prev=new Int32Array(W*H).fill(-1);
@@ -371,9 +374,9 @@ console.log('[18] end-to-end — the bot seals every riser, then walks back out'
     return out.reverse();
   }
 
-  /* The door is a WALL tile, so the bot cannot path TO it — it has to path to
-     the floor tile beside it, which is the same thing the game itself does when
-     it checks whether you are close enough to cycle the door. */
+  /* The door is a wall tile, so the bot cannot path to it. It paths to the
+     floor tile beside it, which is how the game decides you are close enough
+     to cycle the door. */
   function doorGoal(door){
     const cand=[[door.x+1,door.y],[door.x-1,door.y],[door.x,door.y+1],[door.x,door.y-1]]
       .filter(([x,y])=>x>=0&&y>=0&&x<W&&y<H&&G.grid[IDX(x,y)]===1);
@@ -408,8 +411,7 @@ console.log('[18] end-to-end — the bot seals every riser, then walks back out'
 
   const distTo=(f,tile)=> f ? (f[tile]>=0?f[tile]:9999) : 9999;
 
-  /* Every level, because the level table is the thing under test: if level 3
-     is unreachable where level 2 is fine, only walking all five finds it. */
+  // All five, because the level table is the thing under test.
   let arrived=0, descended=0, noPath=0, risersSealed=0, risersWanted=0;
   for (let s=0; s<A.LEVELS_N; s++){
     buildFloor(s, s*4441+13);
@@ -432,10 +434,9 @@ console.log('[18] end-to-end — the bot seals every riser, then walks back out'
       const px=G.player.x, py=G.player.y;
       keys.w=keys.s=keys.a=keys.d=false; keys.shift=false;
 
-      /* ONE goal at a time: the nearest open riser, or the door once the work
-         is done. Recomputed from scratch every frame so that a riser sealing
-         mid-walk hands the level straight over to the next one — which is the
-         behaviour a player gets, and the one a stale cached goal would break. */
+      /* One goal at a time: the nearest open riser, or the door once the work is
+         done. Recomputed every frame, so a riser sealing mid-walk hands the
+         level straight to the next one. A stale cached goal would break that. */
       const open = G.leaks.filter(L=>!L.fixed);
       let best=null, riserGoal=null;
       if (open.length){
@@ -458,15 +459,14 @@ console.log('[18] end-to-end — the bot seals every riser, then walks back out'
       if (!goal){ noPath++; break; }
       if (IDX(goal.x,goal.y)!==goalId){ goalId=IDX(goal.x,goal.y); path=null; }
 
-      /* once we are on the pipe, STOP. The repair is a hold, not a walk.
-         As in test 4, the question is the GAME's reach predicate and not a
-         radius invented here. 0.35 is inside the game's 1.25, so a single-axis
-         presser that stops 0.4 tiles short would never trigger it. */
+      /* On arrival, stop and let the update run: the repair and the door are both
+         holds, not walks. Both use the game's own predicates, so a tighter
+         radius invented here would test a stricter game than the one that
+         ships. */
       if (!best && Math.hypot(door.x+0.5-px, door.y+0.5-py) < 1.25){
-        /* Snapshotted BEFORE the update, and that ordering is the whole reason
-           this works: the frame the door cycles, nextFloor() rebuilds G for the
-           NEXT level, so anything read after it belongs to a level this bot has
-           never played. */
+        /* Snapshotted before the update. The frame the door cycles, nextFloor()
+           rebuilds G for the next level, so anything read afterwards belongs to
+           a level this bot has not played. */
         sealedThisLevel = G.leaks.filter(l=>l.fixed).length;
         allSealed = sealedThisLevel===G.leaks.length;
         update(1/60);
@@ -489,21 +489,16 @@ console.log('[18] end-to-end — the bot seals every riser, then walks back out'
       if (stale){ fromX=px; fromY=py; path=bfsPath(Math.floor(px),Math.floor(py),goal.x,goal.y); wi=0; }
       if (!path){ noPath++; break; }
       while (wi<path.length-1 && Math.hypot(path[wi][0]+0.5-px, path[wi][1]+0.5-py) < 0.45) wi++;
-      /* bfsPath returns [] when the player is ALREADY on the goal tile. That is
-         arrival, not failure, and `path[Math.min(wi, -1)]` used to dereference
-         undefined on it — a crash the door placement change exposed, because the
-         bot now parks exactly on the tile below the door, which is the goal.
-         Standing still is the right move here anyway: both arrival checks, the
-         leak reach and the 1.25-tile door proximity, run at the top of the next
+      /* bfsPath returns [] when the player is already on the goal tile, which is
+         arrival rather than failure. Standing still is right anyway: the leak
+         reach and the 1.25-tile door check both run at the top of the next
          frame. */
       const wp = path.length ? path[Math.min(wi,path.length-1)] : [goal.x, goal.y];
       const dx=(wp[0]+0.5)-px, dy=(wp[1]+0.5)-py;
 
-      /* The steering from test 4, which is the version that actually walks a
-         maze. Pressing one axis blindly — which is what this did first — jams
-         against a partition and stays jammed. The two things that matter are a
-         LOOKAHEAD that refuses to press into a wall, and FLIPPING the axis
-         preference when the last press produced nothing. */
+      /* Two things make this walk a maze: a lookahead that refuses to press into
+         a wall, and flipping the axis preference when the last press moved
+         nothing. Pressing one axis blindly just jams against a partition. */
       const X=[dx>0?'d':'a', dx>0?1:-1, 0];
       const Y=[dy>0?'s':'w', 0, dy>0?1:-1];
       const wantFirst = Math.abs(dx)>Math.abs(dy);

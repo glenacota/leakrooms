@@ -1,8 +1,7 @@
-/* Soft assertion collector. assert() logs and records instead of throwing,
-   so one test run surfaces every failure, not just the first; done() raises
-   at the end of the run if anything was recorded. This is the suite's old
-   global fail-counter behaviour, moved into a factory so test blocks can
-   collect independently. */
+/* Soft assertion collector.
+   assert() records and logs instead of throwing, so one run surfaces every
+   failure rather than only the first. done() throws at the end if anything was
+   recorded. Tests create their own collector, so blocks can be independent. */
 export function softAssert(){
   const failures = [];
   return {

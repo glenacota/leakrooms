@@ -7,20 +7,16 @@ const buildFloor = A.buildFloor;
 const update = A.update;
 A.setHeadless(false, true);
 
-/* ============ TEST 12: room-scoped visibility =======================
-   The room you are standing in is lit; the rooms you are not, are dark.
-
-   The BAKE is unchanged by this (test 1 still asserts its coverage), so the
-   risk is entirely in the second layer: a scope that leaks, a scope that does
-   not follow the player, a scope that punches a black hole through the wall
-   you are leaning on, or a scope that quietly mutates the bake. Each of those
-   is a separate failure mode, so each gets its own assertion.             */
+/* The room you are standing in is lit and the rooms you are not are dark. The
+   ambient bake is unchanged by this, so the whole risk sits in the scoping
+   pass: a scope that leaks, one that does not follow the player, one that
+   punches a black hole through the wall you are leaning on, or one that
+   mutates the bake in place. Each is a separate failure, so each is asserted. */
 /* From here on the tests read the mask, the cone and the packed images, so
    both halves of the vision pipeline go back on. */
 A.setHeadless(false, true);
-test('[12] room-scoped light — your room is lit, the rest is dark', () => {
+test('light is scoped to the room you are standing in', () => {
   const t = softAssert();
-console.log('[12] room-scoped light — your room is lit, the rest is dark');
 {
   const W=76, H=76, DARK=A.DARK_ROOM, HOP=A.HOP_FALL;
 
@@ -32,9 +28,9 @@ console.log('[12] room-scoped light — your room is lit, the rest is dark');
     }
     return hops;
   };
-  /* Put the player on a real floor tile of the given room and rescope.
-     A stub partition can occupy a room's nominal centre, so scan rather
-     than trusting rx+rw/2. */
+  /* Put the player on a real floor tile of the given room and rescope. A stub
+     partition can occupy a room's nominal centre, so scan for a tile instead
+     of trusting rx+rw/2. */
   const standIn = (ri)=>{
     const r=G.rooms[ri];
     for (let y=r.ry;y<r.ry+r.rh;y++)
@@ -51,9 +47,8 @@ console.log('[12] room-scoped light — your room is lit, the rest is dark');
   let floors=0, placed=0, leak=0, blackHole=0, noFollow=0, bakeMut=0, unreachable=0;
   let ownTotal=0, ownFloors=0, farTotal=0, farFloors=0;
 
-  /* The falloff must be strictly decreasing — a table that rises at hop 3
-     would light the room beyond a dark one, which is exactly the inversion
-     that made the old step function confusing. */
+  /* The falloff must be strictly decreasing. A table that rises at hop 3 would
+     light the room beyond a dark one. */
   for (let i=1;i<HOP.length;i++)
     t.assert(HOP[i] < HOP[i-1], `scope rises at ${i} gates: ${HOP[i-1]} -> ${HOP[i]}`);
   t.assert(HOP[HOP.length-1] > 0 && HOP[HOP.length-1] < 0.2,
@@ -64,8 +59,8 @@ console.log('[12] room-scoped light — your room is lit, the rest is dark');
     floors++;
     const regOf=A.internals.regionOf, vis=A.internals.visArr, bake=A.internals.lightArr;
 
-    // every floor tile must belong to SOME region, or scoping has a hole in
-    // its coverage and part of the maze can never light up
+    // every floor tile must belong to some region, or part of the maze can
+    // never light up at all
     for (let i=0;i<W*H;i++){
       if (G.grid[i]===1 && regOf[i]<0){ unreachable++; break; }
     }
@@ -82,8 +77,8 @@ console.log('[12] room-scoped light — your room is lit, the rest is dark');
     t.assert(here>=0, `seed ${s}: player region is -1 while standing on floor`);
     const hops = hopsFrom(here);
 
-    // region graph must be connected, or a player could be sealed into one
-    // lit island with the rest of the floor unreachable by light forever
+    // the region graph must be connected, or the player could stand in one lit
+    // island with the rest of the floor unreachable by light
     for (let r=0;r<hops.length;r++) if (hops[r]<0){ unreachable++; break; }
 
     let ownSum=0, ownN=0, farSum=0, farN=0;
@@ -95,10 +90,9 @@ console.log('[12] room-scoped light — your room is lit, the rest is dark');
       if (G.grid[i]===1){
         const r=regOf[i], h=hops[r]>=0?hops[r]:99;
         const want = h>=HOP.length ? HOP[HOP.length-1] : HOP[h];
-        /* The scope must be exactly the falloff table for this tile's hop
-           count. It USED to be asserted as a three-value step function, which
-           is what let it be a cliff in the first place — nothing in the suite
-           noticed that a corridor went black ten tiles ahead. */
+        /* The scope must equal the falloff table for this tile's hop count. An
+           assertion loose enough to accept a step function would let the scope
+           become a cliff and miss a corridor going black ten tiles ahead. */
         if (Math.abs(vis[i]-want) > 1e-6) leak++;
         if (h===0){
           // the room you are in: fully scoped, and bright enough to see by
@@ -107,8 +101,8 @@ console.log('[12] room-scoped light — your room is lit, the rest is dark');
           ownSum+=shown; ownN++;
         } else { farSum+=shown; farN++; }
       } else {
-        // a wall must never be darker than the brightest floor it touches —
-        // that is what stops a partition from reading as a hole in the floor
+        // a wall must never be darker than the brightest floor it touches, or
+        // a partition reads as a hole cut in the floor
         let nb=0;
         if (x+1<W   && G.grid[i+1]===1)   nb=Math.max(nb, vis[i+1]);
         if (x>0    && G.grid[i-1]===1)   nb=Math.max(nb, vis[i-1]);
@@ -118,20 +112,17 @@ console.log('[12] room-scoped light — your room is lit, the rest is dark');
       }
     }
     /* Accumulate across floors rather than per floor: DARK_ROOM is 0, so the
-       far rooms sum to exactly zero and a per-floor ratio is division by
-       zero. What is worth knowing is whether ANY far tile is ever lit. */
+       far rooms sum to exactly zero and a per-floor ratio divides by zero.
+       What is worth knowing is whether any far tile is ever lit. */
     if (ownN){ ownTotal += ownSum/ownN; ownFloors++; }
     if (farN && farSum > 0){ farTotal += farSum/farN; farFloors++; }
 
     // scoping must not have touched the bake
     for (let i=0;i<W*H;i++) if (bake[i]!==bakeBefore[i]){ bakeMut++; break; }
 
-    /* And it must FOLLOW the player: rescope into a different room, then
-       check the room just left is now dimmer than the one you are in. A scope
-       computed once at floor build would pass every check above and still be a
-       no-op in play. Note this used to assert the old room went BLACK; with a
-       falloff that is the wrong rule — leaving a room dims it, it does not
-       delete it. */
+    /* And it must follow the player: rescope into another room, then check the
+       room just left is dimmer than the one you are in. A scope computed once
+       at floor build passes every check above and is a no-op in play. */
     const otherRi = (s*13+7)%rooms.length;
     if (otherRi!==homeRi && standIn(otherRi)){
       if (A.regionAt(G.player.x, G.player.y) !== A.internals.visRegion) noFollow++;
@@ -150,9 +141,9 @@ console.log('[12] room-scoped light — your room is lit, the rest is dark');
   t.assert(blackHole===0, `${blackHole} tiles were too dark to stand in or to see the wall beside`);
   t.assert(noFollow===0, `${noFollow} cases where the light did not follow the player into the next room`);
   t.assert(bakeMut===0, `${bakeMut} floors where scoping mutated the ambient bake in place`);
-  /* The far rooms are dim now, not black — that is the point of the falloff —
-     but your own room must still be plainly brighter than them, or the whole
-     scoping rule has stopped meaning anything. */
+  /* The far rooms are dim, not black, which is the point of the falloff, but
+     your own room must still be clearly brighter or the scoping rule has
+     stopped meaning anything. */
   const ratio = farFloors ? (ownTotal/ownFloors)/(farTotal/farFloors) : Infinity;
   t.assert(ratio > 3.0,
     `your room is only ${ratio.toFixed(2)}x brighter than the rooms beyond it (want >3)`);
@@ -160,10 +151,9 @@ console.log('[12] room-scoped light — your room is lit, the rest is dark');
   console.log(`  scope falls off ${HOP.map(v=>v.toFixed(2)).join(' -> ')} by gates crossed`);
   console.log(`  no leaks, no black walls, bake untouched, light follows the player`);
 
-  /* --- the crossfade is not optional decoration ---
-     An instant swap pops the whole screen; a fade that never converges
-     leaves the player standing in a half-dark room forever. Both are bugs,
-     so both are asserted. */
+  /* The crossfade is not optional decoration. An instant swap pops the whole
+     screen and a fade that never converges leaves the player in a half-dark
+     room forever, so both ends of the fade are asserted. */
   buildFloor(0, 4242);
   {
     // pick two rooms that both have a standable tile
@@ -209,11 +199,9 @@ console.log('[12] room-scoped light — your room is lit, the rest is dark');
     }
   }
 
-  /* --- sight down a corridor, which is the bug this falloff exists to fix ---
-     A corridor is a band region, so under the old step-function scope it went
-     black two regions out: on a measured 40-tile straight run the floor died
-     at 10 tiles while dead ahead, in line of sight, inside the cone. Assert
-     that a clear straight line stays visible well past a single gate. */
+  /* Sight down a corridor. A corridor is a band region, so a scope that works
+     as a step function turns it dark two regions out: on a long straight run
+     the floor dies ten tiles ahead, in line of sight, inside the cone. */
   {
     let best=null;
     for (let s=0; s<25 && !best; s++){
@@ -255,26 +243,20 @@ console.log('[12] room-scoped light — your room is lit, the rest is dark');
   t.done();
 });
 
-/* ============ TEST 13: cone of vision ==============================
-   200 degrees, stopped by walls. Two failure modes that look identical on
-   screen and are caught completely differently here:
-
-     - a cone that does not rotate, so you can see behind you permanently
-     - a cone that ignores walls, so a one-tile partition stub fails to hide
-       the floor behind it
-
-   The second is why this is a ray cast and not a per-tile angle test, and it
-   is invisible in aggregate statistics: the stub is 1 tile of 5776.            */
-test('[13] cone of vision — 200 degrees, occluded by walls', () => {
+/* The cone is 200 degrees and stopped by walls. Two failures look the same on
+   screen and are caught differently here: a cone that does not rotate, so you
+   can see behind you for good, and a cone that ignores walls, so a one-tile
+   partition stub fails to hide the floor behind it. The second is why this
+   casts rays instead of testing an angle per tile, and it is invisible in
+   aggregate numbers: the stub is one tile of 5776. */
+test('the cone of vision rotates and is blocked by walls', () => {
   const t = softAssert();
-console.log('[13] cone of vision — 200 degrees, occluded by walls');
 {
   const W=76, HALF=A.VIEW_HALF;
 
   buildFloor(1, 5150);
-  /* Put the player in the most open spot on the floor: a big room with the
-     longest clear run we can find, so the cone has room to actually spread
-     and a failure to rotate cannot hide behind geometry. */
+  /* Put the player in the most open spot on the floor, so the cone has room to
+     spread and a cone that fails to rotate cannot hide behind geometry. */
   let spot=null, bestClear=-1;
   for (let y=4;y<72;y++) for (let x=4;x<72;x++){
     if (G.grid[y*W+x]!==1) continue;
@@ -298,10 +280,9 @@ console.log('[13] cone of vision — 200 degrees, occluded by walls');
   };
 
   /* Independent occlusion oracle: does the segment from the eye to the tile
-     centre pass through any solid tile? Sampled finely rather than walked with
+     pass through a solid tile? Sampled finely rather than walked with
      Bresenham, because the game walks with an exact voxel traversal and the
-     two disagree by a tile exactly at the corners and diagonals where the
-     question is interesting. Sampling is neither of them. */
+     two disagree exactly at the corners and diagonals. Sampling is neither. */
   const solid=(x,y)=> (x<0||y<0||x>=W||y>=W) || G.grid[y*W+x]===0;
   const occluded=(ax,ay,bx,by)=>{
     const n=Math.ceil(Math.hypot(bx-ax,by-ay)/0.04);
@@ -314,11 +295,11 @@ console.log('[13] cone of vision — 200 degrees, occluded by walls');
   const eye=()=>[spot.x + Math.cos(G.player.face)*A.HAND_OFF,
                  spot.y + Math.sin(G.player.face)*A.HAND_OFF];
 
-  /* Can ANY line from the eye reach this tile? Sampled over a disc inside the
+  /* Can any line from the eye reach this tile? Sampled over a disc inside the
      tile rather than to its exact centre, because "the tile is visible" means
-     some part of it is, and testing only the centre line flags tiles you can
-     plainly see the edge of. Built from the fine occlusion sampler above, so
-     it shares no traversal code with the game's voxel walk. */
+     some part of it is and testing only the centre line flags tiles you can
+     plainly see the edge of. Built from the sampler above, so it shares no
+     traversal code with the game's voxel walk. */
   const SEES=(()=>{
     const pts=[[0,0]];
     for (const r of [0.25, 0.42]) for (let a=0; a<8; a++){
@@ -333,7 +314,7 @@ console.log('[13] cone of vision — 200 degrees, occluded by walls');
     return false;
   };
 
-  /* --- 1. it rotates: what you can see must depend on facing --- */
+  /* It rotates: what you can see must depend on facing. */
   const probes=[0, Math.PI/2, Math.PI, -Math.PI/2];
   const seenAt = probes.map(face=>{
     set(spot.x, spot.y, face);
@@ -347,10 +328,9 @@ console.log('[13] cone of vision — 200 degrees, occluded by walls');
   t.assert(maxDiff > 0.5,
     `the cone barely changes with facing (max tile delta ${maxDiff.toFixed(3)}) — it is not rotating`);
 
-  /* --- 2. what is IN the cone and what is not ---
-     Facing east (+x) in an open spot: floor to the east must be lit, floor to
-     the west must not be. This is the direction test that a wall-blind
-     implementation still passes, so it is asserted separately from (3). */
+  /* What is in the cone and what is not. Facing east in an open spot, floor to
+     the east must be lit and floor to the west must not. A cone that ignores
+     walls still passes this, so it is asserted separately from occlusion. */
   set(spot.x, spot.y, 0);
   let eastLit=0, eastTot=0, westLit=0, westTot=0;
   const [ex1,ey1]=eye();
@@ -369,14 +349,12 @@ console.log('[13] cone of vision — 200 degrees, occluded by walls');
   t.assert(eastLit === eastTot, `${eastTot-eastLit} clear tiles directly ahead were not lit — the cone is not where the character is looking`);
   t.assert(westLit === 0, `${westLit} tiles behind the character are lit — 80 degrees of blindness should be behind you`);
 
-  /* --- 3. walls occlude: the property a per-tile angle test gets wrong ---
-     The claim is not "the cone never reaches an occluded tile" — the cone is
-     a fan of rays and it will happily sweep across a wall that is further
-     away than the thing it is occluding. The claim is that NOTHING OCCLUDED
-     IS EVER VISIBLE, which is what the player experiences. So this asserts on
-     the mask, and counts separately the occluded tiles that lie inside the
-     cone's angle AND in a lit region, where nothing but occlusion could be
-     keeping them dark. */
+  /* Walls occlude. The claim is not that the cone never reaches an occluded
+     tile, since it is a fan of rays and will sweep across a wall further away
+     than the thing occluding it. The claim is that nothing occluded is ever
+     visible, which is what the player experiences. So this asserts on the
+     mask, and counts separately the occluded tiles that lie inside the cone's
+     angle and in a lit room, where only occlusion could be keeping them dark. */
   set(spot.x, spot.y, 0);
   let occludedVisible=0, occludedTotal=0, inLitRegion=0, worstAngle=0;
   const [ex2,ey2]=eye();
@@ -402,11 +380,11 @@ console.log('[13] cone of vision — 200 degrees, occluded by walls');
   t.assert(occludedVisible===0,
     `${occludedVisible} tiles behind a wall are visible — the cone ignores occlusion`);
 
-  /* --- 4. the radar must lift the WHOLE floor, and only while it is on ---
-     With the radar off the mask is scope x cone and a distant room stays dark
-     even dead ahead. With it on there is nowhere dark left — which is the
-     entire tool, and the reason it costs what it costs. Asserting both halves
-     is the point: a radar that only reveals the next room is not a radar. */
+  /* The radar must lift the whole floor, and only while it is on. With it off
+     the mask is scope times cone and a distant room stays dark even dead
+     ahead. With it on there is nowhere dark left, which is the entire tool and
+     the reason it costs what it costs. A radar that reveals only the next room
+     is not a radar, so both halves are asserted. */
   G.radar = false;
   A.snapMask();   // traces + combines + uploads, no easing
   {
@@ -434,10 +412,10 @@ console.log('[13] cone of vision — 200 degrees, occluded by walls');
   G.radar = false;
   A.snapMask();   // traces + combines + uploads, no easing
 
-  /* --- 5. the mask is the function the renderer depends on ---
-     With the radar off, every visible tile must be explainable by scope x cone
-     (the distance term only makes it smaller, so it can never be a source of
-     light) and a tile with neither must be exactly zero. */
+  /* The mask is the function the renderer depends on. With the radar off, every
+     visible tile must be explainable by scope times cone (the distance term
+     only makes it smaller, so it can never be a source of light) and a tile
+     with neither must be exactly zero. */
   {
     let outOfScopeLit=0, zeroViolations=0, nan=0;
     for (let i=0;i<W*W;i++){
@@ -453,11 +431,10 @@ console.log('[13] cone of vision — 200 degrees, occluded by walls');
     t.assert(zeroViolations===0, `${zeroViolations} tiles are lit with no scope and no cone — nothing should be visible`);
   }
 
-  /* --- 6. your own room does not dim with distance ---
-     The distance falloff exists to make a corridor recede. It must not touch
-     the room you are standing in, which is at most 12 tiles across: the far
-     corner of your own room has to be as bright as the tile underfoot, or the
-     feature has quietly reintroduced the gradient it was built to remove. */
+  /* Your own room does not dim with distance. The falloff exists to make a
+     corridor recede and must not touch the room you are standing in, which is
+     at most 12 tiles across: the far corner has to be as bright as the tile
+     underfoot, or the feature has reintroduced the gradient it removed. */
   {
     let dimmed=0, checked=0;
     for (let y=1;y<75;y++) for (let x=1;x<75;x++){
@@ -471,8 +448,8 @@ console.log('[13] cone of vision — 200 degrees, occluded by walls');
     t.assert(dimmed===0, `${dimmed}/${checked} visible tiles in your own room are dimmed — the room must not fade with distance`);
   }
 
-  /* --- 6. walls are never blacker than the floor they border ---
-     The failure that makes a lit room look like it has holes cut in it. */
+  /* Walls are never blacker than the floor they border. This is the failure
+     that makes a lit room look like it has holes cut in it. */
   {
     let holes=0;
     for (let y=1;y<75;y++) for (let x=1;x<75;x++){
