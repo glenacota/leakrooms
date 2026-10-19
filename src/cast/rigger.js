@@ -1,4 +1,4 @@
-import { TAU, limb, blob, rim, arm, feet, legs, footPlan, stride } from './primitives.js';
+import { TAU, limb, blob, rim, arm, feet, legs, stride } from './primitives.js';
 
 /* THE AVATAR: the Rigger. Hard hat, hi-vis vest with two reflective bands that
    slide fore and aft on the stride, tool belt, and a wrench that swings with the

@@ -99,7 +99,7 @@ export const voices = {
     c.start(t+0.05); c.stop(t+0.15);
   },
 
-  /* THE KUDOS: what a sealed floor sounds like. It is seal() turned the right
+  /* THE KUDOS: what a sealed floor sounds like. It is sealLeak() turned the right
      way round: the pitch climbs instead of falling, and the noise beds are pulled
      shut as the chord opens. The room goes QUIET on success, which the death
      sting never does, and the quiet is the reward: the whole level has been

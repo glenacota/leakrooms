@@ -1,5 +1,5 @@
 import { DIFFICULTIES } from '../config/presets.js';
-import { SETTINGS, setOption, saveSettings, resetSettings } from '../settings/store.js';
+import { SETTINGS, setOption, resetSettings } from '../settings/store.js';
 import { SETTINGS_SCHEMA } from '../settings/schema.js';
 import { armReset, resetArmed, resetRun } from '../game/run.js';
 import { paintTerms, setTermsOpen, termsOpen } from './terms.js';

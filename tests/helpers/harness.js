@@ -6,6 +6,11 @@
 import { calls, els, fakeCanvas, fakeEl, fakeCtx } from './stubs.js';
 import * as dom from './dom.js';
 
+/* Every id the game asks for. The stub invents an element for an id the markup
+   does not carry, so a write to one fails silently; test [45] in
+   ui-flow.test.js checks this list against index.html. */
+export const askedIds = [];
+
 /* ---- fake DOM ----
    Backed by the shipped markup (see helpers/dom.js): the element table is read
    out of index.html so that wiring the game does by QUERYING the document is
@@ -18,6 +23,7 @@ global.document = {
      game.js is imported — and a markup lookup would otherwise hand the renderer
      the element from index.html and quietly stop recording the frame. */
   getElementById(id){
+    askedIds.push(id);
     if (id in els) return els[id];
     const found = dom.getElementById(id);
     return (els[id] = found || fakeEl(id));
@@ -131,7 +137,7 @@ export async function loadGame(opts = {}){
       key, repeat:false, metaKey:false, ctrlKey:false, altKey:false,
       code: /^[a-z]$/i.test(key) ? 'Key'+key.toUpperCase() : key,
       preventDefault(){}, ...extra });
-    return { A, G, els, calls, store, press, recCtx: rec };
+    return { A, G, els, calls, store, press, recCtx: rec, askedIds };
   }
   const mod = await import('../../src/boot.js');
   mod.boot();
@@ -140,5 +146,5 @@ export async function loadGame(opts = {}){
   const press = (key, extra={}) => global.window._h.keydown({
     key, repeat:false, metaKey:false, ctrlKey:false, altKey:false,
     preventDefault(){}, ...extra });
-  return { A, G, els, calls, store, press };
+  return { A, G, els, calls, store, press, askedIds };
 }

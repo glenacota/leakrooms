@@ -2,8 +2,8 @@
    owns the element table and the two update functions. clockText formats run
    state, so the run owns it and the HUD re-exports it. */
 
-import { BATT_MAX, LOUD, LS, NOISE_FS } from '../config/constants.js';
-import { FLOOR_CLOCK, FLOORS, HUNT_BASE, HUNT_STEP, REPAIR_TIME } from '../config/tuning.js';
+import { BATT_MAX, LOUD, NOISE_FS } from '../config/constants.js';
+import { FLOORS, REPAIR_TIME } from '../config/tuning.js';
 import { G } from '../sim/state.js';
 import { clockText, lives, runLives } from '../game/run.js';
 
@@ -41,6 +41,7 @@ export function flash(text){
   el.classList.add('on');
   clearTimeout(flashT);
   flashT = setTimeout(()=>el.classList.remove('on'), 3400);
+  if (flashT.unref) flashT.unref();   // a browser returns a number
 }
 
 /* ---------- Write-only-when-changed helpers ----------
@@ -86,7 +87,6 @@ export function updateHUD(){
   hudFlag(HUD.noiseWrap, 'noiseHot', 'hot', G.selfNoise>=LOUD);
   G.noisePeak = Math.max(G.noise, G.noisePeak - 0.004);
   hudSet(HUD.noisePeak, 'noisePeakL', 'left', Math.max(0, Math.min(100, G.noisePeak/NOISE_FS*100))+'%');
-  hudSet(HUD.noisePeak, 'noisePeakO', 'opacity', '1');
   hudSet(HUD.noiseLeak, 'noiseLeak', 'width', (Math.max(0, Math.min(1, G.leakTotal/NOISE_FS))*100)+'%');
   // The LOUD hairline is placed from the constant, so it always marks the real threshold.
   hudSet(HUD.noiseLoud, 'noiseLoud', 'left', (LOUD/NOISE_FS*100)+'%');

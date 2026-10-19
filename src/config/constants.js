@@ -25,12 +25,6 @@ export const VIEW_T = 27;                // tiles across the viewport
    wall's height. */
 export const WALL_FACE = TILE*0.46;
 
-/* Not used in this file or exported. The live clock length and repair time
-   are in tuning.js (they change with difficulty). These two copies can be
-   removed in a later cleanup. */
-let FLOOR_CLOCK = 180;
-let REPAIR_TIME    = 5.0;
-
 /* ---------- The door ---------- */
 export const DOOR_HOLD = 1.5;      // seconds standing at the door to cycle it
 export const DOOR_AJAR = 0.34;     // how far the door rests open once every pipe is sealed

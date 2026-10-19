@@ -111,7 +111,6 @@ pg.drawImage(cvs,0,0);
 pg.setTransform(1,0,0,1,0,0);
 pg.globalCompositeOperation='source-over';
 
-if (vhs > 0.01){
 // Tracking band
 const bandY = ((t*0.055) % (cvs.height+220)) - 110;
 const tg=ctx.createLinearGradient(0,bandY,0,bandY+110);
@@ -161,5 +160,4 @@ while (dropT >= 0.05){
     ctx.fillRect(0,y,cvs.width,1+Math.random()*2|0);
   }
 }
-}   // end of the VHS section
 }

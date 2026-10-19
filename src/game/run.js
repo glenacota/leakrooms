@@ -173,6 +173,7 @@ export function armReset(){
   resetArmed = true;
   clearTimeout(resetArmTimer);
   resetArmTimer = setTimeout(disarmReset, 5000);
+  if (resetArmTimer.unref) resetArmTimer.unref();   // a browser returns a number
   announceReset();
 }
 export function resetRun(){
@@ -254,7 +255,6 @@ G.leaksOpen = Math.max(0, G.leaks.length - fixedCount);
 // Rebuild the flood now that the fixed flags are in place, so sealed pipes
 // stop being water sources.
 initFlood();
-G.batt = Math.max(G.batt, 55);
 /* Same seed, so the pipes are in the same places and only the flood restarts.
    Dying costs a life and the repairs you made, but not what you learned about
    where the pipes are. */

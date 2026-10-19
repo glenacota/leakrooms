@@ -1,4 +1,3 @@
-import { hash2 } from '../util/hash.js';
 import { MAP_W, MAP_H, WALL, FLOOR } from '../config/constants.js';
 
 /**

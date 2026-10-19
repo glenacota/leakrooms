@@ -44,13 +44,15 @@ test('render trace matches golden', () => {
     return;
   }
 
-  if (!fs.existsSync(GOLDEN)) {
-    fs.writeFileSync(ACTUAL, JSON.stringify(actual, null, 2) + '\n');
-    throw new Error('golden missing; wrote ' + ACTUAL);
-  }
+  /* Write the whole log on a failure, not just the hash: a hash says the trace
+     moved and nothing about where it moved. */
+  const writeActual = (why)=>{
+    fs.writeFileSync(ACTUAL, JSON.stringify(log, null, 1) + '\n');
+    throw new Error(why + '; wrote the full trace to ' + ACTUAL);
+  };
+
+  if (!fs.existsSync(GOLDEN)) writeActual('golden missing');
   const golden = JSON.parse(fs.readFileSync(GOLDEN, 'utf8'));
-  if (golden.sha1 !== actual.sha1 || golden.length !== actual.length) {
-    fs.writeFileSync(ACTUAL, JSON.stringify(actual, null, 2) + '\n');
-    throw new Error(`trace mismatch: golden ${golden.sha1}/${golden.length} vs actual ${actual.sha1}/${actual.length}`);
-  }
+  if (golden.sha1 !== actual.sha1 || golden.length !== actual.length)
+    writeActual(`trace mismatch: golden ${golden.sha1}/${golden.length} vs actual ${actual.sha1}/${actual.length}`);
 });

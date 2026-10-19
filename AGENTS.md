@@ -18,12 +18,17 @@ LEAKROOMS — 2D top-down puzzle/stealth. Vanilla JS + canvas, zero dependencies
 - `src/config/` — constants, levels, palette, presets, tuning
 - `src/settings/` — schema and store
 - `src/util/` — rng, hash, grid, events, view
-- `style.css` — CRT shell, mono-yellow palette, tape UI
-- `tests/` — headless regression suite (`npm test`, parallel files, exit 0 = pass)
+- `css/` — six stylesheets, linked in cascade order from index.html: `tokens.css` (the `:root` yellows) first, `base.css` last. There is no `style.css` any more
+- `tests/unit/` — the headless regression suite, one file per area (`npm test`, parallel files, exit 0 = pass)
+- `tests/integration/` — playthrough, render trace against the golden, and a full-draw soak
+- `tests/helpers/` — harness (DOM/canvas/audio stubs, boots the real game), `api.js` (the suite's handle on the code), dom/stubs/bot/soft-assert
+- `tests/fixtures/` — golden files (the render trace). Regenerate only when a task says so
 
 ## Architecture
 
 No build step. `src/main.js` is the entry point and is loaded via `<script type="module">`; the rest of the tree is native ES modules. CORS blocks `file://`, so serve the repo (`npm run serve`). The cast is drawn inline in `src/render/entities.js`.
+
+Layers are enforced, not just documented: `sim/`, `util/` and `config/` import nothing from `render/`, `ui/`, `game/` or `audio/`; `game/run.js` and `game/loop.js` import no renderer and no UI and never touch `document`. The run announces facts on the event bus and `ui/` writes them on screen (`tests/unit/layers.test.js`).
 
 State lives in module-level `let` bindings. `G` holds per-level state (grid, player, agents, `leaks`, flood, the one `exitTiles` door, `clock`). `LEVELS` is the fixed five-level content table; `SETTINGS` is global config, persisted to `localStorage` under `leakroom.settings.v1`.
 

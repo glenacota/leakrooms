@@ -2,12 +2,13 @@ import test from 'node:test';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { fakeAudioContext } from '../helpers/stubs.js';
+import assert from 'node:assert/strict';
 import { softAssert } from '../helpers/soft-assert.js';
 import { readCss, readHtml, readSrc } from '../helpers/src-text.js';
 import { loadGame } from '../helpers/harness.js';
 
 const __dirname = fileURLToPath(new URL('../..', import.meta.url));
-const { A, G, els, calls, store, press } = await loadGame();
+const { A, G, els, calls, store, press, askedIds } = await loadGame();
 const seededRNG = A.mulberry32(0xC0FFEE);
 const moveEnt = A.moveEnt;
 const blocked = A.blocked;
@@ -379,7 +380,6 @@ console.log('[26] the pause screen — the work order, with the run written on i
   const txt = id=> els[id] ? els[id].innerHTML : '';
   t.assert(txt('pause-level')==='3/5', `depth reads "${txt('pause-level')}" on level 3`);
   t.assert(txt('pause-pipes').includes('0/'), `the riser tally reads "${txt('pause-pipes')}"`);
-  t.assert(txt('pause-batt')==='42', `battery reads "${txt('pause-batt')}", expected 42`);
   t.assert(txt('pause-clock')===A.clockText(G.clock), 'the clock on the ticket is not the clock in state');
   
   /* the life pips are spent ones included — the count the HUD has been showing */
@@ -584,4 +584,33 @@ console.log('[34] the floor-clear card — clock left, next floor, ENTER to desc
     `clearing the fifth floor went to '${A.STATE}', want 'win' — the card must not appear with no floor after it`);
 }
   t.done();
+});
+
+/* ---- every id the game asks for is an id the markup carries ----
+   The stub invents an element for anything index.html does not carry, so a
+   write to a missing id succeeds: the number goes somewhere, the assertion on
+   it passes, and the player never sees it. `pause-batt` survived that way.
+
+   The harness records every id the game asked for. Each is either in
+   index.html, or an id the game creates at runtime and lists below. */
+test('[45] every id the game asks the document for exists', () => {
+  const html = readHtml();
+  const inMarkup = new Set([...html.matchAll(/\bid="([^"]+)"/g)].map(m => m[1]));
+
+  /* Ids the game creates itself, so no markup can carry them. */
+  const RUNTIME = new Set();
+
+  const asked = [...new Set(askedIds)].sort();
+  const ghosts = asked.filter(id => !inMarkup.has(id) && !RUNTIME.has(id));
+
+  /* A stale allowlist entry is as dead as a ghost id. */
+  const unused = [...RUNTIME].filter(id => !asked.includes(id));
+
+  assert.deepEqual(ghosts, [],
+    `the game asks the document for ids index.html does not carry — every write to one of these is invisible to the player:\n  ${ghosts.join('\n  ')}`);
+  assert.deepEqual(unused, [],
+    `these runtime ids are allowlisted but never asked for:\n  ${unused.join('\n  ')}`);
+
+  console.log(`[45] every id the game asks the document for exists`);
+  console.log(`  ${asked.length} ids asked, all in index.html, ${RUNTIME.size} runtime ids allowed`);
 });

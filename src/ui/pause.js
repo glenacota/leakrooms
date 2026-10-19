@@ -14,13 +14,12 @@
    step.
    ============================================================ */
 
-import { BATT_MAX } from '../config/constants.js';
 import { FLOORS } from '../config/tuning.js';
 import { DIFFICULTIES } from '../config/presets.js';
 import { SETTINGS } from '../settings/store.js';
 import { Audio_ } from '../audio/index.js';
 import { G } from '../sim/state.js';
-import { clockText, disarmReset, lives, RUN_SEED, STATE, transition } from '../game/run.js';
+import { clockText, disarmReset, lives, STATE, transition } from '../game/run.js';
 import { livesHTML } from './hud.js';
 
 export let pausePage = 'settings';      // 'settings' | 'briefing'
@@ -48,20 +47,17 @@ export function togglePause(){
        audio context. */
     transition('pause');
     setPausePage('settings');
-    /* Write the run's current numbers onto the ticket, so pausing does not cost
-       the player their bearings: level, pipes sealed, clock, battery, lives
-       and difficulty. */
+    /* The run's numbers on the ticket, so pausing does not cost the player
+       their bearings. Every id below is in index.html — see test [45]. */
     const set = (id, html)=>{ const el = document.getElementById(id); if (el) el.innerHTML = html; };
     const sealed = G.pipes - G.leaksOpen;
 
     set('pause-level',   `${G.floor+1}/${FLOORS}`);
     set('pause-clock',   clockText(G.clock));
     set('pause-pipes',  `${sealed}/${G.pipes}`);
-    set('pause-batt',    String(Math.ceil(G.batt)));
     set('pause-lives', livesHTML());
     // The difficulty is shown as a fact. It cannot be changed from here.
     set('pause-terms',  (DIFFICULTIES[SETTINGS.difficulty] || DIFFICULTIES.normal).label);
-    set('pause-seed',    '#88D-' + (RUN_SEED>>>0).toString(16).toUpperCase().slice(-4));
   }
   else if (STATE==='pause'){ disarmReset(); transition('play'); }
 }
