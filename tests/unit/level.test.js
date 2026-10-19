@@ -447,3 +447,58 @@ console.log('[43] the same seed builds the same cast, ten seconds in');
 }
   t.done();
 });
+
+/* ---- the static bake is cached, and the floor state is not ----
+   A retry rebuilds the same building from the same seed, so the carpet, the
+   walls, the light bake and the region map come straight back: repainting
+   116k pixels to arrive at the same picture is the cost being removed.
+
+   The other half must NOT come back. A floor that has been played is not the
+   floor that gets retried — the sealed pipes and the taken batteries have to
+   be gone, or a retry would hand back a floor the player had already fixed.
+   That is why the cache holds the layout and the state holds the clones. */
+test('[44] the static bake is cached, and a played floor leaves no mark', () => {
+  const t = softAssert();
+console.log('[44] the static bake is cached, and a played floor leaves no mark');
+{
+  buildFloor(1, 7);
+  const tiles = G.tilesCv, walls = G.wallsCv, light = G.lightCv;
+  const exits = G.exitTiles;
+  t.assert(G.leaks[0].fixed === false, 'the fresh floor starts with an open pipe, so the clone below means something');
+
+  /* Play it: seal the first pipe and take the first battery. */
+  G.leaks[0].fixed = true;
+  G.batteries[0].taken = true;
+  G.graffiti[0].seen = true;
+  exits[0].used = true;
+
+  buildFloor(1, 7);
+
+  t.assert(G.leaks[0].fixed === false,
+    'a retry came back with the pipe still sealed — the cached level was handed out instead of a copy');
+  t.assert(G.batteries[0].taken === false,
+    'a retry came back with the battery already taken');
+  t.assert(G.graffiti[0].seen === false,
+    'a retry came back with a note already read');
+  t.assert(G.exitTiles[0].used === undefined,
+    'a retry came back with the door already cycled');
+  t.assert(G.exitTiles !== exits, 'the exit tiles were shared with the cache rather than copied');
+
+  /* ...and the bake really is the same one. */
+  t.assert(G.tilesCv === tiles, 'the tile layer was repainted for a retry — the cache did not hold');
+  t.assert(G.wallsCv === walls, 'the wall layer was repainted for a retry');
+  t.assert(G.lightCv === light, 'the light bake was rebuilt for a retry');
+  t.assert(G.tilesCv.width > 0,
+    `the cached tile layer came back at ${G.tilesCv.width}x${G.tilesCv.height} — it was released on the way past`);
+
+  /* A different building is a different key: new pixels, and the old ones are
+     released rather than left to the collector (test 33 asserts this shape). */
+  buildFloor(1, 8);
+  t.assert(G.tilesCv !== tiles, 'a new seed returned the old floor canvases');
+  t.assert(tiles.width === 0 && tiles.height === 0,
+    `the retired tile layer is still ${tiles.width}x${tiles.height} — the cache dropped it instead of releasing it`);
+
+  console.log(`  one seed: 3 canvases reused across a retry; a new seed retires them (${tiles.width}x${tiles.height})`);
+}
+  t.done();
+});
