@@ -9,6 +9,7 @@
 import { resize } from './render/canvas.js';
 import { buildPatterns } from './render/textures.js';
 import { buildGlowSprite } from './render/render.js';
+import { initScope, paintScope } from './render/hud-scope.js';
 import { loadSettings } from './settings/store.js';
 import { applySettings } from './ui/bind.js';
 import { buildSettingsUI, syncSettingsUI } from './ui/settings-panel.js';
@@ -62,6 +63,9 @@ export function boot(){
   resize();
   buildPatterns();
   buildGlowSprite();
+  /* The scope in the HUD panel is a canvas of its own. It is sized here,
+     next to the main canvas, so both follow the same device pixel ratio. */
+  initScope();
 
   /* Connect the modules to each other through the event bus and the DOM.
      The order is:
@@ -105,8 +109,14 @@ export function boot(){
      three are passed in: `render` draws a frame, `simAlpha` tells the renderer
      how far into the next simulation step the picture is, `adaptive` decides
      whether the machine is keeping up, and `afterUpdate` refreshes the HUD and
-     the prompt line after each simulation step. */
-  setFrameHooks({ render, simAlpha: setSimAlpha, adaptive: adaptResolution,
+     the prompt line after each simulation step.
+
+     The scope is painted with the frame, not with the simulation: it is a
+     trace of the noise over time, so it wants the same clock the picture
+     does. It lives on its own canvas, so painting it does not touch the
+     world canvas and the render trace stays a trace of the world. */
+  setFrameHooks({ render: (t)=>{ render(t); paintScope(t); },
+                  simAlpha: setSimAlpha, adaptive: adaptResolution,
                   afterUpdate: ()=>{ updateHUD(); setPrompt(); } });
 
   requestAnimationFrame(frame);

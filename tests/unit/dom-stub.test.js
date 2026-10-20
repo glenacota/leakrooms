@@ -21,17 +21,18 @@ const byId = id => getElementById(id);
 
 test('[37] the DOM stub resolves the markup it claims to', () => {
   /* Ids: every one the markup declares, and no element for an id it does not. */
-  for (const id of ['game', 'hud', 'val-clock', 'bar-flood', 'screen-order',
+  for (const id of ['game', 'hud', 'hud-scope', 'val-clock', 'bar-batt', 'val-pipes',
+                    'val-lamps', 'val-lives', 'screen-order',
                     'btn-start', 'btn-retry', 'terms-fold', 'set-master']){
     assert.ok(byId(id), `index.html declares #${id} and the stub has no element for it`);
   }
 
   /* The two HUD nodes the element table reaches for by shape, including the
      descendant one. */
-  assert.ok(querySelector('.bar.noise'), '.bar.noise did not resolve');
-  const loud = querySelector('.bar.noise u.loud');
-  assert.ok(loud, '.bar.noise u.loud did not resolve');
-  assert.equal(loud.classList.contains('loud'), true, 'the resolved node is not the loud mark');
+  assert.ok(querySelector('.hud-plate'), '.hud-plate did not resolve');
+  const lamps = querySelector('.hud-plate .lamps');
+  assert.ok(lamps, '.hud-plate .lamps did not resolve');
+  assert.equal(lamps.classList.contains('lamps'), true, 'the resolved node is not the lamps row');
 
   /* The five collection shapes, against the counts the markup declares:
      three segmented rows, four range inputs, two pause tabs, two pause pages. */
@@ -107,7 +108,7 @@ test('[39] a selector the stub does not know answers empty, not wrong', () => {
   /* The stub supports the seven shapes the game uses and nothing else. Anything
      it cannot answer returns [] — the behaviour the harness had before this —
      so an unfamiliar selector degrades instead of breaking a boot. */
-  for (const sel of ['.nope', '[data-nothing]', 'button.nope', '.bar.noise u.loud i',
+  for (const sel of ['.nope', '[data-nothing]', 'button.nope', '.lamps i',
                      'section > div', 'input[type=checkbox]']){
     assert.deepEqual(querySelectorAll(sel), [], `${sel} answered something`);
     assert.equal(querySelector(sel), null, `${sel} answered something`);

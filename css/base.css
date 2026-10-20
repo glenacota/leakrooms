@@ -4,24 +4,39 @@
    stylesheets. Keep it last.
    ============================================================ */
 
+/* ---------- Short windows ---------- */
+
+/* The panel is a fixed strip above the play area, so on a short window
+   it is the first thing to shrink. The game stays playable and the
+   panel stays readable. The strip and the plate are shrunk together:
+   the stage is cut back by --hud-h, so the two must agree. */
+@media (max-height:700px){
+  :root{ --hud-h:88px; }
+  .hud-plate{ height:74px; gap:13px; padding:0 17px; }
+  #hud-scope{ width:48px; height:48px; }
+  #hud .val.nixie{ font-size:18px; min-width:80px; }
+}
+@media (max-height:560px){
+  :root{ --hud-h:74px; }
+  .hud-plate{ height:62px; gap:10px; padding:0 13px; }
+  #hud-scope{ width:40px; height:40px; }
+  #hud .val.nixie{ font-size:15px; min-width:66px; padding:3px 6px 2px; }
+  #hud .lbl{ font-size:9px; letter-spacing:.16em; }
+  #hud .val.lives .fuse{ width:7px; height:16px; }
+  #hud .lamps .lamp{ width:9px; height:9px; }
+}
+
 /* ---------- Narrow windows ---------- */
 
-/* The HUD sidebar takes a fixed share of the window, so on small screens
-   it is the first thing to shrink. The game stays playable and the HUD
-   stays visible. Bars go before text: the number above each bar already
-   says the same thing. */
-@media (max-width:900px){
-  :root{ --side-w:104px; }
-  .lbl{ font-size:10px; letter-spacing:.14em; }
-  .val{ font-size:15px; }
-  #val-clock{ font-size:21px; }
-  .bar{ width:76%; height:6px; }
-}
-@media (max-width:680px){
-  :root{ --side-w:104px; }
-  .bar{ display:none; }
-  #val-clock{ font-size:19px; }
-  .hud-side{ gap:7px; }
+/* The plate is a fixed set of instruments in a row. On a narrow window
+   the gaps go first: the instruments themselves are what the player
+   came for. */
+@media (max-width:700px){
+  .hud-plate{ gap:10px; padding:0 13px; }
+  #hud .trough{ width:92px; }
+  #hud .val.nixie{ min-width:76px; font-size:17px; }
+  #hud .val.lives{ gap:4px; }
+  #hud .lamps{ gap:4px; }
 }
 
 /* ---------- Reduced motion ---------- */
@@ -36,4 +51,8 @@
   /* The floor plan stops scrolling but stays painted, because it shows
      information about the run. */
   .splash-plan canvas,.splash-track{ animation:none; }
+  /* The clock and the open-pipe lamps keep their colour, which is where
+     the information is, and lose the blinking. */
+  #clock.critical .nixie{ animation:none; }
+  #hud .lamps .lamp.open{ animation:none; }
 }

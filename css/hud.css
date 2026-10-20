@@ -1,185 +1,221 @@
 /* ============================================================
-   HUD: THE LEFT SIDEBAR
-   One column of readouts: clock, three gauges, door and level
-   state, and lives. The markup is in index.html (HUD section) and
-   the values are written by src/ui/hud.js.
+   HUD: THE BOILER PANEL
+   A brass plate in a strip above the play area. It carries the live
+   scope (the noise instrument), the clock, the battery, the lives and
+   the leaks. The markup is in index.html (HUD section), the values
+   are written by src/ui/hud.js and the scope is drawn by
+   src/render/hud-scope.js.
    ============================================================ */
 
-/* ---------- Sidebar frame ---------- */
+/* ---------- The strip ---------- */
 
-/* Pinned to the left edge at full height. It does not cover the canvas:
-   the play area starts where this column ends (see tokens.css). */
+/* The panel is a header, not a sidebar: it reserves a strip of the
+   window above the play area. #stage is cut back by the same amount
+   (see tokens.css), so the map is never drawn underneath it. */
 #hud{
   position:absolute;
-  inset:0 auto 0 0;          /* top right bottom left: stuck to the left edge, full height */
-  width:var(--side-w);
-  min-width: var(--side-w);
+  inset:0.5rem 0 auto 0;          /* top right bottom left: stuck to the top edge */
+  height:var(--hud-h);
   z-index:5;                 /* its own stacking level, so later elements cannot cover it */
   pointer-events:none;       /* clicks pass through to the game */
   opacity:0;                 /* invisible until a run starts */
   transition:opacity .5s ease;
   font-weight: 900;
+  display:flex;
+  align-items:center;
+  justify-content:center;
 }
-/* JS adds .on when a run starts. Full opacity: the dark plate behind the
-   stats already separates them from the map. */
+/* JS adds .on when a run starts. */
 #hud.on{ opacity:1; }
 
-/* The dark plate behind the stats. It fades out toward the play area. */
-.hud-side{
+/* ---------- The plate ---------- */
+
+/* Brass, lit from above, with a heavy dark edge. The whole panel is one
+   object: the gradients do the work a texture would, so nothing has to
+   be loaded and nothing can be missing. */
+.hud-plate{
   position:relative;
-  height:100%;
   display:flex;
-  flex-direction:column;
   align-items:center;
-  padding:14px 14px 14px 0;
-  gap:2rem;
-  background:linear-gradient(90deg, rgba(7,6,3,.97) 0%, rgba(7,6,3,.93) 90%, rgba(7,6,3,0) 100%);
+  gap:16px;
+  height:84px;
+  padding:0 22px;
+  border-radius:8px;
+  background:linear-gradient(180deg,#b3a550 0%,#8a7c36 52%,#5e5326 100%);
+  border:2px solid #26240f;
+  box-shadow:
+    0 8px 22px rgba(0,0,0,.6),
+    inset 0 1px 0 rgba(255,255,255,.22),
+    inset 0 -5px 10px rgba(0,0,0,.3);
 }
+/* The rivets that hold the plate to the panel. */
+.hud-plate::before,
+.hud-plate::after{
+  content:'';
+  position:absolute; top:50%;
+  width:5px; height:5px; margin-top:-2.5px;
+  border-radius:50%;
+  background:#26240f;
+  box-shadow:0 1px 0 rgba(255,255,255,.28);
+}
+.hud-plate::before{ left:9px; }
+.hud-plate::after{ right:9px; }
 
-/* Thin rules between the four groups: the clock, the three gauges, the
-   door and level state, and lives. They are short (80% wide) so they read
-   as breaks in a list rather than as table borders. */
+/* The rule between two instruments. It fades out at both ends so it
+   reads as a break in the panel and not as a table border. */
 .hud-div{
-  width:80%;
-  height:1px;
+  width:2px; height:58%;
   flex:0 0 auto;
-  margin:3px 0;
-  background:rgba(228,230,168,.18);
+  background:linear-gradient(180deg,rgba(28,26,20,0),rgba(28,26,20,.55),rgba(28,26,20,0));
 }
 
-/* ---------- Stats ---------- */
+/* ---------- Gauges ---------- */
 
-/* One readout: a label, a number, and (for the gauges) a bar. Every stat
-   has the same width so the eye can scan straight down the column. */
-.stat{
+/* One instrument: a label above it and, where there is one, a number
+   below. Everything is centred on its own column so the eye can scan
+   across the plate. */
+.gauge{
   display:flex;
   flex-direction:column;
   align-items:center;
   gap:3px;
-  width:90%;
-  white-space:nowrap;        /* a HUD that wraps is hard to scan */
+  white-space:nowrap;
+}
+/* The clock column is the one that stacks a readout on top of another,
+   so it is aligned to the left edge of its own column. */
+.gauge-stack{ align-items:flex-start; }
+
+/* Labels sit above their instruments. Beside them, the eye has to jump
+   sideways for every value. On brass the label is near-black, because
+   the panel is a light surface and a yellow label on it would vanish. */
+#hud .lbl{
+  color:rgba(28,26,20,.9);
+  font-size:10px;
+  letter-spacing:.22em;
+  line-height:1;
+  text-indent:.22em;        /* balances the trailing letter-spacing so the text looks centred */
+}
+#hud .lbl-inline{ letter-spacing:.14em; text-indent:.14em; }
+
+/* Values are near-black too, and use tabular figures so the digits do
+   not jitter as they change. */
+#hud .val{
+  color:var(--ink);
+  font-size:13px;
+  line-height:1;
+  letter-spacing:.04em;
+  font-variant-numeric:tabular-nums;
+}
+/* A number that sits beside an instrument rather than under it. */
+#hud .val-num{ font-size:12px; opacity:.75; }
+
+/* ---------- The scope ---------- */
+
+/* The noise instrument. A canvas of its own, because a live trace has
+   to be redrawn every frame. */
+#hud-scope{
+  width:45px; height:45px;
+  display:block;
 }
 
-/* Labels sit above their numbers. Beside them, the eye has to jump
-   sideways for every value. The colour is lighter than --yellow-deep
-   because this is the most frequent text in the game and has to stay
-   readable. */
-.lbl{
-  color:#a9a86f;
-  font-size:1rem;
-  letter-spacing:.2em;
-  line-height:1.5;
-  text-indent:.2em;          /* balances the trailing letter-spacing so the text looks centred */
+/* ---------- The clock ---------- */
+
+/* The biggest thing on the panel, because it is the one readout that
+   can end a level on its own. It changes colour but never size: a
+   number that resizes would shift everything around it once a second. */
+#hud .val.nixie{
+  display:inline-block;
+  min-width:92px;
+  padding:12px 8px;
+  text-align:center;
+  background:#0c0b06;
+  border-radius:3px;
+  color:#ffb84a;
+  font-size:24px;
+  letter-spacing:.14em;
+  text-shadow:0 0 10px rgba(255,184,74,.85);
+  box-shadow:inset 0 0 12px rgba(0,0,0,.85);
 }
-.val{
-  color:var(--bright);
-  font-size:17px;
-  line-height:1.05;
-  letter-spacing:.02em;
-  font-variant-numeric:tabular-nums;  /* digits keep the same width, so numbers do not jitter */
+/* Last 30 seconds: orange. */
+#clock.low .nixie{ color:#ff7a40; }
+#clock.low .lbl{ color:rgba(120,58,20,.95); }
+/* Last 10 seconds: red and blinking once a second. Anything faster would
+   be a strobe. */
+#clock.critical .nixie{ color:#ff5a40; animation:clockPulse 1s steps(2,end) infinite; }
+@keyframes clockPulse{ 0%,60%{ opacity:1; } 61%,100%{ opacity:.35; } }
+
+/* ---------- The battery ---------- */
+
+/* A trough with a fill in it. The fill is the readout; the number
+   beside it says how much is left in units, because a bar cannot say
+   40 from 45. */
+.trough-row{
+  display:flex;
+  align-items:center;
+  gap:6px;
 }
-
-/* A smaller number for the three gauges (battery, noise, flood): the bar
-   is the main readout there and the number is a backup.
-
-   This is a modifier. The markup always uses the val and val-bar classes
-   together. val-bar alone would lose the colour and fixed-width digits
-   that come from val, and the flood number would stop matching the water
-   colour rule below. */
-.val-bar {
-  font-size:12px;
-}
-/* Blue because this is water. It is the only non-yellow text in the HUD. */
-.val.water{ color:#8fc4cc; }
-
-/* ---------- Bars (battery, noise, flood only) ---------- */
-
-/* A bar suits a continuous reading and not a count: you cannot tell which
-   pipe is sealed from a gradient, so counts do not get one. */
-.bar{
+#hud .trough{
   position:relative;
-  width:82%;
-  height:7px;
-  margin-top:2px;
-  background:rgba(20,17,10,.85);
-  border:1px solid rgba(228,230,168,.28);
+  width:60px; height:30px;
+  background:#17160a;
+  border:1px solid rgba(28,26,20,.55);
+  border-radius:3px;
   overflow:hidden;
+  text-align: center;
 }
-.bar i{
+#hud .trough i{
   position:absolute;
   inset:1px auto 1px 1px;
   width:100%;
-  background:linear-gradient(90deg,var(--yellow-deep),var(--yellow));
+  background:linear-gradient(90deg,#6f9a5e,#8fd07a);
   transition:width .12s linear;
 }
+/* A battery that is nearly gone is the one that matters. */
+#hud .trough i.low{ background:linear-gradient(90deg,#a03a2c,#d8503c); }
 
-/* The noise bar has two fills and two marks:
-   - yellow fill: the noise you are making
-   - blue fill (.leak): the noise the open pipes make, shown under the yellow
-   - orange tick (.peak): where your last loud moment peaked
-   - hairline (.loud): the LOUD threshold that monsters react to
-   Both fills are set from JS; the LOUD hairline is placed from the game
-   constant at runtime. */
-.bar.noise i{ background:linear-gradient(90deg,var(--yellow-dim),#e4e6a8); }
+/* ---------- The lives ---------- */
 
-/* Past LOUD, only YOUR fill turns red. The pipe fill stays blue, so red
-   always means "this is about you". */
-.bar.noise.hot i:not(.leak){ background:linear-gradient(90deg,var(--danger),#ff8f6b); }
-
-.bar.noise u{
-  position:absolute; top:0; bottom:0; width:2px;
-  text-decoration:none; transition:left .12s linear;
+/* Fuse caps, one per life. A spent fuse is a dark cap, so the run
+   state is read at a glance without counting anything. */
+#hud .val.lives{
+  display:flex;
+  gap:5px;
+  font-size:0;               /* the pips are shapes, not characters */
 }
-.bar.noise u.loud{ left:59%; width:1px; background:rgba(228,230,168,.5); }
-/* The peak decays slowly so a quarter-second sprint stays on screen long
-   enough to read. */
-.bar.noise u.peak{ background:#ff8f6b; opacity:0; }
-/* Open pipes are water, so their fill is water blue. It is a fill and not
-   a tick because a pipe is a standing noise source with a level. */
-.bar.noise i.leak{
-  background:linear-gradient(90deg,#3c5a60,#8fc4cc);
-  opacity:.9;
+#hud .val.lives .fuse{
+  width:9px; height:20px;
+  border-radius:3px;
+  background:#e4e6a8;
+  box-shadow:inset 0 0 0 1px rgba(28,26,20,.45), inset 2px 0 0 rgba(255,255,255,.5);
 }
-@media (prefers-reduced-motion: reduce){
-  .bar.noise u{ transition:none; }
+#hud .val.lives .fuse.gone{
+  background:#3a382a;
+  box-shadow:inset 0 0 0 1px rgba(28,26,20,.45);
 }
-.bar.flood i{ background:linear-gradient(90deg,#3c5a60,#8fc4cc); }
 
-/* ---------- Door ---------- */
+/* ---------- The leaks ---------- */
 
-/* OPEN means every pipe is sealed, which is the good state, so it gets no
-   special colour. Only SEALED, the state that stops you leaving, is red. */
-#val-leak.shut{ color:var(--danger); }
-
-/* ---------- Lives ---------- */
-
-/* Placed directly under LEVEL instead of being pinned to the bottom. On a
-   tall window, pinning would leave a big empty gap in the middle of the
-   panel that looks like something failed to render. Spent lives are drawn
-   faded. */
-.val.lives{ color:var(--danger); font-size:15px; letter-spacing:.22em; line-height:1.2; }
-.val.lives span.gone{ opacity:.2; }
-
-/* ---------- Clock ---------- */
-
-/* The biggest number in the HUD, because it is the one thing that can end
-   a level on its own. It changes colour but never size: a number that
-   resizes would shift everything around it once a second. */
-#val-clock{
-  font-size: 30px;
-  line-height:1;
-  letter-spacing:.06em;
-  color:var(--yellow);
-  text-shadow:0 0 14px rgba(228,230,168,.45);
-  transition:color .3s ease;
+/* One lamp per pipe on the floor. A sealed pipe is a steady green one;
+   an open pipe is a red one that flickers, because an open pipe is the
+   thing the run is about. The count under them says how many are left. */
+#hud .lamps{
+  display:flex;
+  gap:6px;
+  font-size:0;
 }
-/* Last 30 seconds: orange. */
-#clock.low #val-clock{ color:#e8a05a; }
-#clock.low .lbl{ color:#a8663a; }
-/* Last 10 seconds: red and blinking once a second. Anything faster would
-   be a strobe. */
-#val-clock.critical{ color:var(--danger); animation:clockPulse 1s steps(2,end) infinite; }
-@keyframes clockPulse{ 0%,60%{ opacity:1; } 61%,100%{ opacity:.35; } }
-@media (prefers-reduced-motion: reduce){
-  #val-clock.critical{ animation:none; }
+#hud .lamps .lamp{
+  width:11px; height:11px;
+  border-radius:50%;
+  background:#3a382a;
+  box-shadow:0 0 0 2px #17160a;
 }
+#hud .lamps .lamp.sealed{
+  background:#8fd07a;
+  box-shadow:0 0 0 2px #17160a, 0 0 7px rgba(143,208,122,.8);
+}
+#hud .lamps .lamp.open{
+  background:#d8503c;
+  box-shadow:0 0 0 2px #17160a, 0 0 9px rgba(216,80,60,.9);
+  animation:lampFlicker .55s steps(2,end) infinite;
+}
+@keyframes lampFlicker{ 0%,55%{ opacity:1; } 56%,100%{ opacity:.35; } }

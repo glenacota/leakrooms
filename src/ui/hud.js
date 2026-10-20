@@ -1,32 +1,35 @@
-/* The HUD writes values into the sidebar defined in index.html. This file
+/* The HUD writes values into the panel defined in index.html. This file
    owns the element table and the two update functions. clockText formats run
-   state, so the run owns it and the HUD re-exports it. */
+   state, so the run owns it and the HUD re-exports it.
 
-import { BATT_MAX, LOUD, NOISE_FS } from '../config/constants.js';
-import { FLOORS, REPAIR_TIME } from '../config/tuning.js';
+   The panel is the boiler plate: a live scope on the left, drawn by
+   src/render/hud-scope.js, and four readouts after it — the clock, the
+   battery, the lives and the leaks.
+
+   There is no flood, no door and no level readout here. The water is on
+   the floor, where you can see it and walk in it. The door and the floor
+   number are on the cards that announce them: the clear card, the pause
+   stub, and the prompt line, which already says whether the door can cycle
+   yet. The level is in the same place. A readout that repeats something
+   the screen is already saying is a place for the eye to stop. */
+
+import { BATT_MAX } from '../config/constants.js';
+import { REPAIR_TIME } from '../config/tuning.js';
 import { G } from '../sim/state.js';
 import { SETTINGS } from '../settings/store.js';
 import { clockText, lives, runLives } from '../game/run.js';
 
 export { clockText } from '../game/run.js';
 
-// Every HUD element the code writes to, looked up once.
+// Every HUD element the code writes to, looked up once. The scope is not in
+// this table: it is a canvas the renderer draws into, and it has no value to
+// write. See src/render/hud-scope.js.
 export const HUD = {
   batt: document.getElementById('bar-batt'),
-  noise: document.getElementById('bar-noise'),
-  noiseWrap: document.querySelector('.bar.noise'),
-  noisePeak: document.getElementById('bar-noise-peak'),
-  noiseLeak: document.getElementById('bar-noise-leak'),
-  noiseLoud: document.querySelector('.bar.noise u.loud'),
-  vBatt: document.getElementById('val-batt'),
-  vNoise: document.getElementById('val-noise'),
   vClock: document.getElementById('val-clock'),
   clockWrap: document.getElementById('clock'),
   vPipes: document.getElementById('val-pipes'),
-  vLeak: document.getElementById('val-leak'),
-  vFlood: document.getElementById('val-flood'),
-  barFlood: document.getElementById('bar-flood'),
-  vDepth: document.getElementById('val-depth'),
+  vLamps: document.getElementById('val-lamps'),
   vLives: document.getElementById('val-lives'),
   prompt: document.getElementById('prompt'),
   hud: document.getElementById('hud')
@@ -43,8 +46,8 @@ export function flash(text){
      still drives the fade-in transition (the CSS eases opacity toward 1 when
      .on is present); the inline value caps where that fade lands, so a player
      who finds the sudden bright text uncomfortable can dial it down without
-     losing the message entirely. It is cleared when the timeout hides the note,
-     so the next flash starts from a known state. */
+     losing the message entirely. It is cleared by the timeout that hides the
+     note, so the next flash starts from a known state. */
   el.style.opacity = SETTINGS.flash ? '1' : '0';
   el.classList.add('on');
   clearTimeout(flashT);
@@ -75,56 +78,35 @@ function hudFlag(el, key, cls, on){
    frame while playing. */
 export function updateHUD(){
   if (!G) return;
+
+  /* ---------- Battery ----------
+     The trough is the readout, and the number beside it says how much is
+     left in units, because a bar cannot say 40 from 45. */
   hudSet(HUD.batt, 'batt', 'width', (G.batt/BATT_MAX*100)+'%');
-  hudSet(HUD.vBatt, 'vBatt', 'text', Math.ceil(G.batt));
-
-  /* ---------- Noise bar ----------
-     The bar is scaled to NOISE_FS (the wrench, the loudest sustained noise),
-     not to the battery maximum. It shows three things:
-       yellow fill   the noise YOU are making (G.selfNoise)
-       blue fill     the noise the open pipes make everywhere on the floor
-       orange tick   the recent peak, because a sprint is so short that the
-                     fill alone would not show it happened
-     The number above the bar is the loudest of the two, since that is what
-     the room actually sounds like. */
-  const nz = Math.max(0, Math.min(1, G.noise/NOISE_FS))*100;
-  hudSet(HUD.vNoise, 'vNoise', 'text', String(Math.round(nz)).padStart(2,'0'));
-  hudSet(HUD.noise, 'noise', 'width', Math.max(0, Math.min(1, G.selfNoise/NOISE_FS))*100+'%');
-  /* The bar turns red at LOUD, tested on your own noise. Pipes never reach
-     LOUD by design, so red always means "this is about you". */
-  hudFlag(HUD.noiseWrap, 'noiseHot', 'hot', G.selfNoise>=LOUD);
-  G.noisePeak = Math.max(G.noise, G.noisePeak - 0.004);
-  hudSet(HUD.noisePeak, 'noisePeakL', 'left', Math.max(0, Math.min(100, G.noisePeak/NOISE_FS*100))+'%');
-  hudSet(HUD.noiseLeak, 'noiseLeak', 'width', (Math.max(0, Math.min(1, G.leakTotal/NOISE_FS))*100)+'%');
-  // The LOUD hairline is placed from the constant, so it always marks the real threshold.
-  hudSet(HUD.noiseLoud, 'noiseLoud', 'left', (LOUD/NOISE_FS*100)+'%');
-
-  /* ---------- Pipes, door and flood ----------
-     Three readouts answer three different questions:
-       LEAKS  how many pipes are sealed (the work list)
-       DOOR   whether the level can end yet
-       FLOOD  how much of the floor is under water; it keeps rising while
-              pipes are open and drains after the last seal */
-  hudSet(HUD.vPipes, 'vPipes', 'text', `${G.pipes-G.leaksOpen}/${G.pipes}`);
-  /* OPEN is the good state and has no colour; SEALED is the one that stops
-     you, so it is the only one that is red. The text and a CSS class are set
-     here and the stylesheet decides how the states look. */
-  hudSet(HUD.vLeak, 'vLeak', 'text', G.leaksOpen===0 ? 'OPEN' : 'SEALED');
-  hudFlag(HUD.vLeak, 'vLeakShut', 'shut', G.leaksOpen>0);
-  hudSet(HUD.vFlood, 'vFlood', 'text', String(Math.round(G.floodCover*100)).padStart(2,'0'));
-  hudSet(HUD.barFlood, 'barFlood', 'width', (G.floodCover*100)+'%');
-
+  hudFlag(HUD.batt, 'battLow', 'low', G.batt < 25);
+  
   /* ---------- Clock ----------
-     Shown in whole seconds. It changes colour in the last 30 seconds (the same
-     moment the warning flashes) and blinks in the last 10. The flags go on the
-     wrapper, and the stylesheet decides what "low" and "critical" look like. */
+     Shown in whole seconds. It changes colour in the last 30 seconds and
+     blinks in the last 10. The flags go on the wrapper, and the stylesheet
+     decides what "low" and "critical" look like. */
   hudSet(HUD.vClock, 'vClock', 'text', clockText(G.clock));
-  hudFlag(HUD.clockWrap, 'clockLow', 'low',     G.clock <= 30);
+  hudFlag(HUD.clockWrap, 'clockLow', 'low',      G.clock <= 30);
   hudFlag(HUD.clockWrap, 'clockCrit', 'critical', G.clock <= 10);
-  hudSet(HUD.vDepth, 'vDepth', 'text', `${G.floor+1}/${FLOORS}`);
-  /* innerHTML is used here because the pips are small HTML spans, and the
-     cache above means it is only parsed when a life is lost. */
-  hudSet(HUD.vLives, 'vLives', 'html', livesHTML());
+
+  /* ---------- Leaks ----------
+     The lamps are the reading: one per pipe on the floor, green once it is
+     sealed and red and flickering while it is open. The count under them
+     says how many are done. */
+  hudSet(HUD.vLamps, 'vLamps', 'html', lampsHTML());
+  hudSet(HUD.vPipes, 'vPipes', 'text', `${G.pipes-G.leaksOpen}/${G.pipes}`);
+
+  /* ---------- Lives ---------- */
+  hudSet(HUD.vLives, 'vLives', 'html', fusesHTML());
+
+  /* The peak the scope draws as a hold line. It decays here, beside the
+     rest of the noise bookkeeping, so the trace and the number it came
+     from can never disagree. */
+  G.noisePeak = Math.max(G.noise, G.noisePeak - 0.004);
 }
 
 /* The hint line near the bottom of the screen. It shows the first of five
@@ -146,12 +128,32 @@ export function setPrompt(){
   hudFlag(el, 'promptOn', 'on', true);
 }
 
-// The life pips as HTML: one dot per life in the run, with spent ones marked "gone".
+/* The life pips as HTML: one dot per life in the run, with spent ones marked
+   "gone". The pause screen uses these, because its stub is a printed ticket
+   and not an instrument panel. */
 export function livesHTML(){
   return Array.from({length:Math.max(1,runLives)},
     (_,i)=> `<span class="${i<lives?'':'gone'}">&#9679;</span>`).join('');
 }
+
+/* The lives as fuse caps, which is how the panel shows them: one per life in
+   the run, the spent ones dark. */
+export function fusesHTML(){
+  return Array.from({length:Math.max(1,runLives)},
+    (_,i)=> `<i class="fuse ${i<lives?'':'gone'}"></i>`).join('');
+}
+
+/* One lamp per pipe on the floor. A sealed pipe is a steady green lamp; an
+   open pipe is a red one that flickers, because an open pipe is the thing
+   the run is about. */
+export function lampsHTML(){
+  if (!G) return '';
+  let out = '';
+  for (const L of G.leaks) out += `<i class="lamp ${L.fixed ? 'sealed' : 'open'}"></i>`;
+  return out;
+}
+
 export function renderLives(){
   // Goes through the same cache as updateHUD, so the two can never disagree about what is on screen.
-  hudSet(document.getElementById('val-lives'), 'vLives', 'html', livesHTML());
+  hudSet(document.getElementById('val-lives'), 'vLives', 'html', fusesHTML());
 }

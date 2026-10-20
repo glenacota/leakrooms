@@ -46,56 +46,39 @@
   <!-- ============ HUD ============
        The values are written by src/ui/hud.js. -->
   <div id="hud">
-    <div class="hud-side">
+    <div class="hud-plate">
 
-      <div class="stat clock" id="clock">
-        <span class="lbl">CLOCK</span>
-        <span class="val" id="val-clock">3:00</span>
+      <div class="gauge gauge-stack">
+        <span class="clock" id="clock"><span class="val nixie" id="val-clock">3:00</span></span>
+       
       </div>
 
       <div class="hud-div"></div>
 
-      <div class="stat">
-        <span class="lbl">BATTERY</span>
-        <div class="bar"><i id="bar-batt"></i></div>
-        <span class="val val-bar" id="val-batt">100</span>
+      <div class="gauge gauge-scope">
+        <span class="lbl">RADAR</span>
+        <div class="trough"><i id="bar-batt"></i></div>
+        
       </div>
-      <div class="stat">
+
+      <div class="hud-div"></div>
+      
+      <div class="gauge gauge-scope">
         <span class="lbl">NOISE</span>
-        <!-- One bar with two fills and two marks:
-             blue fill    noise from the open pipes (what monsters steer by)
-             yellow fill  noise you are making
-             orange tick  where your last loud moment peaked
-             hairline     the LOUD threshold, positioned from the game constant -->
-        <div class="bar noise"><i class="leak" id="bar-noise-leak"></i><i id="bar-noise"></i><u class="peak" id="bar-noise-peak"></u><u class="loud"></u></div>
-        <span class="val val-bar" id="val-noise">00</span>
-      </div>
-      <div class="stat">
-        <span class="lbl">FLOOD</span>
-        <div class="bar flood"><i id="bar-flood"></i></div>
-        <span class="val val-bar water" id="val-flood">00</span>
+        <canvas id="hud-scope" width="45" height="45"></canvas>
       </div>
 
       <div class="hud-div"></div>
 
-      <div class="stat">
-        <span class="lbl">LEAKS</span>
-        <span class="val" id="val-pipes">0/1</span>
-      </div>
-      <div class="stat">
-        <span class="lbl">DOOR</span>
-        <span class="val" id="val-leak">OPEN</span>
-      </div>
-      <div class="stat">
-        <span class="lbl">LEVEL</span>
-        <span class="val" id="val-depth">1/5</span>
-      </div>
-
-      <div class="hud-div"></div>
-
-      <div class="stat lives">
+      <div class="gauge">
         <span class="lbl">LIVES</span>
-        <span class="val lives" id="val-lives">&#9679;&#9679;&#9679;</span>
+        <span class="val lives" id="val-lives"></span>
+      </div>
+
+      <div class="gauge">
+        <span class="lbl">LEAKS</span>
+        <span class="lamps" id="val-lamps"></span>
+        <span class="val" id="val-pipes">0/1</span>
       </div>
 
     </div>

@@ -17,125 +17,88 @@ const buildFloor = A.buildFloor;
 const update = A.update;
 const render = A.render;
 
-
-/* ============ TEST 24: the sidebar HUD — one column, bars where bars fit
+/* ============ TEST 24: the HUD boiler panel
 
    The HUD is the one part of this game that is pure presentation, which makes
    it the one part with nothing stopping a later pass from quietly undoing it.
    Style regressions are exactly the kind that survive: the game still runs, the
    numbers are still correct, and nobody notices until someone squints.
-
 */
-test('[24] the sidebar HUD — one column, bars where bars fit', () => {
+test('[24] the HUD boiler panel', () => {
   const t = softAssert();
-console.log('[24] the sidebar HUD — one column, bars where bars fit');
+console.log('[24] the HUD boiler panel');
 {
   const html = readHtml();
   const css  = readCss();
   const hudHtml = html.slice(html.indexOf('<div id="hud">'), html.indexOf('<!-- ============ SCREENS'));
 
-  /* --- one column, not two clusters --------------------------------- */
-  t.assert(/class="hud-side"/.test(hudHtml), 'the HUD has no .hud-side column');
-  t.assert(!/hud-left|hud-right/.test(hudHtml),
-    'the two top-edge clusters are still wired up — every stat should share one column');
-  t.assert((hudHtml.match(/class="stat/g)||[]).length === 8,
-    `expected 8 stats in the column, found ${(hudHtml.match(/class="stat/g)||[]).length}`);
-  /* Grouped by KIND: clock alone, the three gauges, the three states, lives. */
-  t.assert((hudHtml.match(/class="hud-div"/g)||[]).length === 3,
-    'the column is not divided into its four groups');
+  /* --- the plate, and only the plate --------------------------------- */
+  t.assert(/class="hud-plate"/.test(hudHtml), 'the HUD has no .hud-plate');
+  t.assert(!/hud-side/.test(hudHtml),
+    'the old sidebar column is still wired up — the panel is a header, not a column');
+  t.assert(!/class="stat/.test(hudHtml),
+    'the old stat rows are still wired up — the panel has its own instruments');
 
-  /* --- the play area STARTS where the panel ends --------------------
-     It used to be asserted the other way round: the test pinned the HUD to one
-     window edge and forbade the canvas from reserving any width for it. That is
-     the overlay, and the overlay is the bug — the canvas sizes the camera, the
-     ambient bake and the visibility mask to itself, so a panel painted over it
-     renders a lit, scoped, masked strip of the world the player never sees, on
-     the side things approach from.
-
-     What holds now is not an EDGE but a RELATIONSHIP: the canvas is boxed by
-     #stage, and #stage is inset by the panel's width. Which side it sits on is
-     still not asserted — a test that fails because the author changed his mind
-     is a test reporting its own history. */
+  /* --- a header strip ----------------------------------- */
   const hudRule = css.match(/#hud\s*\{([^}]*)\}/);
   t.assert(hudRule, 'no #hud rule');
-  t.assert(/--side-w/.test(hudRule[1]), '#hud has no width — a sidebar needs one');
+  t.assert(/--hud-h/.test(hudRule[1]), '#hud has no height — a header needs one');
   t.assert(/z-index/.test(hudRule[1]),
     '#hud has no stacking level — anything painted later covers it silently');
   t.assert(/pointer-events\s*:\s*none/.test(hudRule[1]),
     '#hud swallows clicks — the game underneath must still be playable');
+  t.assert(/justify-content\s*:\s*center/.test(hudRule[1]),
+    'the plate is not centred in the strip — it should sit over the middle of the map');
 
-  /* the column is pinned to ONE edge, and the stage is cut back by its width.
-     The two must agree on the same number: if they disagree, the panel either
-     covers the map again or leaves a dead strip of black beside it. */
   const inset = ((hudRule[1].match(/inset\s*:\s*([^;]+)/)||[])[1]||'').trim().replace(/\s+/g,' ');
-  const onLeft  = /^0\s+auto\s+0\s+0$/.test(inset);
-  const onRight = /^0\s+0\s+0\s+auto$/.test(inset);
-  t.assert(onLeft || onRight,
-    `#hud is not pinned to one edge full-height (inset: ${inset}) — a sidebar needs an edge to sit on and the full height`);
+  t.assert(/^0.5rem\s+0\s+auto\s+0$/.test(inset),
+    `#hud is not pinned to the top edge (inset: ${inset}) — the panel is a header`);
 
+  /* --- and the play area starts BELOW it ------------------------------
+     The canvas sizes the camera, the ambient bake and the visibility mask to
+     itself, so a panel painted over it renders a lit, scoped, masked strip of
+     the world the player never sees, on the side things approach from. The
+     strip and the stage must agree on the same number. */
   const stageRule = css.match(/#stage\s*\{([^}]*)\}/);
   t.assert(stageRule, 'no #stage rule — the canvas has no play area to live in and is back under the panel');
-  const stageLeft  = ((stageRule[1].match(/left\s*:\s*([^;]+)/)||[])[1]||'').trim();
-  const stageRight = ((stageRule[1].match(/right\s*:\s*([^;]+)/)||[])[1]||'').trim();
-  if (onLeft) t.assert(stageLeft.includes('--side-w'),
-    '#stage does not start at --side-w — the panel is painted over the map again');
-  else       t.assert(stageRight.includes('--side-w'),
-    '#stage does not end at --side-w — the panel is painted over the map again');
+  const stageTop  = ((stageRule[1].match(/top\s*:\s*([^;]+)/)||[])[1]||'').trim();
+  t.assert(stageTop.includes('--hud-h'),
+    '#stage does not start at --hud-h — the panel is painted over the map again');
   t.assert(/position\s*:\s*absolute/.test(stageRule[1]),
     '#stage is not absolutely positioned — it would sit in flow and the canvas below it would still span the window');
+  t.assert(/--hud-h\s*:\s*\d+px/.test(css),
+    '--hud-h is not defined — the strip and the stage have nothing to agree on');
 
-  /* --- and the canvas is INSIDE the stage ----------------------------
-     A stage that does not contain the canvas, or a canvas left on the window
-     root, puts the map back under the panel one level up. */
-  t.assert(/<div id="stage">[\s\S]*?<canvas id="game">/.test(html),
-    'the canvas is not inside #stage');
-  t.assert(/#game\s*\{[^}]*inset\s*:\s*0/.test(css),
-    '#game is not filling #stage — it is sized against the window instead');
-
-  /* --- and the map-relative text is centred on the MAP --------------
-     #prompt and #flashnote are positioned left:0; right:0. Outside #stage they
-     centre on the window, which is a whole panel wider than the play area on
-     the left — both would sit visibly off the player they are describing. */
-  const stageEnd = html.indexOf('<!-- ============ SCREENS');
-  const stage = html.slice(html.indexOf('<div id="stage">'), stageEnd);
-  t.assert(stage.includes('id="prompt"'), '#prompt is not inside #stage — it centres on the window, not the map');
-  t.assert(stage.includes('id="flashnote"'), '#flashnote is not inside #stage — it centres on the window, not the map');
-
-  /* --- the plate presents itself to the PLAY area, not the bezel -----
-     With the map no longer behind it the fade runs into the black edge of the
-     tube rather than over live geometry, so it is a bezel treatment rather
-     than a readability one — but it must still point at the play area, which
-     is the side the player reads against. */
-  const sideRule = css.match(/\.hud-side\s*\{([^}]*)\}/);
-  t.assert(sideRule, 'no .hud-side rule');
-  const wantDeg = onLeft ? '90deg' : '270deg';
-  t.assert(new RegExp('linear-gradient\\(\\s*'+wantDeg).test(sideRule[1]),
-    `.hud-side does not fade with ${wantDeg} — on the ${onLeft?'left':'right'} that means solid at the window edge and fading out over the play area`);
-
-  /* --- bars on battery, noise and flood, and ONLY those three --------
-     Over-collecting is a real failure here, not pedantry: a bar under a count
-     is actively misleading, because a half-full gradient next to "2/4" invites
-     you to read the gradient as the number. */
-  const stats = hudHtml.split('<div class="stat').slice(1);
-  const withBar = stats.filter(s => s.includes('class="bar'));
-  const barLabels = withBar.map(s => (s.match(/class="lbl">([A-Z]+)/)||[])[1]).sort();
-  t.assert(JSON.stringify(barLabels)===JSON.stringify(['BATTERY','FLOOD','NOISE']),
-    `bars are on ${JSON.stringify(barLabels)}, expected BATTERY/FLOOD/NOISE only`);
-  for (const need of ['bar-batt','bar-noise','bar-flood']){
-    t.assert(hudHtml.includes(`id="${need}"`), `the HUD is missing #${need}`);
+  /* --- the five readouts, and nothing else ---------------------------- */
+  for (const need of ['hud-scope','val-clock','bar-batt','val-lives','val-lamps','val-pipes']){
+    t.assert(hudHtml.includes(`id="${need}"`), `the panel is missing #${need}`);
   }
+  /* The scope is a live trace, so it has to be a canvas of its own: a bar
+     cannot be redrawn as a wave. */
+  t.assert(/<canvas id="hud-scope"/.test(hudHtml),
+    'the scope is not a canvas — a live trace needs somewhere to be drawn');
+  t.assert(/id="val-flood"|id="bar-flood"|id="val-depth"|id="val-leak"/.test(hudHtml) === false,
+    'the panel still carries a flood, level or door readout — the water is on the floor and the door is on the prompt line');
+
+  /* --- the panel is brass, and the scope sits in it ------------------- */
+  t.assert(/\.hud-plate\s*\{[^}]*linear-gradient\(180deg,#b3a550/.test(css),
+    'the plate is not brass');
+  t.assert(/#hud-scope\s*\{[^}]*width/.test(css), 'the scope canvas has no size');
+  t.assert(/\.hud-plate\s+\.lamps|\.hud-plate/.test(css) && /class="lamps" id="val-lamps"/.test(hudHtml),
+    'the leak lamps are not inside the plate');
+
+  /* --- labels above their instruments -------------------------------- */
+  const gaugeRule = css.match(/\.gauge\s*\{([^}]*)\}/);
+  t.assert(gaugeRule, 'no .gauge rule');
+  t.assert(/flex-direction\s*:\s*column/.test(gaugeRule[1]),
+    '.gauge is not a column — labels and instruments are beside each other');
+  t.assert(/align-items\s*:\s*center/.test(gaugeRule[1]),
+    '.gauge does not centre its instruments — the eye cannot scan the plate');
 
   /* --- type floors ---------------------------------------------------
      The parser has to be a little more forgiving than `font-size:NNpx`.
-
-     It used to require exactly that, and it reported NaN on both `font-size:1rem`
-     and `font-size: 30px` — a space after the colon, which is legal CSS and which
-     the very first thing it read here had. That produced three failures that all
-     said "NaNpx" for two entirely different reasons and neither of which was a
-     problem with the game. A test that cannot parse its input is not a test; it
-     is a tripwire on the author's formatting habits. rem/em are resolved against
-     a 16px root, which is the browser default and nothing in this sheet overrides
-     html's font-size. */
+     rem/em are resolved against a 16px root, which is the browser default
+     and nothing in this sheet overrides html's font-size. */
   const px = (sel)=>{
     const m = css.match(new RegExp('(^|\\})\\s*'+sel.replace(/[.#]/g,'\\$&')+'\\s*\\{([^}]*)\\}','m'));
     if (!m) return NaN;
@@ -143,80 +106,58 @@ console.log('[24] the sidebar HUD — one column, bars where bars fit');
     if (!s) return NaN;
     return s[2]==='px' ? Number(s[1]) : Number(s[1])*16;
   };
-  t.assert(px('.lbl')>=11, `labels are ${px('.lbl')}px — the floor is 11`);
-  t.assert(px('.val')>=15, `values are ${px('.val')}px — the floor is 15`);
-  t.assert(px('#val-clock')>=22, `the clock is ${px('#val-clock')}px — it can end a level by itself, it should be the biggest thing`);
-  t.assert(px('#val-clock')>px('.val'),
+  t.assert(px('#hud .lbl')>=9, `labels are ${px('#hud .lbl')}px — the floor is 9`);
+  t.assert(px('#hud .val')>=12, `values are ${px('#hud .val')}px — the floor is 12`);
+  t.assert(px('#hud .val.nixie')>=18, `the clock is ${px('#hud .val.nixie')}px — it can end a level by itself, it should be the biggest thing`);
+  t.assert(px('#hud .val.nixie')>px('#hud .val'),
     'the clock is not larger than an ordinary value — the hierarchy is inverted');
-  /* Labels sit above their numbers. Sideways means the eye travels for every
-     value and the column reads as a run-on sentence instead of a list. */
-  t.assert(/flex-direction\s*:\s*column/.test(css.match(/\.stat\s*\{([^}]*)\}/)[1]),
-    '.stat is not a column — labels and values are beside each other');
 
-  /* --- label contrast: not the floor of the palette ------------------ */
-  t.assert(!/color\s*:\s*var\(--yellow-deep\)/.test(css.match(/\.lbl\s*\{([^}]*)\}/)[1]),
-    'labels are back to --yellow-deep, the darkest yellow in the palette');
+  /* --- the clock changes colour, never size --------------------------
+     And the class that says "critical" goes on the WRAPPER, because that is
+     where the HUD writes it. The old sheet put the rule on the number and
+     the flag on the wrapper, so the critical blink never once fired. */
+  const clockRule = css.match(/#hud \.val\.nixie\s*\{([^}]*)\}/);
+  t.assert(clockRule && !/animation/.test(clockRule[1]),
+    'the clock itself animates — a resizing number reflows its own box once a second');
+  t.assert(/#clock\.low\s+\.nixie\s*\{[^}]*color/.test(css), 'the clock does not change colour when it is low');
+  t.assert(/#clock\.critical\s+\.nixie\s*\{[^}]*animation/.test(css),
+    'the clock does not blink when it is critical — the flag goes on the wrapper, so the rule has to be on the wrapper too');
 
   /* --- one meaning per colour ---------------------------------------- */
-  const barFlood = css.match(/\.bar\.flood i\s*\{([^}]*)\}/);
-  t.assert(barFlood && /#3c5a60|#8fc4cc/i.test(barFlood[1]),
-    'the flood bar is not blue — blue is the water\'s colour, full stop');
+  /* The open-pipe lamp is the only red thing on the panel, and a sealed one
+     is the only green one. A lamp that is neither says nothing. */
+  t.assert(/#hud \.lamps \.lamp\.sealed\s*\{[^}]*#8fd07a/i.test(css),
+    'a sealed pipe is not a green lamp');
+  t.assert(/#hud \.lamps \.lamp\.open\s*\{[^}]*#d8503c/i.test(css),
+    'an open pipe is not a red lamp');
+  t.assert(/#hud \.trough i\.low\s*\{[^}]*#d8503c/i.test(css),
+    'a low battery does not turn red');
 
-  /* ...and the flood NUMBER is blue, which takes two things to be true at once
-     and both of them were false for a while: the span has to carry `water`, and
-     it has to also carry `val`. `.val.water` is a compound selector, so dropping
-     `val` in favour of a `val-bar` modifier quietly un-blues the reading and
-     leaves a yellow number sitting above a blue bar — which reads as two
-     different things rather than one, and undoes the whole reason the colour
-     exists. Assert the class list, not the intent. */
-  const floodVal = hudHtml.match(/<span class="([^"]*)"[^>]*id="val-flood"/);
-  t.assert(floodVal, 'the flood reading has no #val-flood');
-  t.assert(/\bwater\b/.test(floodVal[1]),
-    'the flood number lost its .water class — the bar is blue and the number is not');
+  /* --- the LOUD threshold is a constant, not a number in a stylesheet -- */
+  const scopeSrc = fs.readFileSync(new URL('../../src/render/hud-scope.js', import.meta.url), 'utf8');
+  t.assert(/import\s*\{[^}]*LOUD[^}]*\}\s*from\s*'\.\.\/config\/constants\.js'/.test(scopeSrc),
+    'the scope does not import LOUD — the threshold is a contract, not a drawing');
+  t.assert(/import\s*\{[^}]*NOISE_FS[^}]*\}\s*from\s*'\.\.\/config\/constants\.js'/.test(scopeSrc),
+    'the scope does not import NOISE_FS — the scale is a contract too');
 
-  /* --- `val-bar` is a MODIFIER, never a replacement -------------------
-     Every value in the HUD gets `.val`: that is where the colour and the
-     tabular figures live. A span carrying `val-bar` WITHOUT `val` loses both,
-     silently, and nothing in the stylesheet says so — the number just comes back
-     the default foreground and starts sliding sideways as its digits change,
-     while every other number in the column stays put. */
-  t.assert(!/class="val-bar[ "]/.test(hudHtml),
-    'a value span uses .val-bar without also carrying .val — it loses the colour and the tabular figures');
-  for (const m of hudHtml.matchAll(/<span class="([^"]*)"[^>]*id="val-[a-z]+"/g)){
-    t.assert(/\bval\b/.test(m[1]),
-      `#${m[0].match(/id="([^"]*)"/)[1]} has no .val class — it is not being styled as a HUD value`);
-  }
-  const shut = css.match(/#val-leak\.shut\s*\{([^}]*)\}/);
-  t.assert(shut && /--danger|#d8503c/i.test(shut[1]),
-    'the door no longer shouts in red');
-  /* ...and the good state is quiet. If OPEN were the red one, the single most
-     important word in the HUD would be the loudest thing on screen, which is
-     backwards: OPEN means every riser is sealed and you can leave.
+  /* --- short windows: the strip and the plate shrink together -------- */
+  t.assert(/max-height\s*:\s*700px/.test(css) && /max-height\s*:\s*560px/.test(css),
+    'the panel does not respond to short windows — it is the one HUD shape whose cost grows as the window shrinks');
+  const shortRule = css.match(/@media\s*\(max-height:700px\)\{([\s\S]*?)\n\}/);
+  t.assert(shortRule && /--hud-h/.test(shortRule[1]),
+    'the strip does not shrink on a short window');
 
-     NOTE the lookbehind-ish guard. The selector must be BARE `#val-leak`, not
-     `#val-leak.shut` or `#val-leak .foo` — a colour on a bare #val-leak is a
-     colour on every state. Written carelessly this assertion is dead: an
-     alternation like /#val-leak\.open|--val-leak\{/ splits at the `|` and the
-     second branch looks for `--val-leak`, two hyphens, which no selector in
-     this stylesheet will ever contain. */
-  t.assert(!/(^|[^.\w#])#val-leak\s*\{[^}]*(?:--danger|#d8503c)/.test(css),
-    'the door shouts in its GOOD state — only the state that is stopping you may shout');
-  t.assert(/^#val-leak\.shut\s*\{/m.test(css),
-    'the door has no .shut rule, so the state that is stopping you cannot shout at all');
+  /* --- reduced motion: the blink and the flicker are decoration -------- */
+  const rm = css.slice(css.indexOf('prefers-reduced-motion'));
+  t.assert(rm.length > 0, 'no reduced-motion block');
+  t.assert(/#clock\.critical\s+\.nixie\{[^}]*animation:none/.test(rm),
+    'the clock keeps blinking under reduced motion');
+  t.assert(/#hud \.lamps \.lamp\.open\{[^}]*animation:none/.test(rm),
+    'the open-pipe lamps keep flickering under reduced motion');
 
-  /* --- the clock changes colour, never size -------------------------- */
-  const clockRule = css.match(/#val-clock\s*\{([^}]*)\}/);
-  t.assert(!/animation/.test(clockRule[1]),
-    'the clock itself animates — a resizing number reflows its own box once a second');
-  t.assert(/#clock\.low #val-clock\s*\{[^}]*color/.test(css), 'the clock does not change colour when it is low');
-
-  /* --- narrow windows: a permanent column costs play area, so it sheds -- */
-  t.assert(/max-width\s*:\s*900px/.test(css) && /max-width\s*:\s*680px/.test(css),
-    'the sidebar does not respond to narrow windows — it is the one HUD shape whose cost grows as the window shrinks');
-
-  console.log(`  ${stats.length} stats in one column, bars on ${barLabels.length} of them; `+
-    `labels ${px('.lbl')}px, values ${px('.val')}px, clock ${px('#val-clock')}px, overlaying a full-width canvas`);
+  console.log(`  one plate, five readouts; clock ${px('#hud .val.nixie')}px, `+
+    `values ${px('#hud .val')}px, labels ${px('#hud .lbl')}px, `+
+    `a ${(/--hud-h:\s*(\d+)px/.exec(css)||[])[1]}px strip above the play area`);
 }
   t.done();
 });
-

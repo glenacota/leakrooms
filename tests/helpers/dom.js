@@ -78,9 +78,10 @@ function datasetOf(n){
 }
 
 /* Which nodes can this stub answer for? Anything the game can look up: an id, a
-   class (the HUD's `.bar.noise` and its `u.loud` child), a data attribute, or a
-   range input. Plain <i>/<u>/<span> with neither an id nor a class are not
-   addressable by any selector the game uses, so they are left out. */
+   class (the HUD's `.lamps` row and the `.hud-plate` it sits in), a data
+   attribute, or a range input. Plain <i>/<u>/<span> with neither an id nor a
+   class are not addressable by any selector the game uses, so they are left
+   out. */
 const ADDRESSABLE = n =>
   n.attrs.id !== undefined || classesOf(n).length > 0 ||
   dataKeys(n).length > 0 || n.tag === 'button' || n.tag === 'input';
@@ -92,8 +93,10 @@ export const ELEMENTS = NODES.filter(ADDRESSABLE);
 /* The query shapes the game uses, matched exactly. A selector this does not
    understand is simply not a selector it answers: see `select`. */
 const MATCHERS = [
-  { sel: '.bar.noise u.loud', test: n => n.tag === 'u' && classesOf(n).includes('loud') && !!closestNode(n, '.bar.noise') },
-  { sel: '.bar.noise',       test: n => classesOf(n).includes('bar') && classesOf(n).includes('noise') },
+  { sel: '.hud-plate',       test: n => classesOf(n).includes('hud-plate') },
+  { sel: '.lamps',           test: n => classesOf(n).includes('lamps') },
+  { sel: '.trough',          test: n => classesOf(n).includes('trough') },
+  { sel: '.hud-plate .lamps',test: n => classesOf(n).includes('lamps') && !!closestNode(n, '.hud-plate') },
   { sel: '.seg[data-opt]',   test: n => classesOf(n).includes('seg') && dataKeys(n).some(k => k === 'data-opt') },
   { sel: 'input[type=range][data-opt]',
     test: n => n.tag === 'input' && n.attrs.type === 'range' && dataKeys(n).some(k => k === 'data-opt') },

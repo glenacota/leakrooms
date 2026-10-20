@@ -10,7 +10,7 @@ LEAKROOMS — 2D top-down puzzle/stealth. Vanilla JS + canvas, zero dependencies
 - `src/main.js` — entry point: `import {boot} from './boot.js'; boot();`
 - `src/boot.js` — composition root: boot order, all event wiring, settings, audio, floor 0, then the loop
 - `src/sim/` — pure simulation: collision, noise, flood, leaks, regions, lightmap, vision, spawn, agents, player, clock, door, radar, tick stages, update
-- `src/render/` — canvas, textures, bake, pack, entities, passes (ground/markers/actors/lighting/leaks/post), splash plan
+- `src/render/` — canvas, textures, bake, pack, entities, passes (ground/markers/actors/lighting/leaks/post), splash plan, hud scope
 - `src/ui/` — DOM, HUD, splash, terms, pause ticket, settings panel, input, buttons, bindings
 - `src/game/` — run state machine, floor assembly, fixed-step loop
 - `src/cast/` — the rigger and the stalker
