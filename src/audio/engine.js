@@ -112,7 +112,7 @@ export const engine = {
     this.floorGain.gain.value = 0;
     this.floorFilter = a.createBiquadFilter();
     this.floorFilter.type='lowpass';
-    this.floorFilter.frequency.value=1200; this.floorFilter.Q.value=0.7;
+    this.floorFilter.frequency.value=200; this.floorFilter.Q.value=0.7;
     this.floorFilter.connect(this.floorGain);
     this.floorGain.connect(this.beds);
     const fn=a.createBufferSource(); fn.buffer=buf; fn.loop=true;
@@ -124,7 +124,7 @@ export const engine = {
     slfo.connect(slg); slg.connect(this.floorGain.gain); slfo.start();
     // The pressure under it: inaudible while you walk, there when you wrench
     const fr=a.createOscillator(); fr.type='sine'; fr.frequency.value=74;
-    const frg=a.createGain(); frg.gain.value=0.55;
+    const frg=a.createGain(); frg.gain.value=0.15;
     fr.connect(frg); frg.connect(this.floorGain); fr.start();
 
     /* --- THE LEAK BED.
