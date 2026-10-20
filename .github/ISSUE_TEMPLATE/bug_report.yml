@@ -1,0 +1,26 @@
+name: 🐛 Bug report
+description: Something is broken.
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: One or two sentences. Steps help if you have them.
+      placeholder: e.g. Water leaks through a wall on floor 3
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform / browser
+      options: ["Desktop Chrome", "Desktop Firefox", "Desktop Safari", "Mobile (touch)", "Not sure"]
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: Optional — floor, preset, screenshots.
+      placeholder: "Floor 3 · Normal"
