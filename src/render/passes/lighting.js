@@ -41,21 +41,6 @@ ctx.drawImage(G.lightCv, dx, dy, MAP_W*TILE*SCALE, MAP_H*TILE*SCALE);
    put there. That is the point of it. */
 ctx.drawImage(G.maskCv, dx, dy, MAP_W*TILE*SCALE, MAP_H*TILE*SCALE);
 
-/* Sonar pulse + semi-transparent hidden part */
-if (G.radar){
-  const px = rc.w2sx(G.player.x), py = rc.w2sy(G.player.y);
-  const time = rc.t/3000;
-  ctx.globalCompositeOperation = 'source-over';
-  for (let i=0;i<3;i++){
-    const r = ((time*180 + i*120) % 360);
-    ctx.strokeStyle = 'rgba(143,148,69,0.05)';
-    ctx.lineWidth = 10;
-    ctx.beginPath();
-    ctx.arc(px, py, r, 0, Math.PI*2);
-    ctx.stroke();
-  }
-}
-
 /* Flickering fluorescent tubes (additive, drawn above the bake).
 
    They are gated by visibility. The bake is a multiply, so an unlit room is
@@ -101,9 +86,17 @@ for (const f of G.fixtures){
   ctx.restore();
 }
 
-/* The radar has no additive pass, on purpose. A bright wash would paint a yellow
-   haze over a mostly dark frame, which looks like a rendering fault and not like
-   light. The radar reveals things because the mask stops hiding them while it is
-   on. */
+/* The radar reveals the whole floor, so while it is on the frame is tinted the
+   classic green-phosphor radar instead of the warm yellow the palette uses
+   everywhere else. It is a multiply over the map and not a second mask: the mask
+   already owns brightness, and this only shifts the revealed palette's hue. It
+   runs after the tubes so they tint green too, the way they do on a phosphor
+   screen. */
+if (G.radar){
+  ctx.globalCompositeOperation='multiply';
+  ctx.fillStyle='rgb(14, 83, 18)';
+  ctx.fillRect(dx, dy, MAP_W*TILE*SCALE, MAP_H*TILE*SCALE);
+}
+
 ctx.globalCompositeOperation='source-over';
 }

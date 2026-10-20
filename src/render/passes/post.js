@@ -95,7 +95,7 @@ ctx.drawImage(vigCv, 0, 0);
    is the full VHS_PASS and the exact look the game has always shipped. The
    setting is a fraction of the constant, not a replacement for it: VHS_PASS is
    still the ceiling and the identity of the tape look. */
-const vhs = VHS_PASS * SETTINGS.crt;
+const vhs = VHS_PASS * SETTINGS.crt * (G.radar ? 5000 : 1);
 /* The snapshot gives the chroma ghost something to read that does not include
    the ghost itself. It was a full-size copy of the canvas, and the ghost then
    drew that copy twice more at screen size: three full-screen operations for a
@@ -121,7 +121,7 @@ pg.globalCompositeOperation='source-over';
 const bandY = ((t*0.055) % (cvs.height+220)) - 110;
 const tg=ctx.createLinearGradient(0,bandY,0,bandY+110);
 tg.addColorStop(0,'rgba(255,255,255,0)');
-tg.addColorStop(0.5,`rgba(255,248,220,${0.05*vhs})`);
+tg.addColorStop(0.5,`rgba(255,248,220,${0.05 * VHS_PASS * SETTINGS.crt})`);
 tg.addColorStop(1,'rgba(255,255,255,0)');
 ctx.fillStyle=tg; ctx.fillRect(0,bandY,cvs.width,110);
 

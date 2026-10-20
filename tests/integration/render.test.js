@@ -356,3 +356,44 @@ console.log('[48] the door draws its glow without dimming the rest of the frame'
 }
   t.done();
 });
+
+
+/* ---- the radar's look: a green wash ----
+   The radar reveals the whole floor, so the sweep is one green-phosphor multiply
+   over the map. */
+test('[radar] the sweep is a green wash', () => {
+  const t = softAssert();
+  console.log('[radar] the sweep is a green wash');
+{
+  buildFloor(0, 1234);
+  const c = A.ctxRef;
+  const fills = [], arcs = [];
+  const realFillRect = c.fillRect, realArc = c.arc;
+  c.fillRect = function(...a){ fills.push({style:this.fillStyle, comp:this.globalCompositeOperation, args:a}); return realFillRect.apply(this,a); };
+  c.arc = function(...a){ arcs.push({r:a[2], lw:this.lineWidth}); return realArc.apply(this,a); };
+  const clear = ()=>{ fills.length=0; arcs.length=0; };
+  const isTint = f => f.comp==='multiply' && f.style==='rgb(14, 83, 18)';
+  const MAP_PX = 76*A.TILE*A.SCALE;
+
+  try {
+    /* off: no tint, and nothing that looks like a sonar ring */
+    G.radar = false;
+    clear(); render(1000);
+    t.assert(!fills.some(isTint), 'the radar tint was painted with the radar off');
+    t.assert(!arcs.some(a=>a.r>100 && a.lw===10), 'a sonar ring was drawn with the radar off');
+
+    /* on: one green multiply over the whole map, and no ring arcs at all */
+    G.radar = true; A.snapMask();
+    clear(); render(2000);
+    const wash = fills.find(f => isTint(f) && f.args[2]===MAP_PX && f.args[3]===MAP_PX);
+    t.assert(wash, 'the radar painted no green wash over the map');
+    t.assert(!arcs.some(a=>a.r>100),
+      `the radar drew ${arcs.filter(a=>a.r>100).length} large circle(s) — the concentric waves are still there`);
+    console.log('  green multiply wash over the map; no ring arcs');
+  } finally {
+    c.fillRect = realFillRect; c.arc = realArc;
+    G.radar = false;
+  }
+}
+  t.done();
+});
