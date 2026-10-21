@@ -11,17 +11,15 @@
    half is almost always already correct, and regenerating it means running a
    flood fill and repainting 116k pixels to arrive at the same picture. */
 
-import { BATT_MAX, DARK_ROOM, FLOOR, MAP_H, MAP_W, WALL } from '../config/constants.js';
-import { FLOOR_CLOCK } from '../config/tuning.js';
+import { MAP_H, MAP_W, WALL } from '../config/constants.js';
 import { mulberry32 } from '../util/rng.js';
 import { makeLos } from '../util/grid.js';
 import { genLevel } from '../sim/level.js';
 import { labelRegions } from '../sim/regions.js';
 import { computeLightArr } from '../sim/lightmap.js';
-import { spawnAgents } from '../sim/spawn.js';
 import { scopeRoomLight, snapMask } from '../sim/vision.js';
 import { initFlood } from '../sim/flood.js';
-import { G, setG } from '../sim/state.js';
+import { G, setG, createGameState } from '../sim/state.js';
 import { attachFloorImages } from '../render/bake.js';
 
 /* Every canvas a floor owns, and the subset the cache keeps. The carpet, the
@@ -93,9 +91,9 @@ export function getStaticLevel(seed, floorNum){
   for (let i=0;i<MAP_W*MAP_H; i++) if (grid[i]===WALL) idx.push(i);
 
   /* labelRegions() and attachFloorImages() both write through G, so they run
-     against a scratch G holding only what they read. Nothing can observe it:
-     this is one synchronous stretch, and the real G is installed over it before
-     any of the game's own code runs again. */
+     against a minimal facade holding only what they read. Nothing can observe
+     it: this is one synchronous stretch, and the real state is installed over
+     it before any of the game's own code runs again. */
   setG({ grid, regionOf: new Int32Array(MAP_W*MAP_H).fill(-1), regionAdj:null, regionCount:0 });
   labelRegions(level);
   const lightArr = computeLightArr(level, makeLos(grid));
@@ -127,69 +125,7 @@ export function getStaticLevel(seed, floorNum){
  * @param {number} seed - the run seed.
  */
 export function makeFloorState(level, floorNum, seed){
-  const grid = level.grid;
-  const at = (x,y)=> grid[y*MAP_W+x];
-  const inB = (x,y)=> x>=0 && y>=0 && x<MAP_W && y<MAP_H;
-
-  // Line of sight helper (walls block it)
-  const los = makeLos(grid);
-
-  const leaks = level.leaks.map(L => ({ ...L }));
-
-  /* Every per-floor buffer (vision, mask, flood) is a field of G, so building
-     the next floor replaces all of them at once and nothing can outlive the
-     floor it describes. The static half comes in whole: same lightArr, same
-     region map, same three canvases. */
-  setG({
-    floor: floorNum,
-    seed,
-    grid, at, inB, los,
-    rooms: level.rooms,
-    exitTiles: level.exit.map(e => ({ ...e })),
-    leaks,
-    fixtures: level.fixtures,
-    batteries: level.batteries.map(b => ({ ...b })),
-    graffiti: level.graffiti.map(g => ({ ...g })),
-    // Tallies for the HUD and the door: "is this level finished?" without walking the array
-    leaksOpen: level.leaks.length,
-    pipes: level.leaks.length,
-    lightArr: level.lightArr,
-    lightCv: level.gfx.lightCv, lightCtx: level.gfx.lightCtx, lightImg: level.gfx.lightImg,
-    // Visibility layers (see sim/vision.js)
-    visArr: new Float32Array(MAP_W*MAP_H).fill(DARK_ROOM),
-    visFrom: new Float32Array(MAP_W*MAP_H).fill(DARK_ROOM),
-    visTgt: new Float32Array(MAP_W*MAP_H).fill(DARK_ROOM),
-    visScratch: new Float32Array(MAP_W*MAP_H),
-    maskArr: new Float32Array(MAP_W*MAP_H),
-    maskTgt: new Float32Array(MAP_W*MAP_H),
-    coneArr: new Float32Array(MAP_W*MAP_H),
-    maskCv: null, maskCtx: null, maskImg: null,
-    // Index of every wall tile, so the vision cone can skip the floor tiles.
-    wallIdx: level.wallIdx,
-    /* Static tile layer: carpet, and wall faces and tops. Two canvases
-       because the flood is drawn between them. */
-    tilesCv: level.gfx.tilesCv, tilesCtx: level.gfx.tilesCtx,
-    wallsCv: level.gfx.wallsCv, wallsCtx: level.gfx.wallsCtx,
-    regionOf: level.regionOf, regionAdj: level.regionAdj, regionCount: level.regionCount,
-    visRegion: -1, visStep: 0, visFadeT: 0,
-    coneX: NaN, coneY: NaN, coneFace: NaN, coneRadar: null,
-    scopeDirty: false,
-    // Flood state (see sim/flood.js)
-    wetArr: new Float32Array(MAP_W*MAP_H),
-    waterDist: null, wetByDist: [], wetFront: 0, wetMaxDist: 0, wetSum: 0,
-    wetEdgeD: -1, wetIndexAtDist: null,
-    wetCv: null, wetCtx: null, wetImg: null,
-    /* True once this floor has been decided (a lifeform caught you, or the
-       clock ran out). update() checks it so the rest of the frame stops. */
-    ended: false,
-    /* Random stream for the lifeforms. It is separate from the level's own
-       generator on purpose: the layout must be reproducible from the seed, and
-       sharing one stream would change the cast whenever the layout code
-       changed. Nothing below draws from the level's generator. */
-    arng: mulberry32((seed ^ 0xA6E27) + floorNum*131),
-    // Pixel layers that need repacking before the next draw
-    dirty: { water: true, mask: true }
-  });
+  setG(createGameState(level, floorNum, seed));
 
   /* The visibility mask is its own canvas at one pixel per tile. It changes
      whenever the player turns, so keeping it separate from the light bake
@@ -203,22 +139,6 @@ export function makeFloorState(level, floorNum, seed){
   G.wetCtx = G.wetCv.getContext('2d');
   G.wetImg = G.wetCtx.createImageData(MAP_W, MAP_H);
   for (let i=0;i<MAP_W*MAP_H;i++) G.wetImg.data[i*4+3] = 0;
-  G.agents = spawnAgents(level);
-  G.player = { x: level.spawn.x, y: level.spawn.y, face:-Math.PI/2, stepT:0, stepDur:0.46, moving:false };
-  G.batt = BATT_MAX;
-  G.radar = false; G.radarRattleT = 0;
-  G.noise = 0; G.noisePeak = 0; G.selfNoise = 0; G.ambientNoise = 0;
-  G.descend = 0;
-  // The level clock starts full when the player steps in.
-  G.clock = FLOOR_CLOCK;
-  G.time = 0;
-  G.seenBy = 0;
-  G.nearest = 99;
-  G.stat = { noises:0, deaths:0, sealed:0 };
-  // Counted by initFlood below: how many floor tiles the water can ever reach.
-  G.wetFloor = 0;
-  G.wet = 0; G.floodCover = 0; G.atLeak = false; G.leakPower = 0;
-  G.leakTotal = 0; G.leakDist = 99;
 
   // Handy shortcut to the canvases above, used by the renderer and the tests.
   G.gfx = {

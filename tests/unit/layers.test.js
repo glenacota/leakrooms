@@ -94,3 +94,31 @@ test('the run and the loop never touch the document', () => {
   assert.deepEqual(offenders, [],
     `the DOM belongs to ui/, not to the run or the loop:\n  ${offenders.join('\n  ')}`);
 });
+
+/* The state refactor moves G behind a facade and gives each sim module its
+   state explicitly. Until every module is converted, the files that still
+   import state.js are named here; a new importer fails the test instead of
+   joining the list silently. */
+const ALLOWED = [
+  'src/sim/agents.js',
+  'src/sim/clock.js',
+  'src/sim/collision.js',
+  'src/sim/door.js',
+  'src/sim/flood.js',
+  'src/sim/leaks.js',
+  'src/sim/lightmap.js',
+  'src/sim/noise.js',
+  'src/sim/player.js',
+  'src/sim/radar.js',
+  'src/sim/regions.js',
+  'src/sim/update.js',
+  'src/sim/vision.js',
+];
+
+test('only the allowlisted sim modules import state.js', () => {
+  const importers = FILES
+    .filter(f => f.startsWith('src/sim/') && (GRAPH.get(f) || []).includes('src/sim/state.js'))
+    .sort();
+  assert.deepEqual(importers, [...ALLOWED].sort(),
+    `src/sim/** imports state.js outside the allowlist:\n  ${importers.join('\n  ')}`);
+});
