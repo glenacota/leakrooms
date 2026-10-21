@@ -21,6 +21,7 @@ import { bindRun } from './game/run.js';
 import { bindDom } from './ui/bind.js';
 import { bindInput } from './ui/input.js';
 import { bindButtons } from './ui/buttons.js';
+import { isMobileDevice, showMobileNotice } from './ui/mobile.js';
 import { setFatalHook, setFrameHooks } from './game/loop.js';
 import { adaptResolution } from './render/adaptive.js';
 import { render, setSimAlpha } from './render/render.js';
@@ -73,6 +74,11 @@ export function boot(){
   bindDom();
   bindInput();
   bindButtons();
+
+  /* A phone cannot play a keyboard game. Rather than show a title screen that
+     nobody can start, swap in the desktop-only card. The key handler checks
+     isMobileBlocked() so a stray key cannot walk past it. */
+  if (isMobileDevice()) showMobileNotice();
 
   /* Load saved settings and apply them (difficulty and volume), then build
      the settings controls so they show the loaded values. */

@@ -5,7 +5,10 @@
    visible and there is nothing to show(). The settings are not a screen
    either; they are a page of the pause screen. */
 
-export const SCREENS = ['splash','order','clear','pause','dead','win'];
+/* 'mobile' is not part of the run: it is the desktop-only notice shown instead
+   of the title when the device cannot play. It is in the list so show() and
+   hideAll() can reach it like any other screen. */
+export const SCREENS = ['splash','order','clear','pause','dead','win','mobile'];
 
 // Shows one screen and hides all the others.
 export function show(which){

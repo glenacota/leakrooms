@@ -309,6 +309,11 @@ blockquote{
 }
 #fatal.hidden{ display:none; }
 
+/* ---------- Desktop-only notice ---------- */
+
+/* Shown instead of the title on a phone. */
+#screen-mobile{ background:rgba(6,5,3,.94); }
+
 /* ---------- Buttons ---------- */
 
 /* Default button style. Variants (.ghost, .danger, .seg buttons) are in

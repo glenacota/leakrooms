@@ -8,6 +8,7 @@ import { flash } from './hud.js';
 import { setPausePage, togglePause, pausePage } from './pause.js';
 import { advanceSplash, backSplash } from './splash.js';
 import { setTermsOpen, termsOpen } from './terms.js';
+import { isMobileBlocked } from './mobile.js';
 
 /* What ENTER does on each screen. It confirms whatever the screen is asking
    for: start, resume, rewind, run again. */
@@ -50,6 +51,10 @@ function clearKeys(){
 function onKeyDown(e){
   // Some input methods send a keydown with no character. Ignore those rather than crash.
   if (typeof e.key !== 'string') return;
+
+  /* The desktop-only notice owns the screen. No key can walk past a card that
+     says the game is desktop-only. */
+  if (isMobileBlocked()) return;
 
   /* A game key with Ctrl, Cmd or Alt held is a browser or system shortcut
      (Ctrl+R reloads, Cmd+M minimises). The browser handles those itself, so

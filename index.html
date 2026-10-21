@@ -368,6 +368,24 @@
     </div>
   </div>
 
+  <!-- ------------ DESKTOP-ONLY NOTICE ------------
+       Shown instead of the title when the game is opened on a phone or a
+       tablet. The detection and the swap live in src/ui/mobile.js. -->
+  <div id="screen-mobile" class="screen hidden">
+    <div class="tape">
+      <h1 class="bad">DESKTOP ONLY</h1>
+      <p class="sub">HANDHELD UNITS ARE NOT AUTHORISED</p>
+      <p class="hint">
+        <a href="https://github.com/glenacota/leakrooms" target="_blank" rel="noopener noreferrer" class="footer-link">
+          <b>LEAKROOMS</b>
+        </a> IS CLOCKED IN WITH A KEYBOARD.<br>
+        THERE IS NO TOUCH INPUT ON THE FLOOR.<br>
+        CLOCK IN FROM A DESKTOP TERMINAL TO BEGIN THE SHIFT.
+      </p>
+      <p class="hint"><i>NO REFUNDS FOR LOST EQUIPMENT. OR PERSONNEL.</i></p>
+    </div>
+  </div>
+
   <!-- ============ FATAL ERROR ============
        Shown if the game loop keeps crashing. -->
   <div id="fatal" class="fatal hidden">
