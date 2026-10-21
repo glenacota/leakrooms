@@ -1,6 +1,6 @@
-/* The HUD writes values into the sidebar defined in index.html. This file
-   owns the element table and the two update functions. clockText formats run
-   state, so the run owns it and the HUD re-exports it. */
+/* The HUD writes values into the two instrument panels defined in index.html.
+   This file owns the element table and the two update functions. clockText
+   formats run state, so the run owns it and the HUD re-exports it. */
 
 import { BATT_MAX, LOUD, NOISE_FS } from '../config/constants.js';
 import { FLOORS, REPAIR_TIME } from '../config/tuning.js';
@@ -23,9 +23,6 @@ export const HUD = {
   vClock: document.getElementById('val-clock'),
   clockWrap: document.getElementById('clock'),
   vPipes: document.getElementById('val-pipes'),
-  vLeak: document.getElementById('val-leak'),
-  vFlood: document.getElementById('val-flood'),
-  barFlood: document.getElementById('bar-flood'),
   vDepth: document.getElementById('val-depth'),
   vLives: document.getElementById('val-lives'),
   prompt: document.getElementById('prompt'),
@@ -99,25 +96,10 @@ export function updateHUD(){
   // The LOUD hairline is placed from the constant, so it always marks the real threshold.
   hudSet(HUD.noiseLoud, 'noiseLoud', 'left', (LOUD/NOISE_FS*100)+'%');
 
-  /* ---------- Pipes, door and flood ----------
-     Three readouts answer three different questions:
-       LEAKS  how many pipes are sealed (the work list)
-       DOOR   whether the level can end yet
-       FLOOD  how much of the floor is under water; it keeps rising while
-              pipes are open and drains after the last seal */
+  /* ---------- Pipes ---------- */
   hudSet(HUD.vPipes, 'vPipes', 'text', `${G.pipes-G.leaksOpen}/${G.pipes}`);
-  /* OPEN is the good state and has no colour; SEALED is the one that stops
-     you, so it is the only one that is red. The text and a CSS class are set
-     here and the stylesheet decides how the states look. */
-  hudSet(HUD.vLeak, 'vLeak', 'text', G.leaksOpen===0 ? 'OPEN' : 'SEALED');
-  hudFlag(HUD.vLeak, 'vLeakShut', 'shut', G.leaksOpen>0);
-  hudSet(HUD.vFlood, 'vFlood', 'text', String(Math.round(G.floodCover*100)).padStart(2,'0'));
-  hudSet(HUD.barFlood, 'barFlood', 'width', (G.floodCover*100)+'%');
 
-  /* ---------- Clock ----------
-     Shown in whole seconds. It changes colour in the last 30 seconds (the same
-     moment the warning flashes) and blinks in the last 10. The flags go on the
-     wrapper, and the stylesheet decides what "low" and "critical" look like. */
+  /* ---------- Clock ---------- */
   hudSet(HUD.vClock, 'vClock', 'text', clockText(G.clock));
   hudFlag(HUD.clockWrap, 'clockLow', 'low',     G.clock <= 30);
   hudFlag(HUD.clockWrap, 'clockCrit', 'critical', G.clock <= 10);

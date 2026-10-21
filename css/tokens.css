@@ -29,11 +29,6 @@
   --danger:      #d8503c;   /* red accent for warnings and destructive actions */
   --ok:          #8fd07a;   /* green accent */
   --mono: "Courier New", "Courier", monospace;
-
-  /* Width of the HUD sidebar. It is a variable because it shrinks on
-     narrow windows (see base.css), and the HUD and the play area must
-     always agree on the same number. */
-  --side-w: 180px;
 }
 
 /* ---------- Page reset ---------- */
@@ -64,20 +59,22 @@ body{ display:flex; align-items:center; justify-content:center; }
   background:#000;
 }
 
-/* The play area, which holds the canvas. It starts to the right of the
-   HUD sidebar (its left edge is --side-w), so the map is never drawn
-   underneath the HUD. The game sizes its camera, lighting and visibility
-   mask to the canvas, so any part hidden behind the HUD would still be
-   rendered and then never seen.
+/* The play area, which holds the canvas. It fills the frame: the HUD is two
+   glass panels in the corners that float over the map, so nothing is
+   reserved for it and the map is never drawn underneath a solid panel. The
+   game sizes its camera, lighting and visibility mask to the canvas, so any
+   part hidden behind an opaque panel would still be rendered and then never
+   seen. The panels are glass, so that strip is a few hundred pixels of
+   dimmed map, not a hidden strip of the world.
 
-   It uses absolute positioning instead of a flex row because the HUD
-   width comes from a media-query variable. Two boxes that read the same
-   variable always agree; a flex layout can collapse the play area to
-   nothing if it resolves against a stale value. */
+   It uses absolute positioning instead of a flex row because the HUD used
+   to be a column whose width came from a media-query variable, and a flex
+   layout can collapse the play area to nothing if it resolves against a
+   stale value. */
 #stage{
   position:absolute;
   top:0; right:0; bottom:0;
-  left:var(--side-w);
+  left:0;
   overflow:hidden;
 }
 

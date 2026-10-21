@@ -1,108 +1,99 @@
 /* ============================================================
-   HUD: THE LEFT SIDEBAR
-   One column of readouts: clock, three gauges, door and level
-   state, and lives. The markup is in index.html (HUD section) and
-   the values are written by src/ui/hud.js.
+   HUD: TWO CRT PANELS IN THE CORNERS
+   The panels are glass, not slab: they float over the map and
+   reserve no space, so the whole window is playable.
+
+   The markup is in index.html (HUD section) and the values are written
+   by src/ui/hud.js.
    ============================================================ */
 
-/* ---------- Sidebar frame ---------- */
+/* ---------- The overlay ---------- */
 
-/* Pinned to the left edge at full height. It does not cover the canvas:
-   the play area starts where this column ends (see tokens.css). */
+/* Spans the whole frame so the panels can sit in the corners. It is not a
+   column: nothing is taken out of the play area for it. */
 #hud{
   position:absolute;
-  inset:0 auto 0 0;          /* top right bottom left: stuck to the left edge, full height */
-  width:var(--side-w);
-  min-width: var(--side-w);
+  inset:0;
   z-index:5;                 /* its own stacking level, so later elements cannot cover it */
   pointer-events:none;       /* clicks pass through to the game */
   opacity:0;                 /* invisible until a run starts */
   transition:opacity .5s ease;
   font-weight: 900;
 }
-/* JS adds .on when a run starts. Full opacity: the dark plate behind the
-   stats already separates them from the map. */
+/* JS adds .on when a run starts. */
 #hud.on{ opacity:1; }
 
-/* The dark plate behind the stats. It fades out toward the play area. */
-.hud-side{
-  position:relative;
-  height:100%;
+.crt{
+  position:absolute;
+  padding:10px 14px 12px;
+  border-radius:10px;
+  background:rgba(10,9,5,.18);
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.5), 0 0 24px rgba(0,0,0,.4);
+  color:var(--yellow);
+  letter-spacing:.14em;
+  text-shadow:
+     1px  0   0 #100f07,
+    -1px  0   0 #100f07,
+     0   1px 0 #100f07,
+     0  -1px 0 #100f07,
+     0   0   2px #100f07,
+     0   0  10px rgba(228,230,168,.5);
+}
+.crt-tl{ top:10px; left:12px; }
+.crt-tr{ top:10px; right:12px; }
+
+/* The scanlines. Behind the content, over the glass. */
+.crt::before{
+  content:'';
+  position:absolute; inset:0;
+  border-radius:inherit;
+  pointer-events:none;
+  z-index:0;
+  background:repeating-linear-gradient(0deg, rgba(0,0,0,.34) 0 1px, rgba(0,0,0,0) 1px 3px);
+}
+/* ...and the content above them. */
+.crt > *{ position:relative; z-index:1; }
+
+/* ---------- Rows ---------- */
+
+/* One readout: a label on the left, its value on the right. A bar sits in
+   the middle. The row never wraps: a HUD that wraps is hard to scan. */
+.crt-row{
   display:flex;
-  flex-direction:column;
   align-items:center;
-  padding:14px 14px 14px 0;
-  gap:2rem;
-  background:linear-gradient(90deg, rgba(7,6,3,.97) 0%, rgba(7,6,3,.93) 90%, rgba(7,6,3,0) 100%);
-}
-
-/* Thin rules between the four groups: the clock, the three gauges, the
-   door and level state, and lives. They are short (80% wide) so they read
-   as breaks in a list rather than as table borders. */
-.hud-div{
-  width:80%;
-  height:1px;
-  flex:0 0 auto;
-  margin:3px 0;
-  background:rgba(228,230,168,.18);
-}
-
-/* ---------- Stats ---------- */
-
-/* One readout: a label, a number, and (for the gauges) a bar. Every stat
-   has the same width so the eye can scan straight down the column. */
-.stat{
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  gap:3px;
-  width:90%;
-  white-space:nowrap;        /* a HUD that wraps is hard to scan */
-}
-
-/* Labels sit above their numbers. Beside them, the eye has to jump
-   sideways for every value. The colour is lighter than --yellow-deep
-   because this is the most frequent text in the game and has to stay
-   readable. */
-.lbl{
-  color:#a9a86f;
-  font-size:1rem;
-  letter-spacing:.2em;
+  gap:8px;
+  font-size:13px;
   line-height:1.5;
-  text-indent:.2em;          /* balances the trailing letter-spacing so the text looks centred */
+  white-space:nowrap;
 }
-.val{
-  color:var(--bright);
-  font-size:17px;
-  line-height:1.05;
-  letter-spacing:.02em;
+
+/* The label is dimmer than the value but not the darkest yellow in the
+   palette, and the outline under it does the separating. */
+.crt-lbl{
+  color:#b6b87e;
+  font-size:11px;
+  letter-spacing:.2em;
+  text-indent:.2em;          /* balances the trailing letter-spacing */
+}
+.crt-val{
+  color:var(--yellow);
+  font-size:13px;
   font-variant-numeric:tabular-nums;  /* digits keep the same width, so numbers do not jitter */
+  letter-spacing:.02em;
 }
 
-/* A smaller number for the three gauges (battery, noise, flood): the bar
-   is the main readout there and the number is a backup.
-
-   This is a modifier. The markup always uses the val and val-bar classes
-   together. val-bar alone would lose the colour and fixed-width digits
-   that come from val, and the flood number would stop matching the water
-   colour rule below. */
-.val-bar {
-  font-size:12px;
-}
-/* Blue because this is water. It is the only non-yellow text in the HUD. */
-.val.water{ color:#8fc4cc; }
-
-/* ---------- Bars (battery, noise, flood only) ---------- */
+/* ---------- Bars (battery and noise only) ---------- */
 
 /* A bar suits a continuous reading and not a count: you cannot tell which
    pipe is sealed from a gradient, so counts do not get one. */
 .bar{
   position:relative;
-  width:82%;
-  height:7px;
-  margin-top:2px;
-  background:rgba(20,17,10,.85);
-  border:1px solid rgba(228,230,168,.28);
+  display:inline-block;
+  flex:0 0 auto;
+  width:120px;
+  height:9px;
+  background:rgba(8,7,3,.78);
+  border:1px solid rgba(228,230,168,.5);
   overflow:hidden;
 }
 .bar i{
@@ -117,7 +108,7 @@
    - yellow fill: the noise you are making
    - blue fill (.leak): the noise the open pipes make, shown under the yellow
    - orange tick (.peak): where your last loud moment peaked
-   - hairline (.loud): the LOUD threshold that monsters react to
+   - red hairline (.loud): the LOUD threshold that monsters react to
    Both fills are set from JS; the LOUD hairline is placed from the game
    constant at runtime. */
 .bar.noise i{ background:linear-gradient(90deg,var(--yellow-dim),#e4e6a8); }
@@ -130,12 +121,14 @@
   position:absolute; top:0; bottom:0; width:2px;
   text-decoration:none; transition:left .12s linear;
 }
-.bar.noise u.loud{ left:59%; width:1px; background:rgba(228,230,168,.5); }
+/* The threshold is the one mark on the bar that is red: it is the line the
+   player is trying to stay under, and nothing else on the bar is a limit. */
+.bar.noise u.loud{ left:59%; width:1px; background:var(--danger); }
 /* The peak decays slowly so a quarter-second sprint stays on screen long
    enough to read. */
 .bar.noise u.peak{ background:#ff8f6b; opacity:0; }
-/* Open pipes are water, so their fill is water blue. It is a fill and not
-   a tick because a pipe is a standing noise source with a level. */
+/* Open pipes are water, so their fill is water blue. It is a fill and not a
+   tick because a pipe is a standing noise source with a level. */
 .bar.noise i.leak{
   background:linear-gradient(90deg,#3c5a60,#8fc4cc);
   opacity:.9;
@@ -143,43 +136,33 @@
 @media (prefers-reduced-motion: reduce){
   .bar.noise u{ transition:none; }
 }
-.bar.flood i{ background:linear-gradient(90deg,#3c5a60,#8fc4cc); }
-
-/* ---------- Door ---------- */
-
-/* OPEN means every pipe is sealed, which is the good state, so it gets no
-   special colour. Only SEALED, the state that stops you leaving, is red. */
-#val-leak.shut{ color:var(--danger); }
 
 /* ---------- Lives ---------- */
 
-/* Placed directly under LEVEL instead of being pinned to the bottom. On a
-   tall window, pinning would leave a big empty gap in the middle of the
-   panel that looks like something failed to render. Spent lives are drawn
-   faded. */
-.val.lives{ color:var(--danger); font-size:15px; letter-spacing:.22em; line-height:1.2; }
-.val.lives span.gone{ opacity:.2; }
+/* Spent lives are drawn faded, so the row is a countdown you can read at a
+   glance without counting anything. */
+.crt-val.lives{ color:var(--danger); letter-spacing:.22em; }
+.crt-val.lives span.gone{ opacity:.2; }
 
 /* ---------- Clock ---------- */
 
-/* The biggest number in the HUD, because it is the one thing that can end
-   a level on its own. It changes colour but never size: a number that
+/* The biggest number in the HUD, because it is the one thing that can end a
+   level on its own. It changes colour but never size: a number that
    resizes would shift everything around it once a second. */
-#val-clock{
-  font-size: 30px;
+.crt-clock{
+  font-size:34px;
   line-height:1;
   letter-spacing:.06em;
   color:var(--yellow);
-  text-shadow:0 0 14px rgba(228,230,168,.45);
-  transition:color .3s ease;
+  margin-bottom:9px;
 }
+#val-clock{ font-size:34px; }
 /* Last 30 seconds: orange. */
 #clock.low #val-clock{ color:#e8a05a; }
-#clock.low .lbl{ color:#a8663a; }
 /* Last 10 seconds: red and blinking once a second. Anything faster would
    be a strobe. */
-#val-clock.critical{ color:var(--danger); animation:clockPulse 1s steps(2,end) infinite; }
+#clock.critical #val-clock{ color:var(--danger); animation:clockPulse 1s steps(2,end) infinite; }
 @keyframes clockPulse{ 0%,60%{ opacity:1; } 61%,100%{ opacity:.35; } }
 @media (prefers-reduced-motion: reduce){
-  #val-clock.critical{ animation:none; }
+  #clock.critical #val-clock{ animation:none; }
 }

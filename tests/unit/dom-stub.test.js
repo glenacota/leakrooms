@@ -21,7 +21,7 @@ const byId = id => getElementById(id);
 
 test('[37] the DOM stub resolves the markup it claims to', () => {
   /* Ids: every one the markup declares, and no element for an id it does not. */
-  for (const id of ['game', 'hud', 'val-clock', 'bar-flood', 'screen-order',
+  for (const id of ['game', 'hud', 'val-clock', 'bar-batt', 'bar-noise', 'screen-order',
                     'btn-start', 'btn-retry', 'terms-fold', 'set-master']){
     assert.ok(byId(id), `index.html declares #${id} and the stub has no element for it`);
   }
