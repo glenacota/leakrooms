@@ -28,7 +28,6 @@
   padding:10px 14px 12px;
   border-radius:10px;
   background:rgba(10,9,5,.18);
-  box-shadow:inset 0 0 0 1px rgba(0,0,0,.5), 0 0 24px rgba(0,0,0,.4);
   color:var(--yellow);
   letter-spacing:.14em;
   text-shadow:
@@ -80,6 +79,35 @@
   font-size:13px;
   font-variant-numeric:tabular-nums;  /* digits keep the same width, so numbers do not jitter */
   letter-spacing:.02em;
+}
+
+/* The second label in a row, set apart from the pair before it. */
+.crt-lbl.sep{ margin-left:10px; }
+
+/* ---------- Pipes ----------
+   One mark per pipe on the floor. A mark stays where it is: it is a pipe,
+   not a slot in a progress bar, so the row never shuffles as you work. */
+.crt-pipes{
+  display:flex;
+  align-items:center;
+  gap:5px;
+}
+.crt-pipes span{
+  position:relative;
+  width:6px;
+  height:6px;
+  box-shadow:0 0 0 1px rgba(16,15,7,.9);
+}
+/* Open: water, and the loud thing on the row. */
+.crt-pipes span.open{
+  background:linear-gradient(180deg,#8fc4cc,#3c5a60);
+  box-shadow:0 0 0 1px rgba(16,15,7,.9), 0 0 9px rgba(143,196,204,.95);
+}
+/* Sealed. */
+.crt-pipes span.done{ 
+  background:linear-gradient(180deg,#8fc4cc,#3c5a60);
+  opacity: 0.35;
+  box-shadow:0 0 0 1px rgba(16,15,7,.9), 0 0 7px rgba(143,196,204,.85);
 }
 
 /* ---------- Bars (battery and noise only) ---------- */

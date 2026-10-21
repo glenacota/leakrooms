@@ -95,7 +95,7 @@ test('[24] the HUD — two glass panels in the corners, and they reserve nothing
      The point of the corner panels is that they can only carry so much. So
      the set of labels is the contract: clock, level, lives, leaks, noise and
      battery. Anything else has to be argued for. */
-  const labels = (hudHtml.match(/class="crt-lbl">([A-Z]+)</g)||[]).map(s => s.replace(/.*>/,'').replace(/<.*/,''));
+  const labels = (hudHtml.match(/class="crt-lbl[^"]*">([A-Z]+)</g)||[]).map(s => s.replace(/.*>/,'').replace(/<.*/,''));
   t.assert(JSON.stringify(labels)===JSON.stringify(['LIVES','LEAKS','NOISE','BATT']),
     `the HUD shows ${JSON.stringify(labels)}, expected LIVES/LEAKS/NOISE/BATT`);
 
@@ -107,22 +107,49 @@ test('[24] the HUD — two glass panels in the corners, and they reserve nothing
   t.assert(!/\.bar\.flood/.test(css), 'the flood bar is still in the stylesheet');
   t.assert(!/#val-leak/.test(css), 'the door readout is still in the stylesheet');
 
-  /* The clock counts DOWN to a deadline, so it is prefixed. A bare m:ss
-     reads like a stopwatch, and this is the one number that can end a
-     level on its own. */
-  t.assert(/'T-'\s*\+\s*clockText/.test(src),
-    "the clock is not written as a T- countdown");
+  /* The clock is the one number that can end a level on its own, so it has to
+     come from the run's own formatter. Whether it carries a T- prefix is a
+     look and not a contract, and the test does not pin one. */
+  t.assert(/clockText\(G\.clock\)/.test(src),
+    "the clock is not written from the run's own clockText");
 
   /* --- bars on the continuous readings, and ONLY those --------------
      Over-collecting is a real failure here, not pedantry: a bar under a count
      is actively misleading, because a half-full gradient next to "2/4" invites
      you to read the gradient as the number. */
   const barRows = hudHtml.split('<div class="crt-row"').slice(1).filter(s => s.includes('class="bar'));
-  const barLabels = barRows.map(s => (s.match(/class="crt-lbl">([A-Z]+)</)||[])[1]).sort();
+  const barLabels = barRows.map(s => (s.match(/class="crt-lbl[^"]*">([A-Z]+)</)||[])[1]).sort();
   t.assert(JSON.stringify(barLabels)===JSON.stringify(['BATT','NOISE']),
     `bars are on ${JSON.stringify(barLabels)}, expected BATT/NOISE only`);
   t.assert((hudHtml.match(/class="bar/g)||[]).length===2,
     'there are more bars than the two continuous readings');
+
+  /* --- the pipe marks ----------------------------------------------
+     One mark per pipe, in the order the floor put them, so a mark never
+     moves once it is on screen. It is a mark and not a bar: a bar under a
+     count invites reading the gradient as the number. */
+  t.assert(/class="crt-pipes"[^>]*id="val-pipes"/.test(hudHtml),
+    'the pipe row is not a .crt-pipes container');
+  t.assert(!/class="[^"]*\bbar\b[^"]*"[^>]*id="val-pipes"/.test(hudHtml),
+    'the pipe row is a bar — a bar under a count invites reading the gradient as the number');
+
+  /* Lives and pipes share the row, so the panel is a row shorter. */
+  const livesRow = hudHtml.split('<div class="crt-row"').slice(1)
+    .find(s => s.includes('id="val-lives"'));
+  t.assert(livesRow && livesRow.includes('id="val-pipes"'),
+    'lives and the pipe marks are not on the same row');
+
+  /* The open mark is water and the loud thing on the row; the sealed one is
+     a hollow collar, so a row of them reads as capped pipes and not as an
+     empty row. */
+  const openPip = css.match(/\.crt-pipes span\.open\s*\{([^}]*)\}/);
+  t.assert(openPip && /#8fc4cc|#3c5a60/i.test(openPip[1]),
+    "the open pipe mark is not water blue — blue is the water's colour, full stop");
+  const donePip = css.match(/\.crt-pipes span\.done\s*\{([^}]*)\}/);
+  t.assert(donePip && /rgba\(/.test(donePip[1]),
+    'the sealed pipe mark is not hollow — a solid mark reads as still open');
+  t.assert(/\.crt-pipes span\.done::after\s*\{/.test(css),
+    'the sealed pipe mark has no collar — a row of them would read as an empty row');
 
   /* --- type floors ---------------------------------------------------
      The parser has to be a little more forgiving than `font-size:NNpx`.

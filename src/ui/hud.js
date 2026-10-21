@@ -96,8 +96,9 @@ export function updateHUD(){
   // The LOUD hairline is placed from the constant, so it always marks the real threshold.
   hudSet(HUD.noiseLoud, 'noiseLoud', 'left', (LOUD/NOISE_FS*100)+'%');
 
-  /* ---------- Pipes ---------- */
-  hudSet(HUD.vPipes, 'vPipes', 'text', `${G.pipes-G.leaksOpen}/${G.pipes}`);
+  /* ---------- Pipes ----------
+     One mark per pipe on the floor. The exact count is on the prompt line. */
+  hudSet(HUD.vPipes, 'vPipes', 'html', pipesHTML());
 
   /* ---------- Clock ---------- */
   hudSet(HUD.vClock, 'vClock', 'text', clockText(G.clock));
@@ -132,6 +133,13 @@ export function setPrompt(){
 export function livesHTML(){
   return Array.from({length:Math.max(1,runLives)},
     (_,i)=> `<span class="${i<lives?'':'gone'}">&#9679;</span>`).join('');
+}
+
+// The pipe marks as HTML: one per pipe on the floor, in the order the floor
+// put them, so a mark never moves once it is on screen.
+export function pipesHTML(){
+  if (!G || !G.leaks) return '';
+  return G.leaks.map(L => `<span class="${L.fixed ? 'done' : 'open'}"></span>`).join('');
 }
 export function renderLives(){
   // Goes through the same cache as updateHUD, so the two can never disagree about what is on screen.
