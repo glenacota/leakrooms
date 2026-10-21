@@ -165,15 +165,30 @@ test('[24] the HUD — one glass panel in the corner, and it reserves nothing', 
     'lives and the pipe marks are not on the same row');
 
   /* The open mark is water and the loud thing on the row; the sealed one is
-     the same mark dimmed, so a row of them reads as what is still to do. */
+     hollow, so a filled mark can never be mistaken for an open one. */
   const openPip = css.match(/\.crt-pipes span\.open\s*\{([^}]*)\}/);
   t.assert(openPip && /#8fc4cc|#3c5a60/i.test(openPip[1]),
     "the open pipe mark is not water blue — blue is the water's colour, full stop");
   const donePip = css.match(/\.crt-pipes span\.done\s*\{([^}]*)\}/);
-  t.assert(donePip && /#8fc4cc|#3c5a60/i.test(donePip[1]),
-    'the sealed pipe mark is not the same water — one mark, one colour');
-  t.assert(donePip && /opacity\s*:\s*0?\.\d+/.test(donePip[1]),
-    'the sealed pipe mark is not dimmed — a sealed pipe has to read as done');
+  t.assert(donePip && /background\s*:\s*transparent/.test(donePip[1]),
+    'the sealed pipe mark is not hollow — a filled mark reads as still open');
+  t.assert(donePip && /border\s*:/.test(donePip[1]),
+    'the sealed pipe mark has no outline — a hole with no edge is nothing');
+
+  /* The row DRAINS: the open pipes pack to the left and the sealed ones sit
+     hollow on the right, so the lit run is the number still open. */
+  buildFloor(3, 1234);                       // a four-pipe floor
+  A.sealLeak(A.G.leaks[0]);
+  A.updateHUD();
+  const marks = els['val-pipes'].innerHTML.match(/class="(open|done)"/g) || [];
+  t.assert(marks.length === A.G.pipes,
+    `the pipe row has ${marks.length} marks for ${A.G.pipes} pipes`);
+  t.assert(marks[0] === 'class="open"',
+    'the first mark is not an open pipe — the row has to drain from the left');
+  t.assert(marks[marks.length-1] === 'class="done"',
+    'the last mark is not a sealed pipe — the row has to drain from the left');
+  t.assert(marks.filter(m => m === 'class="open"').length === A.G.leaksOpen,
+    'the row does not show one open mark for every open pipe');
 
   /* --- type floors ---------------------------------------------------
      The parser has to be a little more forgiving than `font-size:NNpx`.

@@ -84,17 +84,17 @@
 .crt-lbl.sep{ margin-left:10px; }
 
 /* ---------- Pipes ----------
-   One mark per pipe on the floor. A mark stays where it is: it is a pipe,
-   not a slot in a progress bar, so the row never shuffles as you work. */
+   One mark per pipe on the floor. */
 .crt-pipes{
   display:flex;
   align-items:center;
-  gap:5px;
+  gap:4px;
 }
 .crt-pipes span{
   position:relative;
-  width:6px;
-  height:6px;
+  width:7px;
+  height:7px;
+  border-radius:1px;
   box-shadow:0 0 0 1px rgba(16,15,7,.9);
 }
 /* Open: water, and the loud thing on the row. */
@@ -102,11 +102,10 @@
   background:linear-gradient(180deg,#8fc4cc,#3c5a60);
   box-shadow:0 0 0 1px rgba(16,15,7,.9), 0 0 9px rgba(143,196,204,.95);
 }
-/* Sealed. */
-.crt-pipes span.done{ 
-  background:linear-gradient(180deg,#8fc4cc,#3c5a60);
-  opacity: 0.35;
-  box-shadow:0 0 0 1px rgba(16,15,7,.9), 0 0 7px rgba(143,196,204,.85);
+/* Sealed: hollow, so a filled mark can never be mistaken for an open one. */
+.crt-pipes span.done{
+  background:transparent;
+  border:1px solid rgba(228,230,168,.55);
 }
 
 /* ---------- The battery ---------- */

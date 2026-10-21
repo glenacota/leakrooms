@@ -137,11 +137,15 @@ export function livesHTML(){
     (_,i)=> `<span class="${i<lives?'':'gone'}">&#9679;</span>`).join('');
 }
 
-// The pipe marks as HTML: one per pipe on the floor, in the order the floor
-// put them, so a mark never moves once it is on screen.
+// The pipe marks as HTML: one per pipe on the floor. The open ones are
+// packed to the left and the sealed ones sit hollow on the right, so the lit
+// run is the number still open and the row drains as the floor is fixed.
 export function pipesHTML(){
   if (!G || !G.leaks) return '';
-  return G.leaks.map(L => `<span class="${L.fixed ? 'done' : 'open'}"></span>`).join('');
+  const open = G.leaks.filter(L => !L.fixed);
+  const done = G.leaks.filter(L => L.fixed);
+  return open.concat(done)
+    .map(L => `<span class="${L.fixed ? 'done' : 'open'}"></span>`).join('');
 }
 
 // The battery cells as HTML: one per step of the charge, lit from the left.
