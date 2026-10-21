@@ -1,9 +1,9 @@
-/* The HUD writes values into the two instrument panels defined in index.html.
+/* The HUD writes values into the instrument panel defined in index.html.
    This file owns the element table and the two update functions. clockText
    formats run state, so the run owns it and the HUD re-exports it. */
 
-import { BATT_MAX, LOUD, NOISE_FS } from '../config/constants.js';
-import { FLOORS, REPAIR_TIME } from '../config/tuning.js';
+import { BATT_CELLS, BATT_LOW, BATT_MAX, LOUD, NOISE_FS } from '../config/constants.js';
+import { REPAIR_TIME } from '../config/tuning.js';
 import { G } from '../sim/state.js';
 import { SETTINGS } from '../settings/store.js';
 import { clockText, lives, runLives } from '../game/run.js';
@@ -23,7 +23,6 @@ export const HUD = {
   vClock: document.getElementById('val-clock'),
   clockWrap: document.getElementById('clock'),
   vPipes: document.getElementById('val-pipes'),
-  vDepth: document.getElementById('val-depth'),
   vLives: document.getElementById('val-lives'),
   prompt: document.getElementById('prompt'),
   hud: document.getElementById('hud')
@@ -72,8 +71,12 @@ function hudFlag(el, key, cls, on){
    frame while playing. */
 export function updateHUD(){
   if (!G) return;
-  hudSet(HUD.batt, 'batt', 'width', (G.batt/BATT_MAX*100)+'%');
-  hudSet(HUD.vBatt, 'vBatt', 'text', Math.ceil(G.batt));
+  /* ---------- Radar power ---------- */
+  hudSet(HUD.batt, 'batt', 'html', battHTML());
+  hudSet(HUD.vBatt, 'vBatt', 'text', `${Math.ceil(G.batt)}%`);
+  /* Low charge is a warning, so the lit cells turn red. It is the same red
+     the noise bar uses for the one thing that is about to cost you. */
+  hudFlag(HUD.batt, 'battHot', 'hot', G.batt < BATT_LOW);
 
   /* ---------- Noise bar ----------
      The bar is scaled to NOISE_FS (the wrench, the loudest sustained noise),
@@ -104,7 +107,6 @@ export function updateHUD(){
   hudSet(HUD.vClock, 'vClock', 'text', clockText(G.clock));
   hudFlag(HUD.clockWrap, 'clockLow', 'low',     G.clock <= 30);
   hudFlag(HUD.clockWrap, 'clockCrit', 'critical', G.clock <= 10);
-  hudSet(HUD.vDepth, 'vDepth', 'text', `${G.floor+1}/${FLOORS}`);
   /* innerHTML is used here because the pips are small HTML spans, and the
      cache above means it is only parsed when a life is lost. */
   hudSet(HUD.vLives, 'vLives', 'html', livesHTML());
@@ -140,6 +142,17 @@ export function livesHTML(){
 export function pipesHTML(){
   if (!G || !G.leaks) return '';
   return G.leaks.map(L => `<span class="${L.fixed ? 'done' : 'open'}"></span>`).join('');
+}
+
+// The battery cells as HTML: one per step of the charge, lit from the left.
+// There is always at least one lit cell while there is any charge at all, so
+// a nearly dead battery never reads as an empty shell.
+export function battHTML(){
+  if (!G) return '';
+  const q = Math.max(0, Math.min(1, G.batt/BATT_MAX));
+  const lit = Math.ceil(q*BATT_CELLS);
+  return Array.from({length:BATT_CELLS},
+    (_,i)=> `<span class="${i<lit?'lit':''}"></span>`).join('');
 }
 export function renderLives(){
   // Goes through the same cache as updateHUD, so the two can never disagree about what is on screen.

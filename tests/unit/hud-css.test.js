@@ -17,48 +17,46 @@ const update = A.update;
 const render = A.render;
 
 
-/* ============ TEST 24: the HUD — two glass panels in the corners
+/* ============ TEST 24: the HUD — one glass panel in the corner
 
    The HUD is the one part of this game that is pure presentation, which makes
    it the one part with nothing stopping a later pass from quietly undoing it.
    Style regressions are exactly the kind that survive: the game still runs, the
    numbers are still correct, and nobody notices until someone squints.
 */
-test('[24] the HUD — two glass panels in the corners, and they reserve nothing', () => {
+test('[24] the HUD — one glass panel in the corner, and it reserves nothing', () => {
   const t = softAssert();
-  console.log('[24] the HUD — two glass panels in the corners, and they reserve nothing');
+  console.log('[24] the HUD — one glass panel in the corner, and it reserves nothing');
 {
   const html = readHtml();
   const css  = readCss();
   const src  = readSrc();
   const hudHtml = html.slice(html.indexOf('<div id="hud">'), html.indexOf('<!-- ============ SCREENS'));
 
-  /* --- two panels in two corners, and no column --------------------- */
+  /* --- one panel in one corner, and no column ----------------------- */
   t.assert(!/hud-side/.test(hudHtml) && !/\.hud-side/.test(css),
     'the sidebar column is back — it gave the window 180 pixels and the map a wall');
   const panels = (hudHtml.match(/class="crt /g)||[]).length;
-  t.assert(panels===2, `expected 2 instrument panels, found ${panels}`);
+  t.assert(panels===1, `expected 1 instrument panel, found ${panels}`);
   t.assert(/class="crt crt-tl"/.test(hudHtml), 'there is no top-left panel');
-  t.assert(/class="crt crt-tr"/.test(hudHtml), 'there is no top-right panel');
+  t.assert(!/crt-tr/.test(hudHtml) && !/\.crt-tr/.test(css),
+    'the top-right panel is back — every reading belongs in the one panel');
 
-  /* Each panel is pinned to its own corner. A panel that is only "somewhere
-     at the top" drifts when the markup is edited, and a drifted panel is a
-     panel that eventually sits on the player. */
+  /* The panel is pinned to its corner. A panel that is only "somewhere
+     at the top" drifts when the markup is edited, and a drifted panel is
+     a panel that eventually sits on the player. */
   const tl = css.match(/\.crt-tl\s*\{([^}]*)\}/);
-  const tr = css.match(/\.crt-tr\s*\{([^}]*)\}/);
   t.assert(tl && /\btop\s*:/.test(tl[1]) && /\bleft\s*:/.test(tl[1]),
-    'the top-left panel is not anchored to the top left');
-  t.assert(tr && /\btop\s*:/.test(tr[1]) && /\bright\s*:/.test(tr[1]),
-    'the top-right panel is not anchored to the top right');
+    'the panel is not anchored to the top left');
 
-  /* --- and the panels take NO width ----------------------------------
+  /* --- and the panel takes NO width ----------------------------------
      The overlay spans the frame and the stage starts at the left edge, so
      the map is the whole window. The old --side-w variable is the thing that
      used to take the space, and it is gone from every sheet. */
   const hudRule = css.match(/#hud\s*\{([^}]*)\}/);
   t.assert(hudRule, 'no #hud rule');
   t.assert(/inset\s*:\s*0/.test(hudRule[1]),
-    '#hud is not spread over the frame — the panels cannot reach the corners');
+    '#hud is not spread over the frame — the panel cannot reach the corner');
   t.assert(/z-index/.test(hudRule[1]),
     '#hud has no stacking level — anything painted later covers it silently');
   t.assert(/pointer-events\s*:\s*none/.test(hudRule[1]),
@@ -68,11 +66,11 @@ test('[24] the HUD — two glass panels in the corners, and they reserve nothing
   t.assert(stageRule, 'no #stage rule — the canvas has no play area to live in');
   const stageLeft = ((stageRule[1].match(/left\s*:\s*([^;]+)/)||[])[1]||'').trim();
   t.assert(/^0$/.test(stageLeft),
-    `#stage starts at ${stageLeft} — the panels are supposed to reserve no width at all`);
+    `#stage starts at ${stageLeft} — the panel is supposed to reserve no width at all`);
   t.assert(/position\s*:\s*absolute/.test(stageRule[1]),
     '#stage is not absolutely positioned — it would sit in flow and the canvas below it would still span the window');
   t.assert(!/--side-w/.test(css),
-    'a sidebar width variable is still in the stylesheets — the panels do not need one');
+    'a sidebar width variable is still in the stylesheets — the panel does not need one');
 
   /* --- and the canvas is INSIDE the stage ----------------------------
      A stage that does not contain the canvas, or a canvas left on the window
@@ -92,12 +90,17 @@ test('[24] the HUD — two glass panels in the corners, and they reserve nothing
   t.assert(stage.includes('id="flashnote"'), '#flashnote is not inside #stage — it centres on the window, not the map');
 
   /* --- the readouts, and only the readouts ---------------------------
-     The point of the corner panels is that they can only carry so much. So
-     the set of labels is the contract: clock, level, lives, leaks, noise and
-     battery. Anything else has to be argued for. */
-  const labels = (hudHtml.match(/class="crt-lbl[^"]*">([A-Z]+)</g)||[]).map(s => s.replace(/.*>/,'').replace(/<.*/,''));
-  t.assert(JSON.stringify(labels)===JSON.stringify(['LIVES','LEAKS','NOISE','BATT']),
-    `the HUD shows ${JSON.stringify(labels)}, expected LIVES/LEAKS/NOISE/BATT`);
+     The panel can only carry so much. So the set of labels is the contract:
+     lives, leaks, noise and radar power. Anything else has to be argued
+     for.
+
+     A label can be more than one word, so the parser takes a run of
+     capitals and spaces. A class of capitals alone stops at the first
+     space and then fails on the tag, which reads as a missing label
+     rather than as a label with a space in it. */
+  const labels = (hudHtml.match(/class="crt-lbl[^"]*">([A-Z][A-Z ]*)</g)||[]).map(s => s.replace(/.*>/,'').replace(/<.*/,''));
+  t.assert(JSON.stringify(labels)===JSON.stringify(['LIVES','LEAKS','NOISE','RADAR']),
+    `the HUD shows ${JSON.stringify(labels)}, expected LIVES/LEAKS/NOISE/RADAR`);
 
   for (const gone of ['val-flood','bar-flood','val-leak']){
     t.assert(!hudHtml.includes(gone), `the HUD still carries #${gone}`);
@@ -118,11 +121,33 @@ test('[24] the HUD — two glass panels in the corners, and they reserve nothing
      is actively misleading, because a half-full gradient next to "2/4" invites
      you to read the gradient as the number. */
   const barRows = hudHtml.split('<div class="crt-row"').slice(1).filter(s => s.includes('class="bar'));
-  const barLabels = barRows.map(s => (s.match(/class="crt-lbl[^"]*">([A-Z]+)</)||[])[1]).sort();
-  t.assert(JSON.stringify(barLabels)===JSON.stringify(['BATT','NOISE']),
-    `bars are on ${JSON.stringify(barLabels)}, expected BATT/NOISE only`);
+  const barLabels = barRows.map(s => (s.match(/class="crt-lbl[^"]*">([A-Z][A-Z ]*)</)||[])[1]).sort();
+  /* The labels are a set, so the expectation is sorted too and the assertion
+     does not depend on which of them happens to come first alphabetically. */
+  t.assert(JSON.stringify(barLabels)===JSON.stringify(['RADAR','NOISE'].sort()),
+    `bars are on ${JSON.stringify(barLabels)}, expected RADAR/NOISE only`);
   t.assert((hudHtml.match(/class="bar/g)||[]).length===2,
     'there are more bars than the two continuous readings');
+
+  /* --- the battery --------------------------------------------------- */
+  t.assert(/class="bar batt"[^>]*id="bar-batt"/.test(hudHtml),
+    'the radar power gauge is not a .batt battery');
+  const shell = css.match(/\.bar\.batt\s*\{([^}]*)\}/);
+  t.assert(shell, 'no .bar.batt rule — the gauge has no battery shell');
+  t.assert(/border\s*:/.test(shell[1]), 'the battery has no shell outline');
+  t.assert(/border-radius\s*:/.test(shell[1]), 'the battery shell has square corners');
+  t.assert(/overflow\s*:\s*visible/.test(shell[1]),
+    'the battery shell clips the terminal that sticks out of it');
+  const terminal = css.match(/\.bar\.batt::after\s*\{([^}]*)\}/);
+  t.assert(terminal, 'the battery has no terminal — a battery without a terminal is a box');
+  t.assert(/right\s*:/.test(terminal[1]), 'the terminal is not on the right end');
+  t.assert(/\.bar\.batt span\s*\{/.test(css), 'the battery has no cells');
+  t.assert(/\.bar\.batt span\.lit\s*\{/.test(css), 'the battery has no lit cell');
+  /* Low charge is a warning, and the warning colour in this HUD is red. */
+  const lowBatt = css.match(/\.bar\.batt\.hot span\.lit\s*\{([^}]*)\}/);
+  t.assert(lowBatt && /--danger|#d8503c|#ff8f6b/i.test(lowBatt[1]),
+    'the battery does not turn red when it is low');
+  t.assert(/BATT_LOW/.test(src), 'the battery has no low-charge threshold');
 
   /* --- the pipe marks ----------------------------------------------
      One mark per pipe, in the order the floor put them, so a mark never
@@ -140,16 +165,15 @@ test('[24] the HUD — two glass panels in the corners, and they reserve nothing
     'lives and the pipe marks are not on the same row');
 
   /* The open mark is water and the loud thing on the row; the sealed one is
-     a hollow collar, so a row of them reads as capped pipes and not as an
-     empty row. */
+     the same mark dimmed, so a row of them reads as what is still to do. */
   const openPip = css.match(/\.crt-pipes span\.open\s*\{([^}]*)\}/);
   t.assert(openPip && /#8fc4cc|#3c5a60/i.test(openPip[1]),
     "the open pipe mark is not water blue — blue is the water's colour, full stop");
   const donePip = css.match(/\.crt-pipes span\.done\s*\{([^}]*)\}/);
-  t.assert(donePip && /rgba\(/.test(donePip[1]),
-    'the sealed pipe mark is not hollow — a solid mark reads as still open');
-  t.assert(/\.crt-pipes span\.done::after\s*\{/.test(css),
-    'the sealed pipe mark has no collar — a row of them would read as an empty row');
+  t.assert(donePip && /#8fc4cc|#3c5a60/i.test(donePip[1]),
+    'the sealed pipe mark is not the same water — one mark, one colour');
+  t.assert(donePip && /opacity\s*:\s*0?\.\d+/.test(donePip[1]),
+    'the sealed pipe mark is not dimmed — a sealed pipe has to read as done');
 
   /* --- type floors ---------------------------------------------------
      The parser has to be a little more forgiving than `font-size:NNpx`.
@@ -172,9 +196,9 @@ test('[24] the HUD — two glass panels in the corners, and they reserve nothing
   t.assert(!/color\s*:\s*var\(--yellow-deep\)/.test(css.match(/\.crt-lbl\s*\{([^}]*)\}/)[1]),
     'labels are back to --yellow-deep, the darkest yellow in the palette');
 
-  /* --- the panels are GLASS, and the type carries itself */
+  /* --- the panel is GLASS, and the type carries itself */
   const crtRule = css.match(/\.crt\s*\{([^}]*)\}/);
-  t.assert(crtRule, 'no .crt rule — the panels have no bezel and no type treatment');
+  t.assert(crtRule, 'no .crt rule — the panel has no type treatment');
   const shadow = (crtRule[1].match(/text-shadow\s*:\s*([^;]+)/)||[])[1];
   t.assert(shadow, 'the panel has no text-shadow — the type has no outline and will vanish over a lit carpet');
   const stops = shadow.split(/,(?![^(]*\))/).map(s => s.trim()).filter(Boolean);
@@ -198,7 +222,6 @@ test('[24] the HUD — two glass panels in the corners, and they reserve nothing
   const alpha = alphaOf(bg);
   t.assert(alpha!==null, 'the panel background is not an rgba with an alpha — a solid panel hides the map');
   t.assert(alpha<0.6, `the panel is ${alpha} opaque — that is a plate, not glass`);
-  t.assert(/border\s*:/.test(crtRule[1]), 'the panel has no border — the bezel is the whole identity');
 
   /* The scanlines are the tube tell, and they sit BEHIND the type: a stripe
      across a number is a number you cannot read. */
@@ -236,11 +259,11 @@ test('[24] the HUD — two glass panels in the corners, and they reserve nothing
   t.assert(/#clock\.critical #val-clock\s*\{[^}]*animation/.test(css),
     'the clock does not blink in its last ten seconds — the critical rule does not match the wrapper it is set on');
 
-  /* --- narrow windows: the panels must not touch each other --------- */
+  /* --- narrow windows: the panel still has to fit -------------------- */
   t.assert(/max-width\s*:\s*900px/.test(css) && /max-width\s*:\s*680px/.test(css),
-    'the panels do not respond to narrow windows — the two corners would meet');
+    'the panel does not respond to narrow windows — it would grow off the screen');
 
-  console.log(`  ${panels} glass panels, labels ${JSON.stringify(labels)}, `+
+  console.log(`  ${panels} glass panel, labels ${JSON.stringify(labels)}, `+
     `bars on ${barLabels.length} readouts; `+
     `labels ${px('.crt-lbl')}px, values ${px('.crt-val')}px, clock ${px('#val-clock')}px, over a full-window canvas`);
 }

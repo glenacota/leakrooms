@@ -6,10 +6,10 @@
 
 /* ---------- Narrow windows ---------- */
 
-/* The HUD is two glass panels in the corners, so a small window does not
-   cost the play area anything any more. It does have to stop the two
-   panels from touching, so they shrink: the clock comes down first, then
-   the bars, and the type gets tighter. */
+/* The HUD is a single glass panel in the corner, so a small window does not
+   cost the play area anything any more. The panel still has to fit, so it
+   shrinks: the clock comes down first, then the bars, and the type gets
+   tighter. */
 @media (max-width:900px){
   .crt-clock, #val-clock{ font-size:26px; }
   .crt-row{ font-size:11px; gap:6px; }
@@ -24,7 +24,6 @@
   .bar{ width:70px; height:7px; }
   .crt{ padding:6px 8px 7px; }
   .crt-tl{ left:8px; }
-  .crt-tr{ right:8px; }
 }
 
 /* ---------- Reduced motion ---------- */

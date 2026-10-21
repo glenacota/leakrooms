@@ -1,7 +1,7 @@
 /* ============================================================
-   HUD: TWO CRT PANELS IN THE CORNERS
-   The panels are glass, not slab: they float over the map and
-   reserve no space, so the whole window is playable.
+   HUD: ONE CRT PANEL IN THE CORNER
+   The panel is glass, not slab: it floats over the map and
+   reserves no space, so the whole window is playable.
 
    The markup is in index.html (HUD section) and the values are written
    by src/ui/hud.js.
@@ -9,7 +9,7 @@
 
 /* ---------- The overlay ---------- */
 
-/* Spans the whole frame so the panels can sit in the corners. It is not a
+/* Spans the whole frame so the panel can sit in the corner. It is not a
    column: nothing is taken out of the play area for it. */
 #hud{
   position:absolute;
@@ -39,7 +39,6 @@
      0   0  10px rgba(228,230,168,.5);
 }
 .crt-tl{ top:10px; left:12px; }
-.crt-tr{ top:10px; right:12px; }
 
 /* The scanlines. Behind the content, over the glass. */
 .crt::before{
@@ -70,7 +69,7 @@
    palette, and the outline under it does the separating. */
 .crt-lbl{
   color:#b6b87e;
-  font-size:11px;
+  font-size:14px;
   letter-spacing:.2em;
   text-indent:.2em;          /* balances the trailing letter-spacing */
 }
@@ -108,6 +107,50 @@
   background:linear-gradient(180deg,#8fc4cc,#3c5a60);
   opacity: 0.35;
   box-shadow:0 0 0 1px rgba(16,15,7,.9), 0 0 7px rgba(143,196,204,.85);
+}
+
+/* ---------- The battery ---------- */
+.bar.batt{
+  display:inline-flex;
+  align-items:stretch;
+  gap:3px;
+  width:105px;
+  height:12px;
+  padding:2px;
+  border:1px solid rgba(228,230,168,.55);
+  border-radius:3px;
+  background:rgba(8,7,3,.78);
+  overflow:visible;          /* the terminal sticks out past the shell */
+}
+/* The terminal on the right end. */
+.bar.batt::after{
+  content:'';
+  position:absolute;
+  right:-5px;
+  top:50%;
+  margin-top:-3px;
+  width:5px;
+  height:4px;
+  border:1px solid rgba(228,230,168,.55);
+  border-left:0;
+  border-radius:0 2px 2px 0;
+  background:rgba(228,230,168,.18);
+}
+/* One cell per step of the charge. */
+.bar.batt span{
+  flex:1 1 0;
+  border-radius:1px;
+  background:rgba(228,230,168,.12);
+}
+.bar.batt span.lit{
+  background:linear-gradient(180deg,var(--yellow),var(--yellow-deep));
+  box-shadow:0 0 6px rgba(228,230,168,.45);
+}
+/* Low charge is a warning, so the lit cells turn red — the same red the
+   noise bar uses for the one thing that is about to cost you. */
+.bar.batt.hot span.lit{
+  background:linear-gradient(180deg,#ff8f6b,var(--danger));
+  box-shadow:0 0 7px rgba(216,80,60,.55);
 }
 
 /* ---------- Bars (battery and noise only) ---------- */
@@ -178,8 +221,8 @@
    level on its own. It changes colour but never size: a number that
    resizes would shift everything around it once a second. */
 .crt-clock{
-  font-size:34px;
-  line-height:1;
+  font-size:38px;
+  line-height:1.2;
   letter-spacing:.06em;
   color:var(--yellow);
   margin-bottom:9px;

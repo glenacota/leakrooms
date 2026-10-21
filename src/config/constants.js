@@ -53,6 +53,14 @@ export const BATT_MAX   = 100;
    made the battery a formality. */
 export const RADAR_DRAIN = 5.6;          // per second while sweeping
 
+/* The radar gauge is drawn as a battery: a shell with a terminal on the right
+   and a row of cells inside it that empty from the right as the charge goes.
+   BATT_CELLS is how many cells there are, so each one is a step of
+   BATT_MAX/BATT_CELLS charge. Below BATT_LOW the lit cells turn red, which
+   is the same warning the noise bar gives. */
+export const BATT_CELLS = 10;
+export const BATT_LOW  = 35;
+
 /* ---------- The leaks ----------
    The player is here because pipes burst, and the water shows where. The only
    fix is to stand still next to a pipe while something in the building walks

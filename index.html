@@ -44,11 +44,11 @@
   </div>
 
   <!-- ============ HUD ============
-       Two instrument panels in the corners of the frame.
+       One instrument panel in the corner of the frame.
        The values are written by src/ui/hud.js. -->
   <div id="hud">
 
-    <!-- Top left: the clock, the level, the lives and the pipe marks. -->
+    <!-- The clock, the lives, the pipe marks and the two gauges. -->
     <div class="crt crt-tl">
       <div class="crt-clock" id="clock"><span id="val-clock">3:00</span></div>
       <div class="crt-row">
@@ -57,24 +57,19 @@
         <span class="crt-lbl sep">LEAKS</span>
         <span class="crt-pipes" id="val-pipes"></span>
       </div>
-    </div>
-
-    <!-- Top right: the two continuous readings. -->
-    <div class="crt crt-tr">
       <div class="crt-row">
         <span class="crt-lbl">NOISE</span>
         <!-- One bar with two fills and two marks:
              blue fill    noise from the open pipes (what monsters steer by)
              yellow fill  noise you are making
-             orange tick  where your last loud moment peaked
              red hairline the LOUD threshold, positioned from the game constant -->
         <span class="bar noise"><i class="leak" id="bar-noise-leak"></i><i id="bar-noise"></i><u class="peak" id="bar-noise-peak"></u><u class="loud"></u></span>
         <span class="crt-val" id="val-noise">00</span>
       </div>
       <div class="crt-row">
-        <span class="crt-lbl">BATT</span>
-        <span class="bar"><i id="bar-batt"></i></span>
-        <span class="crt-val" id="val-batt">100</span>
+        <span class="crt-lbl">RADAR</span>
+        <span class="bar batt" id="bar-batt"></span>
+        <span class="crt-val" id="val-batt">100%</span>
       </div>
     </div>
 
