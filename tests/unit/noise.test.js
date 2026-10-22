@@ -376,5 +376,69 @@ test('a bump counts once per contact, for both sprint and walk', () => {
   console.log(`  sprint bump: +1 noise (${noisesAfterSprint - noisesBeforeSprint}), selfNoise=${G.selfNoise.toFixed(3)}`);
   console.log(`  walk bump: +1 noise (${noisesAfterWalk - noisesBeforeWalk}), selfNoise=${G.selfNoise.toFixed(3)}`);
 }
+
+  t.done();
+});
+
+/* wallSteps must be symmetric: the wall count between A and B must not depend
+   on argument order. A Bresenham line is deterministic for a given start/end,
+   so we canonicalize by walking from the tile with the smaller linear index. */
+test('wallSteps is symmetric across random floor-tile pairs', () => {
+  const t = softAssert();
+{
+  const W = 76, H = 76;
+  const FLOOR_T = 1;
+  const at = (x,y)=> (x<0||y<0||x>=W||y>=H) ? FLOOR_T : G.grid[y*W+x];
+
+  /* Collect all floor tiles on this floor. */
+  const floors = [];
+  for (let y=0; y<H; y++) for (let x=0; x<W; x++) if (at(x,y)===FLOOR_T) floors.push({x,y});
+
+  /* Test a few hundred random pairs, 3-13 tiles apart, across several seeds. */
+  const pairsPerFloor = 200;
+  const maxDist = 13, minDist = 3;
+  let totalPairs = 0, asymmetric = 0, flipped = 0;
+
+  for (const seed of [4242, 60606, 88, 9001, 31337, 12345, 2718, 9999, 1111, 5555]){
+    A.buildFloor(0, seed);
+    const rng = A.mulberry32(seed ^ 0x9e3779b9);
+
+    for (let i=0; i<pairsPerFloor; i++){
+      const a = floors[Math.floor(rng() * floors.length)];
+      const b = floors[Math.floor(rng() * floors.length)];
+      const d = Math.hypot(a.x - b.x, a.y - b.y);
+      if (d < minDist || d > maxDist) { i--; continue; }
+
+      const ax = a.x + 0.5, ay = a.y + 0.5;
+      const bx = b.x + 0.5, by = b.y + 0.5;
+
+      const ab = A.wallSteps(ax, ay, bx, by);
+      const ba = A.wallSteps(bx, by, ax, ay);
+
+      totalPairs++;
+      if (ab !== ba) {
+        asymmetric++;
+        /* Check if the hearing decision would flip for walk/sprint powers. */
+        const walkR = A.hearRadius(0.22);
+        const sprintR = A.hearRadius(A.SPRINT_NOISE);
+        const walkCost = A.NOISE.WALL_COST;
+        const walkEffAB = walkR - ab * walkCost;
+        const walkEffBA = walkR - ba * walkCost;
+        const sprintEffAB = sprintR - ab * walkCost;
+        const sprintEffBA = sprintR - ba * walkCost;
+        const walkFlip = (d <= walkEffAB) !== (d <= walkEffBA);
+        const sprintFlip = (d <= sprintEffAB) !== (d <= sprintEffBA);
+        if (walkFlip || sprintFlip) flipped++;
+      }
+    }
+  }
+
+  const asymPct = (asymmetric/totalPairs*100).toFixed(1);
+  const flipPct = (flipped/totalPairs*100).toFixed(1);
+  console.log(`  wallSteps symmetry: ${totalPairs} pairs, ${asymmetric} asymmetric (${asymPct}%), ${flipped} decision flips (${flipPct}%)`);
+
+  t.assert(asymmetric === 0,
+    `wallSteps was asymmetric for ${asymmetric}/${totalPairs} pairs (${asymPct}%) — canonical order not applied`);
+}
   t.done();
 });

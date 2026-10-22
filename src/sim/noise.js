@@ -38,23 +38,37 @@ export const hearRadius = power => NOISE.HEAR_BASE + power*NOISE.HEAR_GAIN;
    nothing and the loop can stop early. */
 const MAX_WALL_STEPS = 6;
 
-/* Counts the wall tiles between a sound and a listener, up to the cap.
-   It walks a straight line (Bresenham) through every tile the sound actually
-   crosses. An older version stepped diagonally and only saw walls that lay on
-   the diagonal, so a wall squarely in the way was often missed. The start and
-   end tiles are not counted, so a sound made in a doorway is not muffled by
-   the doorway. */
-function wallSteps(grid, ax, ay, x, y){
+/* Counts the wall tiles between two points, up to the cap.
+   It walks a straight line (Bresenham) through every tile the line actually
+   crosses. The start and end tiles are not counted, so a sound made in a
+   doorway is not muffled by the doorway.
+
+   To make the count symmetric (wallSteps(a,b) === wallSteps(b,a)), the line
+   is always walked from the canonical end: the tile with the smaller linear
+   index (y*MAP_W + x). This ensures the same tiles are visited in the same
+   order regardless of argument order. */
+export function wallSteps(grid, ax, ay, x, y){
   const { solid } = createCollision(grid);
   const sx=Math.floor(ax), sy=Math.floor(ay);
   const ex=Math.floor(x),   ey=Math.floor(y);
-  let cx=sx, cy=sy, steps=0;
-  const dx=Math.abs(ex-sx), dy=-Math.abs(ey-sy);
-  const stepX = sx<ex ? 1 : -1, stepY = sy<ey ? 1 : -1;
+
+  // Canonical order: walk from the tile with the smaller linear index.
+  // This makes wallSteps(a,b) === wallSteps(b,a) because Bresenham is
+  // deterministic for a given start/end, and we fix the direction.
+  const sIdx = sy*MAP_W + sx;
+  const eIdx = ey*MAP_W + ex;
+  const startX = sIdx <= eIdx ? sx : ex;
+  const startY = sIdx <= eIdx ? sy : ey;
+  const endX   = sIdx <= eIdx ? ex : sx;
+  const endY   = sIdx <= eIdx ? ey : sy;
+
+  let cx=startX, cy=startY, steps=0;
+  const dx=Math.abs(endX-startX), dy=-Math.abs(endY-startY);
+  const stepX = startX<endX ? 1 : -1, stepY = startY<endY ? 1 : -1;
   let err = dx+dy;
   // The guard is longer than any line inside the map, so it only stops a bug from looping forever.
   for (let guard=0; guard<MAP_W+MAP_H; guard++){
-    if (cx===ex && cy===ey) break;
+    if (cx===endX && cy===endY) break;
     const e2 = 2*err;
     if (e2 >= dy){ err += dy; cx += stepX; }
     if (e2 <= dx){ err += dx; cy += stepY; }
