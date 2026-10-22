@@ -221,8 +221,8 @@ else {
   G.clock = FLOOR_CLOCK; G.time = 0; G.batt = BATT_MAX;
   G.stat = {noises:0, deaths:0, sealed:0};
   G.radar = false; G.radarRattleT = 0; G.noise = 0; G.noisePeak = 0; G.selfNoise = 0; G.ambientNoise = 0; G.descend = 0; G.seenBy = 0;
-  initFlood();          // warm the flood up again for the new run
-  snapMask();
+  initFlood(G, G.player);
+  snapMask(G, G.player, G.radar);
 }
 // A short grace period before lifeforms can notice you, for both paths above.
 for (const a of G.agents){ a.born = 3.0; }
@@ -254,7 +254,7 @@ for (const L of G.leaks){
 G.leaksOpen = Math.max(0, G.leaks.length - fixedCount);
 // Rebuild the flood now that the fixed flags are in place, so sealed pipes
 // stop being water sources.
-initFlood();
+initFlood(G, G.player);
 /* Same seed, so the pipes are in the same places and only the flood restarts.
    Dying costs a life and the repairs you made, but not what you learned about
    where the pipes are. */

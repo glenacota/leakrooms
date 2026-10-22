@@ -54,15 +54,15 @@ export function update(dt){
   if (G.player){ G.player.px = G.player.x; G.player.py = G.player.y; }
   for (const a of G.agents){ a.px = a.x; a.py = a.y; }
   if (!tickClock(dt)) return;
-  tickBattery(dt);
-  const mv = tickMovement(dt);
+  tickBattery(G, G.player, G.batteries, dt);
+  const mv = tickMovement(G.player, G, G.grid, G.batteries, G, dt);
   G.wet = mv.wet;                  // the tile the player is standing on now
 
   /* Room-scoped light. It runs AFTER movement, so the room you just walked into
      lights up this frame. Run before movement, it would lag a frame behind and
      look like the lights chasing you. */
-  scopeRoomLight(dt, false);
-  fadeRoomLight(dt);
+  scopeRoomLight(G, G.player, G.radar, dt, false);
+  fadeRoomLight(G, dt);
   /* Retrace the cone on any movement, then ease the mask toward it. Both halves
      matter: retracing alone still steps a tile at a time, and easing alone
      still depends on when the retrace happens.
@@ -71,12 +71,12 @@ export function update(dt){
      left alone on purpose: it is pending work, so the first frame after vision
      comes back recombines whatever the crossfade moved in the meantime. */
   if (wantVision){
-    if (traceViewCone(false) || G.scopeDirty){ combineMask(); G.scopeDirty = false; }
-    if (smoothMask(dt)) if (G) G.dirty.mask = true;
+    if (traceViewCone(G, G.player, G.radar, false) || G.scopeDirty){ combineMask(G, G.player, G.radar); G.scopeDirty = false; }
+    if (smoothMask(G, dt)) if (G) G.dirty.mask = true;
   }
 
   // The flood runs after movement, so the water you are standing in is the water you just walked into.
-  tickFlood(dt);
+  tickFlood(G, dt);
 
   tickLeakNoise(dt);
   tickRepair(dt, mv.moving, mv.bumped);

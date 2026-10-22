@@ -49,7 +49,7 @@ ctx.drawImage(G.maskCv, dx, dy, MAP_W*TILE*SCALE, MAP_H*TILE*SCALE);
    strength and every "dark" room would be lit, hiding the room scoping. */
 ctx.globalCompositeOperation='lighter';
 for (const f of G.fixtures){
-  const fv = fixtureVis(f);
+  const fv = fixtureVis(f, G);
   if (fv < 0.02) continue;
   let a = 0.12 * fv;
   /* Flicker. 16% of the tubes stutter, a random dropout dips a tube to 15%, and

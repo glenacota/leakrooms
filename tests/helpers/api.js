@@ -18,6 +18,7 @@ import { makeLos } from '../../src/util/grid.js';
 import { createCollision } from '../../src/sim/collision.js';
 import { hearRadius, alertAgents, emitNoise, sustainedNoise, brush, alert } from '../../src/sim/noise.js';
 import { initFlood, seedSplash, wetAt, tickFlood, floodCover } from '../../src/sim/flood.js';
+import { tickBattery, tickMovement } from '../../src/sim/player.js';
 import { takeWetBox } from '../../src/render/repaint.js';
 import { leakAt, leakReach, sealLeak, tickLeakNoise, tickRepair } from '../../src/sim/leaks.js';
 import { labelRegions, createRegionAt } from '../../src/sim/regions.js';
@@ -93,6 +94,7 @@ updateReal: update,
 update(dt){ if (G) G.clock = 1e6; return update(dt); },
 scopeRoomLight, traceViewCone, packMask, snapMask, combineMask,
 smoothMask, onScreen, setHeadless,
+tickBattery, tickMovement,
 get STATE(){ return STATE; },
 set STATE(v){ setState(v); },
 get floorIdx(){ return floorIdx; }, set floorIdx(v){ setFloorIdx(v); },
@@ -165,4 +167,26 @@ drawRigger, drawStalker, drawDoor, ENT,
 blocked(x, y, r){ return createCollision(G.grid).blocked(x, y, r); },
 moveEnt(e, dx, dy, r){ return createCollision(G.grid).moveEnt(e, dx, dy, r); },
 regionAt(x, y){ const tx=Math.floor(x), ty=Math.floor(y); if (tx<0||ty<0||tx>=76||ty>=76) return -1; return G.regionOf[ty*76+tx]; },
+
+/* Flood wrappers - G serves as FloodState */
+initFlood: () => initFlood(G, G.player),
+seedSplash: (wx, wy, amount) => seedSplash(G, wx, wy, amount),
+wetAt: (wx, wy) => wetAt(G, wx, wy),
+tickFlood: (dt) => tickFlood(G, dt),
+floodCover: () => floodCover(G),
+
+/* Vision wrappers - G serves as VisionState */
+traceViewCone: (force) => { /* HAND_OFF */ return traceViewCone(G, G.player, G.radar, force); },
+combineMask: () => combineMask(G, G.player, G.radar),
+scopeRoomLight: (dt, instant) => scopeRoomLight(G, G.player, G.radar, dt, instant),
+fadeRoomLight: (dt) => fadeRoomLight(G, dt),
+smoothMask: (dt) => smoothMask(G, dt),
+snapMask: () => snapMask(G, G.player, G.radar),
+fixtureVis: (f) => fixtureVis(f, G),
+onScreen: (wx, wy) => onScreen(wx, wy, G.player),
+castFan: (out, ox, oy, facing, halfAngle, range, rays, gain, fall) => castFan(out, ox, oy, facing, halfAngle, range, rays, gain, fall, G.grid),
+
+/* Player wrappers - G serves as PlayerMetaState, G.player as PlayerState */
+tickBattery: (dt) => tickBattery(G, G.player, G.batteries, dt),
+tickMovement: (dt) => tickMovement(G.player, G, G.grid, G.batteries, G, dt),
 };

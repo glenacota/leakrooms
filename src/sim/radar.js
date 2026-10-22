@@ -15,7 +15,7 @@ export function tickRadarReveal(){
   if (!G.radar) return;
   for (const gr of G.graffiti){
     if (gr.seen) continue;
-    if (!onScreen(gr.x+0.5, gr.y+0.5)) continue;
+    if (!onScreen(gr.x+0.5, gr.y+0.5, G.player)) continue;
     gr.seen=true; emit('flash', gr.text);
   }
 }

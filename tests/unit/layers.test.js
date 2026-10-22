@@ -107,13 +107,10 @@ const ALLOWED = [
   'src/sim/agents.js',
   'src/sim/clock.js',
   'src/sim/door.js',
-  'src/sim/flood.js',
   'src/sim/leaks.js',
   'src/sim/noise.js',
-  'src/sim/player.js',
   'src/sim/radar.js',
   'src/sim/update.js',
-  'src/sim/vision.js',
 ];
 
 /* The repaint refactor moves dirty tracking to render/repaint.js. These sim

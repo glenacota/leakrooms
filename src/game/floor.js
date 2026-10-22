@@ -114,10 +114,10 @@ export function makeFloorState(level, floorNum, seed){
      matches. buildFloor re-bakes them and hands the fresh ones back. */
 
   // Light the room the player starts in. From here on the lit room follows them.
-  scopeRoomLight(0, true);
-  snapMask();
+  scopeRoomLight(G, G.player, G.radar, 0, true);
+  snapMask(G, G.player, G.radar);
 
-  initFlood();
+  initFlood(G, G.player);
   resetRepaint();
 }
 
