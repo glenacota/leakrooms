@@ -91,11 +91,9 @@ export function bindDom(){
   on('contextrestored', ()=>{
     buildPatterns();
     buildGrainFull();
-    if (G){
-      attachFloorImages();
-      G.dirty.water = true;
-      G.dirty.mask  = true;
-    }
+    attachFloorImages();
+    G.dirty.water = true;
+    G.dirty.mask  = true;
   });
   on('state', () => {
     syncAmbience();

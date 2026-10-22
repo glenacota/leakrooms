@@ -19,7 +19,7 @@ import { labelRegions, createRegionAt } from '../sim/regions.js';
 import { computeLightArr } from '../sim/lightmap.js';
 import { scopeRoomLight, snapMask } from '../sim/vision.js';
 import { initFlood } from '../sim/flood.js';
-import { G, setG, createGameState } from '../sim/state.js';
+import { G, createGameState, installFloorState } from '../sim/state.js';
 import { attachFloorImages, createPerFloorCanvases, releaseCanvases, areStaticCanvasesStale, refreshStaticCanvases } from '../render/bake.js';
 import { reset as resetRepaint } from '../render/repaint.js';
 
@@ -73,7 +73,7 @@ export function getStaticLevel(seed, floorNum){
   const lightArr = computeLightArr(level, makeLos(grid));
 
   /* Install a minimal facade just for attachFloorImages (which reads grid, regionOf, lightArr). */
-  setG({ grid, regionOf, regionAdj, regionCount, lightArr });
+  installFloorState({ grid, regionOf, regionAdj, regionCount, lightArr });
   attachFloorImages();
 
   cache = {
@@ -102,7 +102,7 @@ export function getStaticLevel(seed, floorNum){
  * @param {number} seed - the run seed.
  */
 export function makeFloorState(level, floorNum, seed){
-  setG(createGameState(level, floorNum, seed));
+  installFloorState(createGameState(level, floorNum, seed));
 
   /* The visibility mask is its own canvas at one pixel per tile. It changes
      whenever the player turns, so keeping it separate from the light bake

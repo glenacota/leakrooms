@@ -151,10 +151,6 @@ export const G = new Proxy({}, {
   },
 });
 
-/** Installs a floor's state behind the facade. Accepts either the domain structure
-    (from createGameState) or a flat object (used by getStaticLevel). */
-export function setG(d){ domains = d; }
-
 /* The floor's own state. Pure: it allocates arrays and clones the level's
    mutable parts, and touches no canvas. The canvases and the G-dependent
    ticks are finished by game/floor.js, which owns the render side. */
@@ -181,3 +177,7 @@ export function createGameState(level, floorNum, seed){
     door: doorState,
   };
 }
+
+/* Installs a floor's state behind the facade. Accepts either the domain structure
+   (from createGameState) or a flat object (used by getStaticLevel). */
+export function installFloorState(d){ domains = d; }

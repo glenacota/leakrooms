@@ -11,7 +11,7 @@ import { drawStalker } from '../../src/cast/stalker.js';
 import { TAU } from '../../src/cast/primitives.js';
 import { cvs, ctx, VW, VH, DPR, SCALE, resize, renderScaleIdx, setRenderScaleIdx } from '../../src/render/canvas.js';
 import { carpetPat, wallPat, ceilPat, scanPat, grainFull, buildPatterns, buildGrainFull } from '../../src/render/textures.js';
-import { G, setG } from '../../src/sim/state.js';
+import { G, installFloorState } from '../../src/sim/state.js';
 import { keys } from '../../src/sim/keys.js';
 import { view } from '../../src/util/view.js';
 import { makeLos } from '../../src/util/grid.js';
