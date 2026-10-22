@@ -304,3 +304,65 @@ test('walls muffle a sound, and a sprint still crosses one', () => {
 }
   t.done();
 });
+
+/* A bump into a wall counts once per contact, and both sprint and walk bumps
+   are counted. The meter shows the bump power during the contact. */
+test('a bump counts once per contact, for both sprint and walk', () => {
+  const t = softAssert();
+{
+  buildFloor(0, 4242);
+  A.STATE = 'play';
+
+  /* Find a wall to sprint into. Put the player next to a wall facing it. */
+  const W = 76;
+  let spot = null;
+  for (let y=1; y<W-1 && !spot; y++){
+    for (let x=1; x<W-1; x++){
+      if (G.grid[y*W+x]===1 && G.grid[y*W+x+1]===0){
+        spot = {x: x+0.5, y: y+0.5, face: 0}; // face right (+x) into wall at x+1
+        break;
+      }
+    }
+  }
+  t.assert(spot, 'no wall to bump into on this floor');
+
+  G.player.x = spot.x; G.player.y = spot.y; G.player.face = spot.face;
+  G.player.px = spot.x; G.player.py = spot.y;
+  G.player.bumpedLastFrame = false;
+
+  /* Sprint into the wall for 60 frames. */
+  keys['d'] = true; keys['shift'] = true;
+  const noisesBeforeSprint = G.stat.noises;
+  for (let i=0;i<60;i++) update(1/60);
+  const noisesAfterSprint = G.stat.noises;
+
+  /* Exactly one noise counted for the sprint bump contact. */
+  t.assert(noisesAfterSprint - noisesBeforeSprint === 1,
+    `sprint bump: stat.noises rose by ${noisesAfterSprint - noisesBeforeSprint}, want 1`);
+
+  /* selfNoise was at bump sprint power during the contact. */
+  t.assert(G.selfNoise >= A.NOISE.BUMP_SPRINT - 0.01 && G.selfNoise <= A.NOISE.BUMP_SPRINT + 0.01,
+    `selfNoise is ${G.selfNoise.toFixed(3)} during sprint bump, want ${A.NOISE.BUMP_SPRINT}`);
+
+  keys['d'] = false; keys['shift'] = false;
+  update(1/60); // one frame to clear the bump
+
+  /* Walk into the wall for 60 frames. */
+  keys['d'] = true;
+  const noisesBeforeWalk = G.stat.noises;
+  for (let i=0;i<60;i++) update(1/60);
+  const noisesAfterWalk = G.stat.noises;
+
+  /* Exactly one noise counted for the walk bump contact. */
+  t.assert(noisesAfterWalk - noisesBeforeWalk === 1,
+    `walk bump: stat.noises rose by ${noisesAfterWalk - noisesBeforeWalk}, want 1`);
+
+  /* selfNoise was at bump walk power during the contact. */
+  t.assert(G.selfNoise >= A.NOISE.BUMP_WALK - 0.01 && G.selfNoise <= A.NOISE.BUMP_WALK + 0.01,
+    `selfNoise is ${G.selfNoise.toFixed(3)} during walk bump, want ${A.NOISE.BUMP_WALK}`);
+
+  console.log(`  sprint bump: +1 noise (${noisesAfterSprint - noisesBeforeSprint}), selfNoise=${G.selfNoise.toFixed(3)}`);
+  console.log(`  walk bump: +1 noise (${noisesAfterWalk - noisesBeforeWalk}), selfNoise=${G.selfNoise.toFixed(3)}`);
+}
+  t.done();
+});

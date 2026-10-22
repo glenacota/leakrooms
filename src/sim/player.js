@@ -17,7 +17,8 @@ import { keys } from './keys.js';
  *   px: number,
  *   py: number,
  *   rippleT?: number,
- *   dripT?: number
+ *   dripT?: number,
+ *   bumpedLastFrame?: boolean
  * }} PlayerState
  */
 
@@ -123,8 +124,18 @@ export function tickMovement(player, playerMeta, grid, batteries, floodState, dt
   }
   player.moving = moving;
   // Walking into a wall is the player's own noise, so it shows on the meter: a small spike above whatever you were already making.
-  if (bumped && sprinting) emitNoise(floodState, NOISE.BUMP_SPRINT, player.x, player.y, true);
-  else if (bumped) sustainedNoise(floodState, NOISE.BUMP_WALK, player.x, player.y, true);
+  if (bumped){
+    const power = sprinting ? NOISE.BUMP_SPRINT : NOISE.BUMP_WALK;
+    sustainedNoise(floodState, power, player.x, player.y, true);
+    // Count the bump once per contact, not every frame.
+    if (!player.bumpedLastFrame){
+      floodState.stat.noises++;
+      emit('stat', 'noises');
+      player.bumpedLastFrame = true;
+    }
+  } else {
+    player.bumpedLastFrame = false;
+  }
 
   return { moving, bumped, sprinting, wet };
 }
