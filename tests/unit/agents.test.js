@@ -261,3 +261,84 @@ test('SEARCH follows distance field to reach no-LOS target in time', () => {
 }
   t.done();
 });
+
+/* HUNT hold-and-turn: when a HUNT lifeform reaches its target, it holds
+   still and turns for 2 s before the 8 s give-up timer starts.
+   A new loud sound during the hold retargets it immediately. */
+test('HUNT hold: agent holds and turns for 2s at target, then gives up; loud sound retargets during hold', () => {
+  const t = softAssert();
+{
+  buildFloor(0, 4242);
+  A.STATE = 'play';
+
+  /* Place a HUNT agent right at its target. */
+  const agent = G.agents[0];
+  agent.x = 10.5; agent.y = 10.5;
+  agent.state = 'HUNT';
+  agent.born = 0;
+  agent.rise = 1;
+  agent.t = 0; // just started hunting
+  agent.target = { x: 10.5, y: 10.5 }; // target is right here
+  agent.face = 0;
+  agent.wakeCd = 0; agent.stepT = 0;
+  G.player = {x: 10.5, y: 10.5, face: 0};
+
+  /* Step a few frames - agent should be in hold phase (a.hold > 0). */
+  let face0 = agent.face;
+  let faceChanged = false;
+  for (let i=0; i<30; i++){ // 0.5s
+    update(1/60);
+    if (agent.face !== face0) faceChanged = true;
+  }
+  
+  t.assert(agent.state === 'HUNT', `state should be HUNT during hold, got ${agent.state}`);
+  t.assert(agent.hold !== undefined && agent.hold > 0, `agent should have hold timer (${agent.hold})`);
+  t.assert(faceChanged, 'agent should turn during hold');
+
+  /* Hold should last 2s total. After ~120 frames, hold expires and give-up timer starts. */
+  let afterHold = false;
+  for (let i=0; i<150; i++){
+    update(1/60);
+    if (agent.hold === 0 && agent.t < 0) afterHold = true;
+  }
+  console.log(`  HUNT hold-and-turn: holds 2s, turns, then gives up; loud sound retargets during hold`);
+
+  /* After 8s more (give-up), agent should switch to SEARCH. */
+  let searchReached = false;
+  for (let i=0; i<500; i++){
+    update(1/60);
+    if (agent.state === 'SEARCH'){ searchReached = true; break; }
+  }
+  t.assert(searchReached, 'agent should transition to SEARCH after 8s give-up');
+
+  /* Now test: loud sound during hold should retarget immediately. */
+  buildFloor(0, 4242);
+  A.STATE = 'play';
+  const agent2 = G.agents[0];
+  agent2.x = 20.5; agent2.y = 20.5;
+  agent2.state = 'HUNT';
+  agent2.born = 0; agent2.rise = 1;
+  agent2.t = 0;
+  agent2.target = { x: 20.5, y: 20.5 };
+  agent2.face = 0;
+  agent2.wakeCd = 0; agent2.stepT = 0;
+  G.player = {x: 20.5, y: 20.5, face: 0};
+
+  /* Start hold by stepping once. */
+  update(1/60);
+  t.assert(agent2.hold > 0, 'hold should start');
+
+  /* During hold, emit a loud sound at a nearby location (5 tiles away, within hearing range). */
+  const loudX = 25.5, loudY = 20.5;
+  A.sustainedNoise(A.SPRINT_NOISE, loudX, loudY, false); // loud, not mine
+
+  /* Agent should retarget immediately. */
+  update(1/60);
+  t.assert(agent2.target.x === loudX && agent2.target.y === loudY,
+    `agent should retarget to loud sound during hold, target is (${agent2.target.x},${agent2.target.y})`);
+  t.assert(agent2.state === 'HUNT', 'state should remain HUNT');
+
+  console.log('  HUNT hold-and-turn: holds 2s, turns, then gives up; loud sound retargets during hold');
+}
+  t.done();
+});

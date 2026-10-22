@@ -104,50 +104,68 @@ export function updateAgent(agentState, a, dt, p){
 
   if (a.state==='HUNT'){
     a.rise = Math.min(1, a.rise + dt*2.4);
-    a.t -= dt;
     const spd = HUNT_BASE + agentState.floor*HUNT_STEP;
     const tgt = a.target || {x:p.x,y:p.y};
     const tx = Math.floor(tgt.x), ty = Math.floor(tgt.y);
     const cx = Math.floor(a.x), cy = Math.floor(a.y);
+    const distToTarget = Math.hypot(a.x - tgt.x, a.y - tgt.y);
 
-    /* Line of sight to target? If yes, move straight toward it (with wall slide).
-       If no, follow the distance field gradient around walls. */
-    const hasLOS = agentState.los(a.x, a.y, tgt.x, tgt.y);
-
-    if (hasLOS){
-      /* Straight line to target when visible. */
-      const ang = Math.atan2(tgt.y-a.y, tgt.x-a.x);
-      a.face = ang;
-      const [dx,dy] = moveEnt(a, Math.cos(ang)*spd*dt, Math.sin(ang)*spd*dt, RA);
-      if (Math.hypot(dx,dy)<0.001){
-        moveEnt(a, Math.cos(ang+1.57)*spd*dt, Math.sin(ang+1.57)*spd*dt, RA);
+    /* Hold-and-turn phase: when we reach the target (within 0.5 tiles), pause for 2s
+       and slowly turn in place before the 8s give-up timer starts. */
+    const atTarget = distToTarget < 0.5;
+    if (atTarget && !a.hold && !a.holdDone){
+      a.hold = 2.0; // 2 seconds of holding and turning
+    }
+    if (a.hold){
+      a.hold -= dt;
+      /* Turn slowly in place (face rotates). */
+      a.face += dt * 3.0; // ~172 deg/s, full circle in ~2s
+      if (a.hold <= 0){
+        a.hold = 0;
+        a.holdDone = true;
+        a.t = 0; // Start the 8s give-up timer now
       }
     } else {
-      /* No LOS: follow distance field gradient. Rebuild field when target tile changes
-         or agent moves more than 1 tile from cached position. */
-      if (!a._pathField || a._pathTx !== tx || a._pathTy !== ty || Math.abs(cx - a._pathCx) > 1 || Math.abs(cy - a._pathCy) > 1){
-        a._pathField = distanceField(agentState.grid, tx, ty);
-        a._pathTx = tx; a._pathTy = ty;
-        a._pathCx = cx; a._pathCy = cy;
-      }
-      const step = a._pathField ? nextStep(a._pathField, cx, cy) : null;
-      if (step){
-        const ang = Math.atan2(step.y + 0.5 - a.y, step.x + 0.5 - a.x);
-        a.face = ang;
-        moveEnt(a, Math.cos(ang)*spd*dt, Math.sin(ang)*spd*dt, RA);
-      } else {
-        /* Fallback: straight line if no path (should not happen on connected floors). */
+      a.t -= dt;
+      /* Line of sight to target? If yes, move straight toward it (with wall slide).
+         If no, follow the distance field gradient around walls. */
+      const hasLOS = agentState.los(a.x, a.y, tgt.x, tgt.y);
+
+      if (hasLOS){
+        /* Straight line to target when visible. */
         const ang = Math.atan2(tgt.y-a.y, tgt.x-a.x);
         a.face = ang;
         const [dx,dy] = moveEnt(a, Math.cos(ang)*spd*dt, Math.sin(ang)*spd*dt, RA);
         if (Math.hypot(dx,dy)<0.001){
           moveEnt(a, Math.cos(ang+1.57)*spd*dt, Math.sin(ang+1.57)*spd*dt, RA);
         }
+      } else {
+        /* No LOS: follow distance field gradient. Rebuild field when target tile changes
+           or agent moves more than 1 tile from cached position. */
+        if (!a._pathField || a._pathTx !== tx || a._pathTy !== ty || Math.abs(cx - a._pathCx) > 1 || Math.abs(cy - a._pathCy) > 1){
+          a._pathField = distanceField(agentState.grid, tx, ty);
+          a._pathTx = tx; a._pathTy = ty;
+          a._pathCx = cx; a._pathCy = cy;
+        }
+        const step = a._pathField ? nextStep(a._pathField, cx, cy) : null;
+        if (step){
+          const ang = Math.atan2(step.y + 0.5 - a.y, step.x + 0.5 - a.x);
+          a.face = ang;
+          moveEnt(a, Math.cos(ang)*spd*dt, Math.sin(ang)*spd*dt, RA);
+        } else {
+          /* Fallback: straight line if no path (should not happen on connected floors). */
+          const ang = Math.atan2(tgt.y-a.y, tgt.x-a.x);
+          a.face = ang;
+          const [dx,dy] = moveEnt(a, Math.cos(ang)*spd*dt, Math.sin(ang)*spd*dt, RA);
+          if (Math.hypot(dx,dy)<0.001){
+            moveEnt(a, Math.cos(ang+1.57)*spd*dt, Math.sin(ang+1.57)*spd*dt, RA);
+          }
+        }
       }
     }
     if (Math.hypot(a.x-p.x,a.y-p.y) < CATCH_R) brush(a, p, agentState);
     // After about 8 seconds with nothing new to chase, give up and search nearby
-    if (a.t < -8){ a.state='SEARCH'; a.t=6; a.target=randomFloorNear(agentState, a.x,a.y,9, blocked); }
+    if (a.t < -8){ a.state='SEARCH'; a.t=6; a.target=randomFloorNear(agentState, a.x,a.y,9, blocked); a.hold=0; a.holdDone=0; }
     return;
   }
 

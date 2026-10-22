@@ -118,7 +118,7 @@ export function alert(a, x, y, power, mine){
   if (a.born>0) return;
 
   if (a.state==='HUNT'){
-    if (loud || mine){ a.target={x,y}; a.t=0; }
+    if (loud || mine){ a.target={x,y}; a.t=0; a.hold=0; }
     return;
   }
   if (loud){ a.state='HUNT'; a.target={x,y}; a.t=0; }
