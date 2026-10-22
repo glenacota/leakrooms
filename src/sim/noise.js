@@ -107,12 +107,14 @@ export function alert(a, x, y, power, mine){
   if (a.state==='RISING') return;
 
   const loud = (power||0) >= NOISE.LOUD;
+  const dist = Math.hypot(a.x - x, a.y - y);
 
   if (a.state==='DORMANT'){
     if (!loud) return;
     a.state='RISING'; a.rise=0; a.target={x,y};
     a.stepT = 0;
     emit('sfx', 'rattle', a.born>0 ? 1 : 0.55);
+    emit('heard', { from: 'DORMANT', to: 'RISING', dist });
     return;
   }
   if (a.born>0) return;
@@ -121,8 +123,16 @@ export function alert(a, x, y, power, mine){
     if (loud || mine){ a.target={x,y}; a.t=0; a.hold=0; }
     return;
   }
-  if (loud){ a.state='HUNT'; a.target={x,y}; a.t=0; }
-  else if (a.state==='WALK'){ a.state='SEARCH'; a.t=4.5; a.target={x,y}; }
+  if (loud){
+    const from = a.state;
+    a.state='HUNT'; a.target={x,y}; a.t=0;
+    if (from !== 'HUNT') emit('heard', { from, to: 'HUNT', dist });
+    return;
+  }
+  if (a.state==='WALK'){
+    a.state='SEARCH'; a.t=4.5; a.target={x,y};
+    emit('heard', { from: 'WALK', to: 'SEARCH', dist });
+  }
 }
 
 // Tells every lifeform that can hear the sound. baseR is the open-floor range, and walls shorten it per lifeform.

@@ -3,6 +3,7 @@ import { fakeAudioContext } from '../helpers/stubs.js';
 import { softAssert } from '../helpers/soft-assert.js';
 import { readCss, readHtml, readSrc } from '../helpers/src-text.js';
 import { loadGame } from '../helpers/harness.js';
+import { on, off } from '../../src/util/events.js';
 
 const { A, G, els, calls } = await loadGame();
 const buildFloor = A.buildFloor;
@@ -645,5 +646,77 @@ test('pipe loudness independent of open pipe count', () => {
 
   console.log('  per-pipe power independent of count; total clamped to just below LOUD');
 }
+  t.done();
+});
+
+/* The 'heard' event fires once per state change. A quiet sound near a WALK
+   lifeform emits WALK -> SEARCH once; a second identical sound while it is
+   still SEARCH emits nothing. A loud sound (wrench) wakes a DORMANT coil
+   and emits DORMANT -> RISING. */
+test('heard event emits on state change only', () => {
+  const t = softAssert();
+  {
+    A.buildFloor(0, 4242);
+
+    /* Place a WALK lifeform near the player. */
+    const W = 76;
+    let spot = null;
+    for (let y=1; y<W-1 && !spot; y++){
+      for (let x=1; x<W-1; x++){
+        if (G.grid[y*W+x]===1 && G.grid[y*W+x+1]===1){
+          spot = {x: x+0.5, y: y+0.5};
+          break;
+        }
+      }
+    }
+    t.assert(spot, 'found floor tile for walker');
+
+    const walker = {
+      x: spot.x, y: spot.y, state: 'WALK', t: 0, rise: 1,
+      target: null, face: 0, wakeCd: 0, stepT: 0, born: 0,
+    };
+    G.agents = [walker];
+    G.player.x = spot.x + 2; G.player.y = spot.y; // nearby
+
+    const heard = [];
+    const unsub = on('heard', (e) => heard.push(e));
+
+    /* First quiet sound (WALK power) -> WALK -> SEARCH. */
+    A.emitNoise(A.NOISE.WALK, G.player.x, G.player.y, true);
+    t.assert(walker.state === 'SEARCH', 'walker goes SEARCH');
+    t.assert(heard.length === 1, 'one heard event emitted');
+    t.assert(heard[0].from === 'WALK' && heard[0].to === 'SEARCH',
+      `heard event: from=${heard[0].from} to=${heard[0].to}`);
+    t.assert(heard[0].dist > 0 && heard[0].dist < 5,
+      `distance ${heard[0].dist.toFixed(2)} is reasonable`);
+
+    /* Second identical sound while in SEARCH -> no new event. */
+    A.emitNoise(A.NOISE.WALK, G.player.x, G.player.y, true);
+    t.assert(walker.state === 'SEARCH', 'walker stays SEARCH');
+    t.assert(heard.length === 1, 'no second heard event for same state');
+
+    /* Loud sound (REPAIR) near a DORMANT coil -> DORMANT -> RISING. */
+    A.buildFloor(0, 4242);
+    const dormant = {
+      x: spot.x, y: spot.y, state: 'DORMANT', t: 0, rise: 0,
+      target: null, face: 0, wakeCd: 0, stepT: 0, born: 0,
+    };
+    G.agents = [dormant];
+    G.player.x = spot.x + 1; G.player.y = spot.y;
+
+    const heard2 = [];
+    const unsub2 = on('heard', (e) => heard2.push(e));
+
+    A.emitNoise(A.NOISE.REPAIR, G.player.x, G.player.y, true);
+    t.assert(dormant.state === 'RISING', 'dormant coil rises');
+    t.assert(heard2.length === 1, 'one heard event for DORMANT -> RISING');
+    t.assert(heard2[0].from === 'DORMANT' && heard2[0].to === 'RISING',
+      `heard event: from=${heard2[0].from} to=${heard2[0].to}`);
+
+    off('heard', unsub);
+    off('heard', unsub2);
+
+    console.log('  heard event: WALK->SEARCH once, DORMANT->RISING once, no dup');
+  }
   t.done();
 });
