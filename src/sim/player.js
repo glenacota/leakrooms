@@ -115,13 +115,13 @@ export function tickMovement(player, playerMeta, grid, batteries, floodState, dt
       if (inWater) emit('sfx', 'splash', sprinting?1.4:0.5, preWet, stepPow);
       else       emit('sfx', 'step', sprinting?1.4:0.5, stepPow);
     }
-    player.moving = moving;
     // Wading pushes a ripple ahead of you, a trace of where you have been on top of the noise you already made.
     if (preWet > 0.3){
       player.rippleT = (player.rippleT||0) - dt;
       if (player.rippleT <= 0){ player.rippleT = 0.22; seedSplash(floodState, player.x, player.y, preWet*0.55); }
     }
   }
+  player.moving = moving;
   // Walking into a wall is the player's own noise, so it shows on the meter: a small spike above whatever you were already making.
   if (bumped && sprinting) emitNoise(floodState, NOISE.BUMP_SPRINT, player.x, player.y, true);
   else if (bumped) sustainedNoise(floodState, NOISE.BUMP_WALK, player.x, player.y, true);

@@ -40,3 +40,27 @@ test('G.wet describes the tile the player ends the frame on', () => {
 }
   t.done();
 });
+
+/* p.moving must be true while a move key is held and false when released.
+   Also it must start false on a fresh floor. */
+test('p.moving reflects the held key state', () => {
+  const t = softAssert();
+{
+  buildFloor(0, 4242);
+
+  /* At floor start the flag is false. */
+  t.assert(G.player.moving === false, 'player.moving is false at floor start');
+
+  /* Hold 'd' for 20 frames -> moving true. */
+  keys['d'] = true;
+  for (let i=0;i<20;i++) update(1/60);
+  t.assert(G.player.moving === true, 'player.moving is true while a move key is held');
+
+  /* Release and run 2 frames -> moving false. */
+  keys['d'] = false;
+  update(1/60);
+  update(1/60);
+  t.assert(G.player.moving === false, 'player.moving is false after key release');
+}
+  t.done();
+});
