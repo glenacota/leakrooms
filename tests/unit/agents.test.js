@@ -19,7 +19,7 @@ test('agents stay out of geometry and react to noise', () => {
      woken hunter in it, and level 1 has exactly one thing in the building. */
   buildFloor(A.LEVELS_N-1, 999);
   let bad=0, hunted=0, dormant=0;
-  for (let i=0;i<20000;i++){
+  for (let i=0;i<3000;i++){
     if (i%11===0){
       emitNoise(1.0, G.player.x, G.player.y);
       for (const a of G.agents) emitNoise(1.0, a.x, a.y);

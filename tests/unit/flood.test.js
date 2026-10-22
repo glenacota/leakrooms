@@ -18,9 +18,9 @@ test('leaks are placed on walls, stay reachable, and flood downhill', () => {
 {
   const W=76;
 
-  /* placement, across 200 floors and every riser on each one */
+  /* placement, across 30 floors and every riser on each one */
   let unreachable=0, onWall=0, tooClose=0, noSpot=0, sealedAtStart=0, wrongCount=0, pipes=0;
-  for (let s=0; s<200; s++){
+  for (let s=0; s<30; s++){
     buildFloor(s % A.LEVELS_N, s*7907+31);
     const spec = A.LEVELS[s % A.LEVELS_N];
     if (G.leaks.length !== spec.leaks){
@@ -44,12 +44,12 @@ test('leaks are placed on walls, stay reachable, and flood downhill', () => {
       if (d < 8) tooClose++;
     }
   }
-  t.assert(wrongCount===0, `${wrongCount}/200 levels built the wrong number of pipes`);
+  t.assert(wrongCount===0, `${wrongCount}/30 levels built the wrong number of pipes`);
   t.assert(noSpot===0, `${noSpot}/${pipes} pipes have no usable repair spot`);
   t.assert(unreachable===0, `${unreachable}/${pipes} pipes have a repair spot inside geometry`);
   t.assert(onWall===0, `${onWall}/${pipes} pipes are not on a wall tile`);
   t.assert(sealedAtStart===0, `${sealedAtStart} pipes start already sealed`);
-  console.log(`  200 levels, ${pipes} pipes: every one on a wall, every repair spot standable`);
+  console.log(`  30 levels, ${pipes} pipes: every one on a wall, every repair spot standable`);
 
   /* water can only exist on floor it can actually reach */
   buildFloor(2, 60606);

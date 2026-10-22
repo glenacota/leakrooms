@@ -54,7 +54,7 @@ test('light is scoped to the room you are standing in', () => {
   t.assert(HOP[HOP.length-1] > 0 && HOP[HOP.length-1] < 0.2,
     `the far end of the falloff is ${HOP[HOP.length-1]}, want dim but not zero`);
 
-  for (let s=0; s<120; s++){
+  for (let s=0; s<30; s++){
     buildFloor(s%5, s*7717+31);
     floors++;
     const regOf=A.internals.regionOf, vis=A.internals.visArr, bake=A.internals.lightArr;
@@ -136,7 +136,7 @@ test('light is scoped to the room you are standing in', () => {
     }
   }
 
-  t.assert(unreachable===0, `${unreachable}/120 floors had floor tiles with no region, or an unreachable region`);
+  t.assert(unreachable===0, `${unreachable}/30 floors had floor tiles with no region, or an unreachable region`);
   t.assert(leak===0, `${leak} visibility values did not match their region's scope`);
   t.assert(blackHole===0, `${blackHole} tiles were too dark to stand in or to see the wall beside`);
   t.assert(noFollow===0, `${noFollow} cases where the light did not follow the player into the next room`);

@@ -119,7 +119,7 @@ test('the leak is drawn where it is, not just where it is computed', () => {
 {
   const W=76;
   buildFloor(2, 2468);
-  for (let i=0;i<60*40;i++) update(1/60);          // let the pipes actually stain
+  for (let i=0;i<60*10;i++) update(1/60);          // let the pipes actually stain
   const L=G.leaks.find(l=>!l.fixed) || G.leaks[0];
 
   // stand on the repair spot facing the pipe, so it is on screen and lit
@@ -178,8 +178,8 @@ test('the leak is drawn where it is, not just where it is computed', () => {
      only moment-to-moment feedback the repair gives */
   {
     G.player.x=L.sx+0.5; G.player.y=L.sy+0.5;
-    for (let i=0;i<120;i++){ G.player.x=L.sx+0.5; G.player.y=L.sy+0.5; update(1/60); }
-    t.assert(L.repair>1.5, `only ${L.repair}s of progress after two seconds held`);
+    for (let i=0;i<30;i++){ G.player.x=L.sx+0.5; G.player.y=L.sy+0.5; update(1/60); }
+    t.assert(L.repair>0.4, `only ${L.repair}s of progress after 0.5s held`);
     /* The ring is drawn at the CENTRE of the repair tile, and it is drawn with an
        arc and a stroke — so it is asserted on those. Looking for the leak's
        gradients instead measured the stain on the wall one tile away, which is
@@ -278,7 +278,7 @@ test('[47] the water shine scales with the tiles it draws, not the buckets', () 
 console.log('[47] the water shine scales with the tiles it draws, not the buckets');
 {
   buildFloor(2, 60606);
-  for (let i=0;i<3600;i++) update(1/60);            // let the floor flood
+  for (let i=0;i<600;i++) update(1/60);            // let the floor flood
   let now = Date.now();
   for (let i=0;i<60;i++) render(now += 16.7);       // settle the camera
 

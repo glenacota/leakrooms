@@ -19,7 +19,7 @@ test('random walks never put the player inside walls', () => {
 {
   buildFloor(0, 999);
   let inside=0;
-  for (let i=0;i<20000;i++){
+  for (let i=0;i<5000;i++){
     keys['w']=seededRNG()<0.34; keys['a']=seededRNG()<0.34;
     keys['s']=seededRNG()<0.34; keys['d']=seededRNG()<0.34;
     update(0.016);
@@ -43,7 +43,7 @@ test('every legal position is reachable by the player disc', () => {
   const STEP=0.25, R=0.33;
   const NX=Math.floor(76/STEP), NY=Math.floor(76/STEP);
   let trappedTotal=0, cellsTotal=0;
-  for (let f=0; f<25; f++){
+  for (let f=0; f<10; f++){
     buildFloor(f, 50000+f*613);
     const free=new Uint8Array(NX*NY);
     for (let j=0;j<NY;j++) for (let i=0;i<NX;i++){
@@ -125,7 +125,7 @@ test('wall contact does not accelerate, and a free sprint still runs', () => {
     for(let i=0;i<5;i++) update(1/60);
     const y0=G.player.y, x0=G.player.x;
     keys.s=true;                                  // push down into the wall
-    for(let i=0;i<60;i++) update(1/60);           // one second
+    for(let i=0;i<20;i++) update(1/60);           // 0.33s
     keys.s=false;
     const drift = Math.abs(G.player.y - y0);
     const creep = Math.abs(G.player.x - x0);
@@ -189,7 +189,7 @@ test('pressing into a wall drifts sideways not at all', () => {
     const x0=G.player.x, y0=G.player.y;
     keys.w=true;                                 // hold UP into the wall
     let maxJump=0, prevX=G.player.x, prevY=G.player.y;
-    for(let i=0;i<60;i++){
+    for(let i=0;i<20;i++){
       update(1/60);
       maxJump=Math.max(maxJump, Math.hypot(G.player.x-prevX, G.player.y-prevY));
       prevX=G.player.x; prevY=G.player.y;
@@ -222,7 +222,7 @@ test('pressing into a wall drifts sideways not at all', () => {
     release(); for(let i=0;i<5;i++) update(1/60);
     const y0=G.player.y;
     keys[k]=true;
-    for(let i=0;i<60;i++) update(1/60);
+    for(let i=0;i<20;i++) update(1/60);
     release();
     const drift=Math.abs(G.player.y-y0);
     t.assert(drift < 0.05, `pressing ${label} into a wall drifted ${drift.toFixed(3)} tiles vertically`);

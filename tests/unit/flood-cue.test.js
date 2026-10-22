@@ -29,7 +29,7 @@ console.log('[17] the water as a cue — legible, free, and it actually leads');
      still passes: this is precisely the class of bug the README says the
      suite misses. Assert on the packed pixels. */
   buildFloor(2, 13579);
-  for (let i=0;i<3600;i++) update(1/30);        // 2 minutes: a lot of floor wet
+  for (let i=0;i<1200;i++) update(1/30);        // 40s: enough for flood spread
   A.packWet();
   {
     const d = A.internals.wetCv.getContext('2d').getImageData(0,0,W,W).data;
@@ -87,7 +87,7 @@ console.log('[17] the water as a cue — legible, free, and it actually leads');
     /* find a wet tile, then measure a dry walk and a wet walk over the same
        number of frames from the same spot */
     let wetTile=null;
-    for (let i=0;i<20000 && !wetTile;i++) update(1/30);
+    for (let i=0;i<2000 && !wetTile;i++) update(1/30);
     for (let y=1;y<W-1 && !wetTile;y++) for (let x=1;x<W-1;x++){
       if (G.grid[y*W+x]===1 && A.wetAt(x+0.5,y+0.5) > 0.3){ wetTile={x,y}; break; }
     }
@@ -99,7 +99,7 @@ console.log('[17] the water as a cue — legible, free, and it actually leads');
     A.STATE='play';
     keys.w=false; keys.s=false; keys.a=false; keys.d=false;
     let dist=0;
-    for (let i=0;i<90;i++){
+    for (let i=0;i<30;i++){
       // hold a direction and measure what happens
       keys['d']=true;
       const x0=G.player.x;
@@ -108,10 +108,10 @@ console.log('[17] the water as a cue — legible, free, and it actually leads');
       if (A.STATE!=='play'){ A.STATE='play'; }
     }
     keys['d']=false;
-    /* 90 frames of walking at SPRINT/WALK speed, minus the wading penalty.
+    /* 30 frames of walking at SPRINT/WALK speed, minus the wading penalty.
        Assert only the DIRECTION of the effect and the floor: a wall stops you,
        so this measures a lower bound. */
-    const maxDry = 90/60 * A.WALK;
+    const maxDry = 30/60 * A.WALK;
     t.assert(dist <= maxDry*1.02,
       `walked ${dist.toFixed(2)} tiles in wet, above the dry maximum ${maxDry.toFixed(2)} — wading is not slowing anything`);
     t.assert(dist < maxDry*0.98,

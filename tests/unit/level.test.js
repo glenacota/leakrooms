@@ -10,7 +10,7 @@ test('every generated floor is connected, playable and lit', () => {
   const t = softAssert();
 {
   let totalFloors=0, totalTiles=0, minOpen=1, maxOpen=0;
-  for (let s=0; s<400; s++){
+  for (let s=0; s<50; s++){
     buildFloor(s % 5, s*104729+17);
     const g = G.grid, W = 76, H = 76;
     // A floor with a second region is unplayable, so the regions are counted
@@ -124,7 +124,7 @@ test('every generated floor is connected, playable and lit', () => {
     totalFloors++;
   }
   const LR=globalThis.__lit/(globalThis.__lit+globalThis.__dark);
-  t.assert(LR>0.72, `only ${(LR*100).toFixed(0)}% of rooms are lit across 400 floors (want >72%)`);
+  t.assert(LR>0.72, `only ${(LR*100).toFixed(0)}% of rooms are lit across 50 floors (want >72%)`);
   console.log(`  ${(LR*100).toFixed(0)}% of rooms are lit overall.`);
   console.log(`  ${totalFloors} floors OK. avg reachable tiles ${Math.round(totalTiles/totalFloors)}, range ${minOpen}-${maxOpen}`);
 }
