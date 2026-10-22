@@ -107,7 +107,7 @@ export function tickMovement(player, playerMeta, grid, batteries, floodState, dt
        loud the footstep sounds. Passing it to the sound as well is what makes a
        sprinting step sound like a sprint and not just a louder walk. */
     const stepPow = sprinting ? NOISE.SPRINT : (inWater ? NOISE.WADE : NOISE.WALK);
-    sustainedNoise(stepPow, player.x, player.y, true);
+    sustainedNoise(floodState, stepPow, player.x, player.y, true);
     player.stepT -= dt;
     if (player.stepT<=0){
       player.stepT = sprinting ? 0.26 : 0.46;
@@ -123,8 +123,8 @@ export function tickMovement(player, playerMeta, grid, batteries, floodState, dt
     }
   }
   // Walking into a wall is the player's own noise, so it shows on the meter: a small spike above whatever you were already making.
-  if (bumped && sprinting) emitNoise(NOISE.BUMP_SPRINT, player.x, player.y, true);
-  else if (bumped) sustainedNoise(NOISE.BUMP_WALK, player.x, player.y, true);
+  if (bumped && sprinting) emitNoise(floodState, NOISE.BUMP_SPRINT, player.x, player.y, true);
+  else if (bumped) sustainedNoise(floodState, NOISE.BUMP_WALK, player.x, player.y, true);
 
   return { moving, bumped, sprinting, wet };
 }

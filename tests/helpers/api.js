@@ -20,8 +20,11 @@ import { hearRadius, alertAgents, emitNoise, sustainedNoise, brush, alert } from
 import { initFlood, seedSplash, wetAt, tickFlood, floodCover } from '../../src/sim/flood.js';
 import { tickBattery, tickMovement } from '../../src/sim/player.js';
 import { takeWetBox } from '../../src/render/repaint.js';
-import { leakAt, leakReach, sealLeak, tickLeakNoise, tickRepair } from '../../src/sim/leaks.js';
-import { labelRegions, createRegionAt } from '../../src/sim/regions.js';
+import { tickLeakNoise, tickRepair, sealLeak, leakAt, leakReach } from '../../src/sim/leaks.js';
+import { tickClock } from '../../src/sim/clock.js';
+import { tickDoor } from '../../src/sim/door.js';
+import { tickRadarReveal } from '../../src/sim/radar.js';
+import { tickAgents, updateAgent, randomFloorNear } from '../../src/sim/agents.js';
 import { computeLightArr } from '../../src/sim/lightmap.js';
 import {
   wantVision, setVision, castFan, traceViewCone, combineMask, scopeRoomLight,
@@ -29,7 +32,6 @@ import {
 } from '../../src/sim/vision.js';
 import { genLevel } from '../../src/sim/level.js';
 import { spawnAgents } from '../../src/sim/spawn.js';
-import { updateAgent, randomFloorNear, tickAgents } from '../../src/sim/agents.js';
 import { update, tickAudio } from '../../src/sim/update.js';
 import { buildFloor } from '../../src/game/floor.js';
 import {
@@ -95,6 +97,11 @@ update(dt){ if (G) G.clock = 1e6; return update(dt); },
 scopeRoomLight, traceViewCone, packMask, snapMask, combineMask,
 smoothMask, onScreen, setHeadless,
 tickBattery, tickMovement,
+tickAgents, updateAgent, randomFloorNear,
+tickClock,
+tickDoor,
+tickRadarReveal,
+emitNoise, sustainedNoise, alertAgents, brush, alert,
 get STATE(){ return STATE; },
 set STATE(v){ setState(v); },
 get floorIdx(){ return floorIdx; }, set floorIdx(v){ setFloorIdx(v); },
@@ -189,4 +196,32 @@ castFan: (out, ox, oy, facing, halfAngle, range, rays, gain, fall) => castFan(ou
 /* Player wrappers - G serves as PlayerMetaState, G.player as PlayerState */
 tickBattery: (dt) => tickBattery(G, G.player, G.batteries, dt),
 tickMovement: (dt) => tickMovement(G.player, G, G.grid, G.batteries, G, dt),
+
+/* Agent wrappers - G serves as AgentState */
+tickAgents: (dt) => tickAgents(G, dt),
+updateAgent: (a, dt, p) => updateAgent(G, a, dt, p),
+randomFloorNear: (x, y, rad, blocked) => randomFloorNear(G, x, y, rad, blocked),
+
+/* Clock wrappers - G serves as ClockState */
+tickClock: (dt) => tickClock(G, dt),
+
+/* Door wrappers - G serves as DoorState */
+tickDoor: (dt) => tickDoor(G, dt),
+
+/* Radar wrappers - G serves as RadarState */
+tickRadarReveal: () => tickRadarReveal(G),
+
+/* Noise wrappers - G serves as NoiseState */
+emitNoise: (power, x, y, mine) => emitNoise(G, power, x, y, mine),
+sustainedNoise: (power, x, y, mine) => sustainedNoise(G, power, x, y, mine),
+alertAgents: (baseR, power, x, y) => alertAgents(G, baseR, power, x, y),
+brush: (a, p) => brush(a, p, G),
+alert: (a, x, y, power) => alert(a, x, y, power),
+
+/* Leak wrappers - G serves as LeakState */
+leakAt: (x, y) => leakAt(G.leaks, x, y),
+leakReach: (x, y) => leakReach(G.leaks, x, y),
+sealLeak: (L) => sealLeak(L, G),
+tickLeakNoise: (dt) => tickLeakNoise(G, dt),
+tickRepair: (dt, moving, bumped) => tickRepair(G, dt, moving, bumped),
 };

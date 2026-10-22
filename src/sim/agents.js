@@ -13,29 +13,45 @@ import { AGENT, CATCH_R, LEAK_LURE, MAP_W, RA } from '../config/constants.js';
 import { HUNT_BASE, HUNT_STEP } from '../config/tuning.js';
 import { createCollision } from './collision.js';
 import { brush } from './noise.js';
-import { G } from './state.js';
+
+/**
+ * Agent state bundle passed by reference.
+ * @typedef {{
+ *   agents: Array<{x:number,y:number,face:number,state:string,born:number,rise:number,target:{x:number,y:number},t:number,stepT:number,wakeCd:number,stepT:number}>,
+ *   player: {x:number,y:number,face:number},
+ *   seenBy: number,
+ *   nearest: number,
+ *   arng: function,
+ *   floor: number,
+ *   grid: Uint8Array,
+ *   los: function,
+ *   lightArr: Float32Array,
+ *   visArr: Float32Array,
+ *   leaks: Array<{x:number,y:number,sx:number,sy:number,fixed:boolean}>,
+ * }} AgentState
+ */
 
 /* Updates every lifeform for one step, and works out two things for the rest
    of the frame:
-      G.seenBy   how much anything can see the player (drives the red warning)
-      G.nearest  the distance to the closest awake lifeform (drives the drone) */
-export function tickAgents(dt){
-  const p = G.player;
+      seenBy   how much anything can see the player (drives the red warning)
+      nearest  the distance to the closest awake lifeform (drives the drone) */
+export function tickAgents(agentState, dt){
+  const p = agentState.player;
   let seenBy = 0, nearest = 99;
-  for (const a of G.agents){
-    updateAgent(a, dt, p);
+  for (const a of agentState.agents){
+    updateAgent(agentState, a, dt, p);
     const d = Math.hypot(a.x-p.x, a.y-p.y);
     if (a.state!=='DORMANT' && a.rise>0.5) nearest = Math.min(nearest, d);
     // Line-of-sight check: close enough, facing the player, and nothing in between
     if (a.rise>0.5 && d < AGENT.SIGHT){
       const vx=Math.cos(a.face), vy=Math.sin(a.face);
       const dot = ((p.x-a.x)*vx + (p.y-a.y)*vy) / (d||1);
-      if (dot > AGENT.SIGHT_DOT && G.los(a.x,a.y,p.x,p.y)){
+      if (dot > AGENT.SIGHT_DOT && agentState.los(a.x,a.y,p.x,p.y)){
         /* It sees you by the light you stand in, which is the bake times the
            room visibility. Using the bake alone would let it see you in a room
            whose lights are, as far as the screen shows, off. */
         const pi = Math.floor(p.y)*MAP_W+Math.floor(p.x);
-        const amb = (G.lightArr[pi] || 0) * (G.visArr[pi] || 0);
+        const amb = (agentState.lightArr[pi] || 0) * (agentState.visArr[pi] || 0);
         if (amb > AGENT.SIGHT_AMBIENT){
           seenBy = Math.max(seenBy, 1);
           if (a.born<=0){ a.state='HUNT'; a.target={x:p.x,y:p.y}; a.t=0; }
@@ -43,19 +59,20 @@ export function tickAgents(dt){
       }
     }
   }
-  G.seenBy = Math.max(0, G.seenBy + (seenBy?dt*6:-dt*2.5));
-  G.nearest = nearest;
+  agentState.seenBy = Math.max(0, agentState.seenBy + (seenBy?dt*6:-dt*2.5));
+  agentState.nearest = nearest;
 }
 
 /**
  * Runs one lifeform's state machine for one step.
  *
+ * @param {AgentState} agentState
  * @param {object} a - the lifeform.
  * @param {number} dt - seconds since the last step.
  * @param {object} p - the player.
  */
-export function updateAgent(a, dt, p){
-  const { moveEnt, unstick, blocked } = createCollision(G.grid);
+export function updateAgent(agentState, a, dt, p){
+  const { moveEnt, unstick, blocked } = createCollision(agentState.grid);
 
   a.born = Math.max(0, a.born-dt);
   unstick(a, RA);
@@ -72,11 +89,11 @@ export function updateAgent(a, dt, p){
   if (a.state==='WALK'){
     a.rise = Math.min(1, a.rise + dt/1.0);
     if (!a.target || Math.hypot(a.x-a.target.x, a.y-a.target.y)<0.5 || a.t<=0){
-      a.target = randomFloorNear(a.x,a.y, 14, blocked);
-      a.t = 2.6 + G.arng()*3;
+      a.target = randomFloorNear(agentState, a.x,a.y, 14, blocked);
+      a.t = 2.6 + agentState.arng()*3;
     }
     a.t -= dt;
-    const spd = AGENT.WALK_SPEED + G.floor*AGENT.WALK_STEP;
+    const spd = AGENT.WALK_SPEED + agentState.floor*AGENT.WALK_STEP;
     const ang = Math.atan2(a.target.y-a.y, a.target.x-a.x);
     a.face = ang;
     moveEnt(a, Math.cos(ang)*spd*dt, Math.sin(ang)*spd*dt, RA);
@@ -86,7 +103,7 @@ export function updateAgent(a, dt, p){
   if (a.state==='HUNT'){
     a.rise = Math.min(1, a.rise + dt*2.4);
     a.t -= dt;
-    const spd = HUNT_BASE + G.floor*HUNT_STEP;
+    const spd = HUNT_BASE + agentState.floor*HUNT_STEP;
     const tgt = a.target || {x:p.x,y:p.y};
     const ang = Math.atan2(tgt.y-a.y, tgt.x-a.x);
     a.face = ang;
@@ -95,9 +112,9 @@ export function updateAgent(a, dt, p){
       // Blocked: sidestep along the wall
       moveEnt(a, Math.cos(ang+1.57)*spd*dt, Math.sin(ang+1.57)*spd*dt, RA);
     }
-    if (Math.hypot(a.x-p.x,a.y-p.y) < CATCH_R) brush(a, p);
+    if (Math.hypot(a.x-p.x,a.y-p.y) < CATCH_R) brush(a, p, agentState);
     // After about 8 seconds with nothing new to chase, give up and search nearby
-    if (a.t < -8){ a.state='SEARCH'; a.t=6; a.target=randomFloorNear(a.x,a.y,9, blocked); }
+    if (a.t < -8){ a.state='SEARCH'; a.t=6; a.target=randomFloorNear(agentState, a.x,a.y,9, blocked); }
     return;
   }
 
@@ -117,7 +134,7 @@ export function updateAgent(a, dt, p){
        This applies to SEARCH only, never to HUNT. If a hunting lifeform were also
        pulled away it would give up a chase you caused by sprinting, and that
        would remove the sprint decision the whole noise system is built around. */
-    for (const L of G.leaks){
+    for (const L of agentState.leaks){
       if (L.fixed) continue;
       const ld = Math.hypot(a.x-(L.sx+0.5), a.y-(L.sy+0.5));
       if (ld < LEAK_LURE && (!a.target || Math.hypot(a.x-a.target.x,a.y-a.target.y)<0.6)){
@@ -126,12 +143,12 @@ export function updateAgent(a, dt, p){
       }
     }
     if (!a.target || Math.hypot(a.x-a.target.x,a.y-a.target.y)<0.5){
-      a.target = randomFloorNear(a.x,a.y,7, blocked);
+      a.target = randomFloorNear(agentState, a.x,a.y,7, blocked);
     }
     const ang = Math.atan2(a.target.y-a.y, a.target.x-a.x);
     a.face = ang;
     moveEnt(a, Math.cos(ang)*AGENT.SEARCH_SPEED*dt, Math.sin(ang)*AGENT.SEARCH_SPEED*dt, RA);
-    if (Math.hypot(a.x-p.x,a.y-p.y) < CATCH_R) brush(a, p);
+    if (Math.hypot(a.x-p.x,a.y-p.y) < CATCH_R) brush(a, p, agentState);
     if (a.t<=0){
       a.state = 'DORMANT'; a.rise=0.3; a.target=null;
       if (a.born<=0){ a.state='WALK'; }
@@ -140,13 +157,13 @@ export function updateAgent(a, dt, p){
 }
 
 /* A random walkable spot near (x, y). It uses the floor's OWN generator
-   (G.arng) and never Math.random(). A wandering lifeform keeps drawing random
+   (arng) and never Math.random(). A wandering lifeform keeps drawing random
    numbers long after the level is built, so using Math.random() would make two
    runs on the same seed drift apart within seconds, even with identical pipes,
    rooms and door. */
-export function randomFloorNear(x,y,rad, blocked){
+export function randomFloorNear(agentState, x,y,rad, blocked){
   for (let i=0;i<60;i++){
-    const a=G.arng()*6.28, d=G.arng()*rad;
+    const a=agentState.arng()*6.28, d=agentState.arng()*rad;
     const nx=x+Math.cos(a)*d, ny=y+Math.sin(a)*d;
     if (!blocked(nx,ny,0.4)) return {x:nx,y:ny};
   }

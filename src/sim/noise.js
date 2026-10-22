@@ -7,9 +7,28 @@
    ============================================================ */
 
 import { MAP_W, MAP_H, NOISE } from '../config/constants.js';
-import { G } from './state.js';
 import { emit } from '../util/events.js';
 import { createCollision } from './collision.js';
+
+/**
+ * Noise state bundle passed by reference.
+ * @typedef {{
+ *   noise: number,
+ *   noisePeak: number,
+ *   selfNoise: number,
+ *   ambientNoise: number,
+ *   stat: {noises:number, deaths:number, sealed:number},
+ *   agents: Array<{x:number,y:number,state:string,born:number}>,
+ *   leaks: Array<{x:number,y:number,sx:number,sy:number,fixed:boolean}>,
+ *   leaksOpen: number,
+ *   grid: Uint8Array,
+ *   floodCover: number,
+ *   leakTotal: number,
+ *   leakDist: number,
+ *   leakPower: number,
+ *   atLeak: boolean
+ * }} NoiseState
+ */
 
 // How far a sound of this power carries through open floor, in tiles.
 export const hearRadius = power => NOISE.HEAR_BASE + power*NOISE.HEAR_GAIN;
@@ -25,8 +44,8 @@ const MAX_WALL_STEPS = 6;
    the diagonal, so a wall squarely in the way was often missed. The start and
    end tiles are not counted, so a sound made in a doorway is not muffled by
    the doorway. */
-function wallSteps(ax, ay, x, y){
-  const { solid } = createCollision(G.grid);
+function wallSteps(grid, ax, ay, x, y){
+  const { solid } = createCollision(grid);
   const sx=Math.floor(ax), sy=Math.floor(ay);
   const ex=Math.floor(x),   ey=Math.floor(y);
   let cx=sx, cy=sy, steps=0;
@@ -67,12 +86,12 @@ export function alert(a, x, y, power){
 }
 
 // Tells every lifeform that can hear the sound. baseR is the open-floor range, and walls shorten it per lifeform.
-export function alertAgents(baseR, power, x, y){
-  for (const a of G.agents){
+export function alertAgents(noiseState, baseR, power, x, y){
+  for (const a of noiseState.agents){
     if (a.state==='WALK' && a.born>0) continue;
     const d = Math.hypot(a.x-x, a.y-y);
     if (d > baseR) continue;
-    const eff = baseR - wallSteps(a.x, a.y, x, y)*NOISE.WALL_COST;
+    const eff = baseR - wallSteps(noiseState.grid, a.x, a.y, x, y)*NOISE.WALL_COST;
     if (d > eff) continue;
     alert(a, x, y, power);
   }
@@ -81,39 +100,40 @@ export function alertAgents(baseR, power, x, y){
 /**
  * A one-off noise, such as a bump or a touch. Counts toward the noise stats.
  *
+ * @param {NoiseState} noiseState
  * @param {number} power - loudness (see LOUD and the noise constants).
  * @param {number} x - where the sound is made, in tiles.
  * @param {number} y
  * @param {boolean} [mine] - true if the player made it, so it shows on the player's own noise bar.
  */
-export function emitNoise(power, x, y, mine){
-  G.noise = Math.max(G.noise, power);
-  G.noisePeak = Math.max(G.noisePeak, power);
-  if (mine) G.selfNoise = Math.max(G.selfNoise, power);
-  else G.ambientNoise = Math.max(G.ambientNoise, power);
-  G.stat.noises++;
+export function emitNoise(noiseState, power, x, y, mine){
+  noiseState.noise = Math.max(noiseState.noise, power);
+  noiseState.noisePeak = Math.max(noiseState.noisePeak, power);
+  if (mine) noiseState.selfNoise = Math.max(noiseState.selfNoise, power);
+  else noiseState.ambientNoise = Math.max(noiseState.ambientNoise, power);
+  noiseState.stat.noises++;
   emit('stat', 'noises');
-  alertAgents(hearRadius(power), power, x, y);
+  alertAgents(noiseState, hearRadius(power), power, x, y);
 }
 
 /* A noise that continues, such as walking or an open pipe. It is called every
    frame, so it does not count toward the stats (that would inflate them) and
    it relies on the meter's own decay. */
-export function sustainedNoise(power, x, y, mine){
-  G.noise = Math.max(G.noise, power);
-  G.noisePeak = Math.max(G.noisePeak, power);
-  if (mine) G.selfNoise = Math.max(G.selfNoise, power);
-  else G.ambientNoise = Math.max(G.ambientNoise, power);
-  alertAgents(hearRadius(power), power, x, y);
+export function sustainedNoise(noiseState, power, x, y, mine){
+  noiseState.noise = Math.max(noiseState.noise, power);
+  noiseState.noisePeak = Math.max(noiseState.noisePeak, power);
+  if (mine) noiseState.selfNoise = Math.max(noiseState.selfNoise, power);
+  else noiseState.ambientNoise = Math.max(noiseState.ambientNoise, power);
+  alertAgents(noiseState, hearRadius(power), power, x, y);
 }
 
 /* A hunting lifeform touching the player is fatal. A lifeform that was not
    hunting yet starts hunting and makes a loud noise instead. */
-export function brush(a, p){
+export function brush(a, p, noiseState){
   if (a.state==='HUNT'){ emit('caught'); return; }
   a.state='HUNT'; a.target={x:p.x, y:p.y}; a.t=0;
   a.rise=Math.max(a.rise, 0.85);
-  emitNoise(NOISE.BRUSH, p.x, p.y);
+  emitNoise(noiseState, NOISE.BRUSH, p.x, p.y);
   emit('flash', 'IT TOUCHED YOU');
   emit('sfx', 'rattle', 1);
 }

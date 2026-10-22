@@ -53,7 +53,7 @@ export function update(dt){
      from. */
   if (G.player){ G.player.px = G.player.x; G.player.py = G.player.y; }
   for (const a of G.agents){ a.px = a.x; a.py = a.y; }
-  if (!tickClock(dt)) return;
+  if (!tickClock(G, dt)) return;
   tickBattery(G, G.player, G.batteries, dt);
   const mv = tickMovement(G.player, G, G.grid, G.batteries, G, dt);
   G.wet = mv.wet;                  // the tile the player is standing on now
@@ -78,17 +78,17 @@ export function update(dt){
   // The flood runs after movement, so the water you are standing in is the water you just walked into.
   tickFlood(G, dt);
 
-  tickLeakNoise(dt);
-  tickRepair(dt, mv.moving, mv.bumped);
+  tickLeakNoise(G, dt);
+  tickRepair(G, dt, mv.moving, mv.bumped);
   if (G.ended) return;
-  tickAgents(dt);
+  tickAgents(G, dt);
   /* Once the run has ended, everything below belongs to a run that no longer
      exists. The door is the dangerous one: if you were caught on the threshold it
      would still cycle and build the next floor, so dying at your own front door
      would advance the level at no cost. The same check comes after the repair
      step for the same reason. */
   if (G.ended) return;
-  tickRadarReveal();
-  if (!tickDoor(dt)) return;
+  tickRadarReveal(G);
+  if (!tickDoor(G, dt)) return;
   tickAudio();
 }

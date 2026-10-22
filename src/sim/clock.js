@@ -1,5 +1,16 @@
 import { emit } from '../util/events.js';
-import { G } from './state.js';
+
+/**
+ * Clock state bundle passed by reference.
+ * @typedef {{
+ *   time: number,
+ *   clock: number,
+ *   clockAnnounced: boolean,
+ *   noise: number,
+ *   selfNoise: number,
+ *   ambientNoise: number,
+ * }} ClockState
+ */
 
 /**
  * The level clock. It runs first in every step, because it can end the frame.
@@ -13,21 +24,22 @@ import { G } from './state.js';
  *
  * Also advances the floor time and decays the noise meters.
  *
+ * @param {ClockState} clockState
  * @param {number} dt - seconds since the last step.
  * @returns {boolean} false when the clock ran out. The level is over and the
  *   caller must stop the frame there.
  */
-export function tickClock(dt){
-  G.time += dt;
-  G.noise = Math.max(0, G.noise - dt*1.55);
+export function tickClock(clockState, dt){
+  clockState.time += dt;
+  clockState.noise = Math.max(0, clockState.noise - dt*1.55);
   // The player's own noise decays at the same rate as the total, so the yellow part of the bar empties as fast as the building's hiss appears under it.
-  G.selfNoise = Math.max(0, G.selfNoise - dt*1.55);
-  G.ambientNoise = Math.max(0, G.ambientNoise - dt*1.55);
+  clockState.selfNoise = Math.max(0, clockState.selfNoise - dt*1.55);
+  clockState.ambientNoise = Math.max(0, clockState.ambientNoise - dt*1.55);
 
-  G.clock = Math.max(0, G.clock - dt);
-  if (G.clock <= 0){ emit('clock:out'); return false; }
-  if (G.clock <= 30 && !G.clockAnnounced){
-    G.clockAnnounced = true;
+  clockState.clock = Math.max(0, clockState.clock - dt);
+  if (clockState.clock <= 0){ emit('clock:out'); return false; }
+  if (clockState.clock <= 30 && !clockState.clockAnnounced){
+    clockState.clockAnnounced = true;
     emit('flash', 'THIRTY SECONDS \u2014 THE WATER IS AT YOUR FEET');
     emit('sfx', 'sting', );
   }
