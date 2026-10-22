@@ -97,11 +97,13 @@ export function wallSteps(grid, ax, ay, x, y){
 /* Reacts to a sound that reached a lifeform:
      dormant   wakes up only if the sound is LOUD
      walking   turns to investigate (SEARCH), or hunts if the sound is LOUD
-     hunting   keeps hunting, now toward the new sound
+     hunting   retargets only if the sound is LOUD or the player's own noise (mine).
+               Quiet ambient sounds (pipes) do not pull a hunter off its chase;
+               this preserves the sprint decision and the 8 s give-up timer.
    Lifeforms still in their opening grace period (born > 0) ignore everything
    except waking from dormancy.
    A lifeform that is RISING ignores all further sound until it is up. */
-export function alert(a, x, y, power){
+export function alert(a, x, y, power, mine){
   if (a.state==='RISING') return;
 
   const loud = (power||0) >= NOISE.LOUD;
@@ -115,19 +117,23 @@ export function alert(a, x, y, power){
   }
   if (a.born>0) return;
 
-  if (loud || a.state==='HUNT'){ a.state='HUNT'; a.target={x,y}; a.t=0; }
+  if (a.state==='HUNT'){
+    if (loud || mine){ a.target={x,y}; a.t=0; }
+    return;
+  }
+  if (loud){ a.state='HUNT'; a.target={x,y}; a.t=0; }
   else if (a.state==='WALK'){ a.state='SEARCH'; a.t=4.5; a.target={x,y}; }
 }
 
 // Tells every lifeform that can hear the sound. baseR is the open-floor range, and walls shorten it per lifeform.
-export function alertAgents(noiseState, baseR, power, x, y){
+export function alertAgents(noiseState, baseR, power, x, y, mine){
   for (const a of noiseState.agents){
     if (a.state==='WALK' && a.born>0) continue;
     const d = Math.hypot(a.x-x, a.y-y);
     if (d > baseR) continue;
     const eff = baseR - wallSteps(noiseState.grid, a.x, a.y, x, y)*NOISE.WALL_COST;
     if (d > eff) continue;
-    alert(a, x, y, power);
+    alert(a, x, y, power, mine);
   }
 }
 
@@ -147,7 +153,7 @@ export function emitNoise(noiseState, power, x, y, mine){
   else noiseState.ambientNoise = Math.max(noiseState.ambientNoise, power);
   noiseState.stat.noises++;
   emit('stat', 'noises');
-  alertAgents(noiseState, hearRadius(power), power, x, y);
+  alertAgents(noiseState, hearRadius(power), power, x, y, mine);
 }
 
 /* A noise that continues, such as walking or an open pipe. It is called every
@@ -158,7 +164,7 @@ export function sustainedNoise(noiseState, power, x, y, mine){
   noiseState.noisePeak = Math.max(noiseState.noisePeak, power);
   if (mine) noiseState.selfNoise = Math.max(noiseState.selfNoise, power);
   else noiseState.ambientNoise = Math.max(noiseState.ambientNoise, power);
-  alertAgents(noiseState, hearRadius(power), power, x, y);
+  alertAgents(noiseState, hearRadius(power), power, x, y, mine);
 }
 
 /* A hunting lifeform touching the player is fatal. A lifeform that was not

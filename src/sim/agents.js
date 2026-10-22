@@ -132,9 +132,10 @@ export function updateAgent(agentState, a, dt, p){
        standing at a pipe you have not reached yet is a shield you do not have
        yet, and it should not cross the building to a far pipe.
 
-       This applies to SEARCH only, never to HUNT. If a hunting lifeform were also
-       pulled away it would give up a chase you caused by sprinting, and that
-       would remove the sprint decision the whole noise system is built around. */
+       This applies to SEARCH only. A HUNT lifeform retargets only to LOUD
+       sounds or the player's own noises (mine) — see noise.js alert().
+       Quiet ambient sounds (pipes) do not pull a hunter off its chase; this
+       preserves the sprint decision and the 8 s give-up timer. */
     for (const L of agentState.leaks){
       if (L.fixed) continue;
       const ld = Math.hypot(a.x-(L.sx+0.5), a.y-(L.sy+0.5));

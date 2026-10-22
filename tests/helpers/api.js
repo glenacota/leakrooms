@@ -214,9 +214,9 @@ tickRadarReveal: () => tickRadarReveal(G),
 /* Noise wrappers - G serves as NoiseState */
 emitNoise: (power, x, y, mine) => emitNoise(G, power, x, y, mine),
 sustainedNoise: (power, x, y, mine) => sustainedNoise(G, power, x, y, mine),
-alertAgents: (baseR, power, x, y) => alertAgents(G, baseR, power, x, y),
+alertAgents: (baseR, power, x, y, mine) => alertAgents(G, baseR, power, x, y, mine),
 brush: (a, p) => brush(a, p, G),
-alert: (a, x, y, power) => alert(a, x, y, power),
+alert: (a, x, y, power, mine) => alert(a, x, y, power, mine),
 wallSteps: (ax, ay, x, y) => wallSteps(G.grid, ax, ay, x, y),
 MAX_WALL_STEPS,
 

@@ -477,3 +477,92 @@ test('MAX_WALL_STEPS cap exhausts reach for every noise power', () => {
 }
   t.done();
 });
+
+/* A HUNT lifeform retargets only to LOUD sounds or the player's own noises.
+   Quiet ambient sounds (pipes, power < LOUD, mine=false) do NOT retarget a hunter.
+   This preserves the sprint decision and the 8 s give-up timer. */
+test('hunter retargets only to loud or player sounds, not quiet pipes', () => {
+  const t = softAssert();
+{
+  const W = 76;
+  A.buildFloor(0, 4242);
+
+  /* Find an open pipe (quiet, not mine). */
+  const L = G.leaks.find(l=>!l.fixed);
+  t.assert(L, 'floor must have an open pipe');
+
+  /* Place a HUNT lifeform near the pipe on a walkable tile.
+     The pipe's stand tile (L.sx, L.sy) is floor. Use a neighbor. */
+  const pipeX = L.sx + 0.5, pipeY = L.sy + 0.5;
+  let hunterX = L.sx + 1.5, hunterY = L.sy + 0.5; // right of stand tile
+  if (G.grid[Math.floor(hunterY)*W+Math.floor(hunterX)] !== 1) {
+    hunterX = L.sx - 0.5; hunterY = L.sy + 0.5; // left
+  }
+  if (G.grid[Math.floor(hunterY)*W+Math.floor(hunterX)] !== 1) {
+    hunterX = L.sx + 0.5; hunterY = L.sy + 1.5; // down
+  }
+  if (G.grid[Math.floor(hunterY)*W+Math.floor(hunterX)] !== 1) {
+    hunterX = L.sx + 0.5; hunterY = L.sy - 0.5; // up
+  }
+  t.assert(G.grid[Math.floor(hunterY)*W+Math.floor(hunterX)] === 1, 'hunter must be on floor');
+
+  const hunter = {
+    x: hunterX, y: hunterY, state: 'HUNT', t: 0, rise: 1,
+    target: {x: hunterX, y: hunterY}, face: 0, wakeCd: 0, stepT: 0, born: 0,
+  };
+  G.agents = [hunter];
+
+  /* Pipe noise is LEAK_NOISE_BASE + LEAK_NOISE_GAIN * flood. It stays < LOUD. */
+  const pipePower = G.leakPower; // ~0.19, well below LOUD (0.5)
+  t.assert(pipePower < A.LOUD, `pipe power ${pipePower} should be < LOUD ${A.LOUD}`);
+
+  /* The pipe calls sustainedNoise with mine=false. */
+  A.sustainedNoise(pipePower, pipeX, pipeY, false);
+
+  /* Hunter should NOT retarget to the quiet pipe. */
+  t.assert(hunter.state === 'HUNT', 'hunter should stay HUNT');
+  t.assert(Math.abs(hunter.target.x - hunterX) < 0.1 && Math.abs(hunter.target.y - hunterY) < 0.1,
+    'hunter should keep its original target, not retarget to pipe');
+
+  /* Now simulate player walking near the hunter (mine=true, power=WALK=0.22 < LOUD). */
+  hunter.target = {x: 10, y: 10}; // some other target
+  A.sustainedNoise(A.WALK, hunterX, hunterY, true); // mine=true
+
+  /* Hunter SHOULD retarget to the player's noise even though it's quiet. */
+  t.assert(hunter.state === 'HUNT', 'hunter should stay HUNT');
+  t.assert(Math.abs(hunter.target.x - hunterX) < 0.1 && Math.abs(hunter.target.y - hunterY) < 0.1,
+    'hunter should retarget to player position (mine=true)');
+
+  /* Loud sound (sprint) should also retarget, even with mine=false.
+     Use a position that's on floor and within hearing range. */
+  hunter.target = {x: 20, y: 20};
+  let loudX = hunterX + 3, loudY = hunterY;
+  if (G.grid[Math.floor(loudY)*W+Math.floor(loudX)] !== 1) {
+    loudX = hunterX - 3; loudY = hunterY;
+  }
+  if (G.grid[Math.floor(loudY)*W+Math.floor(loudX)] !== 1) {
+    loudX = hunterX; loudY = hunterY + 3;
+  }
+  if (G.grid[Math.floor(loudY)*W+Math.floor(loudX)] !== 1) {
+    loudX = hunterX; loudY = hunterY - 3;
+  }
+  t.assert(G.grid[Math.floor(loudY)*W+Math.floor(loudX)] === 1, 'loud source must be on floor');
+  A.sustainedNoise(A.SPRINT_NOISE, loudX + 0.5, loudY + 0.5, false); // loud, not mine
+
+  t.assert(hunter.state === 'HUNT', 'hunter should stay HUNT');
+  t.assert(Math.abs(hunter.target.x - (loudX + 0.5)) < 0.1 && Math.abs(hunter.target.y - (loudY + 0.5)) < 0.1,
+    'hunter should retarget to loud sound (mine=false but loud)');
+
+  /* A WALK lifeform near an open pipe still goes to SEARCH (existing behavior). */
+  const walker = {
+    x: hunterX, y: hunterY, state: 'WALK', t: 0, rise: 1,
+    target: null, face: 0, wakeCd: 0, stepT: 0, born: 0,
+  };
+  G.agents = [walker];
+  A.sustainedNoise(pipePower, pipeX, pipeY, false);
+  t.assert(walker.state === 'SEARCH', 'walker near quiet pipe goes SEARCH');
+
+  console.log('  hunter ignores quiet pipe, retargets to player (mine) and loud sounds; walker goes SEARCH');
+}
+  t.done();
+});
