@@ -20,7 +20,8 @@ import { computeLightArr } from '../sim/lightmap.js';
 import { scopeRoomLight, snapMask } from '../sim/vision.js';
 import { initFlood } from '../sim/flood.js';
 import { G, setG, createGameState } from '../sim/state.js';
-import { attachFloorImages } from '../render/bake.js';
+import { attachFloorImages, createPerFloorCanvases, releaseCanvases, areStaticCanvasesStale, refreshStaticCanvases } from '../render/bake.js';
+import { reset as resetRepaint } from '../render/repaint.js';
 
 /* Every canvas a floor owns, and the subset the cache keeps. The carpet, the
    walls and the light bake are the same pixels for the same building, so a
@@ -29,30 +30,6 @@ import { attachFloorImages } from '../render/bake.js';
 const ALL_CANVASES = ['tilesCv', 'wallsCv', 'lightCv', 'maskCv', 'wetCv', 'postCv'];
 const STATIC_CANVASES = ['tilesCv', 'wallsCv', 'lightCv'];
 const PER_FLOOR_CANVASES = ['maskCv', 'wetCv', 'postCv'];
-
-/** Zeroes the named canvases of a floor that is being replaced. */
-function release(g, names){
-  if (!g) return;
-  for (const k of names){
-    const cv = g[k];
-    if (!cv) continue;
-    cv.width = 0; cv.height = 0;
-  }
-}
-
-/**
- * Releases the canvases of a floor that is about to be replaced.
- *
- * Every floor creates six of them. Setting a canvas to 0x0 frees its pixel
- * memory right away instead of leaving it for the garbage collector, which
- * could otherwise run in the middle of a frame. It also means a stale
- * reference fails loudly instead of quietly drawing the old floor.
- *
- * @param {object|null} g - the previous floor's G, or null at first boot.
- */
-export function disposeFloor(g){
-  release(g, ALL_CANVASES);
-}
 
 /* ---------- The cached half ---------- */
 
@@ -79,7 +56,7 @@ export function getStaticLevel(seed, floorNum){
   const key = keyOf(seed, floorNum);
   if (cache && cacheKey === key) return cache;
 
-  if (cache) release(cache.gfx, STATIC_CANVASES);
+  if (cache) releaseCanvases(cache.gfx, STATIC_CANVASES);
   cacheKey = key;
   cache = null;
 
@@ -130,24 +107,7 @@ export function makeFloorState(level, floorNum, seed){
   /* The visibility mask is its own canvas at one pixel per tile. It changes
      whenever the player turns, so keeping it separate from the light bake
      means repacking 5.8k pixels instead of 116k. */
-  G.maskCv = document.createElement('canvas');
-  G.maskCv.width = MAP_W; G.maskCv.height = MAP_H;
-  G.maskCtx = G.maskCv.getContext('2d');
-  G.maskImg = G.maskCtx.createImageData(MAP_W, MAP_H);
-  G.wetCv = document.createElement('canvas');
-  G.wetCv.width = MAP_W; G.wetCv.height = MAP_H;
-  G.wetCtx = G.wetCv.getContext('2d');
-  G.wetImg = G.wetCtx.createImageData(MAP_W, MAP_H);
-  for (let i=0;i<MAP_W*MAP_H;i++) G.wetImg.data[i*4+3] = 0;
-
-  // Handy shortcut to the canvases above, used by the renderer and the tests.
-  G.gfx = {
-    lightCv: G.lightCv, lightCtx: G.lightCtx, lightImg: G.lightImg,
-    maskCv: G.maskCv, maskCtx: G.maskCtx, maskImg: G.maskImg,
-    tilesCv: G.tilesCv, tilesCtx: G.tilesCtx,
-    wallsCv: G.wallsCv, wallsCtx: G.wallsCtx,
-    wetCv: G.wetCv, wetCtx: G.wetCtx, wetImg: G.wetImg
-  };
+  createPerFloorCanvases();
 
   /* A graphics context loss replaces the canvases without changing the level
      (see ui/bind.js), so the cached ones can be dead while the key still
@@ -158,6 +118,7 @@ export function makeFloorState(level, floorNum, seed){
   snapMask();
 
   initFlood();
+  resetRepaint();
 }
 
 /**
@@ -174,12 +135,12 @@ export function buildFloor(floorNum, seed){
   const cached = cache && cacheKey === key;
   /* A context loss swapped the canvases out from under the cache since it was
      filled. Decided before G is replaced, because that is what it compares. */
-  const staleImages = cached && G && G.gfx && G.gfx.tilesCv !== cache.gfx.tilesCv;
+  const staleImages = cached && G && G.gfx && areStaticCanvasesStale(cached);
 
   /* Must run before the new state is stored in G, so it releases the old floor
      and not the new one. On a cache hit the three static canvases are the NEW
      floor's canvases as well, so only the per-floor ones are released. */
-  if (cached) release(G, PER_FLOOR_CANVASES); else disposeFloor(G);
+  if (cached) releaseCanvases(G, PER_FLOOR_CANVASES); else releaseCanvases(G, ALL_CANVASES);
 
   makeFloorState(getStaticLevel(seed, floorNum), floorNum, seed);
 
@@ -188,16 +149,10 @@ export function buildFloor(floorNum, seed){
      the fresh canvases back in the cache, so restoring the dead ones is not
      what the NEXT retry gets either. */
   if (staleImages){
-    attachFloorImages();
-    Object.assign(cache.gfx, {
-      tilesCv: G.tilesCv, tilesCtx: G.tilesCtx,
-      wallsCv: G.wallsCv, wallsCtx: G.wallsCtx,
-      lightCv: G.lightCv, lightCtx: G.lightCtx, lightImg: G.lightImg,
-    });
-    Object.assign(G.gfx, {
-      tilesCv: G.tilesCv, tilesCtx: G.tilesCtx,
-      wallsCv: G.wallsCv, wallsCtx: G.wallsCtx,
-      lightCv: G.lightCv, lightCtx: G.lightCtx, lightImg: G.lightImg,
-    });
+    refreshStaticCanvases(cached);
   }
+}
+
+export function disposeFloor(g){
+  releaseCanvases(g, ALL_CANVASES);
 }

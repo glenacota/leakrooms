@@ -16,35 +16,7 @@
 
 import { FLOOR, LEAK_HEADSTART, LEAK_RETREAT, LEAK_SPREAD, MAP_H, MAP_W, WET_EDGE, WET_FALL, WET_RISE } from '../config/constants.js';
 import { G } from './state.js';
-
-/* ---------- Dirty box ----------
-   packWet() turns G.wetArr into an image, and it used to rewrite the whole map
-   every frame. The water only changes in a band, so the code records the
-   bounding box of the tiles that changed since the last pack, and packWet()
-   rewrites and uploads just that rectangle.
-
-   An empty box (-1) means "repack everything". That is what a new floor, a
-   tint change and the first frame after a build ask for. */
-let wetX0=0, wetY0=0, wetX1=MAP_W-1, wetY1=MAP_H-1;
-let wetDirtyX0=-1, wetDirtyY0=-1, wetDirtyX1=-1, wetDirtyY1=-1;
-// Grows the pending box by one tile. Both writers of wetArr (the flood and the player's splashes) use it.
-function markWetTile(i){
-  if (G) G.dirty.water = true;
-  const x = i % MAP_W, y = (i / MAP_W) | 0;
-  if (x < wetDirtyX0) wetDirtyX0 = x; else if (x > wetDirtyX1) wetDirtyX1 = x;
-  if (y < wetDirtyY0) wetDirtyY0 = y; else if (y > wetDirtyY1) wetDirtyY1 = y;
-}
-function markWetAll(){ if (G) G.dirty.water = true; wetDirtyX0=wetDirtyY0=wetDirtyX1=wetDirtyY1=-1; }
-
-/* Hands the pending box to the renderer and starts a fresh one. The renderer
-   packs and uploads that region, so after this call nothing is pending. */
-export function takeWetBox(){
-  const full = wetDirtyX1 < 0;
-  const box = { full, x0: full?0:wetDirtyX0, y0: full?0:wetDirtyY0,
-                x1: full?MAP_W-1:wetDirtyX1, y1: full?MAP_H-1:wetDirtyY1 };
-  wetDirtyX0 = wetDirtyY0 = wetDirtyX1 = wetDirtyY1 = -1;
-  return box;
-}
+import { markWetTile, markWetAll } from '../render/repaint.js';
 
 /* ---------- Flood data on G ----------
    G.wetArr      wetness per tile, 0 (dry) to 1 (standing water). One number
@@ -67,48 +39,48 @@ export function takeWetBox(){
    edge covers those drying rings, and costs only a handful of rings extra. */
 
 // BFS distance from the nearest pipe across floor. Computed once when a floor is built and read-only during play.
-function floodField(){
-  const d = new Int32Array(MAP_W*MAP_H).fill(-1);
+function floodField() {
+  const d = new Int32Array(MAP_W * MAP_H).fill(-1);
   const q = [];
-  for (const L of G.leaks){
+  for (const L of G.leaks) {
     if (L.fixed) continue;
-    const s = L.sy*MAP_W + L.sx;
+    const s = L.sy * MAP_W + L.sx;
     if (d[s] >= 0) continue;
     d[s] = 0;
     q.push(s);
   }
   // A BFS visits tiles in non-decreasing distance, so q is already the G.wetByDist order.
-  for (let h=0; h<q.length; h++){
-    const c = q[h], cx = c%MAP_W, cy = (c/MAP_W)|0;
-    for (const [nx,ny] of [[cx+1,cy],[cx-1,cy],[cx,cy+1],[cx,cy-1]]){
-      if (nx<0||ny<0||nx>=MAP_W||ny>=MAP_H) continue;
-      const ni = ny*MAP_W+nx;
-      if (G.grid[ni]!==FLOOR || d[ni]>=0) continue;
-      d[ni] = d[c]+1;
+  for (let h = 0; h < q.length; h++) {
+    const c = q[h], cx = c % MAP_W, cy = (c / MAP_W) | 0;
+    for (const [nx, ny] of [[cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]]) {
+      if (nx < 0 || ny < 0 || nx >= MAP_W || ny >= MAP_H) continue;
+      const ni = ny * MAP_W + nx;
+      if (G.grid[ni] !== FLOOR || d[ni] >= 0) continue;
+      d[ni] = d[c] + 1;
       q.push(ni);
     }
   }
-  return { dist:d, order:q };
+  return { dist: d, order: q };
 }
 
 /* Sets up the flood for a new floor, and pre-warms it (see below). Runs inside
    buildFloor. */
-export function initFlood(){
-  G.wetArr = new Float32Array(MAP_W*MAP_H);
+export function initFlood() {
+  G.wetArr = new Float32Array(MAP_W * MAP_H);
   const ff = floodField();
   G.waterDist = ff.dist;
   G.wetByDist = ff.order;
-  G.wetMaxDist = G.wetByDist.length ? G.waterDist[G.wetByDist[G.wetByDist.length-1]] : 0;
+  G.wetMaxDist = G.wetByDist.length ? G.waterDist[G.wetByDist[G.wetByDist.length - 1]] : 0;
   /* Lookup table: distance -> index of the first tile at or past that
      distance. Because the order is sorted, one pass builds it, and then the
      bound of the per-frame loop is just an array read. */
-  G.wetIndexAtDist = new Int32Array(G.wetMaxDist+2).fill(G.wetByDist.length);
-  for (let n=G.wetByDist.length-1; n>=0; n--){
+  G.wetIndexAtDist = new Int32Array(G.wetMaxDist + 2).fill(G.wetByDist.length);
+  for (let n = G.wetByDist.length - 1; n >= 0; n--) {
     const d = G.waterDist[G.wetByDist[n]];
     if (d < G.wetIndexAtDist.length) G.wetIndexAtDist[d] = n;
   }
-  for (let d=G.wetMaxDist-1; d>=0; d--){
-    if (G.wetIndexAtDist[d] > G.wetIndexAtDist[d+1]) G.wetIndexAtDist[d] = G.wetIndexAtDist[d+1];
+  for (let d = G.wetMaxDist - 1; d >= 0; d--) {
+    if (G.wetIndexAtDist[d] > G.wetIndexAtDist[d + 1]) G.wetIndexAtDist[d] = G.wetIndexAtDist[d + 1];
   }
   G.wetFront = 0;
   G.wetSum = 0;
@@ -125,41 +97,40 @@ export function initFlood(){
      inside the front is fully wet". G.wetSum is added up in the same pass, so
      the sum and the array start in agreement. */
   {
-    const front = Math.min(G.wetMaxDist, LEAK_HEADSTART/LEAK_SPREAD);
+    const front = Math.min(G.wetMaxDist, LEAK_HEADSTART / LEAK_SPREAD);
     G.wetFront = front;
     let sum = 0;
     // Every wet tile is within the front, so the edge is known exactly here.
-    const hi  = Math.min(G.wetByDist.length-1,
-                  G.wetIndexAtDist[Math.min(Math.ceil(front), G.wetIndexAtDist.length-1)]);
-    for (let n=0; n<=hi; n++){
+    const hi = Math.min(G.wetByDist.length - 1,
+                  G.wetIndexAtDist[Math.min(Math.ceil(front), G.wetIndexAtDist.length - 1)]);
+    for (let n = 0; n <= hi; n++) {
       const i = G.wetByDist[n];
-      if (G.waterDist[i] <= front){ G.wetArr[i] = 1; sum += 1; }
+      if (G.waterDist[i] <= front) { G.wetArr[i] = 1; sum += 1; }
     }
     G.wetSum = sum;
     // The spawn puddle may reach past the pre-warmed front, so keep whichever reaches further.
     G.wetEdgeD = Math.max(G.wetEdgeD, Math.floor(front));
   }
 
-  G.floodCover = G.wetFloor ? G.wetSum/G.wetFloor : 0;
+  G.floodCover = G.wetFloor ? G.wetSum / G.wetFloor : 0;
   /* Flag the water image as stale. buildFloor can run in the middle of a frame
      (the door rebuilds the floor from update()), and the fresh image would
      otherwise be drawn as black over the new carpet for one frame. */
-  if (G) G.dirty.water = true;
   markWetAll();
 }
 
 /* Drops a blob of water. Used to damp the spawn room, and to leave ripples
    behind the player while they wade, so moving through water leaves a trace. */
-export function seedSplash(wx, wy, amount){
+export function seedSplash(wx, wy, amount) {
   if (!G.wetArr) return;
   const cx = Math.floor(wx), cy = Math.floor(wy);
-  for (let y=cy-1;y<=cy+1;y++) for (let x=cx-1;x<=cx+1;x++){
-    if (x<0||y<0||x>=MAP_W||y>=MAP_H) continue;
-    const i = y*MAP_W+x;
-    if (G.grid[i]!==FLOOR) continue;
-    const dd = Math.hypot(x+0.5-wx, y+0.5-wy);
-    const w = Math.min(1, Math.max(0, amount * (1 - dd/1.8)));
-    if (w > G.wetArr[i]){
+  for (let y = cy - 1; y <= cy + 1; y++) for (let x = cx - 1; x <= cx + 1; x++) {
+    if (x < 0 || y < 0 || x >= MAP_W || y >= MAP_H) continue;
+    const i = y * MAP_W + x;
+    if (G.grid[i] !== FLOOR) continue;
+    const dd = Math.hypot(x + 0.5 - wx, y + 0.5 - wy);
+    const w = Math.min(1, Math.max(0, amount * (1 - dd / 1.8)));
+    if (w > G.wetArr[i]) {
       G.wetSum += w - G.wetArr[i]; G.wetArr[i] = w;
       markWetTile(i);
       /* A splash can wet a tile beyond the flood's edge. The per-frame pass
@@ -172,11 +143,11 @@ export function seedSplash(wx, wy, amount){
 
 /* How wet the ground is under a world point, 0 to 1. The movement code and the
    renderer both use it, so there is one answer to "how deep is the water here". */
-export function wetAt(wx, wy){
+export function wetAt(wx, wy) {
   if (!G.wetArr) return 0;
-  const x=Math.floor(wx), y=Math.floor(wy);
-  if (x<0||y<0||x>=MAP_W||y>=MAP_H) return 0;
-  return G.wetArr[y*MAP_W+x];
+  const x = Math.floor(wx), y = Math.floor(wy);
+  if (x < 0 || y < 0 || x >= MAP_W || y >= MAP_H) return 0;
+  return G.wetArr[y * MAP_W + x];
 }
 
 /* How much of the reachable floor is wet, 0 to 1. This is the slow, obviously
@@ -186,11 +157,11 @@ export function wetAt(wx, wy){
 
    The count is divided by the number of FLOOR tiles, not by the whole map,
    because most of the map is solid rock. */
-export function floodCover(){
+export function floodCover() {
   if (!G.wetArr || !G.wetFloor) return 0;
-  let s=0;
-  for (let i=0;i<G.wetArr.length;i++) s += G.wetArr[i];
-  return s/G.wetFloor;
+  let s = 0;
+  for (let i = 0; i < G.wetArr.length; i++) s += G.wetArr[i];
+  return s / G.wetFloor;
 }
 
 /**
@@ -208,13 +179,13 @@ export function floodCover(){
  *
  * @param {number} dt - seconds since the last step.
  */
-export function tickFlood(dt){
+export function tickFlood(dt) {
   if (!G.leaks.length || !G.wetArr) return;
 
   const prev = G.wetFront;
   const front = G.leaksOpen > 0
-    ? Math.min(G.wetMaxDist, prev + dt/LEAK_SPREAD)
-    : Math.max(0, prev - dt/LEAK_RETREAT);
+    ? Math.min(G.wetMaxDist, prev + dt / LEAK_SPREAD)
+    : Math.max(0, prev - dt / LEAK_RETREAT);
   G.wetFront = front;
   /* A front that has stopped is not the same as settled water. The fade
      approaches zero but never quite arrives, so the only real "nothing to do"
@@ -231,10 +202,10 @@ export function tickFlood(dt){
      The bound is the larger of the wet edge and the front, so the drying rings
      outside the front are still visited (see the notes above floodField). */
   const boundD = Math.max(G.wetEdgeD, Math.ceil(Math.max(prev, front)));
-  const hi = G.wetIndexAtDist[Math.min(boundD+1, G.wetIndexAtDist.length-1)] - 1;
+  const hi = G.wetIndexAtDist[Math.min(boundD + 1, G.wetIndexAtDist.length - 1)] - 1;
   if (hi < 0) return;
-  const tau = G.leaksOpen>0 ? WET_RISE : WET_FALL;
-  const k = 1 - Math.exp(-dt/tau);
+  const tau = G.leaksOpen > 0 ? WET_RISE : WET_FALL;
+  const k = 1 - Math.exp(-dt / tau);
   /* With the front at zero there is no water at all, including on the pipe's
      own standing tile. "distance <= front" would say otherwise for distance 0
      and leave a permanent damp patch under the pipe you just fixed. */
@@ -243,18 +214,18 @@ export function tickFlood(dt){
   let changed = false;
   // The new wet edge is worked out in the same loop, so no second scan is needed.
   let edge = -1;
-  for (let n=0; n<=hi; n++){
+  for (let n = 0; n <= hi; n++) {
     const i = G.wetByDist[n];
     const cur = G.wetArr[i];
     const target = (anyWater && G.waterDist[i] <= front) ? 1 : 0;
     // Unchanged tiles are still looked at, because the edge is derived from every tile in the range.
-    if (cur !== target){
-      const next = cur + (target-cur)*k;
+    if (cur !== target) {
+      const next = cur + (target - cur) * k;
       /* A tile that has faded below the edge goes to exactly zero, and one very
          close to full goes to exactly one. A thousand tiles left at 1.2% would
          keep the flood gauge from ever reaching zero. */
-      const snapped = target===0 ? (next <= WET_EDGE ? 0 : next)
-                                 : ((1-next) < 0.004 ? 1 : next);
+      const snapped = target === 0 ? (next <= WET_EDGE ? 0 : next)
+                                   : ((1 - next) < 0.004 ? 1 : next);
       // G.wetSum is kept up to date by adding the change, not by re-adding the array every frame.
       sum += snapped - cur;
       G.wetArr[i] = snapped;
@@ -266,5 +237,5 @@ export function tickFlood(dt){
   G.wetEdgeD = edge;
   if (!changed) return;
   G.wetSum = sum;
-  G.floodCover = G.wetFloor ? Math.max(0, sum/G.wetFloor) : 0;
+  G.floodCover = G.wetFloor ? Math.max(0, sum / G.wetFloor) : 0;
 }

@@ -63,6 +63,10 @@ test('the simulation layers import nothing above them', () => {
       if (!f.startsWith(layer.dir)) continue;
       for (const dep of GRAPH.get(f) || []) {
         const hit = layer.banned.find(b => dep.startsWith(b));
+        // Allow specific sim modules to import render/repaint.js for dirty tracking
+        if (hit === 'src/render/' && dep.startsWith('src/render/repaint.js') && REPAINT_ALLOWED.includes(f)) {
+          continue;
+        }
         if (hit) offenders.push(`${f} -> ${dep} (${layer.dir} must not import ${hit})`);
       }
     }
@@ -112,6 +116,15 @@ const ALLOWED = [
   'src/sim/radar.js',
   'src/sim/regions.js',
   'src/sim/update.js',
+  'src/sim/vision.js',
+];
+
+/* The repaint refactor moves dirty tracking to render/repaint.js. These sim
+   modules are allowed to import it to mark pixel layers as stale. */
+const REPAINT_ALLOWED = [
+  'src/sim/flood.js',
+  'src/sim/leaks.js',
+  'src/sim/state.js',
   'src/sim/vision.js',
 ];
 

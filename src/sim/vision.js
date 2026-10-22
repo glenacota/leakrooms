@@ -26,6 +26,7 @@ import {
 import { view } from '../util/view.js';
 import { regionAt, scopeFor } from './regions.js';
 import { G } from './state.js';
+import { dirty } from '../render/repaint.js';
 
 /* The tests switch the per-frame cone and mask work off with this flag. The
    pixel flag lives in render/pack.js, and setHeadless() in the test API
@@ -352,5 +353,5 @@ export function smoothMask(dt){
 export function snapMask(){
   traceViewCone(true);
   G.maskArr.set(G.maskTgt);
-  if (G) G.dirty.mask = true;
+  dirty.mask = true;
 }

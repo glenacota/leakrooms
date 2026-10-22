@@ -1,8 +1,8 @@
 import { MAP_H, MAP_W, WET_DRAW } from '../config/constants.js';
 import { WATER_TINTS } from '../config/presets.js';
 import { SETTINGS } from '../settings/store.js';
-import { takeWetBox } from '../sim/flood.js';
 import { G } from '../sim/state.js';
+import { dirty, takeWetBox } from './repaint.js';
 
 /* The packers turn simulation arrays into small images. Switching this off
    skips the work for the tests that never read the images. setHeadless() in the
@@ -78,6 +78,6 @@ export function packMask(){
    buffer. The pack functions still check wantPixels, so this does nothing in
    headless mode. */
 export function syncImages(){
-  if (G.dirty.water){ packWet(); G.dirty.water = false; }
-  if (G.dirty.mask){ packMask(); G.dirty.mask = false; }
+  if (dirty.water){ packWet(); dirty.water = false; }
+  if (dirty.mask){ packMask(); dirty.mask = false; }
 }

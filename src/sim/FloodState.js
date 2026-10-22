@@ -1,5 +1,6 @@
 /**
- * FloodState — wet arrays + the module-level dirty box + floodCover.
+ * FloodState — wet arrays + floodCover.
+ * Dirty tracking moved to render/repaint.js (renderer-owned).
  */
 import { MAP_H, MAP_W } from '../config/constants.js';
 
@@ -18,6 +19,5 @@ export function createFloodState() {
     wetImg: null,
     wetFloor: 0,
     floodCover: 0,
-    dirty: { water: true, mask: true },
   };
 }

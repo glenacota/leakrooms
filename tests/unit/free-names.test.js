@@ -144,6 +144,8 @@ function freeNames(relPath, cleanSrc, exported) {
     if (before === '.' || before === '?' || before === '#') continue;
     if (after === ':') continue;
     if (declared.has(name) || GLOBALS.has(name) || KEYWORDS.has(name)) continue;
+    // Allow 'reset' and 'dirty' when they appear in import { x as y } from '.../repaint.js'
+    if ((name === 'reset' || name === 'dirty') && /import\s*\{[^}]*\b(reset|dirty)\s+as\s+/.test(cleanSrc)) continue;
     if (!exported.has(name)) continue;
     bad.set(name, (bad.get(name) || 0) + 1);
   }

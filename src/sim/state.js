@@ -7,6 +7,7 @@ import { createVisionState } from './VisionState.js';
 import { createNoiseState } from './NoiseState.js';
 import { createClockState } from './ClockState.js';
 import { createDoorState } from './DoorState.js';
+import { dirty as repaintDirty } from '../render/repaint.js';
 
 /* All the state of the current floor lives behind G. No state exists until
    the first buildFloor() call, and buildFloor() replaces it completely, so
@@ -43,7 +44,7 @@ const OWNER = {
   wetArr: 'flood', waterDist: 'flood', wetByDist: 'flood', wetFront: 'flood',
   wetMaxDist: 'flood', wetSum: 'flood', wetEdgeD: 'flood', wetIndexAtDist: 'flood',
   wetCv: 'flood', wetCtx: 'flood', wetImg: 'flood', wetFloor: 'flood',
-  floodCover: 'flood', dirty: 'flood',
+  floodCover: 'flood',
 
   /* VisionState */
   visArr: 'vision', visFrom: 'vision', visTgt: 'vision', visScratch: 'vision',
@@ -79,7 +80,7 @@ const KEY_ORDER = [
 ];
 
 /* Keys that exist on the facade but are computed/assembled (not owned by a single domain). */
-const COMPUTED_KEYS = new Set(['gfx']);
+const COMPUTED_KEYS = new Set(['gfx', 'dirty']);
 
 /* Check if we're using the domain structure (domains.level exists) or a flat object. */
 function isDomainMode() {
@@ -123,6 +124,7 @@ export const G = new Proxy({}, {
     if (!domains) return undefined;
     if (COMPUTED_KEYS.has(k) && isDomainMode()) {
       if (k === 'gfx') return assembleGfx(domains);
+      if (k === 'dirty') return repaintDirty;
     }
     const target = getTarget(k);
     return target ? target[k] : undefined;

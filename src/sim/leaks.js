@@ -3,6 +3,7 @@ import { REPAIR_TIME } from '../config/tuning.js';
 import { emit } from '../util/events.js';
 import { sustainedNoise } from './noise.js';
 import { G } from './state.js';
+import { dirty } from '../render/repaint.js';
 
 /* A pipe has two positions:
      L.x, L.y    the wall tile the pipe is broken in
@@ -51,7 +52,7 @@ export function sealLeak(L){
      the seal point would reset the water front and snap the level from flooded
      to dry in a single frame. The existing field already describes the right
      answer: water recedes from where it spread. */
-  if (G) G.dirty.water = true;
+  dirty.water = true;
 }
 
 /* ---------- Noise from open pipes ----------

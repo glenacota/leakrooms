@@ -13,10 +13,7 @@ import { carpetPat, ceilPat, wallPat } from './textures.js';
  * bake provides.
  */
 export function attachFloorImages(){
-  G.lightCv = document.createElement('canvas');
-  G.lightCv.width = MAP_W*LS; G.lightCv.height = MAP_H*LS;
-  G.lightCtx = G.lightCv.getContext('2d');
-  G.lightImg = G.lightCtx.createImageData(G.lightCv.width, G.lightCv.height);
+  ensureLightCanvas();
   // Canvas size and pixel buffer are looked up once here, because reading them in the loop is slow.
   const LW = G.lightCv.width, LH = G.lightCv.height, LD = G.lightImg.data;
   for (let y=0;y<LH;y++){
@@ -55,9 +52,7 @@ export function attachFloorImages(){
  * they are part of the building.
  */
 export function bakeTiles(){
-  G.tilesCv = document.createElement('canvas');
-  G.tilesCv.width = MAP_W*TILE; G.tilesCv.height = MAP_H*TILE;
-  G.tilesCtx = G.tilesCv.getContext('2d');
+  ensureTilesCanvas();
   {
     const g = G.tilesCtx;
     g.setTransform(1,0,0,1,0,0);
@@ -74,9 +69,7 @@ export function bakeTiles(){
     }
   }
 
-  G.wallsCv = document.createElement('canvas');
-  G.wallsCv.width = MAP_W*TILE; G.wallsCv.height = MAP_H*TILE;
-  G.wallsCtx = G.wallsCv.getContext('2d');
+  ensureWallsCanvas();
   {
     const g = G.wallsCtx;
     g.setTransform(1,0,0,1,0,0);
@@ -130,4 +123,88 @@ export function bakeTiles(){
       if (y<MAP_H-1 && G.grid[(y+1)*MAP_W+x]===FLOOR) g.fillRect(x*TILE, y*TILE+TILE-2, TILE, 2);
     }
   }
+}
+
+/* ---------- Canvas creation (renderer-owned) ---------- */
+
+function ensureLightCanvas() {
+  // Always create a fresh canvas on attachFloorImages (context restore needs new objects)
+  G.lightCv = document.createElement('canvas');
+  G.lightCv.width = MAP_W * LS; G.lightCv.height = MAP_H * LS;
+  G.lightCtx = G.lightCv.getContext('2d');
+  G.lightImg = G.lightCtx.createImageData(G.lightCv.width, G.lightCv.height);
+}
+
+function ensureTilesCanvas() {
+  G.tilesCv = document.createElement('canvas');
+  G.tilesCv.width = MAP_W * TILE; G.tilesCv.height = MAP_H * TILE;
+  G.tilesCtx = G.tilesCv.getContext('2d');
+}
+
+function ensureWallsCanvas() {
+  G.wallsCv = document.createElement('canvas');
+  G.wallsCv.width = MAP_W * TILE; G.wallsCv.height = MAP_H * TILE;
+  G.wallsCtx = G.wallsCv.getContext('2d');
+}
+
+/**
+ * Creates the per-floor canvases (mask, wet) that change every floor.
+ * Called from makeFloorState in floor.js.
+ */
+export function createPerFloorCanvases() {
+  G.maskCv = document.createElement('canvas');
+  G.maskCv.width = MAP_W; G.maskCv.height = MAP_H;
+  G.maskCtx = G.maskCv.getContext('2d');
+  G.maskImg = G.maskCtx.createImageData(MAP_W, MAP_H);
+
+  G.wetCv = document.createElement('canvas');
+  G.wetCv.width = MAP_W; G.wetCv.height = MAP_H;
+  G.wetCtx = G.wetCv.getContext('2d');
+  G.wetImg = G.wetCtx.createImageData(MAP_W, MAP_H);
+  for (let i=0;i<MAP_W*MAP_H;i++) G.wetImg.data[i*4+3] = 0;
+
+  // Handy shortcut to the canvases above, used by the renderer and the tests.
+  G.gfx = {
+    lightCv: G.lightCv, lightCtx: G.lightCtx, lightImg: G.lightImg,
+    maskCv: G.maskCv, maskCtx: G.maskCtx, maskImg: G.maskImg,
+    tilesCv: G.tilesCv, tilesCtx: G.tilesCtx,
+    wallsCv: G.wallsCv, wallsCtx: G.wallsCtx,
+    wetCv: G.wetCv, wetCtx: G.wetCv.getContext('2d'), wetImg: G.wetImg
+  };
+}
+
+/**
+ * Releases (zeros) the named canvases from the given object (G or gfx).
+ */
+export function releaseCanvases(obj, names) {
+  if (!obj) return;
+  for (const k of names) {
+    const cv = obj[k];
+    if (!cv) continue;
+    cv.width = 0; cv.height = 0;
+  }
+}
+
+/**
+ * Checks if the static canvases are stale (context loss).
+ */
+export function areStaticCanvasesStale(cached) {
+  return !!(G && G.gfx && cached && cached.gfx && G.gfx.tilesCv !== cached.gfx.tilesCv);
+}
+
+/**
+ * Refreshes static canvases after context loss.
+ */
+export function refreshStaticCanvases(cached) {
+  attachFloorImages();
+  Object.assign(cached.gfx, {
+    tilesCv: G.tilesCv, tilesCtx: G.tilesCtx,
+    wallsCv: G.wallsCv, wallsCtx: G.wallsCtx,
+    lightCv: G.lightCv, lightCtx: G.lightCtx, lightImg: G.lightImg,
+  });
+  Object.assign(G.gfx, {
+    tilesCv: G.tilesCv, tilesCtx: G.tilesCtx,
+    wallsCv: G.wallsCv, wallsCtx: G.wallsCtx,
+    lightCv: G.lightCv, lightCtx: G.lightCtx, lightImg: G.lightImg,
+  });
 }
