@@ -11,14 +11,14 @@
 
 import { AGENT, CATCH_R, LEAK_LURE, MAP_W, RA } from '../config/constants.js';
 import { HUNT_BASE, HUNT_STEP } from '../config/tuning.js';
-import { blocked, moveEnt, unstick } from './collision.js';
+import { createCollision } from './collision.js';
 import { brush } from './noise.js';
 import { G } from './state.js';
 
 /* Updates every lifeform for one step, and works out two things for the rest
    of the frame:
-     G.seenBy   how much anything can see the player (drives the red warning)
-     G.nearest  the distance to the closest awake lifeform (drives the drone) */
+      G.seenBy   how much anything can see the player (drives the red warning)
+      G.nearest  the distance to the closest awake lifeform (drives the drone) */
 export function tickAgents(dt){
   const p = G.player;
   let seenBy = 0, nearest = 99;
@@ -55,6 +55,8 @@ export function tickAgents(dt){
  * @param {object} p - the player.
  */
 export function updateAgent(a, dt, p){
+  const { moveEnt, unstick, blocked } = createCollision(G.grid);
+
   a.born = Math.max(0, a.born-dt);
   unstick(a, RA);
 
@@ -70,7 +72,7 @@ export function updateAgent(a, dt, p){
   if (a.state==='WALK'){
     a.rise = Math.min(1, a.rise + dt/1.0);
     if (!a.target || Math.hypot(a.x-a.target.x, a.y-a.target.y)<0.5 || a.t<=0){
-      a.target = randomFloorNear(a.x,a.y, 14);
+      a.target = randomFloorNear(a.x,a.y, 14, blocked);
       a.t = 2.6 + G.arng()*3;
     }
     a.t -= dt;
@@ -95,7 +97,7 @@ export function updateAgent(a, dt, p){
     }
     if (Math.hypot(a.x-p.x,a.y-p.y) < CATCH_R) brush(a, p);
     // After about 8 seconds with nothing new to chase, give up and search nearby
-    if (a.t < -8){ a.state='SEARCH'; a.t=6; a.target=randomFloorNear(a.x,a.y,9); }
+    if (a.t < -8){ a.state='SEARCH'; a.t=6; a.target=randomFloorNear(a.x,a.y,9, blocked); }
     return;
   }
 
@@ -124,7 +126,7 @@ export function updateAgent(a, dt, p){
       }
     }
     if (!a.target || Math.hypot(a.x-a.target.x,a.y-a.target.y)<0.5){
-      a.target = randomFloorNear(a.x,a.y,7);
+      a.target = randomFloorNear(a.x,a.y,7, blocked);
     }
     const ang = Math.atan2(a.target.y-a.y, a.target.x-a.x);
     a.face = ang;
@@ -142,7 +144,7 @@ export function updateAgent(a, dt, p){
    numbers long after the level is built, so using Math.random() would make two
    runs on the same seed drift apart within seconds, even with identical pipes,
    rooms and door. */
-export function randomFloorNear(x,y,rad){
+export function randomFloorNear(x,y,rad, blocked){
   for (let i=0;i<60;i++){
     const a=G.arng()*6.28, d=G.arng()*rad;
     const nx=x+Math.cos(a)*d, ny=y+Math.sin(a)*d;

@@ -106,15 +106,12 @@ test('the run and the loop never touch the document', () => {
 const ALLOWED = [
   'src/sim/agents.js',
   'src/sim/clock.js',
-  'src/sim/collision.js',
   'src/sim/door.js',
   'src/sim/flood.js',
   'src/sim/leaks.js',
-  'src/sim/lightmap.js',
   'src/sim/noise.js',
   'src/sim/player.js',
   'src/sim/radar.js',
-  'src/sim/regions.js',
   'src/sim/update.js',
   'src/sim/vision.js',
 ];

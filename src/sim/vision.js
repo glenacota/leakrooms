@@ -24,9 +24,16 @@ import {
   VIEW_RANGE, VIEW_RAYS, WALL,
 } from '../config/constants.js';
 import { view } from '../util/view.js';
-import { regionAt, scopeFor } from './regions.js';
+import { scopeFor, createRegionAt } from './regions.js';
 import { G } from './state.js';
 import { dirty } from '../render/repaint.js';
+
+/* Local regionAt that reads from G.regionOf (set per-floor by labelRegions). */
+const regionAt = (x, y) => {
+  const tx = Math.floor(x), ty = Math.floor(y);
+  if (tx < 0 || ty < 0 || tx >= MAP_W || ty >= MAP_H) return -1;
+  return G.regionOf[ty * MAP_W + tx];
+};
 
 /* The tests switch the per-frame cone and mask work off with this flag. The
    pixel flag lives in render/pack.js, and setHeadless() in the test API

@@ -15,12 +15,12 @@ import { G, setG } from '../../src/sim/state.js';
 import { keys } from '../../src/sim/keys.js';
 import { view } from '../../src/util/view.js';
 import { makeLos } from '../../src/util/grid.js';
-import { solid, blocked, unstick, depenetrate, moveEnt } from '../../src/sim/collision.js';
+import { createCollision } from '../../src/sim/collision.js';
 import { hearRadius, alertAgents, emitNoise, sustainedNoise, brush, alert } from '../../src/sim/noise.js';
 import { initFlood, seedSplash, wetAt, tickFlood, floodCover } from '../../src/sim/flood.js';
 import { takeWetBox } from '../../src/render/repaint.js';
 import { leakAt, leakReach, sealLeak, tickLeakNoise, tickRepair } from '../../src/sim/leaks.js';
-import { labelRegions, regionAt } from '../../src/sim/regions.js';
+import { labelRegions, createRegionAt } from '../../src/sim/regions.js';
 import { computeLightArr } from '../../src/sim/lightmap.js';
 import {
   wantVision, setVision, castFan, traceViewCone, combineMask, scopeRoomLight,
@@ -82,7 +82,7 @@ get VIEW_FADE_FAR(){ return VIEW_FADE_FAR; },
 get VIEW_HALF(){ return VIEW_HALF; },
 get VIEW_RANGE(){ return VIEW_RANGE; },
 get RADAR_DRAIN(){ return RADAR_DRAIN; },
-buildFloor, genLevel, blocked, moveEnt, render, emitNoise, setPrompt, drawPlayer,
+buildFloor, genLevel, render, emitNoise, setPrompt, drawPlayer,
 frame,
 updateReal: update,
 /* Every test that is not about the clock holds it open.
@@ -91,7 +91,7 @@ updateReal: update,
    report it as "the AI stopped working". The two tests that do care about the
    clock (the playthrough's headroom check, and run-rules) call updateReal. */
 update(dt){ if (G) G.clock = 1e6; return update(dt); },
-scopeRoomLight, regionAt, traceViewCone, packMask, snapMask, combineMask,
+scopeRoomLight, traceViewCone, packMask, snapMask, combineMask,
 smoothMask, onScreen, setHeadless,
 get STATE(){ return STATE; },
 set STATE(v){ setState(v); },
@@ -161,4 +161,8 @@ get runLives(){ return runLives; },
 get runStat(){ return runStat; },
 /* the cast: the avatar's rig and the thing hunting it */
 drawRigger, drawStalker, drawDoor, ENT,
+/* Collision helpers for tests - create from current G.grid */
+blocked(x, y, r){ return createCollision(G.grid).blocked(x, y, r); },
+moveEnt(e, dx, dy, r){ return createCollision(G.grid).moveEnt(e, dx, dy, r); },
+regionAt(x, y){ const tx=Math.floor(x), ty=Math.floor(y); if (tx<0||ty<0||tx>=76||ty>=76) return -1; return G.regionOf[ty*76+tx]; },
 };

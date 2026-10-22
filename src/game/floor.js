@@ -15,7 +15,7 @@ import { MAP_H, MAP_W, WALL } from '../config/constants.js';
 import { mulberry32 } from '../util/rng.js';
 import { makeLos } from '../util/grid.js';
 import { genLevel } from '../sim/level.js';
-import { labelRegions } from '../sim/regions.js';
+import { labelRegions, createRegionAt } from '../sim/regions.js';
 import { computeLightArr } from '../sim/lightmap.js';
 import { scopeRoomLight, snapMask } from '../sim/vision.js';
 import { initFlood } from '../sim/flood.js';
@@ -67,20 +67,20 @@ export function getStaticLevel(seed, floorNum){
   const idx = [];
   for (let i=0;i<MAP_W*MAP_H; i++) if (grid[i]===WALL) idx.push(i);
 
-  /* labelRegions() and attachFloorImages() both write through G, so they run
-     against a minimal facade holding only what they read. Nothing can observe
-     it: this is one synchronous stretch, and the real state is installed over
-     it before any of the game's own code runs again. */
-  setG({ grid, regionOf: new Int32Array(MAP_W*MAP_H).fill(-1), regionAdj:null, regionCount:0 });
-  labelRegions(level);
+  /* labelRegions and computeLightArr are now pure functions. Run them before
+     installing any facade. */
+  const { regionOf, regionAdj, regionCount } = labelRegions(level);
   const lightArr = computeLightArr(level, makeLos(grid));
+
+  /* Install a minimal facade just for attachFloorImages (which reads grid, regionOf, lightArr). */
+  setG({ grid, regionOf, regionAdj, regionCount, lightArr });
   attachFloorImages();
 
   cache = {
     ...level,
     lightArr,
     wallIdx: Int32Array.from(idx),
-    regionOf: G.regionOf, regionAdj: G.regionAdj, regionCount: G.regionCount,
+    regionOf, regionAdj, regionCount,
     gfx: {
       tilesCv: G.tilesCv, tilesCtx: G.tilesCtx,
       wallsCv: G.wallsCv, wallsCtx: G.wallsCtx,

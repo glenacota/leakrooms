@@ -1,6 +1,6 @@
 import { BATT_MAX, NOISE, RADAR_DRAIN, R, SPRINT, WALK } from '../config/constants.js';
 import { emit } from '../util/events.js';
-import { moveEnt, unstick } from './collision.js';
+import { createCollision } from './collision.js';
 import { seedSplash, wetAt } from './flood.js';
 import { emitNoise, sustainedNoise } from './noise.js';
 import { keys } from './keys.js';
@@ -35,6 +35,8 @@ export function tickBattery(dt){
  */
 export function tickMovement(dt){
   const p = G.player;
+  const { moveEnt, unstick } = createCollision(G.grid);
+
   let ix=0, iy=0;
   if (keys['a']||keys['arrowleft'])  ix--;
   if (keys['d']||keys['arrowright']) ix++;

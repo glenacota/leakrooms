@@ -9,7 +9,7 @@
 import { MAP_W, MAP_H, NOISE } from '../config/constants.js';
 import { G } from './state.js';
 import { emit } from '../util/events.js';
-import { solid } from './collision.js';
+import { createCollision } from './collision.js';
 
 // How far a sound of this power carries through open floor, in tiles.
 export const hearRadius = power => NOISE.HEAR_BASE + power*NOISE.HEAR_GAIN;
@@ -26,6 +26,7 @@ const MAX_WALL_STEPS = 6;
    end tiles are not counted, so a sound made in a doorway is not muffled by
    the doorway. */
 function wallSteps(ax, ay, x, y){
+  const { solid } = createCollision(G.grid);
   const sx=Math.floor(ax), sy=Math.floor(ay);
   const ex=Math.floor(x),   ey=Math.floor(y);
   let cx=sx, cy=sy, steps=0;
