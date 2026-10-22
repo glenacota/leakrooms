@@ -8,18 +8,17 @@ import { tickClock } from './clock.js';
 import { combineMask, fadeRoomLight, scopeRoomLight, smoothMask, traceViewCone, wantVision } from './vision.js';
 import { tickRadarReveal } from './radar.js';
 import { tickBattery, tickMovement } from './player.js';
-import { G } from './state.js';
 
 /* The mix. Sends the audio levels for this frame: the lifeform drone, the noise
    bed (the HUD's noise bar, so the speakers and the meter agree), and the leak
    bed (the pipes' total noise, quieter with distance). */
-export function tickAudio(){
-  const prox = Math.max(0, 1 - G.nearest/13);
-  emit('sfx', 'drone', prox * (0.35 + G.seenBy*0.65));
+export function tickAudio(state){
+  const prox = Math.max(0, 1 - state.nearest/13);
+  emit('sfx', 'drone', prox * (0.35 + state.seenBy*0.65));
   // The noise bed follows the loudest thing in earshot, which is the number the bar shows. The yellow fill on the bar is only the player's own share.
   // Ambient mix only: running raises footsteps, not the bed.
-  emit('sfx', 'noiseFloor', Math.max(G.ambientNoise, G.leakTotal)/NOISE_FS);
-  emit('sfx', 'leakBed', G.leakTotal/NOISE_FS, G.leakDist);
+  emit('sfx', 'noiseFloor', Math.max(state.ambientNoise, state.leakTotal)/NOISE_FS);
+  emit('sfx', 'leakBed', state.leakTotal/NOISE_FS, state.leakDist);
 }
 
 /**
@@ -35,15 +34,16 @@ export function tickAudio(){
  *      lifeforms that noticed you, and the door you are cycling
  * Each step is a function in its own file; this is only the sequence.
  *
+ * @param {object} state - the aggregate floor state (G)
  * @param {number} dt - seconds since the last step.
  */
-export function update(dt){
-  /* G.ended is cleared at the start of every step. lose() sets it part way
+export function update(state, dt){
+  /* state.ended is cleared at the start of every step. lose() sets it part way
      through a step, and the two checks below read it to stop the rest of THAT
      step. It is not what stops the world: the loop stops stepping as soon as
      the run is over. Clearing it here means one bad frame does not condemn the
      floor. */
-  G.ended = false;
+  state.ended = false;
   /* Remember last step's positions for the renderer, BEFORE anything moves. The
      renderer draws each figure between its previous and current position, which
      turns a 1/60 s simulation into smooth motion at any refresh rate. Without
@@ -51,44 +51,44 @@ export function update(dt){
      It is written every step and not worked out later, because collision can
      refuse a move, and `prev` has to be the position that was really simulated
      from. */
-  if (G.player){ G.player.px = G.player.x; G.player.py = G.player.y; }
-  for (const a of G.agents){ a.px = a.x; a.py = a.y; }
-  if (!tickClock(G, dt)) return;
-  tickBattery(G, G.player, G.batteries, dt);
-  const mv = tickMovement(G.player, G, G.grid, G.batteries, G, dt);
-  G.wet = mv.wet;                  // the tile the player is standing on now
+  if (state.player){ state.player.px = state.player.x; state.player.py = state.player.y; }
+  for (const a of state.agents){ a.px = a.x; a.py = a.y; }
+  if (!tickClock(state, dt)) return;
+  tickBattery(state, state.player, state.batteries, dt);
+  const mv = tickMovement(state.player, state, state.grid, state.batteries, state, dt);
+  state.wet = mv.wet;                  // the tile the player is standing on now
 
   /* Room-scoped light. It runs AFTER movement, so the room you just walked into
      lights up this frame. Run before movement, it would lag a frame behind and
      look like the lights chasing you. */
-  scopeRoomLight(G, G.player, G.radar, dt, false);
-  fadeRoomLight(G, dt);
+  scopeRoomLight(state, state.player, state.radar, dt, false);
+  fadeRoomLight(state, dt);
   /* Retrace the cone on any movement, then ease the mask toward it. Both halves
      matter: retracing alone still steps a tile at a time, and easing alone
      still depends on when the retrace happens.
 
-     The whole block is skipped when the tests switch vision off. G.scopeDirty is
+     The whole block is skipped when the tests switch vision off. state.scopeDirty is
      left alone on purpose: it is pending work, so the first frame after vision
      comes back recombines whatever the crossfade moved in the meantime. */
   if (wantVision){
-    if (traceViewCone(G, G.player, G.radar, false) || G.scopeDirty){ combineMask(G, G.player, G.radar); G.scopeDirty = false; }
-    if (smoothMask(G, dt)) if (G) G.dirty.mask = true;
+    if (traceViewCone(state, state.player, state.radar, false) || state.scopeDirty){ combineMask(state, state.player, state.radar); state.scopeDirty = false; }
+    if (smoothMask(state, dt)) if (state) state.dirty.mask = true;
   }
 
   // The flood runs after movement, so the water you are standing in is the water you just walked into.
-  tickFlood(G, dt);
+  tickFlood(state, dt);
 
-  tickLeakNoise(G, dt);
-  tickRepair(G, dt, mv.moving, mv.bumped);
-  if (G.ended) return;
-  tickAgents(G, dt);
+  tickLeakNoise(state, dt);
+  tickRepair(state, dt, mv.moving, mv.bumped);
+  if (state.ended) return;
+  tickAgents(state, dt);
   /* Once the run has ended, everything below belongs to a run that no longer
      exists. The door is the dangerous one: if you were caught on the threshold it
      would still cycle and build the next floor, so dying at your own front door
      would advance the level at no cost. The same check comes after the repair
      step for the same reason. */
-  if (G.ended) return;
-  tickRadarReveal(G);
-  if (!tickDoor(G, dt)) return;
-  tickAudio();
+  if (state.ended) return;
+  tickRadarReveal(state);
+  if (!tickDoor(state, dt)) return;
+  tickAudio(state);
 }

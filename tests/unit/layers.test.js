@@ -104,7 +104,6 @@ test('the run and the loop never touch the document', () => {
    import state.js are named here; a new importer fails the test instead of
    joining the list silently. */
 const ALLOWED = [
-  'src/sim/update.js',
 ];
 
 /* The repaint refactor moves dirty tracking to render/repaint.js. These sim

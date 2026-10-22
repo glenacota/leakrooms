@@ -87,13 +87,13 @@ get VIEW_RANGE(){ return VIEW_RANGE; },
 get RADAR_DRAIN(){ return RADAR_DRAIN; },
 buildFloor, genLevel, render, emitNoise, setPrompt, drawPlayer,
 frame,
-updateReal: update,
+updateReal: (dt) => { return update(G, dt); },
 /* Every test that is not about the clock holds it open.
    update() returns immediately once the clock has run out, so a test that
    drives twenty thousand frames would spend its whole run dead on arrival and
    report it as "the AI stopped working". The two tests that do care about the
    clock (the playthrough's headroom check, and run-rules) call updateReal. */
-update(dt){ if (G) G.clock = 1e6; return update(dt); },
+update(dt){ if (G) G.clock = 1e6; return update(G, dt); },
 scopeRoomLight, traceViewCone, packMask, snapMask, combineMask,
 smoothMask, onScreen, setHeadless,
 tickBattery, tickMovement,

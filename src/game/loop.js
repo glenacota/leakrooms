@@ -99,7 +99,7 @@ export function frame(now){
       let steps = 0;
       while (simAcc >= SIM_STEP && steps < MAX_STEPS){
         addRunTime(SIM_STEP);
-        update(SIM_STEP);
+        update(G, SIM_STEP);
         simAcc -= SIM_STEP;
         steps++;
         /* update() can end the run (a death, or the door loading the next
