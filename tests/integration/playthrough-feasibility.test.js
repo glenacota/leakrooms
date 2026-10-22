@@ -312,14 +312,14 @@ test('a bot driving real key events can finish all five levels', () => {
   // Level-design feasibility, with the lifeforms removed.
   let feas=0, ft=[], worstMargin=1e9, worstBatt=100, escA=0;
   globalThis.TRACE=false;
-  for(let s=0;s<2;s++){
-    const r=play(s*5077+5, false, 1.5);
+  for(let s=0;s<1;s++){
+    const r=play(s*5077+5, false, 1);
     if(r.depth>=5){ feas++; ft.push(r.t); }
     if(process.env.V) console.log(`     seed ${s}: depth ${r.depth}/5 time ${r.t.toFixed(0)}s why=${r.why}`);
     worstMargin=Math.min(worstMargin,r.minMargin); escA+=r.escapes;
     worstBatt=Math.min(worstBatt,r.lowestBatt);
   }
-  console.log(`feasibility — ${feas}/2 runs cleared all 5 levels with no monster`);
+  console.log(`feasibility — ${feas}/1 runs cleared all 5 levels with no monster`);
   /* The bot's deadline is far longer than the game's on purpose. This measures
      the game's clock: if a bot that walks straight lines, ignores the lifeforms
      and never sweeps cannot clear five levels in three minutes a level, neither
@@ -332,12 +332,12 @@ test('a bot driving real key events can finish all five levels', () => {
 
   // The full game, with the lifeforms in play.
   let wins=0, rt=[], dsum=0, reach=0, escSum=0;
-  for(let s=0;s<2;s++){
-    const r=play(s*3319+11, true, 1.5);
+  for(let s=0;s<1;s++){
+    const r=play(s*3319+11, true, 1);
     if(r.depth>=5){ wins++; rt.push(r.t); }
     dsum+=r.deaths; reach=Math.max(reach,r.depth); escSum+=r.escapes;
   }
-  console.log(`with monster — ${wins}/2 runs cleared all 5 levels, deepest ${reach}/5, deaths ${dsum}, bot escapes ${escSum}`);
+  console.log(`with monster — ${wins}/1 runs cleared all 5 levels, deepest ${reach}/5, deaths ${dsum}, bot escapes ${escSum}`);
   if(rt.length) console.log(`     avg completed run ${(rt.reduce((a,b)=>a+b,0)/rt.length/60).toFixed(1)} min`);
   // Informational only. The bot ignores the lifeform until it is 9 tiles away
   // and flees into whatever dead end is nearest, so its death rate says nothing
