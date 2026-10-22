@@ -117,12 +117,24 @@ test('the noise meter uses the scale the game actually produces', () => {
   /* the peak marker exists because a sprint is 0.26s long and the fill alone
      cannot show it. It is held below full scale so the decay is visible. */
   show(0.1); G.noisePeak = 0.6; A.updateHUD();
-  /* one frame of decay (0.004) happens before the draw */
-  near(parseFloat(H.noisePeak.style.left), pct(0.6-0.004), 'the peak tick');
-  const before = parseFloat(H.noisePeak.style.left);
-  for (let i=0;i<30;i++) A.updateHUD();
-  const after = parseFloat(H.noisePeak.style.left);
-  t.assert(after < before, `the peak tick never came down (${before}% -> ${after}%)`);
+  /* The peak no longer decays in updateHUD; it decays in tickClock (via update).
+     One frame of decay (0.24 * 1/60 = 0.004) happens per update step. */
+  const afterOne = parseFloat(H.noisePeak.style.left);
+  /* Calling updateHUD multiple times between update steps must NOT decay the peak. */
+  for (let i=0;i<5;i++) A.updateHUD();
+  const afterFive = parseFloat(H.noisePeak.style.left);
+  t.assert(Math.abs(afterOne - afterFive) < 0.01,
+    `multiple updateHUD calls changed the peak: ${afterOne.toFixed(2)}% -> ${afterFive.toFixed(2)}%`);
+
+  /* One update step (dt=1/60) decays the peak by 0.004 (noise units).
+     In percentage terms that's 0.004/NOISE_FS*100. */
+  A.update(1/60);
+  A.updateHUD();
+  const afterStep = parseFloat(H.noisePeak.style.left);
+  const expectedDropPct = (0.24/60)/A.NOISE_FS*100; // 0.004 noise units -> percentage
+  t.assert(Math.abs((afterOne - afterStep) - expectedDropPct) < 0.001,
+    `peak dropped ${(afterOne - afterStep).toFixed(4)}%, expected ${expectedDropPct.toFixed(4)}%`);
+  console.log(`  peak decays in tickClock: ${afterOne.toFixed(2)}% -> ${afterStep.toFixed(2)}% (drop ${(afterOne - afterStep).toFixed(4)}% per step)`);
 
   /* and it holds up across a real frame, the only place the numbers above can be
      wrong if the sim does not produce them */
@@ -143,7 +155,7 @@ test('the noise meter uses the scale the game actually produces', () => {
   t.assert(G.selfNoise >= A.SPRINT_NOISE,
     `the sprint registered as ${G.selfNoise} of your own noise, expected ${A.SPRINT_NOISE}`);
   console.log(`  walking ${moving.toFixed(0)}%, wading ${Math.round(pct(0.30))}%, LOUD ${Math.round(pct(A.LOUD))}%, `+
-    `sprint ${running.toFixed(0)}%, wrench 100%, door clamps; peak ${before.toFixed(0)}% -> ${after.toFixed(0)}%`);
+    `sprint ${running.toFixed(0)}%, wrench 100%, door clamps`);
 
   /* A pipe is broken in a wall and is repaired from the floor tile beside it, and
      alert() hands the noise source straight to the entity as the place to walk

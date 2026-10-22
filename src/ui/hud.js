@@ -93,7 +93,6 @@ export function updateHUD(){
   /* The bar turns red at LOUD, tested on your own noise. Pipes never reach
      LOUD by design, so red always means "this is about you". */
   hudFlag(HUD.noiseWrap, 'noiseHot', 'hot', G.selfNoise>=LOUD);
-  G.noisePeak = Math.max(G.noise, G.noisePeak - 0.004);
   hudSet(HUD.noisePeak, 'noisePeakL', 'left', Math.max(0, Math.min(100, G.noisePeak/NOISE_FS*100))+'%');
   hudSet(HUD.noiseLeak, 'noiseLeak', 'width', (Math.max(0, Math.min(1, G.leakTotal/NOISE_FS))*100)+'%');
   // The LOUD hairline is placed from the constant, so it always marks the real threshold.

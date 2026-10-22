@@ -36,6 +36,9 @@ export function tickClock(clockState, dt){
   clockState.selfNoise = Math.max(0, clockState.selfNoise - dt*1.55);
   clockState.ambientNoise = Math.max(0, clockState.ambientNoise - dt*1.55);
 
+  /* Peak decays at 0.24/s (0.004 per 60 Hz frame), but never below the current noise. */
+  clockState.noisePeak = Math.max(clockState.noise, clockState.noisePeak - dt*0.24);
+
   clockState.clock = Math.max(0, clockState.clock - dt);
   if (clockState.clock <= 0){ emit('clock:out'); return false; }
   if (clockState.clock <= 30 && !clockState.clockAnnounced){
