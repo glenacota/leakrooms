@@ -97,6 +97,7 @@ export function updateAgent(agentState, a, dt, p){
     const ang = Math.atan2(a.target.y-a.y, a.target.x-a.x);
     a.face = ang;
     moveEnt(a, Math.cos(ang)*spd*dt, Math.sin(ang)*spd*dt, RA);
+    if (Math.hypot(a.x-p.x, a.y-p.y) < CATCH_R) brush(a, p, agentState);
     return;
   }
 
