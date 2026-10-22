@@ -442,3 +442,38 @@ test('wallSteps is symmetric across random floor-tile pairs', () => {
 }
   t.done();
 });
+
+/* The MAX_WALL_STEPS cap must be large enough that even the loudest noise
+   in the NOISE table has zero or negative reach left after that many walls.
+   Reach after N walls = hearRadius(power) - N * WALL_COST. */
+test('MAX_WALL_STEPS cap exhausts reach for every noise power', () => {
+  const t = softAssert();
+{
+  /* Only the actual sound powers, not config constants (HEAR_BASE, HEAR_GAIN,
+     WALL_COST, LOUD). */
+  const noisePowers = {
+    WALK: A.NOISE.WALK,
+    WADE: A.NOISE.WADE,
+    SPRINT: A.NOISE.SPRINT,
+    REPAIR: A.NOISE.REPAIR,
+    BUMP_SPRINT: A.NOISE.BUMP_SPRINT,
+    BUMP_WALK: A.NOISE.BUMP_WALK,
+    DOOR: A.NOISE.DOOR,
+    BRUSH: A.NOISE.BRUSH,
+  };
+  const maxPower = Math.max(...Object.values(noisePowers));
+  const maxSteps = Math.ceil(A.hearRadius(maxPower) / A.NOISE.WALL_COST);
+
+  t.assert(A.MAX_WALL_STEPS === maxSteps,
+    `MAX_WALL_STEPS is ${A.MAX_WALL_STEPS}, expected ${maxSteps} (from max power ${maxPower})`);
+
+  for (const [name, power] of Object.entries(noisePowers)) {
+    const reach = A.hearRadius(power) - maxSteps * A.NOISE.WALL_COST;
+    console.log(`  ${name}: power=${power}, hearRadius=${A.hearRadius(power).toFixed(2)}, ` +
+      `reach after ${maxSteps} walls=${reach.toFixed(2)}`);
+    t.assert(reach <= 0,
+      `${name} (power ${power}) still has ${reach.toFixed(2)} tiles of reach after ${maxSteps} walls — cap too small`);
+  }
+}
+  t.done();
+});

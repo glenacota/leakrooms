@@ -34,9 +34,26 @@ import { createCollision } from './collision.js';
 export const hearRadius = power => NOISE.HEAR_BASE + power*NOISE.HEAR_GAIN;
 
 /* The walk along a sound's path counts walls and stops after this many.
-   Beyond six walls the sound is long gone, so counting a seventh changes
-   nothing and the loop can stop early. */
-const MAX_WALL_STEPS = 6;
+   The cap is derived from the loudest noise power in the NOISE table:
+   once the remaining reach drops to zero or below, counting more walls
+   changes nothing.  maxReach = hearRadius(maxPower), so the number of
+   walls that can fit before reach is exhausted is
+   ceil(maxReach / WALL_COST).
+
+   Only the actual sound powers are considered (not config constants like
+   HEAR_BASE, HEAR_GAIN, WALL_COST, or the LOUD threshold). */
+const NOISE_POWERS = Object.freeze({
+  WALK: NOISE.WALK,
+  WADE: NOISE.WADE,
+  SPRINT: NOISE.SPRINT,
+  REPAIR: NOISE.REPAIR,
+  BUMP_SPRINT: NOISE.BUMP_SPRINT,
+  BUMP_WALK: NOISE.BUMP_WALK,
+  DOOR: NOISE.DOOR,
+  BRUSH: NOISE.BRUSH,
+});
+export const maxNoisePower = Math.max(...Object.values(NOISE_POWERS));
+export const MAX_WALL_STEPS = Math.ceil(hearRadius(maxNoisePower) / NOISE.WALL_COST);
 
 /* Counts the wall tiles between two points, up to the cap.
    It walks a straight line (Bresenham) through every tile the line actually

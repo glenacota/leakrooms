@@ -16,7 +16,7 @@ import { keys } from '../../src/sim/keys.js';
 import { view } from '../../src/util/view.js';
 import { makeLos } from '../../src/util/grid.js';
 import { createCollision } from '../../src/sim/collision.js';
-import { hearRadius, alertAgents, emitNoise, sustainedNoise, brush, alert, wallSteps } from '../../src/sim/noise.js';
+import { hearRadius, alertAgents, emitNoise, sustainedNoise, brush, alert, wallSteps, MAX_WALL_STEPS } from '../../src/sim/noise.js';
 import { initFlood, seedSplash, wetAt, tickFlood, floodCover } from '../../src/sim/flood.js';
 import { tickBattery, tickMovement } from '../../src/sim/player.js';
 import { takeWetBox } from '../../src/render/repaint.js';
@@ -218,6 +218,7 @@ alertAgents: (baseR, power, x, y) => alertAgents(G, baseR, power, x, y),
 brush: (a, p) => brush(a, p, G),
 alert: (a, x, y, power) => alert(a, x, y, power),
 wallSteps: (ax, ay, x, y) => wallSteps(G.grid, ax, ay, x, y),
+MAX_WALL_STEPS,
 
 /* Leak wrappers - G serves as LeakState */
 leakAt: (x, y) => leakAt(G.leaks, x, y),
