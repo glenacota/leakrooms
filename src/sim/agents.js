@@ -4,7 +4,7 @@
      DORMANT  lies still on the carpet; wakes only to a LOUD noise
      RISING   getting up after waking (about 1.4 s), then it hunts
      WALK     wanders the floor; a noise turns it to SEARCH, a loud one to HUNT
-     SEARCH   walks to the place it heard something; may go back to sleep
+     SEARCH   walks to the place it heard something; times out to WALK
      HUNT     chases its target at HUNT_BASE plus HUNT_STEP per floor
    Noise reactions are in noise.js (alert).
    ============================================================ */
@@ -152,8 +152,7 @@ export function updateAgent(agentState, a, dt, p){
     moveEnt(a, Math.cos(ang)*AGENT.SEARCH_SPEED*dt, Math.sin(ang)*AGENT.SEARCH_SPEED*dt, RA);
     if (Math.hypot(a.x-p.x,a.y-p.y) < CATCH_R) brush(a, p, agentState);
     if (a.t<=0){
-      a.state = 'DORMANT'; a.rise=0.3; a.target=null;
-      if (a.born<=0){ a.state='WALK'; }
+      a.state = 'WALK'; a.rise=1; a.target=null;
     }
   }
 }

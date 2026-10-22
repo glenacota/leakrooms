@@ -154,3 +154,41 @@ test('a wandering lifeform touches you if it reaches you', () => {
 }
   t.done();
 });
+
+/* SEARCH timeout goes to WALK, not DORMANT. The "may go back to sleep"
+   comment was dead code: the old logic set DORMANT then immediately
+   overwrote it with WALK whenever born <= 0 (always true after grace). */
+test('SEARCH timeout goes to WALK, never DORMANT', () => {
+  const t = softAssert();
+{
+  buildFloor(0, 4242);
+  A.STATE = 'play';
+
+  /* Create a SEARCH agent with a very short timer. */
+  const agent = G.agents[0];
+  agent.x = 10.5; agent.y = 10.5;
+  agent.state = 'SEARCH';
+  agent.born = 0;
+  agent.rise = 1;
+  agent.t = 0.001; // expires immediately
+  agent.target = { x: 10.5, y: 10.5 };
+
+  /* Step once - timer should expire. */
+  update(1/60);
+
+  t.assert(agent.state === 'WALK', `SEARCH timed out to ${agent.state}, expected WALK`);
+  t.assert(agent.rise === 1, `rise should be 1 (fully up), got ${agent.rise}`);
+
+  /* Step many more frames - it should stay WALK, never go to DORMANT. */
+  let everDormant = false;
+  for (let i=0;i<200;i++){
+    update(1/60);
+    if (agent.state === 'DORMANT') everDormant = true;
+  }
+  t.assert(!everDormant, 'agent entered DORMANT after SEARCH timeout — should stay WALK');
+  t.assert(agent.state === 'WALK', `after 200 frames, state is ${agent.state}, expected WALK`);
+
+  console.log('  SEARCH timeout -> WALK; never DORMANT afterwards');
+}
+  t.done();
+});
