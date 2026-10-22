@@ -68,8 +68,11 @@ function wallSteps(grid, ax, ay, x, y){
      walking   turns to investigate (SEARCH), or hunts if the sound is LOUD
      hunting   keeps hunting, now toward the new sound
    Lifeforms still in their opening grace period (born > 0) ignore everything
-   except waking from dormancy. */
+   except waking from dormancy.
+   A lifeform that is RISING ignores all further sound until it is up. */
 export function alert(a, x, y, power){
+  if (a.state==='RISING') return;
+
   const loud = (power||0) >= NOISE.LOUD;
 
   if (a.state==='DORMANT'){
