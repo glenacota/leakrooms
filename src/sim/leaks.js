@@ -78,26 +78,22 @@ export function tickLeakNoise(leakState, dt){
   leakState.leakTotal = 0;
   leakState.leakDist  = 99;
   if (leakState.leaksOpen > 0){
-    /* Each pipe gets louder as the floor floods, but the TOTAL is kept below
-       LOUD. Above LOUD the leak would stop being a lure and become a hunt
-       trigger for the whole floor, and the wrench would no longer be the
-       loudest thing you can do. So each pipe's share is divided by how many are
-       open.
-
-       floodCover is the running sum kept by tickFlood. It is not recomputed
-       here, because adding a 5776-tile loop to every frame of every level for a
-       number that is already available is what made the test suite slow. */
-    const each = Math.min(LEAK_NOISE_BASE + LEAK_NOISE_GAIN*leakState.floodCover,
-                          (LOUD-0.02)/leakState.leaksOpen);
-    leakState.leakPower = each;
-    leakState.leakTotal = each * leakState.leaksOpen;
+    /* Each pipe's loudness is independent of how many are open. The per-pipe
+       power rises with floodCover up to just below LOUD, so a pipe is never a
+       hunt trigger on its own. The total shown on the HUD (leakTotal) is the
+       sum, clamped to just below LOUD so the blue bar never passes the LOUD
+       hairline. */
+    const perPipe = Math.min(LEAK_NOISE_BASE + LEAK_NOISE_GAIN*leakState.floodCover,
+                             LOUD - 0.02);
+    leakState.leakPower = perPipe;
+    leakState.leakTotal = Math.min(perPipe * leakState.leaksOpen, LOUD - 0.02);
     for (const L of leakState.leaks){
       if (L.fixed) continue;
       /* The noise comes from the standing spot (floor), not the wall the pipe is
          broken in. alert() gives this coordinate to a lifeform as its target, and
          a target inside a wall would leave it standing and bumping against
          brick. */
-      sustainedNoise(leakState, each, L.sx+0.5, L.sy+0.5, false);
+      sustainedNoise(leakState, perPipe, L.sx+0.5, L.sy+0.5, false);
     }
 
     /* The drip sound. The water is the visual clue and the drip is the audio

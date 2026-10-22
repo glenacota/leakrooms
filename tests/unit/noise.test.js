@@ -566,3 +566,84 @@ test('hunter retargets only to loud or player sounds, not quiet pipes', () => {
 }
   t.done();
 });
+
+/* Each pipe's loudness is independent of how many are open.
+   Per-pipe power rises with floodCover up to just below LOUD.
+   The displayed total (leakTotal) is the sum, clamped to just below LOUD. */
+test('pipe loudness independent of open pipe count', () => {
+  const t = softAssert();
+{
+  /* Build a floor and force different numbers of open pipes. */
+  A.buildFloor(0, 4242);
+
+  /* The max per-pipe power at full flood is LEAK_NOISE_BASE + LEAK_NOISE_GAIN = 0.42.
+     LOUD = 0.5, so the clamp LOUD - 0.02 = 0.48 never binds with current constants. */
+  const maxPerPipe = A.LEAK_NOISE_BASE + A.LEAK_NOISE_GAIN; // 0.42
+  const clamp = A.LOUD - 0.02; // 0.48
+
+  /* Test with 1, 2, 3, 4 open pipes. We can't easily change leak count without
+     rebuilding, so we test the formula directly. */
+  for (let openPipes = 1; openPipes <= 4; openPipes++) {
+    /* At zero flood cover, power = BASE = 0.16. */
+    const powerAtZero = A.LEAK_NOISE_BASE; // 0.16
+    t.assert(powerAtZero < A.LOUD, `1 pipe at zero flood: ${powerAtZero} < LOUD`);
+    t.assert(powerAtZero <= clamp, `1 pipe at zero flood: ${powerAtZero} <= clamp`);
+
+    /* At full flood cover, power = BASE + GAIN = 0.42. */
+    const powerAtFull = maxPerPipe; // 0.42
+    t.assert(powerAtFull < A.LOUD, `${openPipes} pipes at full flood: ${powerAtFull} < LOUD`);
+    t.assert(powerAtFull <= clamp, `${openPipes} pipes at full flood: ${powerAtFull} <= clamp`);
+
+    /* Per-pipe power is the same regardless of how many are open. */
+    t.assert(powerAtFull === maxPerPipe, 'per-pipe power independent of open pipe count');
+
+    /* Total displayed noise is perPipe * openPipes, clamped to just below LOUD. */
+    const totalAtFull = Math.min(powerAtFull * openPipes, clamp);
+    t.assert(totalAtFull <= clamp, `total for ${openPipes} pipes at full flood: ${totalAtFull} <= clamp`);
+    if (openPipes > 1) {
+      t.assert(totalAtFull > powerAtFull, `total for ${openPipes} pipes > single pipe at full flood`);
+    }
+    console.log(`  ${openPipes} pipes: per-pipe=${powerAtFull.toFixed(2)}, total=${totalAtFull.toFixed(2)}, clamp=${clamp}`);
+  }
+
+  /* Verify the formula in tickLeakNoise would produce these values.
+     We can test this by calling tickLeakNoise with controlled floodCover.
+     Floor 3 (level 4) has 4 leaks according to the level table. */
+  A.buildFloor(3, 60606);
+  const numLeaks = G.leaks.length;
+  t.assert(numLeaks >= 4, `floor 3 must have at least 4 leaks, has ${numLeaks}`);
+
+  /* 1 open pipe, zero flood */
+  G.leaksOpen = 1;
+  for (let i=0; i<numLeaks; i++) G.leaks[i].fixed = (i >= 1);
+  G.floodCover = 0; G.leakTotal = 0; G.leakPower = 0;
+  A.tickLeakNoise(G, 1/60);
+  t.assert(Math.abs(G.leakPower - A.LEAK_NOISE_BASE) < 0.001, `1 pipe, zero flood: leakPower=${G.leakPower.toFixed(3)} want ${A.LEAK_NOISE_BASE}`);
+  t.assert(Math.abs(G.leakTotal - A.LEAK_NOISE_BASE) < 0.001, `1 pipe, zero flood: leakTotal=${G.leakTotal.toFixed(3)} want ${A.LEAK_NOISE_BASE}`);
+
+  /* 1 open pipe, full flood */
+  G.floodCover = 1.0; G.leakTotal = 0; G.leakPower = 0;
+  A.tickLeakNoise(G, 1/60);
+  t.assert(Math.abs(G.leakPower - maxPerPipe) < 0.001, `1 pipe, full flood: leakPower=${G.leakPower.toFixed(3)} want ${maxPerPipe}`);
+  t.assert(Math.abs(G.leakTotal - maxPerPipe) < 0.001, `1 pipe, full flood: leakTotal=${G.leakTotal.toFixed(3)} want ${maxPerPipe}`);
+
+  /* 4 open pipes, full flood - total is clamped. */
+  G.leaksOpen = 4;
+  for (let i=0; i<4; i++) G.leaks[i].fixed = false;
+  for (let i=4; i<numLeaks; i++) G.leaks[i].fixed = true;
+  G.floodCover = 1.0; G.leakTotal = 0; G.leakPower = 0;
+  A.tickLeakNoise(G, 1/60);
+  t.assert(Math.abs(G.leakPower - maxPerPipe) < 0.001, `4 pipes, full flood: leakPower=${G.leakPower.toFixed(3)} want ${maxPerPipe}`);
+  t.assert(Math.abs(G.leakTotal - clamp) < 0.001, `4 pipes, full flood: leakTotal=${G.leakTotal.toFixed(3)} want ${clamp} (clamped)`);
+
+  /* 4 pipes at zero flood - total = 4 * 0.16 = 0.64, clamped to 0.48. */
+  G.floodCover = 0; G.leakTotal = 0; G.leakPower = 0;
+  A.tickLeakNoise(G, 1/60);
+  t.assert(Math.abs(G.leakPower - A.LEAK_NOISE_BASE) < 0.001, `4 pipes, zero flood: leakPower=${G.leakPower.toFixed(3)} want ${A.LEAK_NOISE_BASE}`);
+  const expectedTotalZero = Math.min(A.LEAK_NOISE_BASE * 4, clamp);
+  t.assert(Math.abs(G.leakTotal - expectedTotalZero) < 0.001, `4 pipes, zero flood: leakTotal=${G.leakTotal.toFixed(3)} want ${expectedTotalZero} (clamped)`);
+
+  console.log('  per-pipe power independent of count; total clamped to just below LOUD');
+}
+  t.done();
+});

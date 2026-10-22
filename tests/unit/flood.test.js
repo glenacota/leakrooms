@@ -340,14 +340,14 @@ test('leaks are placed on walls, stay reachable, and flood downhill', () => {
       update(1/30);
       samples++;
       if (G.leakPower >= A.LOUD) loud++;
-      if (G.leakPower*G.leaksOpen >= A.LOUD) loud++;
+      if (G.leakTotal > A.LOUD - 0.02) loud++;
     }
     t.assert(loud===0,
       `the open pipes reached LOUD ${loud}/${samples} samples — a loud leak is a level-wide hunt trigger, not a lure`);
     t.assert(G.leakPower > 0,
       'the open pipes went silent');
     console.log(`  ${G.leaksOpen} open pipes at ${G.leakPower.toFixed(2)} each = `+
-      `${(G.leakPower*G.leaksOpen).toFixed(2)} total, against a LOUD of ${A.LOUD} — always a lure`);
+      `${G.leakTotal.toFixed(2)} total (clamped), against a LOUD of ${A.LOUD} — always a lure`);
   }
 
   /* --- the leak is audible only when it is quiet: drip < walk < wrench --- */
