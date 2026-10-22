@@ -13,6 +13,7 @@ import { AGENT, CATCH_R, LEAK_LURE, MAP_W, RA } from '../config/constants.js';
 import { HUNT_BASE, HUNT_STEP } from '../config/tuning.js';
 import { createCollision } from './collision.js';
 import { brush } from './noise.js';
+import { distanceField, nextStep } from './path.js';
 
 /**
  * Agent state bundle passed by reference.
@@ -106,12 +107,43 @@ export function updateAgent(agentState, a, dt, p){
     a.t -= dt;
     const spd = HUNT_BASE + agentState.floor*HUNT_STEP;
     const tgt = a.target || {x:p.x,y:p.y};
-    const ang = Math.atan2(tgt.y-a.y, tgt.x-a.x);
-    a.face = ang;
-    const [dx,dy] = moveEnt(a, Math.cos(ang)*spd*dt, Math.sin(ang)*spd*dt, RA);
-    if (Math.hypot(dx,dy)<0.001){
-      // Blocked: sidestep along the wall
-      moveEnt(a, Math.cos(ang+1.57)*spd*dt, Math.sin(ang+1.57)*spd*dt, RA);
+    const tx = Math.floor(tgt.x), ty = Math.floor(tgt.y);
+    const cx = Math.floor(a.x), cy = Math.floor(a.y);
+
+    /* Line of sight to target? If yes, move straight toward it (with wall slide).
+       If no, follow the distance field gradient around walls. */
+    const hasLOS = agentState.los(a.x, a.y, tgt.x, tgt.y);
+
+    if (hasLOS){
+      /* Straight line to target when visible. */
+      const ang = Math.atan2(tgt.y-a.y, tgt.x-a.x);
+      a.face = ang;
+      const [dx,dy] = moveEnt(a, Math.cos(ang)*spd*dt, Math.sin(ang)*spd*dt, RA);
+      if (Math.hypot(dx,dy)<0.001){
+        moveEnt(a, Math.cos(ang+1.57)*spd*dt, Math.sin(ang+1.57)*spd*dt, RA);
+      }
+    } else {
+      /* No LOS: follow distance field gradient. Rebuild field when target tile changes
+         or agent moves more than 1 tile from cached position. */
+      if (!a._pathField || a._pathTx !== tx || a._pathTy !== ty || Math.abs(cx - a._pathCx) > 1 || Math.abs(cy - a._pathCy) > 1){
+        a._pathField = distanceField(agentState.grid, tx, ty);
+        a._pathTx = tx; a._pathTy = ty;
+        a._pathCx = cx; a._pathCy = cy;
+      }
+      const step = a._pathField ? nextStep(a._pathField, cx, cy) : null;
+      if (step){
+        const ang = Math.atan2(step.y + 0.5 - a.y, step.x + 0.5 - a.x);
+        a.face = ang;
+        moveEnt(a, Math.cos(ang)*spd*dt, Math.sin(ang)*spd*dt, RA);
+      } else {
+        /* Fallback: straight line if no path (should not happen on connected floors). */
+        const ang = Math.atan2(tgt.y-a.y, tgt.x-a.x);
+        a.face = ang;
+        const [dx,dy] = moveEnt(a, Math.cos(ang)*spd*dt, Math.sin(ang)*spd*dt, RA);
+        if (Math.hypot(dx,dy)<0.001){
+          moveEnt(a, Math.cos(ang+1.57)*spd*dt, Math.sin(ang+1.57)*spd*dt, RA);
+        }
+      }
     }
     if (Math.hypot(a.x-p.x,a.y-p.y) < CATCH_R) brush(a, p, agentState);
     // After about 8 seconds with nothing new to chase, give up and search nearby

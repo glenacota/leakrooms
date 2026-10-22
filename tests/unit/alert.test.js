@@ -96,7 +96,9 @@ test('a rising lifeform ignores further sound until it is up (real wrench path)'
   G.player.px = standX;
   G.player.py = standY;
 
-  /* Make sure the agent is DORMANT and the player is not making other noise. */
+  /* Make sure the agent is DORMANT and the player is not making other noise.
+     Save the original position for the burst test later. */
+  const origX = agent.x, origY = agent.y;
   agent.state = 'DORMANT';
   agent.rise = 0;
   agent.born = 0;
@@ -139,7 +141,9 @@ test('a rising lifeform ignores further sound until it is up (real wrench path)'
   console.log(`  frame ${huntFrame}: state=${agent.state}, rise=${agent.rise.toFixed(3)}`);
 
   /* Now test a single burst (emitNoise instead of sustained repair noise).
-     Reset the agent to DORMANT. */
+     Reset the agent to DORMANT at its original position (the HUNT movement may have
+     taken it to a spot where walls block the sound). */
+  agent.x = origX; agent.y = origY;
   agent.state = 'DORMANT';
   agent.rise = 0;
   agent.born = 0;
