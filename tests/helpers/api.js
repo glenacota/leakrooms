@@ -17,6 +17,7 @@ import { view } from '../../src/util/view.js';
 import { makeLos } from '../../src/util/grid.js';
 import { createCollision } from '../../src/sim/collision.js';
 import { hearRadius, alertAgents, emitNoise, sustainedNoise, brush, alert, wallSteps, MAX_WALL_STEPS } from '../../src/sim/noise.js';
+import { distanceField } from '../../src/sim/path.js';
 import { initFlood, seedSplash, wetAt, tickFlood, floodCover } from '../../src/sim/flood.js';
 import { tickBattery, tickMovement } from '../../src/sim/player.js';
 import { takeWetBox } from '../../src/render/repaint.js';
@@ -219,6 +220,7 @@ brush: (a, p) => brush(a, p, G),
 alert: (a, x, y, power, mine) => alert(a, x, y, power, mine),
 wallSteps: (ax, ay, x, y) => wallSteps(G.grid, ax, ay, x, y),
 MAX_WALL_STEPS,
+distanceField: (tx, ty) => distanceField(G.grid, tx, ty),
 
 /* Leak wrappers - G serves as LeakState */
 leakAt: (x, y) => leakAt(G.leaks, x, y),

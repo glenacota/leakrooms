@@ -179,9 +179,34 @@ export function updateAgent(agentState, a, dt, p){
     if (!a.target || Math.hypot(a.x-a.target.x,a.y-a.target.y)<0.5){
       a.target = randomFloorNear(agentState, a.x,a.y,7, blocked);
     }
-    const ang = Math.atan2(a.target.y-a.y, a.target.x-a.x);
-    a.face = ang;
-    moveEnt(a, Math.cos(ang)*AGENT.SEARCH_SPEED*dt, Math.sin(ang)*AGENT.SEARCH_SPEED*dt, RA);
+
+    /* Move toward target: straight line if LOS, else follow distance field. */
+    const tx = Math.floor(a.target.x), ty = Math.floor(a.target.y);
+    const cx = Math.floor(a.x), cy = Math.floor(a.y);
+    const hasLOS = agentState.los(a.x, a.y, a.target.x, a.target.y);
+    const spd = AGENT.SEARCH_SPEED;
+
+    if (hasLOS){
+      const ang = Math.atan2(a.target.y-a.y, a.target.x-a.x);
+      a.face = ang;
+      moveEnt(a, Math.cos(ang)*spd*dt, Math.sin(ang)*spd*dt, RA);
+    } else {
+      if (!a._pathField || a._pathTx !== tx || a._pathTy !== ty || Math.abs(cx - a._pathCx) > 1 || Math.abs(cy - a._pathCy) > 1){
+        a._pathField = distanceField(agentState.grid, tx, ty);
+        a._pathTx = tx; a._pathTy = ty;
+        a._pathCx = cx; a._pathCy = cy;
+      }
+      const step = a._pathField ? nextStep(a._pathField, cx, cy) : null;
+      if (step){
+        const ang = Math.atan2(step.y + 0.5 - a.y, step.x + 0.5 - a.x);
+        a.face = ang;
+        moveEnt(a, Math.cos(ang)*spd*dt, Math.sin(ang)*spd*dt, RA);
+      } else {
+        const ang = Math.atan2(a.target.y-a.y, a.target.x-a.x);
+        a.face = ang;
+        moveEnt(a, Math.cos(ang)*spd*dt, Math.sin(ang)*spd*dt, RA);
+      }
+    }
     if (Math.hypot(a.x-p.x,a.y-p.y) < CATCH_R) brush(a, p, agentState);
     if (a.t<=0){
       a.state = 'WALK'; a.rise=1; a.target=null;
