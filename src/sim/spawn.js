@@ -6,12 +6,15 @@ import { hash2 } from '../util/hash.js';
 
 /**
  * @param {object} level - the result of genLevel.
+ * @param {Function} [rng] - optional seeded random function. If omitted, uses level.rng
+ *   (the layout RNG). Providing a separate RNG makes agent placement reproducible
+ *   across retries without being affected by how much the layout RNG was consumed.
  * @returns {object[]} the lifeforms: one walker first, then dormant coils.
  */
-export function spawnAgents(level){
+export function spawnAgents(level, rng){
   const spawn = level.spawn;
   const spec = level.spec;
-  const rng = level.rng;
+  rng = rng || level.rng;
   // The room farthest from the door, where the walker starts, so nothing is standing in the room you walk into.
   let far = null, fd = -1;
   for (const r of level.rooms){

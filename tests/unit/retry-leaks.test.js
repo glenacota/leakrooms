@@ -97,3 +97,43 @@ test('[retry-leaks] a fresh floor after nextFloor carries nothing over', () => {
 
   t.done();
 });
+
+/* Make the cast reproducible on retry.
+   Build the same (floor, seed) four times in a row and assert identical
+   agent (state, x, y) lists. */
+test('[retry-leaks] the cast is identical across four rebuilds of the same floor', () => {
+  const t = softAssert();
+  const seed = 12345;
+  const floorNum = 0;
+
+  // Build the floor four times and capture agent lists each time.
+  const runs = [];
+  for (let i = 0; i < 4; i++) {
+    A.buildFloor(floorNum, seed);
+    const agents = G.agents.map(a => ({
+      state: a.state,
+      x: a.x,
+      y: a.y
+    }));
+    runs.push(agents);
+  }
+
+  // All four runs should have identical agent lists.
+  for (let i = 1; i < 4; i++) {
+    t.assert(runs[i].length === runs[0].length,
+      `run ${i} has ${runs[i].length} agents, run 0 has ${runs[0].length}`);
+    for (let j = 0; j < runs[0].length; j++) {
+      const a0 = runs[0][j];
+      const ai = runs[i][j];
+      t.assert(ai.state === a0.state,
+        `run ${i} agent ${j} state: ${ai.state} vs ${a0.state}`);
+      t.assert(ai.x === a0.x,
+        `run ${i} agent ${j} x: ${ai.x} vs ${a0.x}`);
+      t.assert(ai.y === a0.y,
+        `run ${i} agent ${j} y: ${ai.y} vs ${a0.y}`);
+    }
+  }
+  console.log(`  ${runs[0].length} agents identical across 4 rebuilds: `+
+    runs[0].map(a => `${a.state}@(${a.x.toFixed(2)},${a.y.toFixed(2)})`).join(', '));
+  t.done();
+});
