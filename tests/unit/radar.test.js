@@ -161,3 +161,38 @@ console.log('[14] the radar — off by default, total while on, expensive');
 }
   t.done();
 });
+
+/* ============ TEST 14b: the radar makes noise while it is on ============
+   Switching the radar on is not silent: it pings at RADAR (0.5) every frame
+   while it is active, loud enough to wake sleepers and pull hunters. The
+   noise is the player's own (mine=true), so it shows on the noise bar. */
+test('[14b] the radar hums at RADAR while on, and goes quiet when off', () => {
+  const t = softAssert();
+{
+  buildFloor(0, 9090);
+
+  /* The radar starts silent. */
+  t.assert(G.selfNoise===0, 'the radar is silent before it is switched on');
+
+  /* Turn it on: sustained noise at 0.5 from the first frame. */
+  G.radar = true; G.batt = 100;
+  update(1/60);
+  t.assert(G.selfNoise===A.NOISE.RADAR,
+    `one frame of radar leaves selfNoise at ${G.selfNoise.toFixed(2)}, want ${A.NOISE.RADAR}`);
+  for (let i=0;i<119;i++) update(1/60);
+  t.assert(G.selfNoise===A.NOISE.RADAR,
+    `two seconds of radar lets selfNoise slip to ${G.selfNoise.toFixed(2)}, want ${A.NOISE.RADAR}`);
+
+  /* The noise bar reflects it. */
+  A.updateHUD();
+  t.assert(parseFloat(G.selfNoise.toFixed(2))===0.5,
+    `selfNoise reads ${G.selfNoise.toFixed(2)}, want 0.50`);
+
+  /* Switch it off: the hum stops and the meter decays at 1.55/s. */
+  G.radar = false;
+  for (let i=0;i<60;i++) update(1/60);   // 1 second of decay
+  t.assert(G.selfNoise===0, `one second after switching off, selfNoise is ${G.selfNoise.toFixed(2)}, want 0`);
+  console.log(`  radar hums at ${A.RADAR_NOISE} while on, decays to 0 within a second of going off`);
+}
+  t.done();
+});

@@ -263,6 +263,7 @@ export const NOISE = Object.freeze({
   REPAIR: 0.85,        // the wrench: the loud decision, above LOUD
   BUMP_SPRINT: 0.55,   // walked into a wall while sprinting
   BUMP_WALK: 0.3,      // walked into a wall
+  RADAR: 0.5,          // switching the radar on pings the whole floor
 
   /* What the building makes, and what happens to you. */
   DOOR: 1.8,           // the door is the loudest thing in the building

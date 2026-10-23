@@ -1,5 +1,7 @@
 import { emit } from '../util/events.js';
 import { onScreen } from './vision.js';
+import { sustainedNoise } from './noise.js';
+import { NOISE } from '../config/constants.js';
 
 /**
  * Radar state bundle passed by reference.
@@ -21,6 +23,9 @@ import { onScreen } from './vision.js';
    that lies to you, and worth a battery. */
 export function tickRadarReveal(radarState){
   if (!radarState.radar) return;
+  /* A live radar pings every frame while it is on — loud enough to wake
+     sleepers and pull hunters off their trail. */
+  sustainedNoise(radarState, NOISE.RADAR, radarState.plumber.x, radarState.plumber.y, true);
   for (const gr of radarState.graffiti){
     if (gr.seen) continue;
     if (!onScreen(gr.x+0.5, gr.y+0.5, radarState.plumber)) continue;
