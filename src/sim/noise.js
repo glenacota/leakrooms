@@ -100,10 +100,10 @@ export function wallSteps(grid, ax, ay, x, y){
      hunting   retargets only if the sound is LOUD or the player's own noise (mine).
                Quiet ambient sounds (pipes) do not pull a hunter off its chase;
                this preserves the sprint decision and the 8 s give-up timer.
-   Lifeforms still in their opening grace period (born > 0) ignore everything
-   except waking from dormancy.
-   A lifeform that is RISING ignores all further sound until it is up. */
-export function alert(a, x, y, power, mine){
+    Lifeforms still in their opening grace period (born > 0) ignore everything
+    except waking from dormancy.
+    A lifeform that is RISING ignores all further sound until it is up. */
+export function alert(a, x, y, power, mine, baseR, px, py){
   if (a.state==='RISING') return;
 
   const loud = (power||0) >= NOISE.LOUD;
@@ -113,7 +113,11 @@ export function alert(a, x, y, power, mine){
     if (!loud) return;
     a.state='RISING'; a.rise=0; a.target={x,y};
     a.stepT = 0;
-    emit('sfx', 'rattle', a.born>0 ? 1 : 0.55);
+    const baseVol = a.born>0 ? 1 : 0.55;
+    const dToPlayer = Math.hypot(a.x - px, a.y - py);
+    const reach = baseR || hearRadius(power);
+    const vol = baseVol * Math.max(0.15, 1 - dToPlayer / reach);
+    emit('sfx', 'rattle', vol);
     emit('heard', { from: 'DORMANT', to: 'RISING', dist });
     return;
   }
@@ -137,13 +141,15 @@ export function alert(a, x, y, power, mine){
 
 // Tells every lifeform that can hear the sound. baseR is the open-floor range, and walls shorten it per lifeform.
 export function alertAgents(noiseState, baseR, power, x, y, mine){
+  const px = noiseState.player.x;
+  const py = noiseState.player.y;
   for (const a of noiseState.agents){
     if (a.state==='WALK' && a.born>0) continue;
     const d = Math.hypot(a.x-x, a.y-y);
     if (d > baseR) continue;
     const eff = baseR - wallSteps(noiseState.grid, a.x, a.y, x, y)*NOISE.WALL_COST;
     if (d > eff) continue;
-    alert(a, x, y, power, mine);
+    alert(a, x, y, power, mine, baseR, px, py);
   }
 }
 

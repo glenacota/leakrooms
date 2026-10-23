@@ -720,3 +720,83 @@ test('heard event emits on state change only', () => {
   }
   t.done();
 });
+
+/* Wake rattle volume scales with distance from lifeform to player.
+   A wake at 2 tiles is louder than a wake at 12 tiles, but never silent
+   (minimum 15% of base volume). */
+test('wake rattle volume scales with distance to player', () => {
+  const t = softAssert();
+  {
+    A.buildFloor(0, 4242);
+
+    const W = 76;
+    /* Find a spot for the near test (~2 tiles from player). */
+    let nearSpot = null;
+    for (let y=1; y<W-1 && !nearSpot; y++){
+      for (let x=1; x<W-1; x++){
+        if (G.grid[y*W+x]===1 && G.grid[y*W+x+1]===1){
+          nearSpot = {x: x+0.5, y: y+0.5};
+          break;
+        }
+      }
+    }
+    t.assert(nearSpot, 'found near floor tile');
+
+    /* Find a far spot that is within hearing range of REPAIR noise.
+       REPAIR has baseR=14.2. We want distance > 8 but < effective reach. */
+    const baseR = A.hearRadius(A.NOISE.REPAIR);
+    let farSpot = null;
+    for (let y=1; y<W-1 && !farSpot; y++){
+      for (let x=1; x<W-1; x++){
+        if (G.grid[y*W+x]===1){
+          const d = Math.hypot(x + 0.5 - 10.5, y + 0.5 - 10.5);
+          const ws = A.wallSteps(x+0.5, y+0.5, 10.5, 10.5);
+          const eff = baseR - ws * A.NOISE.WALL_COST;
+          if (d < eff && d > 8 && d < 12){ farSpot = {x: x+0.5, y: y+0.5}; break; }
+        }
+      }
+    }
+    t.assert(farSpot, 'found far floor tile within hearing range');
+
+    const sfx = [];
+    const unsub = on('sfx', (name, vol) => { if (name==='rattle') sfx.push(vol); });
+
+    /* Near wake: dormant coil at ~2 tiles from player. */
+    const near = { x: nearSpot.x, y: nearSpot.y, state: 'DORMANT', t: 0, rise: 0, target: null, face: 0, wakeCd: 0, stepT: 0, born: 0 };
+    G.agents = [near];
+    G.player.x = nearSpot.x + 2; G.player.y = nearSpot.y;
+    A.emitNoise(A.NOISE.REPAIR, G.player.x, G.player.y, true);
+    t.assert(near.state === 'RISING', 'near coil rises');
+    t.assert(sfx.length === 1, 'near wake emits rattle');
+    const volNear = sfx[0];
+    t.assert(volNear > 0.4 && volNear <= 0.55, `near volume ${volNear.toFixed(3)} in expected range`);
+
+    sfx.length = 0;
+
+    /* Far wake: dormant coil at ~8-12 tiles from player, within hearing range. */
+    const far = { x: farSpot.x, y: farSpot.y, state: 'DORMANT', t: 0, rise: 0, target: null, face: 0, wakeCd: 0, stepT: 0, born: 0 };
+    G.agents = [far];
+    G.player.x = 10.5; G.player.y = 10.5;
+    A.emitNoise(A.NOISE.REPAIR, G.player.x, G.player.y, true);
+    t.assert(far.state === 'RISING', 'far coil rises');
+    t.assert(sfx.length === 1, 'far wake emits rattle');
+    const volFar = sfx[0];
+    t.assert(volFar >= 0.15*0.55 && volFar < volNear, `far volume ${volFar.toFixed(3)} quieter than near ${volNear.toFixed(3)} but above floor`);
+
+    /* Born coil (first wake) uses baseVol=1 instead of 0.55. */
+    sfx.length = 0;
+    const born = { x: nearSpot.x, y: nearSpot.y, state: 'DORMANT', t: 0, rise: 0, target: null, face: 0, wakeCd: 0, stepT: 0, born: 1 };
+    G.agents = [born];
+    G.player.x = nearSpot.x + 2; G.player.y = nearSpot.y;
+    A.emitNoise(A.NOISE.REPAIR, G.player.x, G.player.y, true);
+    t.assert(born.state === 'RISING', 'born coil rises');
+    t.assert(sfx.length === 1, 'born wake emits rattle');
+    const volBorn = sfx[0];
+    t.assert(volBorn > volNear, `born coil volume ${volBorn.toFixed(3)} > normal coil ${volNear.toFixed(3)}`);
+
+    off('sfx', unsub);
+
+    console.log(`  rattle volumes: near=${volNear.toFixed(3)}, far=${volFar.toFixed(3)}, born=${volBorn.toFixed(3)}`);
+  }
+  t.done();
+});
