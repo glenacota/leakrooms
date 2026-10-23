@@ -230,7 +230,7 @@ const DORMANT_FILL = Array.from({length:20}, (_,i)=>{
  *   dormant   a patch of static on the carpet
  *   rising    the body gathers out of its own footprint
  *   hunting   fully up
- * The shadow and the red rim are drawn here and the body by the sprite.
+ * The shadow is drawn here and the body by the sprite.
  *
  * @param {object} a - the lifeform.
  * @param {number} t - the frame timestamp.
@@ -292,13 +292,6 @@ export function drawAgent(a, t, wx, wy){
 
   ctx.restore();   // the rotation and translation
   ctx.restore();   // the floor clip
-
-  // When it has seen you, a thin red rim on the hit zone itself
-  if (G.seenBy>0.35){
-    ctx.strokeStyle=`rgba(216,80,60,${0.30*G.seenBy})`;
-    ctx.lineWidth=2;
-    ctx.beginPath(); ctx.ellipse(x,y,TILE*CATCH_R,TILE*CATCH_R,0,0,6.283); ctx.stroke();
-  }
 }
 
 /* The drawing seam. The actors pass draws the cast through ENT.player and
