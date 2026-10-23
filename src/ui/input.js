@@ -138,17 +138,28 @@ function onKeyDown(e){
     return;
   }
 
-  /* On the title and work order screens any key advances (once per press, not
-     per auto-repeat). Movement keys count too, and are dropped so they do not
-     carry into the run. ESC is excluded because it goes backwards. While the
-     difficulty chooser is open the screen acts like a form, and a stray key
-     must not start a run. */
-  if ((STATE==='splash'||STATE==='order') && e.key!=='Escape'
-      && !e.repeat
-      && !(STATE==='order' && termsOpen)){
+  /* On the title screen any key advances (once per press, not per auto-repeat).
+     Movement keys count too, and are dropped so they do not carry into the run.
+     ESC is excluded because it goes backwards. */
+  if (STATE==='splash' && e.key!=='Escape' && !e.repeat){
     advanceSplash();
     delete keys[k];
     if (STATE==='play') e.preventDefault();
+    return;
+  }
+
+  /* On the work order screen only ENTER, SPACE, or clicking BEGIN SHIFT starts
+     the run. Other keys do nothing and are dropped so they do not carry into
+     the run. ESC still goes back. The difficulty chooser acts like a form. */
+  if (STATE==='order' && !e.repeat && !(STATE==='order' && termsOpen)){
+    if (e.key==='Enter' || e.key===' '){
+      advanceSplash();
+      delete keys[k];
+      if (STATE==='play') e.preventDefault();
+    } else if (e.key!=='Escape'){
+      // Drop any other key so it doesn't leak into the run
+      delete keys[k];
+    }
     return;
   }
 

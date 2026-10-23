@@ -120,6 +120,8 @@ test('the splash chain walks the riser, then the work order, then the run', () =
   /* With the chooser shut the frame is a splash again. */
   A.setOption('difficulty','normal');
   press('w');
+  t.assert(A.STATE==='order', `the clock-in with a hotkey different than Enter started the run (STATE=${A.STATE})`);
+  press('Enter');
   t.assert(A.STATE==='play', `the clock-in did not start the run (STATE=${A.STATE})`);
   t.assert(!A.keys['w'], 'the key that dismissed the splash is still held — the player walks before they can react');
   t.assert(els['hud'].classList.contains('on'), 'the HUD did not come up with the run');

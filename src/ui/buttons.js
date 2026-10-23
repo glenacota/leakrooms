@@ -12,22 +12,17 @@ export function bindButtons(){
   document.getElementById('btn-retry').onclick   = ()=>retryFloor();
   document.getElementById('btn-again').onclick   = ()=>runAgain();
 
-  /* Clicking anywhere on the title or work order screen advances it, so a
-     player who never reads the keyboard hint is not stuck. It uses the same
-     advanceSplash() as the key handler, so a click and a key cannot disagree.
-
-     Two guards:
-       1. A click on a control (a button, a slider, the difficulty chooser) is
-          a choice and not an advance. Letting it bubble up would start a run on
-          HARD for someone who only meant to read the difficulty options.
-       2. While the difficulty chooser is open, a click on the background
-          closes it, the same as ESC. */
+  /* Clicking the BEGIN SHIFT button on the work order screen starts the run.
+     Clicking anywhere else on the title or work order screen does nothing.
+     Clicking on a control (button, slider, difficulty chooser) is a choice and
+     not an advance. While the difficulty chooser is open, a click on the
+     background closes it, the same as ESC. */
   for (const id of ['screen-splash','screen-order']){
     const el = document.getElementById(id);
     if (el) el.addEventListener('click', (e)=>{
       if (e.target.closest && e.target.closest('button, input, .terms-fold')) return;
       if (STATE==='order' && termsOpen){ setTermsOpen(false); return; }
-      advanceSplash();
+      if (STATE==='splash') advanceSplash();
     });
   }
 }

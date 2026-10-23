@@ -106,11 +106,10 @@ test('[36] the controls change what they claim to change', () => {
 });
 
 /* One click advances one screen. bindButtons() is the single owner of the
-   screen click wiring, but the module used to add the same listener a second
-   time at import time — so a single click on the riser ran advanceSplash()
-   twice and skipped the work order the player is supposed to read. Nothing
-   else caught it: the key chain has its own handler, and the terms guard is
-   written to swallow the second pass rather than fight it. */
+   screen click wiring. On the riser (splash), any click advances. On the work
+   order, only the BEGIN SHIFT button advances — clicking the background does
+   nothing. This prevents a reflex double-tap from skipping the only rules
+   screen. */
 test('[37] a click on a splash screen advances exactly one screen', () => {
   const t = softAssert();
 
@@ -119,11 +118,17 @@ test('[37] a click on a splash screen advances exactly one screen', () => {
   t.assert(A.STATE==='order',
     `one click on the riser left STATE at '${A.STATE}' — the screen listener is bound twice, so the click advanced twice`);
 
+  /* Clicking the work order background does NOT advance. Only btn-start does. */
   el('screen-order')._fire('click', { target:{ closest: ()=>null } });
+  t.assert(A.STATE==='order',
+    `clicking the work order background advanced to '${A.STATE}' — only btn-start should start the run`);
+
+  /* Clicking BEGIN SHIFT starts the run. */
+  el('btn-start').click();
   t.assert(A.STATE==='play',
-    `one click on the work order left STATE at '${A.STATE}' — the click did not clock the player in`);
+    `clicking btn-start left STATE at '${A.STATE}' — the BEGIN SHIFT button did not clock the player in`);
 
   console.log('[37] a click on a splash screen advances exactly one screen');
-  console.log('  one listener per screen: click -> order -> play, no skipped ticket');
+  console.log('  one listener per screen: click -> order, btn-start -> play, no skipped ticket');
   t.done();
 });
