@@ -6,6 +6,7 @@ import { emit } from '../util/events.js';
  *   time: number,
  *   clock: number,
  *   clockAnnounced: boolean,
+ *   leaksOpen: number,
  *   noise: number,
  *   selfNoise: number,
  *   ambientNoise: number,
@@ -43,7 +44,10 @@ export function tickClock(clockState, dt){
   if (clockState.clock <= 0){ emit('clock:out'); return false; }
   if (clockState.clock <= 30 && !clockState.clockAnnounced){
     clockState.clockAnnounced = true;
-    emit('flash', 'THIRTY SECONDS \u2014 THE WATER IS AT YOUR FEET');
+    const msg = clockState.leaksOpen > 0
+      ? 'THIRTY SECONDS \u2014 SEAL THE LEAK, THEN THE DOOR'
+      : 'THIRTY SECONDS \u2014 GET TO THE DOOR';
+    emit('flash', msg);
     emit('sfx', 'sting', );
   }
   return true;

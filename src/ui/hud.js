@@ -127,10 +127,25 @@ export function setPrompt(){
   if (working)              msg = 'SEALING \u2014 DO NOT MOVE';
   else if (G.atLeak)        msg = `STAND STILL \u2014 ${REPAIR_TIME} SECONDS`;
   else if (G.descend>0.02)  msg = 'STAY AT THE DOOR';
+  /* At the door with pipes still open: the door will not cycle until every
+     leak is sealed, so say so instead of sending the player back to the wet
+     floor they are already standing on. */
+  else if (G.leaksOpen>0 && atDoor()) msg = `DOOR LOCKED \u2014 ${G.leaksOpen} LEAK${G.leaksOpen===1?'':'S'} OPEN`;
   else if (G.leaksOpen>0)   msg = `${G.leaksOpen} LEAK${G.leaksOpen===1?'':'S'} LEFT \u2014 FOLLOW THE WET FLOOR`;
   else                      msg = 'ALL SEALED \u2014 BACK TO THE DOOR';
   hudSet(el, 'prompt', 'text', msg);
   hudFlag(el, 'promptOn', 'on', true);
+}
+
+/* True when the plumber is standing on the door tile (1.25 tiles, matching
+   the hold distance in sim/door.js), so a door in a one-tile alcove still
+   counts without pixel precision. */
+function atDoor(){
+  if (!G.plumber || !G.exitTiles) return false;
+  for (const e of G.exitTiles){
+    if (Math.hypot(e.x+0.5-G.plumber.x, e.y+0.5-G.plumber.y) < 1.25) return true;
+  }
+  return false;
 }
 
 // The life pips as HTML: one dot per life in the run, with spent ones marked "gone".
