@@ -119,11 +119,11 @@
 }
 .order-head .meta b{ color:#8fc4cc; }
 
-.order .field{ margin:12px 0; }
+.order .field{ margin:12px 0; font-size: 16px}
 .order .field span{
-  font-size:12px; font-weight: 900; line-height:2; letter-spacing:.22em; margin-bottom:4px; color:var(--yellow);
+  font-weight: 900; line-height:2; letter-spacing:.22em; margin-bottom:4px; color:var(--yellow);
 }
-.order .field b{ font-size:15px; line-height:1.5; font-weight:400; color:var(--yellow-dim); }
+.order .field b{ line-height:1.5; font-weight:400; color:var(--yellow-dim); }
 
 /* Controls list: the main reason the work order screen exists, so the
    text is kept large enough to read. */
@@ -138,7 +138,7 @@
 /* Notes use an empty checkbox character as the bullet. */
 .order .notes{ margin:8px 0 0; padding:0; list-style:none; }
 .order .notes li{
-  font-size:15px; line-height:1.6; color:var(--yellow-dim); padding-left:18px; position:relative;
+  line-height:1.6; color:var(--yellow-dim); padding-left:18px; position:relative;
 }
 .order .notes li::before{ content:"\2610"; position:absolute; left:0; color:var(--yellow-deep); }
 .order .notes b{ color:var(--yellow); font-weight:400; }

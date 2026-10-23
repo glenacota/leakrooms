@@ -305,7 +305,7 @@ test('the pause screen shows the work order with the run written on it', () => {
   const body = pause.slice(pause.indexOf('data-pause-page="briefing"'),
                            pause.indexOf('class="order-side"'));
   t.assert(/Scope of work/i.test(body), 'the briefing page has no scope of work');
-  t.assert(body.includes('Locate and repair all leaks on 5 floors'),
+  t.assert(body.includes('Seal every leak. Be back at the door in'),
     'the briefing page dropped the splash scope sentence');
   const notesOf = (s)=> [...s.matchAll(/<li>([\s\S]*?)<\/li>/g)].map(m=>m[1].trim());
   const splashNotes = notesOf(order);
