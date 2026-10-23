@@ -257,9 +257,9 @@ export const WET_EDGE = WET_DRAW*0.8;   // below this the simulation stops updat
    be able to nudge a number that decides what a lifeform hears. */
 export const NOISE = Object.freeze({
   /* What the player makes. */
-  WALK: 0.22,          // a dry step; the quiet end of the contract
+  WALK: 0.20,          // a dry step; the quiet end of the contract
   WADE: 0.30,          // a wet step — louder, still under LOUD on purpose
-  SPRINT: 0.72,        // 3.3 times a walk, and well above LOUD
+  SPRINT: 0.7,        // 3.5 times a walk, and well above LOUD
   REPAIR: 0.85,        // the wrench: the loud decision, above LOUD
   BUMP_SPRINT: 0.55,   // walked into a wall while sprinting
   BUMP_WALK: 0.3,      // walked into a wall

@@ -53,13 +53,12 @@ test('the splash chain walks the riser, then the work order, then the run', () =
          'the controls summary body text is under 14px');
   t.assert(px(/\.controls-big b\{[^}]*font-size:(\d+)px/)>=14,
          'the control keys are under 14px');
-  t.assert(px(/\.order \.field b\{[^}]*font-size:(\d+)px/)>=15,
-         'the work order body text is under 15px');
+  t.assert(px(/\.order \.field\s*\{[^}]*?font-size:(\d+)px/)>=16,
+         'the work order body text is under 16px');
   t.assert(px(/\.order-head h2\{[^}]*font-size:(\d+)px/)>=20,
          'the work order title is under 20px');
   console.log(`  work order type: title ${px(/\.order-head h2\{[^}]*font-size:(\d+)px/)}px, `+
-              `body ${px(/\.order \.field b\{[^}]*font-size:(\d+)px/)}px, controls ${px(/\.controls-big b\{[^}]*font-size:(\d+)px/)}px`);
-
+            `body ${px(/\.order \.field\s*\{[^}]*?font-size:(\d+)px/)}px, controls ${px(/\.controls-big b\{[^}]*font-size:(\d+)px/)}px`);
   /* The chain itself, driven through the real key handler rather than the API. */
   const keydown = global.window._h.keydown;
   t.assert(typeof keydown==='function', 'no keydown handler was registered');

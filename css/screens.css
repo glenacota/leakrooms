@@ -63,15 +63,16 @@
    line up with the player. */
 #prompt{
   position:absolute;
-  left:0; right:0;
-  bottom:16%;
+  left:0; right:0; bottom: 0;
   text-align:center;
-  font-size:13px;
+  font-size:15px;
   letter-spacing:.22em;
   text-transform:uppercase;
   opacity:0;
   transition:opacity .3s ease;
   pointer-events:none;
+  padding: 20px 0;
+  background: linear-gradient(to top, rgba(0,0,0,1) 40%, transparent);
   text-shadow:0 0 12px rgba(0,0,0,.9);
 }
 #prompt.on{ opacity:.9; }
@@ -119,7 +120,7 @@
 }
 .order-head .meta b{ color:#8fc4cc; }
 
-.order .field{ margin:12px 0; font-size: 16px}
+.order .field { margin:12px 0; font-size:16px}
 .order .field span{
   font-weight: 900; line-height:2; letter-spacing:.22em; margin-bottom:4px; color:var(--yellow);
 }

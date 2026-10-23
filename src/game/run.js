@@ -140,7 +140,7 @@ export function lose(cause){
   emit('dead', { lives, cause });
 }
 
-export function caught(){ lose('TAPE DAMAGED'); }
+export function caught(){ lose('IT CAUGHT YOU'); }
 
 // Running out of time costs a life too. A deadline that cannot kill you is only advice.
 export function outOfTime(){ lose('THE CLOCK RAN OUT'); }

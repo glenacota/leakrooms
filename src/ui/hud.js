@@ -121,11 +121,11 @@ export function setPrompt(){
   let working = 0;
   for (const L of G.leaks) if (!L.fixed && L.repair > 0.02) working++;
   let msg;
-  if (working)              msg = 'wrenching \u2014 DO NOT MOVE';
-  else if (G.atLeak)        msg = `hold still \u2014 ${REPAIR_TIME} seconds at the pipe`;
-  else if (G.descend>0.02)  msg = 'cycling door \u2014 do not stop';
-  else if (G.leaksOpen>0)   msg = `${G.leaksOpen} PIPE${G.leaksOpen===1?'':'S'} LEAKING \u2014 THE WATER RUNS DOWNHILL FROM THE BREAK`;
-  else                      msg = 'the door will cycle \u2014 GET BACK TO THE ONE YOU CAME IN THROUGH';
+  if (working)              msg = 'SEALING \u2014 DO NOT MOVE';
+  else if (G.atLeak)        msg = `STAND STILL \u2014 ${REPAIR_TIME} SECONDS`;
+  else if (G.descend>0.02)  msg = 'STAY AT THE DOOR';
+  else if (G.leaksOpen>0)   msg = `${G.leaksOpen} LEAK${G.leaksOpen===1?'':'S'} LEFT \u2014 FOLLOW THE WET FLOOR`;
+  else                      msg = 'ALL SEALED \u2014 BACK TO THE DOOR';
   hudSet(el, 'prompt', 'text', msg);
   hudFlag(el, 'promptOn', 'on', true);
 }
