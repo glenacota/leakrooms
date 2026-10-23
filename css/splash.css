@@ -102,11 +102,19 @@
   text-shadow:0 0 26px rgba(228,230,168,.28);
   font-weight: 900;
 }
+.screen.splash h2{
+  font-size:22px;
+  color:#8fc4cc;
+  margin-bottom:50px;
+  text-shadow:0 0 26px var(--yellow);
+  font-weight: 500;
+  /* text-transform: uppercase; */
+}
 .splash-plate .go{
   margin:34px 0 0; font-size:14px; letter-spacing:.3em; font-weight: 900;
   animation:pulse 2.2s ease-in-out infinite;
 }
-.splash-plate .go b{ color:var(--ink); background:var(--yellow); padding:2px 8px; font-weight:400; }
+.splash-plate .go b{ color:var(--ink); background:var(--yellow); font-weight: 900; padding:2px 8px; }
 @keyframes pulse{ 50%{ opacity:.35 } }
 
 /* ---------- Work order and pause ticket frame ---------- */
