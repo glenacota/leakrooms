@@ -86,7 +86,7 @@ export function bindDom(){
      the second press is the one that ends the run. */
   on('reset', armed => {
     const b = document.getElementById('btn-reset-run');
-    if (b) b.textContent = armed ? 'TAP AGAIN — LOSES THE RUN' : 'RESET GAME';
+    if (b) b.textContent = armed ? 'TAP AGAIN — LOSES THE RUN' : 'RESTART RUN';
   });
   /* A new building means a new plan behind the title. The run says so; the
      renderer paints it. */

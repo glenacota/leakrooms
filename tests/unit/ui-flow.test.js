@@ -404,24 +404,24 @@ test('the pause screen shows the work order with the run written on it', () => {
   /* Leave the store as the next test expects to find it. */
   A.setOption('difficulty','normal');
   document.getElementById('btn-start').click();
-  /* RESET GAME is the only control on the ticket that ends a run, so it arms
+  /* RESTART RUN is the only control on the ticket that ends a run, so it arms
      first: the first press changes the label, the second moves the player. */
   A.togglePause();
   t.assert(A.STATE==='pause' && A.pausePage==='settings',
     'the ticket did not open on the settings page for the reset check');
   const resetBtn = els['btn-reset-run'];
-  t.assert(resetBtn, 'the pause settings have no RESET GAME button');
+  t.assert(resetBtn, 'the pause settings have no RESTART RUN button');
   const seedBefore = A.RUN_SEED;
   resetBtn.click();
-  t.assert(A.STATE==='pause', 'the first press of RESET GAME fired — it must arm first');
+  t.assert(A.STATE==='pause', 'the first press of RESTART RUN fired — it must arm first');
   t.assert(/TAP AGAIN/.test(resetBtn.textContent),
     `the armed label reads "${resetBtn.textContent}"`);
-  t.assert(A.RUN_SEED===seedBefore, 'arming RESET GAME rolled the seed — nothing should have moved');
-  t.assert(A.resetArmed, 'RESET GAME did not report itself armed');
+  t.assert(A.RUN_SEED===seedBefore, 'arming RESTART RUN rolled the seed — nothing should have moved');
+  t.assert(A.resetArmed, 'RESTART RUN did not report itself armed');
 
   /* An armed reset does not survive the player's attention moving on. */
   A.setPausePage('briefing');
-  t.assert(!A.resetArmed, 'the armed RESET GAME survived a page switch');
+  t.assert(!A.resetArmed, 'the armed RESTART RUN survived a page switch');
   t.assert(!/TAP AGAIN/.test(resetBtn.textContent),
     'the button still reads armed after the page switch');
   A.setPausePage('settings');
@@ -429,24 +429,24 @@ test('the pause screen shows the work order with the run written on it', () => {
   /* The second press is the one that fires. */
   resetBtn.click();
   resetBtn.click();
-  t.assert(A.STATE==='splash', `RESET GAME did not return to the riser (STATE=${A.STATE})`);
+  t.assert(A.STATE==='splash', `RESTART RUN did not return to the riser (STATE=${A.STATE})`);
   t.assert(!els['screen-splash'].classList.contains('hidden'),
-    'RESET GAME left the riser hidden');
-  t.assert(A.RUN_SEED!==seedBefore, 'RESET GAME kept the seed — the same building is waiting at the door');
+    'RESTART RUN left the riser hidden');
+  t.assert(A.RUN_SEED!==seedBefore, 'RESTART RUN kept the seed — the same building is waiting at the door');
   t.assert(G.floor===0 && G.leaksOpen===G.pipes && G.clock>=A.FLOOR_CLOCK,
-    'the floor after RESET GAME is not a fresh floor 0');
-  t.assert(A.lives===A.runLives, 'RESET GAME did not restore the attempts');
+    'the floor after RESTART RUN is not a fresh floor 0');
+  t.assert(A.lives===A.runLives, 'RESTART RUN did not restore the attempts');
   t.assert(!els['hud'].classList.contains('on'), 'the HUD stayed up over the riser');
 
   /* The run it starts from the riser is a full one on the same terms. */
   const termsKept = A.SETTINGS.difficulty;
   document.getElementById('btn-start').click();
-  t.assert(A.STATE==='play' && A.lives===A.runLives, 'the run after RESET GAME did not start whole');
+  t.assert(A.STATE==='play' && A.lives===A.runLives, 'the run after RESTART RUN did not start whole');
   t.assert(A.SETTINGS.difficulty===termsKept,
-    'RESET GAME wiped the stamped terms — preferences are not progress');
+    'RESTART RUN wiped the stamped terms — preferences are not progress');
 
   A.STATE='play'; A.hideAll();
-  console.log('  pause = the work order, live numbers, settings and briefing as pages of it; terms taken at the door; RESET GAME two-stage');
+  console.log('  pause = the work order, live numbers, settings and briefing as pages of it; terms taken at the door; RESTART RUN two-stage');
 }
   t.done();
 });
