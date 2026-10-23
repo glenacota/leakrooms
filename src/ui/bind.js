@@ -1,4 +1,5 @@
 import { DIFFICULTIES } from '../config/presets.js';
+import { LOUD } from '../config/constants.js';
 import { SETTINGS } from '../settings/store.js';
 import { applyDifficulty, FLOOR_CLOCK } from '../config/tuning.js';
 import { Audio_ } from '../audio/index.js';
@@ -35,6 +36,22 @@ export function applySettings(){
    facts into changes on screen, and are the only place that happens. They are
    in one function so the whole list can be read in one place, and boot()
    attaches them with a single call. */
+
+ /* First cause-and-effect lessons, tracked per run so the player hears each
+    transition once instead of being spammed. Cleared when the run returns to
+    the title screen so the next run re-teaches from scratch. */
+const announced = new Set();
+
+/* One flash the first time the player's own noise crosses LOUD, so stealth
+   has a visible "that was too loud" signal. Ticked once per frame by boot's
+   afterUpdate hook. */
+export function tickLoudFlash(){
+  if (!announced.has('LOUD') && G && G.selfNoise >= LOUD){
+    announced.add('LOUD');
+    flash('LOUD \u2014 IT CAN HEAR THAT');
+  }
+}
+
 export function bindDom(){
   on('settings:changed', key => {
     // A new water tint changes the packed water image, even though the water itself did not move.
@@ -121,8 +138,22 @@ export function bindDom(){
        gesture; the next key press calls unlock(), which always works. */
     if (STATE==='pause') Audio_.suspend();
     else if (STATE==='play') Audio_.resume();
+    /* A new run re-teaches stealth from scratch. */
+    if (STATE==='splash') announced.clear();
   });
   // The texture module subscribes to 'resize' by itself when it loads.
   on('flash', flash);
   on('sfx', (n, ...a) => Audio_[n](...a));
+  /* First time a lifeform enters each state this run, say what it means. The
+     player learns stealth by the effect their noise has, not by a tooltip. */
+  on('heard', ({ from, to })=>{
+    const msg = to === 'RISING' ? 'SOMETHING WOKE UP'
+      : to === 'SEARCH' ? 'IT HEARD THAT'
+      : to === 'HUNT' ? "IT'S COMING"
+      : null;
+    if (msg && !announced.has(to)){
+      announced.add(to);
+      flash(msg);
+    }
+  });
 }

@@ -10,7 +10,7 @@ import { resize } from './render/canvas.js';
 import { buildPatterns } from './render/textures.js';
 import { buildGlowSprite } from './render/render.js';
 import { loadSettings } from './settings/store.js';
-import { applySettings } from './ui/bind.js';
+import { applySettings, tickLoudFlash } from './ui/bind.js';
 import { buildSettingsUI, syncSettingsUI } from './ui/settings-panel.js';
 import { Audio_ } from './audio/index.js';
 import { syncAmbience } from './ui/splash.js';
@@ -113,7 +113,7 @@ export function boot(){
      whether the machine is keeping up, and `afterUpdate` refreshes the HUD and
      the prompt line after each simulation step. */
   setFrameHooks({ render, simAlpha: setSimAlpha, adaptive: adaptResolution,
-                  afterUpdate: ()=>{ updateHUD(); setPrompt(); } });
+                  afterUpdate: ()=>{ updateHUD(); setPrompt(); tickLoudFlash(); } });
 
   requestAnimationFrame(frame);
 }
