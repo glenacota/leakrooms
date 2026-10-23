@@ -61,7 +61,7 @@ console.log('[14] the radar — off by default, total while on, expensive');
     for (let i=0;i<W*W;i++) if (A.internals.maskArr[i] < 0.149) dark++;
     // specifically: a tile directly behind the character, which is the one
     // thing the cone is certain to hide when the radar is off
-    const px=Math.floor(G.player.x), py=Math.floor(G.player.y);
+    const px=Math.floor(G.plumber.x), py=Math.floor(G.plumber.y);
     for (const [dx,dy] of [[-3,0],[0,3],[3,0],[0,-3],[-6,-6],[7,5]]){
       const x=px+dx, y=py+dy;
       if (x<0||y<0||x>=W||y>=W) continue;
@@ -79,7 +79,7 @@ console.log('[14] the radar — off by default, total while on, expensive');
     /* Find a floor tile genuinely behind the character and out of its cone —
        the radar-off case has to be a real occlusion, not just "somewhere
        dark", or the assertion proves nothing. */
-    const px=Math.floor(G.player.x), py=Math.floor(G.player.y);
+    const px=Math.floor(G.plumber.x), py=Math.floor(G.plumber.y);
     let checked=0;
     for (let d=2; d<=8; d++){
       const x=px-d, y=py;
@@ -115,13 +115,13 @@ console.log('[14] the radar — off by default, total while on, expensive');
     buildFloor(1, 3131);
     /* The rule is "read iff on screen", so it is tested by PLACING the player
        rather than walking there. Driving the player in a straight line by
-       writing G.player directly fights unstick() — it shoves the player back
+       writing G.plumber directly fights unstick() — it shoves the player back
        out of every wall the line passes through — and the test ends up
        measuring the collision code. Placement tests the rule and nothing else. */
     const spotWith=(e, want)=>{
       for (let y=1;y<W-1;y++) for (let x=1;x<W-1;x++){
         if (G.grid[y*W+x]!==1) continue;
-        G.player.x=x+0.5; G.player.y=y+0.5;
+        G.plumber.x=x+0.5; G.plumber.y=y+0.5;
         if (A.onScreen(e.x+0.5, e.y+0.5) === want) return {x:x+0.5, y:y+0.5};
       }
       return null;
@@ -133,7 +133,7 @@ console.log('[14] the radar — off by default, total while on, expensive');
       // off screen: must NOT be read
       const off = spotWith(gr, false);
       if (off){
-        G.player.x=off.x; G.player.y=off.y;
+        G.plumber.x=off.x; G.plumber.y=off.y;
         G.radar=true;
         for (let i=0;i<5;i++){ G.batt=100; update(1/60); }
         if (!A.onScreen(gr.x+0.5, gr.y+0.5)){
@@ -146,7 +146,7 @@ console.log('[14] the radar — off by default, total while on, expensive');
       reset();
       const on = spotWith(gr, true);
       if (on){
-        G.player.x=on.x; G.player.y=on.y;
+        G.plumber.x=on.x; G.plumber.y=on.y;
         G.radar=true; G.batt=100;
         update(1/60);
         t.assert(gr.seen, 'a scrawl was on screen and not read by the sweep');

@@ -3,24 +3,24 @@ import { CATCH_R } from '../config/constants.js';
 
 /* The four legs, as two flat arrays: which side each leg is on, and its phase
    offset in the walk cycle. The table is constant, so it is built once here and
-   not rebuilt for every Stalker on every frame. */
-const STALKER_SIDE = [-1, 1, -1, 1];
-const STALKER_PH   = [0, Math.PI, Math.PI*0.55, Math.PI*0.55];
+   not rebuilt for every Lifeform on every frame. */
+const LIFEFORM_SIDE = [-1, 1, -1, 1];
+const LIFEFORM_PH   = [0, Math.PI, Math.PI*0.55, Math.PI*0.55];
 
-/* THE LIFEFORM: the Stalker. Four thick black legs under a small glossy body,
-   roughly TWICE the size of the avatar: the Rigger stands about a quarter of a
+/* THE LIFEFORM. Four thick black legs under a small glossy body,
+   roughly TWICE the size of the avatar: the Plumber stands about a quarter of a
    tile tall and half a tile wide, and this is about half a tile tall and three
    quarters across. It does not grow as it approaches. It is compact and simply
    already there. Its legs reach further than its body, which is why the floor is
-   clipped under it (see drawAgent): an unclipped leg over a partition reads as
+   clipped under it (see drawLifeform): an unclipped leg over a partition reads as
    walking through walls. The origin is the feet; it grows upward. */
-export function drawStalker(g, S) {
+export function drawLifeform(g, S) {
   const T = S.T, t = S.t;
   const HGT = T * 0.75;
   g.globalAlpha = Math.min(1, 0.30 + S.h * 0.70);
   g.save();
   const s = Math.sin(S.phase * TAU) * (S.gait || 0);
-  const legs = STALKER_SIDE;
+  const legs = LIFEFORM_SIDE;
 
   /* THE HIT ZONE, drawn first so the legs and body stand on it. brush() is
      fatal at CATCH_R tiles and nothing on screen said so: the legs reached
@@ -33,7 +33,7 @@ export function drawStalker(g, S) {
   g.beginPath(); g.ellipse(0, 0, T * CATCH_R, T * CATCH_R * 0.92, 0, 0, TAU); g.stroke();
 
   for (let i = 0; i < 4; i++) {
-    const side = legs[i], ph = STALKER_PH[i];
+    const side = legs[i], ph = LIFEFORM_PH[i];
     const sw = Math.sin(S.phase * TAU + ph) * (S.gait || 0);
     const footX = side * T * (0.30 + sw * 0.10);
     const footY = -HGT * 0.06 + Math.cos(S.phase * TAU + ph) * T * 0.09 * (S.gait || 0);
@@ -70,9 +70,9 @@ export function drawStalker(g, S) {
 
   /* Pops the save() at the top of this function. Every save needs its own
      restore. Canvas states are last-in first-out, so a missing one here would
-     make drawAgent's two restores pop the wrong pair, leave its floor clip
-     active, and clip the player (drawn after it) to the tiles around the
-     Stalker. The render test checks that no save outlives a frame. */
+     make drawLifeform's two restores pop the wrong pair, leave its floor clip
+     active, and clip the plumber (drawn after it) to the tiles around the
+     Lifeform. The render test checks that no save outlives a frame. */
   g.restore();
   g.globalAlpha = 1;
 }

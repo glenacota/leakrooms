@@ -5,7 +5,7 @@ import { sustainedNoise } from './noise.js';
 /**
  * Door state bundle passed by reference.
  * @typedef {{
- *   player: {x:number,y:number},
+ *   plumber: {x:number,y:number},
  *   leaksOpen: number,
  *   exitTiles: Array<{x:number,y:number,open:number,facing:string}>,
  *   descend: number,
@@ -19,7 +19,7 @@ import { sustainedNoise } from './noise.js';
  * running it is also the last decision of the level.
  *
  * It also animates the door leaf (`e.open`) from the same two facts the HUD
- * shows, so the door in the world matches what the player is doing.
+ * shows, so the door in the world matches what the plumber is doing.
  *
  * @param {DoorState} doorState
  * @param {number} dt - seconds since the last step.
@@ -27,12 +27,12 @@ import { sustainedNoise } from './noise.js';
  *   rebuilt the floor, so the frame must stop there.
  */
 export function tickDoor(doorState, dt){
-  const p = doorState.player;
+  const p = doorState.plumber;
   const leakDone = doorState.leaksOpen === 0;
   let onExit=false;
   if (leakDone){
     for (const e of doorState.exitTiles){
-      // 1.25 tiles: a door in a one-tile alcove is still reachable with the player's 0.33 collision radius, without needing pixel precision.
+      // 1.25 tiles: a door in a one-tile alcove is still reachable with the plumber's 0.33 collision radius, without needing pixel precision.
       if (Math.hypot(e.x+0.5-p.x, e.y+0.5-p.y) < 1.25){ onExit=true; break; }
     }
     if (onExit){

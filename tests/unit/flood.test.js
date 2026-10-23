@@ -40,7 +40,7 @@ test('leaks are placed on walls, stay reachable, and flood downhill', () => {
       if (blocked(L.sx+0.5, L.sy+0.5, 0.33)) unreachable++;
 
       /* and it should be a real trek, not the tile you spawn on */
-      const d = Math.hypot(L.sx+0.5-G.player.x, L.sy+0.5-G.player.y);
+      const d = Math.hypot(L.sx+0.5-G.plumber.x, L.sy+0.5-G.plumber.y);
       if (d < 8) tooClose++;
     }
   }

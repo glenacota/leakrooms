@@ -62,7 +62,7 @@ export function bindDom(){
     el('clear-clock').textContent = clockText(clearCard.clock);
     el('clear-floor').textContent  = clearCard.floor+1;
     el('clear-leaks').textContent  = clearCard.leaks;
-    el('clear-forms').textContent  = clearCard.forms;
+    el('clear-forms').textContent  = clearCard.lifeforms;
     el('clear-sub').textContent =
       clearCard.clock >= FLOOR_CLOCK*0.34 ? 'GOOD WORK. MANAGEMENT NOTICES.'
                                         : 'SEALED. MANAGEMENT HAS NO COMMENT.';

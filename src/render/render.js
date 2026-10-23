@@ -46,7 +46,7 @@ export { buildGlowSprite } from './passes/lighting.js';
 export function render(t){
     if (!G) return;
     syncImages();
-    const p=G.player;
+    const p=G.plumber;
 
     /* The camera eases toward the player with a time constant against the wall
        clock, so it feels the same at any frame rate. A fixed fraction per frame

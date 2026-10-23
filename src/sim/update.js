@@ -3,11 +3,11 @@ import { tickDoor } from './door.js';
 import { tickFlood } from './flood.js';
 import { tickLeakNoise, tickRepair } from './leaks.js';
 import { NOISE_FS } from '../config/constants.js';
-import { tickAgents } from './agents.js';
+import { tickLifeforms } from './lifeforms.js';
 import { tickClock } from './clock.js';
 import { combineMask, fadeRoomLight, scopeRoomLight, smoothMask, traceViewCone, wantVision } from './vision.js';
 import { tickRadarReveal } from './radar.js';
-import { tickBattery, tickMovement } from './player.js';
+import { tickBattery, tickMovement } from './plumber.js';
 
 /* The mix. Sends the audio levels for this frame: the lifeform drone, the noise
    bed (the HUD's noise bar, so the speakers and the meter agree), and the leak
@@ -51,17 +51,17 @@ export function update(state, dt){
      It is written every step and not worked out later, because collision can
      refuse a move, and `prev` has to be the position that was really simulated
      from. */
-  if (state.player){ state.player.px = state.player.x; state.player.py = state.player.y; }
-  for (const a of state.agents){ a.px = a.x; a.py = a.y; }
+  if (state.plumber){ state.plumber.px = state.plumber.x; state.plumber.py = state.plumber.y; }
+  for (const lf of state.lifeforms){ lf.px = lf.x; lf.py = lf.y; }
   if (!tickClock(state, dt)) return;
-  tickBattery(state, state.player, state.batteries, dt);
-  const mv = tickMovement(state.player, state, state.grid, state.batteries, state, dt);
-  state.wet = mv.wet;                  // the tile the player is standing on now
+  tickBattery(state, state.plumber, state.batteries, dt);
+  const mv = tickMovement(state.plumber, state, state.grid, state.batteries, state, dt);
+  state.wet = mv.wet;                  // the tile the plumber is standing on now
 
   /* Room-scoped light. It runs AFTER movement, so the room you just walked into
      lights up this frame. Run before movement, it would lag a frame behind and
      look like the lights chasing you. */
-  scopeRoomLight(state, state.player, state.radar, dt, false);
+  scopeRoomLight(state, state.plumber, state.radar, dt, false);
   fadeRoomLight(state, dt);
   /* Retrace the cone on any movement, then ease the mask toward it. Both halves
      matter: retracing alone still steps a tile at a time, and easing alone
@@ -71,7 +71,7 @@ export function update(state, dt){
      left alone on purpose: it is pending work, so the first frame after vision
      comes back recombines whatever the crossfade moved in the meantime. */
   if (wantVision){
-    if (traceViewCone(state, state.player, state.radar, false) || state.scopeDirty){ combineMask(state, state.player, state.radar); state.scopeDirty = false; }
+    if (traceViewCone(state, state.plumber, state.radar, false) || state.scopeDirty){ combineMask(state, state.plumber, state.radar); state.scopeDirty = false; }
     if (smoothMask(state, dt)) if (state) state.dirty.mask = true;
   }
 
@@ -81,7 +81,7 @@ export function update(state, dt){
   tickLeakNoise(state, dt);
   tickRepair(state, dt, mv.moving, mv.bumped);
   if (state.ended) return;
-  tickAgents(state, dt);
+  tickLifeforms(state, dt);
   /* Once the run has ended, everything below belongs to a run that no longer
      exists. The door is the dangerous one: if you were caught on the threshold it
      would still cycle and build the next floor, so dying at your own front door

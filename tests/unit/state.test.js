@@ -18,7 +18,7 @@ test('a built floor exposes exactly the state G owns', () => {
     'regionAdj', 'regionCount', 'visRegion', 'visStep', 'visFadeT', 'coneX', 'coneY', 'coneFace',
     'coneRadar', 'scopeDirty', 'wetArr', 'waterDist', 'wetByDist', 'wetFront', 'wetMaxDist',
     'wetSum', 'wetEdgeD', 'wetIndexAtDist', 'wetCv', 'wetCtx', 'wetImg', 'ended', 'arng',
-    'dirty', 'agents', 'player', 'batt', 'radar', 'radarRattleT', 'noise', 'noisePeak',
+    'dirty', 'lifeforms', 'plumber', 'batt', 'radar', 'radarRattleT', 'noise', 'noisePeak',
     'selfNoise', 'ambientNoise', 'descend', 'clock', 'time', 'seenBy', 'nearest', 'stat',
     'wetFloor', 'wet', 'floodCover', 'atLeak', 'leakPower', 'leakTotal', 'leakDist', 'gfx',
   ]);

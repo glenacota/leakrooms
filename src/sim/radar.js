@@ -6,7 +6,7 @@ import { onScreen } from './vision.js';
  * @typedef {{
  *   radar: boolean,
  *   graffiti: Array<{x:number,y:number,text:string,seen:boolean}>,
- *   player: {x:number,y:number},
+ *   plumber: {x:number,y:number},
  * }} RadarState
  */
 
@@ -23,7 +23,7 @@ export function tickRadarReveal(radarState){
   if (!radarState.radar) return;
   for (const gr of radarState.graffiti){
     if (gr.seen) continue;
-    if (!onScreen(gr.x+0.5, gr.y+0.5, radarState.player)) continue;
+    if (!onScreen(gr.x+0.5, gr.y+0.5, radarState.plumber)) continue;
     gr.seen=true; emit('flash', gr.text);
   }
 }

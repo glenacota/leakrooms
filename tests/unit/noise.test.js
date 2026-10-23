@@ -86,7 +86,7 @@ test('the noise meter uses the scale the game actually produces', () => {
         if (G.grid[ny*W+nx]===1 && !A.leakReach(nx+0.5, ny+0.5)){ spot={x:nx+0.5,y:ny+0.5}; break; }
       }
     t.assert(spot, 'no walkable tile outside repair reach near the pipe on this floor');
-    G.player.x = spot.x; G.player.y = spot.y;
+    G.plumber.x = spot.x; G.plumber.y = spot.y;
     keys['d']=keys['w']=keys['a']=keys['s']=false; keys['shift']=false;
     for (let i=0;i<180;i++) update(1/60);
     A.updateHUD();
@@ -106,7 +106,7 @@ test('the noise meter uses the scale the game actually produces', () => {
     A.updateHUD();
     /* wet boots are louder than dry ones and this spot may be flooded, so compare
        against the step power the movement stage itself chose */
-    const stepPower = A.wetAt(G.player.x, G.player.y) > 0.25 ? 0.30 : 0.22;
+    const stepPower = A.wetAt(G.plumber.x, G.plumber.y) > 0.25 ? 0.30 : 0.22;
     near(G.selfNoise, stepPower, 'your own noise after twenty frames of walking');
     keys['d'] = false;
     for (let i=0;i<40;i++) update(1/60);          // 0.66s of decay at 1.55/s
@@ -196,9 +196,9 @@ test('the noise meter uses the scale the game actually produces', () => {
       const dd = Math.hypot(x+0.5-spot.x, y+0.5-spot.y);
       if (dd > far.d) far = {x:x+0.5, y:y+0.5, d:dd};
     }
-    G.player.x = far.x; G.player.y = far.y;
+    G.plumber.x = far.x; G.plumber.y = far.y;
 
-    const a = G.agents[0];
+    const a = G.lifeforms[0];
     a.x = spot.x; a.y = spot.y; a.state = 'WALK'; a.born = 0; a.rise = 1; a.t = 1;
     a.target = {x:spot.x, y:spot.y};
     update(1/60);
@@ -261,11 +261,11 @@ test('walls muffle a sound, and a sprint still crosses one', () => {
   };
 
   const put = (spot, state) => {
-    G.agents = [{
+    G.lifeforms = [{
       x: spot.x, y: spot.y, state, t:0, rise: state==='DORMANT'?0:1,
       target:null, face:0, wakeCd:0, stepT:0, born:0,
     }];
-    return G.agents[0];
+    return G.lifeforms[0];
   };
 
   /* Search a few seeds for a floor with the geometry to ask this in. A BSP maze
@@ -339,9 +339,9 @@ test('a bump counts once per contact, for both sprint and walk', () => {
   }
   t.assert(spot, 'no wall to bump into on this floor');
 
-  G.player.x = spot.x; G.player.y = spot.y; G.player.face = spot.face;
-  G.player.px = spot.x; G.player.py = spot.y;
-  G.player.bumpedLastFrame = false;
+  G.plumber.x = spot.x; G.plumber.y = spot.y; G.plumber.face = spot.face;
+  G.plumber.px = spot.x; G.plumber.py = spot.y;
+  G.plumber.bumpedLastFrame = false;
 
   /* Sprint into the wall for 60 frames. */
   keys['d'] = true; keys['shift'] = true;
@@ -511,7 +511,7 @@ test('hunter retargets only to loud or player sounds, not quiet pipes', () => {
     x: hunterX, y: hunterY, state: 'HUNT', t: 0, rise: 1,
     target: {x: hunterX, y: hunterY}, face: 0, wakeCd: 0, stepT: 0, born: 0,
   };
-  G.agents = [hunter];
+  G.lifeforms = [hunter];
 
   /* Pipe noise is LEAK_NOISE_BASE + LEAK_NOISE_GAIN * flood. It stays < LOUD. */
   const pipePower = G.leakPower; // ~0.19, well below LOUD (0.5)
@@ -559,7 +559,7 @@ test('hunter retargets only to loud or player sounds, not quiet pipes', () => {
     x: hunterX, y: hunterY, state: 'WALK', t: 0, rise: 1,
     target: null, face: 0, wakeCd: 0, stepT: 0, born: 0,
   };
-  G.agents = [walker];
+  G.lifeforms = [walker];
   A.sustainedNoise(pipePower, pipeX, pipeY, false);
   t.assert(walker.state === 'SEARCH', 'walker near quiet pipe goes SEARCH');
 
@@ -675,14 +675,14 @@ test('heard event emits on state change only', () => {
       x: spot.x, y: spot.y, state: 'WALK', t: 0, rise: 1,
       target: null, face: 0, wakeCd: 0, stepT: 0, born: 0,
     };
-    G.agents = [walker];
-    G.player.x = spot.x + 2; G.player.y = spot.y; // nearby
+    G.lifeforms = [walker];
+    G.plumber.x = spot.x + 2; G.plumber.y = spot.y; // nearby
 
     const heard = [];
     const unsub = on('heard', (e) => heard.push(e));
 
     /* First quiet sound (WALK power) -> WALK -> SEARCH. */
-    A.emitNoise(A.NOISE.WALK, G.player.x, G.player.y, true);
+    A.emitNoise(A.NOISE.WALK, G.plumber.x, G.plumber.y, true);
     t.assert(walker.state === 'SEARCH', 'walker goes SEARCH');
     t.assert(heard.length === 1, 'one heard event emitted');
     t.assert(heard[0].from === 'WALK' && heard[0].to === 'SEARCH',
@@ -691,7 +691,7 @@ test('heard event emits on state change only', () => {
       `distance ${heard[0].dist.toFixed(2)} is reasonable`);
 
     /* Second identical sound while in SEARCH -> no new event. */
-    A.emitNoise(A.NOISE.WALK, G.player.x, G.player.y, true);
+    A.emitNoise(A.NOISE.WALK, G.plumber.x, G.plumber.y, true);
     t.assert(walker.state === 'SEARCH', 'walker stays SEARCH');
     t.assert(heard.length === 1, 'no second heard event for same state');
 
@@ -701,13 +701,13 @@ test('heard event emits on state change only', () => {
       x: spot.x, y: spot.y, state: 'DORMANT', t: 0, rise: 0,
       target: null, face: 0, wakeCd: 0, stepT: 0, born: 0,
     };
-    G.agents = [dormant];
-    G.player.x = spot.x + 1; G.player.y = spot.y;
+    G.lifeforms = [dormant];
+    G.plumber.x = spot.x + 1; G.plumber.y = spot.y;
 
     const heard2 = [];
     const unsub2 = on('heard', (e) => heard2.push(e));
 
-    A.emitNoise(A.NOISE.REPAIR, G.player.x, G.player.y, true);
+    A.emitNoise(A.NOISE.REPAIR, G.plumber.x, G.plumber.y, true);
     t.assert(dormant.state === 'RISING', 'dormant coil rises');
     t.assert(heard2.length === 1, 'one heard event for DORMANT -> RISING');
     t.assert(heard2[0].from === 'DORMANT' && heard2[0].to === 'RISING',
@@ -763,9 +763,9 @@ test('wake rattle volume scales with distance to player', () => {
 
     /* Near wake: dormant coil at ~2 tiles from player. */
     const near = { x: nearSpot.x, y: nearSpot.y, state: 'DORMANT', t: 0, rise: 0, target: null, face: 0, wakeCd: 0, stepT: 0, born: 0 };
-    G.agents = [near];
-    G.player.x = nearSpot.x + 2; G.player.y = nearSpot.y;
-    A.emitNoise(A.NOISE.REPAIR, G.player.x, G.player.y, true);
+    G.lifeforms = [near];
+    G.plumber.x = nearSpot.x + 2; G.plumber.y = nearSpot.y;
+    A.emitNoise(A.NOISE.REPAIR, G.plumber.x, G.plumber.y, true);
     t.assert(near.state === 'RISING', 'near coil rises');
     t.assert(sfx.length === 1, 'near wake emits rattle');
     const volNear = sfx[0];
@@ -775,9 +775,9 @@ test('wake rattle volume scales with distance to player', () => {
 
     /* Far wake: dormant coil at ~8-12 tiles from player, within hearing range. */
     const far = { x: farSpot.x, y: farSpot.y, state: 'DORMANT', t: 0, rise: 0, target: null, face: 0, wakeCd: 0, stepT: 0, born: 0 };
-    G.agents = [far];
-    G.player.x = 10.5; G.player.y = 10.5;
-    A.emitNoise(A.NOISE.REPAIR, G.player.x, G.player.y, true);
+    G.lifeforms = [far];
+    G.plumber.x = 10.5; G.plumber.y = 10.5;
+    A.emitNoise(A.NOISE.REPAIR, G.plumber.x, G.plumber.y, true);
     t.assert(far.state === 'RISING', 'far coil rises');
     t.assert(sfx.length === 1, 'far wake emits rattle');
     const volFar = sfx[0];
@@ -786,9 +786,9 @@ test('wake rattle volume scales with distance to player', () => {
     /* Born coil (first wake) uses baseVol=1 instead of 0.55. */
     sfx.length = 0;
     const born = { x: nearSpot.x, y: nearSpot.y, state: 'DORMANT', t: 0, rise: 0, target: null, face: 0, wakeCd: 0, stepT: 0, born: 1 };
-    G.agents = [born];
-    G.player.x = nearSpot.x + 2; G.player.y = nearSpot.y;
-    A.emitNoise(A.NOISE.REPAIR, G.player.x, G.player.y, true);
+    G.lifeforms = [born];
+    G.plumber.x = nearSpot.x + 2; G.plumber.y = nearSpot.y;
+    A.emitNoise(A.NOISE.REPAIR, G.plumber.x, G.plumber.y, true);
     t.assert(born.state === 'RISING', 'born coil rises');
     t.assert(sfx.length === 1, 'born wake emits rattle');
     const volBorn = sfx[0];

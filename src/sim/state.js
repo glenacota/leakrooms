@@ -1,7 +1,7 @@
 import { createLevelState } from './LevelState.js';
 import { createLeakState } from './LeakState.js';
-import { createPlayerState } from './PlayerState.js';
-import { createAgentState } from './AgentState.js';
+import { createPlumberState } from './PlumberState.js';
+import { createLifeformState } from './LifeformState.js';
 import { createFloodState } from './FloodState.js';
 import { createVisionState } from './VisionState.js';
 import { createNoiseState } from './NoiseState.js';
@@ -34,11 +34,11 @@ const OWNER = {
   /* LeakState */
   leaks: 'leak', leaksOpen: 'leak', pipes: 'leak',
 
-  /* PlayerState */
-  player: 'player', batt: 'player', radar: 'player', radarRattleT: 'player',
+  /* PlumberState */
+  plumber: 'plumber', batt: 'plumber', radar: 'plumber', radarRattleT: 'plumber',
 
-  /* AgentState */
-  agents: 'agent', seenBy: 'agent', nearest: 'agent', arng: 'agent',
+  /* LifeformState */
+  lifeforms: 'lifeform', seenBy: 'lifeform', nearest: 'lifeform', arng: 'lifeform',
 
   /* FloodState */
   wetArr: 'flood', waterDist: 'flood', wetByDist: 'flood', wetFront: 'flood',
@@ -74,7 +74,7 @@ const KEY_ORDER = [
   'regionAdj', 'regionCount', 'visRegion', 'visStep', 'visFadeT', 'coneX', 'coneY', 'coneFace',
   'coneRadar', 'scopeDirty', 'wetArr', 'waterDist', 'wetByDist', 'wetFront', 'wetMaxDist',
   'wetSum', 'wetEdgeD', 'wetIndexAtDist', 'wetCv', 'wetCtx', 'wetImg', 'ended', 'arng',
-  'dirty', 'agents', 'player', 'batt', 'radar', 'radarRattleT', 'noise', 'noisePeak',
+  'dirty', 'lifeforms', 'plumber', 'batt', 'radar', 'radarRattleT', 'noise', 'noisePeak',
   'selfNoise', 'ambientNoise', 'descend', 'clock', 'time', 'seenBy', 'nearest', 'stat',
   'wetFloor', 'wet', 'floodCover', 'atLeak', 'leakPower', 'leakTotal', 'leakDist', 'gfx',
 ];
@@ -157,8 +157,8 @@ export const G = new Proxy({}, {
 export function createGameState(level, floorNum, seed){
   const levelState = createLevelState(level, floorNum, seed);
   const leakState = createLeakState(level);
-  const playerState = createPlayerState(level);
-  const agentState = createAgentState(level, seed, floorNum);
+  const plumberState = createPlumberState(level);
+  const lifeformState = createLifeformState(level, seed, floorNum);
   const floodState = createFloodState();
   const visionState = createVisionState();
   const noiseState = createNoiseState();
@@ -168,8 +168,8 @@ export function createGameState(level, floorNum, seed){
   return {
     level: levelState,
     leak: leakState,
-    player: playerState,
-    agent: agentState,
+    plumber: plumberState,
+    lifeform: lifeformState,
     flood: floodState,
     vision: visionState,
     noise: noiseState,

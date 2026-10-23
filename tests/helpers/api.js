@@ -6,8 +6,9 @@ import { DIFFICULTIES, WATER_TINTS } from '../../src/config/presets.js';
 import { SETTINGS_DEFAULTS, SETTINGS_SCHEMA, SETTINGS_KEY, settingsValid } from '../../src/settings/schema.js';
 import { FLOORS, FLOOR_CLOCK, REPAIR_TIME, HUNT_BASE, HUNT_STEP, applyDifficulty } from '../../src/config/tuning.js';
 import { Audio_ } from '../../src/audio/index.js';
-import { drawRigger } from '../../src/cast/rigger.js';
-import { drawStalker } from '../../src/cast/stalker.js';
+import { drawPlumber, drawLifeform, drawDoor, ENT } from '../../src/render/entities.js';
+import { drawPlumber as drawPlumberSprite } from '../../src/cast/plumber.js';
+import { drawLifeform as drawLifeformSprite } from '../../src/cast/lifeform.js';
 import { TAU } from '../../src/cast/primitives.js';
 import { cvs, ctx, VW, VH, DPR, SCALE, resize, renderScaleIdx, setRenderScaleIdx } from '../../src/render/canvas.js';
 import { carpetPat, wallPat, ceilPat, scanPat, grainFull, buildPatterns, buildGrainFull } from '../../src/render/textures.js';
@@ -16,23 +17,23 @@ import { keys } from '../../src/sim/keys.js';
 import { view } from '../../src/util/view.js';
 import { makeLos } from '../../src/util/grid.js';
 import { createCollision } from '../../src/sim/collision.js';
-import { hearRadius, alertAgents, emitNoise, sustainedNoise, brush, alert, wallSteps, MAX_WALL_STEPS } from '../../src/sim/noise.js';
+import { hearRadius, alertLifeforms, emitNoise, sustainedNoise, brush, alert, wallSteps, MAX_WALL_STEPS } from '../../src/sim/noise.js';
 import { distanceField } from '../../src/sim/path.js';
 import { initFlood, seedSplash, wetAt, tickFlood, floodCover } from '../../src/sim/flood.js';
-import { tickBattery, tickMovement } from '../../src/sim/player.js';
+import { tickBattery, tickMovement } from '../../src/sim/plumber.js';
 import { takeWetBox } from '../../src/render/repaint.js';
 import { tickLeakNoise, tickRepair, sealLeak, leakAt, leakReach } from '../../src/sim/leaks.js';
 import { tickClock } from '../../src/sim/clock.js';
 import { tickDoor } from '../../src/sim/door.js';
 import { tickRadarReveal } from '../../src/sim/radar.js';
-import { tickAgents, updateAgent, randomFloorNear } from '../../src/sim/agents.js';
+import { tickLifeforms, updateLifeform, randomFloorNear } from '../../src/sim/lifeforms.js';
 import { computeLightArr } from '../../src/sim/lightmap.js';
 import {
   wantVision, setVision, castFan, traceViewCone, combineMask, scopeRoomLight,
   fadeRoomLight, smoothMask, snapMask, fixtureVis, onScreen,
 } from '../../src/sim/vision.js';
 import { genLevel } from '../../src/sim/level.js';
-import { spawnAgents } from '../../src/sim/spawn.js';
+import { spawnLifeforms } from '../../src/sim/spawn.js';
 import { update, tickAudio } from '../../src/sim/update.js';
 import { buildFloor } from '../../src/game/floor.js';
 import {
@@ -56,7 +57,6 @@ import { attachFloorImages } from '../../src/render/bake.js';
 import { packMask, packWet, setPixels } from '../../src/render/pack.js';
 import { paintSplashPlan } from '../../src/render/splash-plan.js';
 import { buildGlowSprite, render, setSimAlpha } from '../../src/render/render.js';
-import { ENT, drawAgent, drawDoor, drawPlayer } from '../../src/render/entities.js';
 import { SETTINGS, loadSettings, saveSettings, resetSettings, setOption } from '../../src/settings/store.js';
 import { on, emit } from '../../src/util/events.js';
 import * as _C from '../../src/config/constants.js';
@@ -86,7 +86,7 @@ get VIEW_FADE_FAR(){ return VIEW_FADE_FAR; },
 get VIEW_HALF(){ return VIEW_HALF; },
 get VIEW_RANGE(){ return VIEW_RANGE; },
 get RADAR_DRAIN(){ return RADAR_DRAIN; },
-buildFloor, genLevel, render, emitNoise, setPrompt, drawPlayer,
+buildFloor, genLevel, render, emitNoise, setPrompt, drawPlumber,
 frame,
 updateReal: (dt) => { return update(G, dt); },
 /* Every test that is not about the clock holds it open.
@@ -98,16 +98,16 @@ update(dt){ if (G) G.clock = 1e6; return update(G, dt); },
 scopeRoomLight, traceViewCone, packMask, snapMask, combineMask,
 smoothMask, onScreen, setHeadless,
 tickBattery, tickMovement,
-tickAgents, updateAgent, randomFloorNear,
+tickLifeforms, updateLifeform, randomFloorNear,
 tickClock,
 tickDoor,
 tickRadarReveal,
-emitNoise, sustainedNoise, alertAgents, brush, alert,
+emitNoise, sustainedNoise, alertLifeforms, brush, alert,
 get STATE(){ return STATE; },
 set STATE(v){ setState(v); },
 get floorIdx(){ return floorIdx; }, set floorIdx(v){ setFloorIdx(v); },
 get keys(){ return keys; },
-get HAND_OFF(){ return HAND_OFF; }, get R(){ return R; }, drawAgent,
+get HAND_OFF(){ return HAND_OFF; }, get R(){ return R; }, drawLifeform,
 get cvs(){ return cvs; }, get ctxRef(){ return ctx; }, get SCALE(){ return SCALE; },
 get TILE(){ return TILE; },
 get WET_DRAW(){ return WET_DRAW; },
@@ -170,37 +170,38 @@ set runTime(v){ setRunTime(v); },
 get runLives(){ return runLives; },
 get runStat(){ return runStat; },
 /* the cast: the avatar's rig and the thing hunting it */
-drawRigger, drawStalker, drawDoor, ENT,
+drawPlumber, drawLifeform, drawDoor, ENT,
+drawPlumberSprite, drawLifeformSprite,
 /* Collision helpers for tests - create from current G.grid */
 blocked(x, y, r){ return createCollision(G.grid).blocked(x, y, r); },
 moveEnt(e, dx, dy, r){ return createCollision(G.grid).moveEnt(e, dx, dy, r); },
 regionAt(x, y){ const tx=Math.floor(x), ty=Math.floor(y); if (tx<0||ty<0||tx>=76||ty>=76) return -1; return G.regionOf[ty*76+tx]; },
 
 /* Flood wrappers - G serves as FloodState */
-initFlood: () => initFlood(G, G.player),
+initFlood: () => initFlood(G, G.plumber),
 seedSplash: (wx, wy, amount) => seedSplash(G, wx, wy, amount),
 wetAt: (wx, wy) => wetAt(G, wx, wy),
 tickFlood: (dt) => tickFlood(G, dt),
 floodCover: () => floodCover(G),
 
 /* Vision wrappers - G serves as VisionState */
-traceViewCone: (force) => { /* HAND_OFF */ return traceViewCone(G, G.player, G.radar, force); },
-combineMask: () => combineMask(G, G.player, G.radar),
-scopeRoomLight: (dt, instant) => scopeRoomLight(G, G.player, G.radar, dt, instant),
+traceViewCone: (force) => { /* HAND_OFF */ return traceViewCone(G, G.plumber, G.radar, force); },
+combineMask: () => combineMask(G, G.plumber, G.radar),
+scopeRoomLight: (dt, instant) => scopeRoomLight(G, G.plumber, G.radar, dt, instant),
 fadeRoomLight: (dt) => fadeRoomLight(G, dt),
 smoothMask: (dt) => smoothMask(G, dt),
-snapMask: () => snapMask(G, G.player, G.radar),
+snapMask: () => snapMask(G, G.plumber, G.radar),
 fixtureVis: (f) => fixtureVis(f, G),
-onScreen: (wx, wy) => onScreen(wx, wy, G.player),
+onScreen: (wx, wy) => onScreen(wx, wy, G.plumber),
 castFan: (out, ox, oy, facing, halfAngle, range, rays, gain, fall) => castFan(out, ox, oy, facing, halfAngle, range, rays, gain, fall, G.grid),
 
-/* Player wrappers - G serves as PlayerMetaState, G.player as PlayerState */
-tickBattery: (dt) => tickBattery(G, G.player, G.batteries, dt),
-tickMovement: (dt) => tickMovement(G.player, G, G.grid, G.batteries, G, dt),
+/* Plumber wrappers - G serves as PlumberMetaState, G.plumber as PlumberState */
+tickBattery: (dt) => tickBattery(G, G.plumber, G.batteries, dt),
+tickMovement: (dt) => tickMovement(G.plumber, G, G.grid, G.batteries, G, dt),
 
-/* Agent wrappers - G serves as AgentState */
-tickAgents: (dt) => tickAgents(G, dt),
-updateAgent: (a, dt, p) => updateAgent(G, a, dt, p),
+/* Lifeform wrappers - G serves as LifeformState */
+tickLifeforms: (dt) => tickLifeforms(G, dt),
+updateLifeform: (lf, dt, p) => updateLifeform(G, lf, dt, p),
 randomFloorNear: (x, y, rad, blocked) => randomFloorNear(G, x, y, rad, blocked),
 
 /* Clock wrappers - G serves as ClockState */
@@ -215,9 +216,9 @@ tickRadarReveal: () => tickRadarReveal(G),
 /* Noise wrappers - G serves as NoiseState */
 emitNoise: (power, x, y, mine) => emitNoise(G, power, x, y, mine),
 sustainedNoise: (power, x, y, mine) => sustainedNoise(G, power, x, y, mine),
-alertAgents: (baseR, power, x, y, mine) => alertAgents(G, baseR, power, x, y, mine),
-brush: (a, p) => brush(a, p, G),
-alert: (a, x, y, power, mine) => alert(a, x, y, power, mine),
+alertLifeforms: (baseR, power, x, y, mine) => alertLifeforms(G, baseR, power, x, y, mine),
+brush: (lf, p) => brush(lf, p, G),
+alert: (lf, x, y, power, mine) => alert(lf, x, y, power, mine),
 wallSteps: (ax, ay, x, y) => wallSteps(G.grid, ax, ay, x, y),
 MAX_WALL_STEPS,
 distanceField: (tx, ty) => distanceField(G.grid, tx, ty),

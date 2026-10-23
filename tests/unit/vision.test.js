@@ -37,7 +37,7 @@ test('light is scoped to the room you are standing in', () => {
       for (let x=r.rx;x<r.rx+r.rw;x++){
         const i=y*W+x;
         if (G.grid[i]!==1 || A.internals.regionOf[i]!==ri) continue;
-        G.player.x=x+0.5; G.player.y=y+0.5;
+        G.plumber.x=x+0.5; G.plumber.y=y+0.5;
         A.scopeRoomLight(0, true);
         return true;
       }
@@ -125,9 +125,9 @@ test('light is scoped to the room you are standing in', () => {
        at floor build passes every check above and is a no-op in play. */
     const otherRi = (s*13+7)%rooms.length;
     if (otherRi!==homeRi && standIn(otherRi)){
-      if (A.regionAt(G.player.x, G.player.y) !== A.internals.visRegion) noFollow++;
+      if (A.regionAt(G.plumber.x, G.plumber.y) !== A.internals.visRegion) noFollow++;
       const oldR=rooms[homeRi];
-      const newScope = vis[Math.floor(G.player.y)*W+Math.floor(G.player.x)];
+      const newScope = vis[Math.floor(G.plumber.y)*W+Math.floor(G.plumber.x)];
       for (let y=oldR.ry;y<oldR.ry+oldR.rh && !noFollow;y++)
         for (let x=oldR.rx;x<oldR.rx+oldR.rw;x++){
           const i=y*W+x;
@@ -183,7 +183,7 @@ test('light is scoped to the room you are standing in', () => {
       for (let y=b.ry;y<b.ry+b.rh && !placedB;y++)
         for (let x=b.rx;x<b.rx+b.rw;x++){
           if (G.grid[y*W+x]!==1 || A.internals.regionOf[y*W+x]!==bRi) continue;
-          G.player.x=x+0.5; G.player.y=y+0.5; placedB=true; break;
+          G.plumber.x=x+0.5; G.plumber.y=y+0.5; placedB=true; break;
         }
       t.assert(placedB, 'room B had no standable floor tile');
       A.scopeRoomLight(0, false);
@@ -218,7 +218,7 @@ test('light is scoped to the room you are standing in', () => {
     }
     t.assert(best, 'no long open run found to test sight distance with');
     if (best){
-      G.player.x=best.x+0.5; G.player.y=best.y+0.5; G.player.face=0;
+      G.plumber.x=best.x+0.5; G.plumber.y=best.y+0.5; G.plumber.face=0;
       G.radar=false;                                  // isolate the cone + scope
       A.snapMask();   // traces + combines + uploads, no easing
       const at=(d)=>{ const i=best.y*W+best.x+d; return {d, mask:A.internals.maskArr[i], scope:A.internals.visArr[i], cone:A.internals.coneArr[i]}; };
@@ -273,7 +273,7 @@ test('the cone of vision rotates and is blocked by walls', () => {
   t.assert(spot && bestClear>=8, `no open spot found (best clear run ${bestClear})`);
 
   const set=(fx,fy,face)=>{
-    G.player.x=spot.x; G.player.y=spot.y; G.player.face=face;
+    G.plumber.x=spot.x; G.plumber.y=spot.y; G.plumber.face=face;
     G.radar=false;
     A.scopeRoomLight(0,true);
     A.snapMask();
@@ -292,8 +292,8 @@ test('the cone of vision rotates and is blocked by walls', () => {
     }
     return false;
   };
-  const eye=()=>[spot.x + Math.cos(G.player.face)*A.HAND_OFF,
-                 spot.y + Math.sin(G.player.face)*A.HAND_OFF];
+  const eye=()=>[spot.x + Math.cos(G.plumber.face)*A.HAND_OFF,
+                 spot.y + Math.sin(G.plumber.face)*A.HAND_OFF];
 
   /* Can any line from the eye reach this tile? Sampled over a disc inside the
      tile rather than to its exact centre, because "the tile is visible" means

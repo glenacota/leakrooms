@@ -77,18 +77,18 @@ test('every generated floor is connected, playable and lit', () => {
 
     /* Exactly the lifeforms this level says it has, and never standing in the
        room the player walks into. */
-    t.assert(G.agents.length===spec.forms,
-      `seed ${s}: level ${s%A.LEVELS.length} has ${G.agents.length} lifeforms, want ${spec.forms}`);
+    t.assert(G.lifeforms.length===spec.lifeforms,
+      `seed ${s}: level ${s%A.LEVELS.length} has ${G.lifeforms.length} lifeforms, want ${spec.lifeforms}`);
     // the spawn must be on open floor, not embedded in a wall stub
     {
       let ins=false;
       for(const [sx,sy] of [[-.3,-.3],[.3,-.3],[-.3,.3],[.3,.3],[0,-.3],[0,.3],[-.3,0],[.3,0]]){
-        const tx=Math.floor(G.player.x+sx), ty=Math.floor(G.player.y+sy);
+        const tx=Math.floor(G.plumber.x+sx), ty=Math.floor(G.plumber.y+sy);
         if (tx<0||ty<0||tx>=W||ty>=H || g[ty*W+tx]===0){ ins=true; break; }
       }
       t.assert(!ins, `seed ${s}: player spawns inside geometry`);
     }
-    t.assert(g[Math.floor(G.player.y)*W+Math.floor(G.player.x)]===1, `seed ${s}: spawn not on floor`);
+    t.assert(g[Math.floor(G.plumber.y)*W+Math.floor(G.plumber.x)]===1, `seed ${s}: spawn not on floor`);
     // the light bake must cover the floor, so NaN and coverage are both checked
     let lit=0, maxL=0, nan=0;
     for (let i=0;i<g.length;i++){
@@ -293,8 +293,8 @@ test('the door leaf follows the hold and the door faces south', () => {
   const settle = n => { for (let i=0;i<n;i++) A.update(1/60); };
   const standAt = (e, tiles) => {
     const DIR = { S:[0,1], N:[0,-1], E:[1,0], W:[-1,0] }[e.facing];
-    G.player.x = e.x + 0.5 + DIR[0]*tiles;
-    G.player.y = e.y + 0.5 + DIR[1]*tiles;
+    G.plumber.x = e.x + 0.5 + DIR[0]*tiles;
+    G.plumber.y = e.y + 0.5 + DIR[1]*tiles;
   };
   const sealAll = () => {
     for (const L of G.leaks){ L.fixed = true; L.repair = 1; }
@@ -397,7 +397,7 @@ test('the same seed builds the same cast ten seconds in', () => {
   const run = () => {
     A.buildFloor(0, 4242);
     for (let i=0; i<600; i++) A.update(1/60);
-    return JSON.stringify(G.agents);
+    return JSON.stringify(G.lifeforms);
   };
   const first = run();
   const second = run();
@@ -412,7 +412,7 @@ test('the same seed builds the same cast ten seconds in', () => {
   t.assert(layout === JSON.stringify([G.grid, G.leaks, G.exitTiles, G.fixtures, G.batteries, G.graffiti]),
     'the level itself is not identical across two builds of one seed');
 
-  console.log(`  ${G.agents.length} agents, 600 steps, identical both times`);
+  console.log(`  ${G.lifeforms.length} agents, 600 steps, identical both times`);
 }
   t.done();
 });

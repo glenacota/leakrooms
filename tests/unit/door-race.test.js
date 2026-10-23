@@ -26,18 +26,18 @@ test('[41] a Lifeform on the threshold does not cycle the door', () => {
   G.leaksOpen = 0;
 
   const e = G.exitTiles[0];
-  G.player.x = e.x + 0.5;
-  G.player.y = e.y + 0.5;
+  G.plumber.x = e.x + 0.5;
+  G.plumber.y = e.y + 0.5;
   /* One frame short of the hold, so tickDoor() would cycle on the very next
      step if it ran at all. */
   G.descend = 1.49;
 
-  const hunter = G.agents[0];
-  hunter.x = G.player.x;
-  hunter.y = G.player.y;
+  const hunter = G.lifeforms[0];
+  hunter.x = G.plumber.x;
+  hunter.y = G.plumber.y;
   hunter.state = 'HUNT';
   hunter.born = 0;
-  hunter.target = { x: G.player.x, y: G.player.y };
+  hunter.target = { x: G.plumber.x, y: G.plumber.y };
   hunter.t = 0;
 
   const floorBefore = A.floorIdx;

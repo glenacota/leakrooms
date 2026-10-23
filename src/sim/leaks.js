@@ -9,14 +9,14 @@ import { dirty } from '../render/repaint.js';
  * @typedef {{
  *   leaks: Array<{x:number,y:number,sx:number,sy:number,fixed:boolean,repair:number,fixedAt:number,wrenchT:number}>,
  *   leaksOpen: number,
- *   player: {x:number,y:number},
+ *   plumber: {x:number,y:number},
  *   time: number,
  *   floodCover: number,
  *   leakPower: number,
  *   leakTotal: number,
  *   leakDist: number,
  *   stat: {noises:number, deaths:number, sealed:number},
- *   noiseState: {noise:number, noisePeak:number, selfNoise:number, ambientNoise:number, stat:{noises:number, deaths:number, sealed:number}, agents:Array, leaks:Array, leaksOpen:number, grid:Uint8Array, floodCover:number, leakTotal:number, leakDist:number, leakPower:number, atLeak:boolean}
+ *   noiseState: {noise:number, noisePeak:number, selfNoise:number, ambientNoise:number, stat:{noises:number, deaths:number, sealed:number}, lifeforms:Array, leaks:Array, leaksOpen:number, grid:Uint8Array, floodCover:number, leakTotal:number, leakDist:number, leakPower:number, atLeak:boolean}
  * }} LeakState
  */
 
@@ -70,7 +70,7 @@ export function sealLeak(L, leakState){
    sustainedNoise and not repeated one-off noises, because a standing sound is
    what a lifeform can walk toward. */
 export function tickLeakNoise(leakState, dt){
-  const p = leakState.player;
+  const p = leakState.plumber;
   /* leakTotal is the building's standing noise: the sum of what the open
      pipes make right now. The HUD draws it as the blue part of the noise bar and
      the audio plays it, so the number the lifeform hears is the number the
@@ -133,7 +133,7 @@ export function tickLeakNoise(leakState, dt){
    @param moving - the player moved this frame.
    @param bumped - the player pushed into a wall this frame. */
 export function tickRepair(leakState, dt, moving, bumped){
-  const p = leakState.player;
+  const p = leakState.plumber;
   const L = leakAt(leakState.leaks, p.x, p.y);
   leakState.atLeak = !!L;
   if (L){

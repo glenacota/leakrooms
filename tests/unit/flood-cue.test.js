@@ -94,17 +94,17 @@ console.log('[17] the water as a cue — legible, free, and it actually leads');
     t.assert(wetTile, 'no wet floor tile anywhere after 10 minutes — the flood never spreads');
 
     /* slow wet walking by seeding a deep puddle around the player and timing it */
-    G.player.x=wetTile.x+0.5; G.player.y=wetTile.y+0.5;
-    for(let i=0;i<9;i++) A.seedSplash(A.G.player.x,A.G.player.y,1.0);
+    G.plumber.x=wetTile.x+0.5; G.plumber.y=wetTile.y+0.5;
+    for(let i=0;i<9;i++) A.seedSplash(A.G.plumber.x,A.G.plumber.y,1.0);
     A.STATE='play';
     keys.w=false; keys.s=false; keys.a=false; keys.d=false;
     let dist=0;
     for (let i=0;i<30;i++){
       // hold a direction and measure what happens
       keys['d']=true;
-      const x0=G.player.x;
+      const x0=G.plumber.x;
       update(1/60);
-      dist += Math.abs(G.player.x-x0);
+      dist += Math.abs(G.plumber.x-x0);
       if (A.STATE!=='play'){ A.STATE='play'; }
     }
     keys['d']=false;

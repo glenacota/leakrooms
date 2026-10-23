@@ -52,7 +52,7 @@ test('the bot seals every riser, then walks back out the door', () => {
     const cand=[[door.x+1,door.y],[door.x-1,door.y],[door.x,door.y+1],[door.x,door.y-1]]
       .filter(([x,y])=>x>=0&&y>=0&&x<W&&y<H&&G.grid[IDX(x,y)]===1);
     if(!cand.length) return null;
-    const px=G.player.x, py=G.player.y;
+    const px=G.plumber.x, py=G.plumber.y;
     let b=cand[0], bd=Infinity;
     for(const [cx,cy] of cand){
       const d=Math.abs(cx-px)+Math.abs(cy-py);
@@ -90,7 +90,7 @@ test('the bot seals every riser, then walks back out the door', () => {
   for (let s=0; s<A.LEVELS_N; s++){
     buildFloor(s, s*4441+13);
     distFieldCache.clear();
-    if (G.agents.length) G.agents.length=0;
+    if (G.lifeforms.length) G.lifeforms.length=0;
     A.STATE='play';
     A.floorIdx=0; A.lives=3;
     risersWanted += G.leaks.length;
@@ -106,7 +106,7 @@ test('the bot seals every riser, then walks back out the door', () => {
 
     while (frames < 60*210 && !done){
       frames++;
-      const px=G.player.x, py=G.player.y;
+      const px=G.plumber.x, py=G.plumber.y;
       keys.w=keys.s=keys.a=keys.d=false; keys.shift=false;
 
       /* One goal at a time: the nearest open riser, or the door once the work is
@@ -191,9 +191,9 @@ test('the bot seals every riser, then walks back out the door', () => {
           if (!blocked(px+ux*0.2, py+uy*0.2, 0.30)){ keys[k2]=true; break; }
         }
       }
-      const bx0=G.player.x, by0=G.player.y;
+      const bx0=G.plumber.x, by0=G.plumber.y;
       update(1/60);
-      if (Math.abs(G.player.x-bx0)+Math.abs(G.player.y-by0) > 1e-6) hasMovedLastFrame=true;
+      if (Math.abs(G.plumber.x-bx0)+Math.abs(G.plumber.y-by0) > 1e-6) hasMovedLastFrame=true;
       if (A.STATE!=='play') A.STATE='play';       // respawn on death, keep trying
     }
     if (process.env.V) console.log(`     level ${s}: ${frames} frames, ${sealedThisLevel} pipes, ${allSealed?'all sealed':'LEFT OPEN'}`);

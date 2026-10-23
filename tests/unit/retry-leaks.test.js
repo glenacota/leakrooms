@@ -110,7 +110,7 @@ test('[retry-leaks] the cast is identical across four rebuilds of the same floor
   const runs = [];
   for (let i = 0; i < 4; i++) {
     A.buildFloor(floorNum, seed);
-    const agents = G.agents.map(a => ({
+    const agents = G.lifeforms.map(a => ({
       state: a.state,
       x: a.x,
       y: a.y

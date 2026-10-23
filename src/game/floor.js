@@ -93,7 +93,7 @@ export function getStaticLevel(seed, floorNum){
 /* ---------- The floor's own state ---------- */
 
 /**
- * Builds a floor on top of a static bake: everything a player can change is
+ * Builds a floor on top of a static bake: everything a plumber can change is
  * made new, and the arrays play mutates are cloned out of the cache so a
  * played floor cannot mark the building it came from.
  *
@@ -105,7 +105,7 @@ export function makeFloorState(level, floorNum, seed){
   installFloorState(createGameState(level, floorNum, seed));
 
   /* The visibility mask is its own canvas at one pixel per tile. It changes
-     whenever the player turns, so keeping it separate from the light bake
+     whenever the plumber turns, so keeping it separate from the light bake
      means repacking 5.8k pixels instead of 116k. */
   createPerFloorCanvases();
 
@@ -113,11 +113,11 @@ export function makeFloorState(level, floorNum, seed){
      (see ui/bind.js), so the cached ones can be dead while the key still
      matches. buildFloor re-bakes them and hands the fresh ones back. */
 
-  // Light the room the player starts in. From here on the lit room follows them.
-  scopeRoomLight(G, G.player, G.radar, 0, true);
-  snapMask(G, G.player, G.radar);
+  // Light the room the plumber starts in. From here on the lit room follows them.
+  scopeRoomLight(G, G.plumber, G.radar, 0, true);
+  snapMask(G, G.plumber, G.radar);
 
-  initFlood(G, G.player);
+  initFlood(G, G.plumber);
   resetRepaint();
 }
 

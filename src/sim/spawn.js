@@ -7,11 +7,11 @@ import { hash2 } from '../util/hash.js';
 /**
  * @param {object} level - the result of genLevel.
  * @param {Function} [rng] - optional seeded random function. If omitted, uses level.rng
- *   (the layout RNG). Providing a separate RNG makes agent placement reproducible
+ *   (the layout RNG). Providing a separate RNG makes lifeform placement reproducible
  *   across retries without being affected by how much the layout RNG was consumed.
  * @returns {object[]} the lifeforms: one walker first, then dormant coils.
  */
-export function spawnAgents(level, rng){
+export function spawnLifeforms(level, rng){
   const spawn = level.spawn;
   const spec = level.spec;
   rng = rng || level.rng;
@@ -26,17 +26,17 @@ export function spawnAgents(level, rng){
      allows. The rest are DORMANT coils spread across other rooms, never the
      spawn room (a coil in the doorway would be an ambush with no warning, not
      difficulty). */
-  const agents = [];
-  const agentRooms = new Set();
+  const lifeforms = [];
+  const lifeformRooms = new Set();
   const firstFar = far && far.rw>=5 && far.rh>=5
     ? far
     : level.rooms.reduce((b,r)=>{
         const d = Math.hypot(r.rx+r.rw/2-spawn.x, r.ry+r.rh/2-spawn.y);
         return (!b || d>b.d) ? {r,d} : b;
       }, null)?.r;
-  if (spec.forms > 0 && firstFar){
-    agentRooms.add(firstFar);
-    agents.push({
+  if (spec.lifeforms > 0 && firstFar){
+    lifeformRooms.add(firstFar);
+    lifeforms.push({
       x: firstFar.rx+firstFar.rw/2, y: firstFar.ry+firstFar.rh/2,
       state:'WALK', t:0, rise:0, target:null,
       // The opening direction is hashed from the room, so it depends only on the level. Math.random() would make it impossible to reproduce from the seed.
@@ -44,8 +44,8 @@ export function spawnAgents(level, rng){
       wakeCd:0, stepT:0, born:3.5
     });
   }
-  const coilRooms = level.rooms.filter(r=>r.rw>=5&&r.rh>=5 && !agentRooms.has(r));
-  for (let i=0; coilRooms.length && agents.length<spec.forms; i++){
+  const coilRooms = level.rooms.filter(r=>r.rw>=5&&r.rh>=5 && !lifeformRooms.has(r));
+  for (let i=0; coilRooms.length && lifeforms.length<spec.lifeforms; i++){
     const r = coilRooms[(rng()*coilRooms.length)|0];
     const cx = r.rx+r.rw/2, cy = r.ry+r.rh/2;
     /* Not in the spawn room, and not on top of a pipe: a coil sharing a tile with
@@ -53,12 +53,12 @@ export function spawnAgents(level, rng){
        accident and not by choice. */
     if (Math.hypot(cx-spawn.x, cy-spawn.y) < 9) continue;
     if (level.leaks.some(L=>Math.hypot(cx-(L.sx+0.5), cy-(L.sy+0.5)) < 4)) continue;
-    agents.push({
+    lifeforms.push({
       x: r.rx+1+Math.floor(rng()*(r.rw-2)),
       y: r.ry+1+Math.floor(rng()*(r.rh-2)),
       state:'DORMANT', t:0, rise:0, target:null, face:0,
       wakeCd:0, stepT:0, born:0
     });
   }
-  return agents;
+  return lifeforms;
 }

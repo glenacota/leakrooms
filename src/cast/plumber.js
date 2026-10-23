@@ -1,9 +1,9 @@
 import { TAU, limb, blob, rim, arm, feet, legs, stride } from './primitives.js';
 
-/* THE AVATAR: the Rigger. Hard hat, hi-vis vest with two reflective bands that
+/* THE AVATAR: the Plumber. Hard hat, hi-vis vest with two reflective bands that
    slide fore and aft on the stride, tool belt, and a wrench that swings with the
    walk. Local -y is forward: the boots lead, the hat brim trails. */
-export function drawRigger(g, S) {
+export function drawPlumber(g, S) {
   const T = S.T, st = stride(S);
   const hip = st.bob * T;
 

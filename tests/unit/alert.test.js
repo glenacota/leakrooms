@@ -13,7 +13,7 @@ const hearRadius = A.hearRadius;
 const sustainedNoise = A.sustainedNoise;
 const alert = A.alert;
 const tickRepair = A.tickRepair;
-const tickAgents = A.tickAgents;
+const tickLifeforms = A.tickLifeforms;
 
 /* A rising lifeform ignores further sound until it is up.
    Real wrench path: build level 5, find a coil within 4-12 tiles that hears
@@ -33,7 +33,7 @@ test('a rising lifeform ignores further sound until it is up (real wrench path)'
       if (L.fixed) continue;
       const standX = L.sx + 0.5;
       const standY = L.sy + 0.5;
-      for (const a of G.agents){
+      for (const a of G.lifeforms){
         if (a.state !== 'DORMANT') continue;
         const d = Math.hypot(a.x - standX, a.y - standY);
         if (d < 4 || d > 12) continue;
@@ -80,7 +80,7 @@ test('a rising lifeform ignores further sound until it is up (real wrench path)'
   const standX = L.sx + 0.5;
   const standY = L.sy + 0.5;
   let agent = null;
-  for (const a of G.agents){
+  for (const a of G.lifeforms){
     if (a.state !== 'DORMANT') continue;
     const d = Math.hypot(a.x - standX, a.y - standY);
     if (Math.abs(d - chosen.dist) < 0.5){
@@ -91,10 +91,10 @@ test('a rising lifeform ignores further sound until it is up (real wrench path)'
   t.assert(agent, 'agent not found at expected distance from pipe after rebuild');
 
   /* Stand the player at the pipe's standing spot. */
-  G.player.x = standX;
-  G.player.y = standY;
-  G.player.px = standX;
-  G.player.py = standY;
+  G.plumber.x = standX;
+  G.plumber.y = standY;
+  G.plumber.px = standX;
+  G.plumber.py = standY;
 
   /* Make sure the agent is DORMANT and the player is not making other noise.
      Save the original position for the burst test later. */
@@ -105,7 +105,7 @@ test('a rising lifeform ignores further sound until it is up (real wrench path)'
 
   /* Run one frame of repair (player not moving, not bumped) -> wrench noise emitted. */
   tickRepair(1/60, false, false);
-  tickAgents(1/60);
+  tickLifeforms(1/60);
 
   /* Frame 1: agent should be RISING. */
   t.assert(agent.state === 'RISING', `frame 1: expected RISING, got ${agent.state}`);
@@ -114,7 +114,7 @@ test('a rising lifeform ignores further sound until it is up (real wrench path)'
   /* Run 59 more frames (total 60) - agent should still be RISING. */
   for (let i = 2; i <= 60; i++){
     tickRepair(1/60, false, false);
-    tickAgents(1/60);
+    tickLifeforms(1/60);
   }
   t.assert(agent.state === 'RISING', `frame 60: expected RISING, got ${agent.state}`);
   console.log(`  frame 60: state=${agent.state}, rise=${agent.rise.toFixed(3)}`);
@@ -122,7 +122,7 @@ test('a rising lifeform ignores further sound until it is up (real wrench path)'
   /* Run 20 more frames (total 80) - agent should still be RISING (rise takes 1.4s = 84 frames at 60Hz). */
   for (let i = 61; i <= 80; i++){
     tickRepair(1/60, false, false);
-    tickAgents(1/60);
+    tickLifeforms(1/60);
   }
   t.assert(agent.state === 'RISING', `frame 80: expected RISING, got ${agent.state}`);
   console.log(`  frame 80: state=${agent.state}, rise=${agent.rise.toFixed(3)}`);
@@ -131,7 +131,7 @@ test('a rising lifeform ignores further sound until it is up (real wrench path)'
   let huntFrame = null;
   for (let i = 81; i <= 100; i++){
     tickRepair(1/60, false, false);
-    tickAgents(1/60);
+    tickLifeforms(1/60);
     if (agent.state === 'HUNT' && huntFrame === null){
       huntFrame = i;
     }
@@ -150,26 +150,26 @@ test('a rising lifeform ignores further sound until it is up (real wrench path)'
 
   /* Emit a single loud burst at the standing spot. */
   sustainedNoise(REPAIR_NOISE, standX, standY, true);
-  tickAgents(1/60);
+  tickLifeforms(1/60);
 
   t.assert(agent.state === 'RISING', `burst frame 1: expected RISING, got ${agent.state}`);
 
   /* Run 59 more frames. */
   for (let i = 2; i <= 60; i++){
-    tickAgents(1/60);
+    tickLifeforms(1/60);
   }
   t.assert(agent.state === 'RISING', `burst frame 60: expected RISING, got ${agent.state}`);
 
   /* Run 20 more frames (total 80). */
   for (let i = 61; i <= 80; i++){
-    tickAgents(1/60);
+    tickLifeforms(1/60);
   }
   t.assert(agent.state === 'RISING', `burst frame 80: expected RISING, got ${agent.state}`);
 
   /* Run until HUNT. */
   let huntFrameBurst = null;
   for (let i = 81; i <= 100; i++){
-    tickAgents(1/60);
+    tickLifeforms(1/60);
     if (agent.state === 'HUNT' && huntFrameBurst === null){
       huntFrameBurst = i;
     }

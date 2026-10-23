@@ -486,9 +486,9 @@ test('the floor-clear card shows the clock left and the next floor', () => {
   t.assert(Math.abs(A.clearCard.clock-47.5) < 1e-9,
     `the card reported ${A.clearCard.clock}s left, want the 47.5s the finished floor had — `+
     'the clock is being read after buildFloor threw the old floor away');
-  t.assert(A.clearCard.leaks===spec.leaks && A.clearCard.forms===spec.forms,
-    `the briefing says ${A.clearCard.leaks} bursts / ${A.clearCard.forms} lifeforms, `+
-    `LEVELS[1] says ${spec.leaks} / ${spec.forms}`);
+  t.assert(A.clearCard.leaks===spec.leaks && A.clearCard.lifeforms===spec.lifeforms,
+    `the briefing says ${A.clearCard.leaks} bursts / ${A.clearCard.lifeforms} lifeforms, `+
+    `LEVELS[1] says ${spec.leaks} / ${spec.lifeforms}`);
   t.assert(!els['screen-clear'].classList.contains('hidden'), 'show(\'clear\') left the card hidden');
   t.assert(els['screen-splash'].classList.contains('hidden')
       && els['screen-order'].classList.contains('hidden'),
@@ -498,7 +498,7 @@ test('the floor-clear card shows the clock left and the next floor', () => {
   /* An unstyled div inherits the body font, and a briefing nobody can read is a
      briefing nobody reads. */
   t.assert(/\.clear-next\{/.test(css), 'the clear card has no stylesheet rule — it ships unstyled');
-  console.log(`  card: ${A.clearCard.leaks} bursts / ${A.clearCard.forms} lifeforms on floor `+
+  console.log(`  card: ${A.clearCard.leaks} bursts / ${A.clearCard.lifeforms} lifeforms on floor `+
     `${A.floorIdx+1}, ${A.clockText(A.clearCard.clock)} left on the floor behind it, ENTER to descend`);
 
   /* The floor under the card is real and its clock is not running. Driven through

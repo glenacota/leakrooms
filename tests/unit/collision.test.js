@@ -24,8 +24,8 @@ test('random walks never put the player inside walls', () => {
     keys['s']=seededRNG()<0.34; keys['d']=seededRNG()<0.34;
     update(0.016);
     keys.w=keys.a=keys.s=keys.d=false;
-    if (inWall(G.player.x, G.player.y, 0.33, true)) inside++;
-    if (!Number.isFinite(G.player.x) || !Number.isFinite(G.player.y)) { inside += 1000; break; }
+    if (inWall(G.plumber.x, G.plumber.y, 0.33, true)) inside++;
+    if (!Number.isFinite(G.plumber.x) || !Number.isFinite(G.plumber.y)) { inside += 1000; break; }
   }
   t.assert(inside===0, `${inside} frames with player inside geometry / NaN`);
   console.log('  player never penetrated geometry, no NaN');
@@ -53,7 +53,7 @@ test('every legal position is reachable by the player disc', () => {
     cellsTotal += free.reduce((a,b)=>a+b,0);
 
     // spawn: nearest free sample to the true player position
-    const si=Math.floor(G.player.x/STEP), sj=Math.floor(G.player.y/STEP);
+    const si=Math.floor(G.plumber.x/STEP), sj=Math.floor(G.plumber.y/STEP);
     let start=-1, best=1e9;
     for (let j=0;j<NY;j++) for (let i=0;i<NX;i++){
       if (!free[j*NX+i]) continue;
@@ -121,14 +121,14 @@ test('wall contact does not accelerate, and a free sprint still runs', () => {
   t.assert(best, 'no wall-adjacent tile found');
   if (!best){ keys.w=keys.a=keys.s=keys.d=false; }
   else {
-    G.player.x=best.x; G.player.y=best.y;
+    G.plumber.x=best.x; G.plumber.y=best.y;
     for(let i=0;i<5;i++) update(1/60);
-    const y0=G.player.y, x0=G.player.x;
+    const y0=G.plumber.y, x0=G.plumber.x;
     keys.s=true;                                  // push down into the wall
     for(let i=0;i<20;i++) update(1/60);           // 0.33s
     keys.s=false;
-    const drift = Math.abs(G.player.y - y0);
-    const creep = Math.abs(G.player.x - x0);
+    const drift = Math.abs(G.plumber.y - y0);
+    const creep = Math.abs(G.plumber.x - x0);
     console.log(`  1s pushing into a wall: lateral drift ${drift.toFixed(3)} tiles, `+
                 `along-wall creep ${creep.toFixed(3)}`);
     // walk speed is 3.3 tiles/s, so a step-bounded nudge cannot beat that
@@ -146,13 +146,13 @@ test('wall contact does not accelerate, and a free sprint still runs', () => {
       room={x:x+0.5,y:y+0.5}; break; }
   }
   if (room){
-    G.player.x=room.x; G.player.y=room.y;
+    G.plumber.x=room.x; G.plumber.y=room.y;
     for(let i=0;i<5;i++) update(1/60);
-    const sx0=G.player.x;
+    const sx0=G.plumber.x;
     keys.d=true; keys.shift=true;
     for(let i=0;i<60;i++) update(1/60);
     keys.d=false; keys.shift=false;
-    const dist=Math.abs(G.player.x-sx0);
+    const dist=Math.abs(G.plumber.x-sx0);
     console.log(`  1s sprinting in the open: ${dist.toFixed(2)} tiles (expect ~${(6.0).toFixed(1)})`);
     t.assert(dist > 5.0, `sprint only covered ${dist.toFixed(2)} tiles in 1s — movement was over-constrained`);
   }
@@ -183,19 +183,19 @@ test('pressing into a wall drifts sideways not at all', () => {
     for (let y=3;y<74 && !spot;y++) for (let x=3;x<74;x++){
       if (G.grid[y*76+x]===1 && G.grid[(y-1)*76+x]===0){ spot={x:x+0.5,y:y+0.5}; break; }
     }
-    G.player.x=spot.x; G.player.y=spot.y;
+    G.plumber.x=spot.x; G.plumber.y=spot.y;
     release();
     for(let i=0;i<5;i++) update(1/60);
-    const x0=G.player.x, y0=G.player.y;
+    const x0=G.plumber.x, y0=G.plumber.y;
     keys.w=true;                                 // hold UP into the wall
-    let maxJump=0, prevX=G.player.x, prevY=G.player.y;
+    let maxJump=0, prevX=G.plumber.x, prevY=G.plumber.y;
     for(let i=0;i<20;i++){
       update(1/60);
-      maxJump=Math.max(maxJump, Math.hypot(G.player.x-prevX, G.player.y-prevY));
-      prevX=G.player.x; prevY=G.player.y;
+      maxJump=Math.max(maxJump, Math.hypot(G.plumber.x-prevX, G.plumber.y-prevY));
+      prevX=G.plumber.x; prevY=G.plumber.y;
     }
     release();
-    const dx=G.player.x-x0, dy=G.player.y-y0;
+    const dx=G.plumber.x-x0, dy=G.plumber.y-y0;
     console.log(`  1s holding up into a wall: dx=${dx.toFixed(3)} dy=${dy.toFixed(3)}, `+
                 `largest single-frame jump ${maxJump.toFixed(3)} tiles`);
     t.assert(Math.abs(dx) < 0.02,
@@ -203,8 +203,8 @@ test('pressing into a wall drifts sideways not at all', () => {
     t.assert(maxJump < 0.20,
       `single-frame jump of ${maxJump.toFixed(3)} tiles — that is a teleport, not a nudge`);
     // the player should end up flush with the wall: centre-to-face distance == radius
-    const wallFace = Math.floor(G.player.y);          // boundary below the wall tile
-    const gap = G.player.y - wallFace;
+    const wallFace = Math.floor(G.plumber.y);          // boundary below the wall tile
+    const gap = G.plumber.y - wallFace;
     console.log(`  final gap to wall face ${gap.toFixed(3)} tiles (collision radius ${A.R})`);
     t.assert(gap >= A.R - 0.02 && gap <= A.R + 0.12,
       `ended ${gap.toFixed(3)} tiles from the wall face; expected flush at ~${A.R} (not sunk in, not short)`);
@@ -218,13 +218,13 @@ test('pressing into a wall drifts sideways not at all', () => {
       if (G.grid[y*76+x]===1 && G.grid[y*76+x-1]===0 && G.grid[y*76+x-2]===0){ sp={x:x+0.5,y:y+0.5}; break; }
     }
     if(!sp) continue;
-    G.player.x=sp.x; G.player.y=sp.y;
+    G.plumber.x=sp.x; G.plumber.y=sp.y;
     release(); for(let i=0;i<5;i++) update(1/60);
-    const y0=G.player.y;
+    const y0=G.plumber.y;
     keys[k]=true;
     for(let i=0;i<20;i++) update(1/60);
     release();
-    const drift=Math.abs(G.player.y-y0);
+    const drift=Math.abs(G.plumber.y-y0);
     t.assert(drift < 0.05, `pressing ${label} into a wall drifted ${drift.toFixed(3)} tiles vertically`);
   }
   console.log('  no lateral drift on any axis, no teleports');

@@ -60,7 +60,7 @@ export function rollRunSeed(){
    the player out of it, and the clock is frozen because the loop only
    steps the simulation while STATE is 'play'.
    ============================================================ */
-export let clearCard = { floor:0, clock:0, leaks:0, forms:0 };
+export let clearCard = { floor:0, clock:0, leaks:0, lifeforms:0 };
 
 /* Fills in the card and asks the shell to show it. The numbers live here and
    the writing on them lives in ui/, because this file must never touch the
@@ -114,7 +114,7 @@ export function nextFloor(){
   buildFloor(floorIdx, RUN_SEED);
   // Same table and same clamp as buildFloor, so the card matches the floor.
   const spec = LEVELS[Math.min(floorIdx, LEVELS_N-1)];
-  setClearCard({ floor:floorIdx, clock:clockLeft, leaks:spec.leaks, forms:spec.forms });
+  setClearCard({ floor:floorIdx, clock:clockLeft, leaks:spec.leaks, lifeforms:spec.lifeforms });
   showClear();
 }
 
@@ -221,11 +221,11 @@ else {
   G.clock = FLOOR_CLOCK; G.time = 0; G.batt = BATT_MAX;
   G.stat = {noises:0, deaths:0, sealed:0};
   G.radar = false; G.radarRattleT = 0; G.noise = 0; G.noisePeak = 0; G.selfNoise = 0; G.ambientNoise = 0; G.descend = 0; G.seenBy = 0;
-  initFlood(G, G.player);
-  snapMask(G, G.player, G.radar);
+  initFlood(G, G.plumber);
+  snapMask(G, G.plumber, G.radar);
 }
 // A short grace period before lifeforms can notice you, for both paths above.
-for (const a of G.agents){ a.born = 3.0; }
+for (const lf of G.lifeforms){ lf.born = 3.0; }
 transition('play');
 }
 
@@ -254,11 +254,11 @@ for (const L of G.leaks){
 G.leaksOpen = Math.max(0, G.leaks.length - fixedCount);
 // Rebuild the flood now that the fixed flags are in place, so sealed pipes
 // stop being water sources.
-initFlood(G, G.player);
+initFlood(G, G.plumber);
 /* Same seed, so the pipes are in the same places and only the flood restarts.
    Dying costs a life and the repairs you made, but not what you learned about
    where the pipes are. */
-for (const a of G.agents){ a.born=3.0; }
+for (const lf of G.lifeforms){ lf.born=3.0; }
 transition('play');
 }
 

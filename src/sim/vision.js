@@ -1,7 +1,7 @@
 /* ============================================================
    WHAT THE CHARACTER CAN SEE
    The bake (see lightmap.js) says how bright a tile is under its own lights.
-   This file decides which of those tiles the player can see right now.
+   This file decides which of those tiles the plumber can see right now.
 
    There is one mask, built in one place (combineMask):
      radar on    everything
@@ -54,8 +54,8 @@ import { dirty } from '../render/repaint.js';
  */
 
 /**
- * Player state for vision.
- * @typedef {{x:number, y:number, face:number, radar:boolean}} VisionPlayerState
+ * Plumber state for vision.
+ * @typedef {{x:number, y:number, face:number, radar:boolean}} VisionPlumberState
  */
 
 /* The tests switch the per-frame cone and mask work off with this flag. The
@@ -66,7 +66,7 @@ export function setVision(v){ wantVision = !!v; }
 
 /**
  * Is this world point inside the rectangle the renderer draws?
- * It is worked out from the PLAYER's position and not from the renderer's
+ * It is worked out from the PLUMBER's position and not from the renderer's
  * camera, because update() must not read the renderer's state: the tests run
  * update() with no renderer, and the result would silently depend on whether a
  * frame had been drawn. The camera clamp at the map edges is repeated here for
@@ -74,13 +74,13 @@ export function setVision(v){ wantVision = !!v; }
  *
  * @param {number} wx - world position, in tiles.
  * @param {number} wy
- * @param {VisionPlayerState} player
+ * @param {VisionPlumberState} plumber
  * @returns {boolean}
  */
-export function onScreen(wx, wy, player){
+export function onScreen(wx, wy, plumber){
   const T = TILE*view.scale;
   const halfW = view.w /(2*T), halfH = view.h /(2*T);
-  let cx = player.x, cy = player.y;
+  let cx = plumber.x, cy = plumber.y;
   if (MAP_W > halfW*2) cx = Math.max(halfW, Math.min(MAP_W-halfW, cx));
   if (MAP_H > halfH*2) cy = Math.max(halfH, Math.min(MAP_H-halfH, cy));
   return Math.abs(wx-cx) <= halfW && Math.abs(wy-cy) <= halfH;
@@ -169,7 +169,7 @@ export function castFan(out, ox, oy, facing, halfAngle, range, rays, gain, fall,
 
 /**
  * Rebuilds the cone of vision (visionState.coneArr) and folds everything into the target
- * mask. It only does the work when the player's pose changed (position, facing
+ * mask. It only does the work when the plumber's pose changed (position, facing
  * or radar), so standing still costs nothing.
  *
  * The pose test uses the exact position and not the tile. When it used the
@@ -178,30 +178,30 @@ export function castFan(out, ox, oy, facing, halfAngle, range, rays, gain, fall,
  * per frame and the edge follows you smoothly.
  *
  * @param {VisionState} visionState
- * @param {VisionPlayerState} player
+ * @param {VisionPlumberState} plumber
  * @param {boolean} radar
  * @param {boolean} [force] - retrace even if nothing moved.
  * @returns {boolean} true if the cone was rebuilt.
  */
-export function traceViewCone(visionState, player, radar, force){
-  const tx=Math.floor(player.x), ty=Math.floor(player.y);
+export function traceViewCone(visionState, plumber, radar, force){
+  const tx=Math.floor(plumber.x), ty=Math.floor(plumber.y);
   // The radar state is part of the pose: pressing R while standing still must retrace.
-  if (!force && player.x===visionState.coneX && player.y===visionState.coneY && player.face===visionState.coneFace && radar===visionState.coneRadar)
+  if (!force && plumber.x===visionState.coneX && plumber.y===visionState.coneY && plumber.face===visionState.coneFace && radar===visionState.coneRadar)
     return false;
-  visionState.coneX=player.x; visionState.coneY=player.y; visionState.coneFace=player.face; visionState.coneRadar=radar;
+  visionState.coneX=plumber.x; visionState.coneY=plumber.y; visionState.coneFace=plumber.face; visionState.coneRadar=radar;
 
   visionState.coneArr.fill(0);
 
-  const ex = player.x + Math.cos(player.face)*HAND_OFF;
-  const ey = player.y + Math.sin(player.face)*HAND_OFF;
+  const ex = plumber.x + Math.cos(plumber.face)*HAND_OFF;
+  const ey = plumber.y + Math.sin(plumber.face)*HAND_OFF;
 
   /* The cone has no distance falloff. It is only about angle and walls: within
      100 degrees of where you face, until a wall. An earlier version faded with
      range like a light, so the far corner of your own room was dimmer than the
      tile underfoot. What you can see is bright and what you cannot is black. */
-  castFan(visionState.coneArr, ex, ey, player.face, VIEW_HALF, VIEW_RANGE, VIEW_RAYS, 1, 0, visionState.grid);
+  castFan(visionState.coneArr, ex, ey, plumber.face, VIEW_HALF, VIEW_RANGE, VIEW_RAYS, 1, 0, visionState.grid);
 
-  // Always see the tile under the player, or backing into a corner (where every ray exits early) would draw the figure in a black hole.
+  // Always see the tile under the plumber, or backing into a corner (where every ray exits early) would draw the figure in a black hole.
   if (tx>=0&&ty>=0&&tx<MAP_W&&ty<MAP_H) visionState.coneArr[ty*MAP_W+tx]=1;
 
   /* Walls: a wall whose face you can see is visible, and takes the brightest
@@ -225,7 +225,7 @@ export function traceViewCone(visionState, player, radar, force){
     cone[i] = Math.max(cone[i], m);
   }
 
-  combineMask(visionState, player, radar);
+  combineMask(visionState, plumber, radar);
   return true;
 }
 
@@ -235,10 +235,10 @@ export function traceViewCone(visionState, player, radar, force){
  * room scope changed (during the crossfade) and the cone did not.
  *
  * The radar short-circuits it: sweeping lights the whole floor. That is handled
- * here and not at draw time, so "what can the player see" is decided in one
+ * here and not at draw time, so "what can the plumber see" is decided in one
  * place.
  *
- * The distance fade is skipped for the player's own region (scope 1.0), so the
+ * The distance fade is skipped for the plumber's own region (scope 1.0), so the
  * room you stand in is evenly bright wherever you are in it.
  *
  * It loops row by row and carries x and y along, instead of recovering them
@@ -247,11 +247,11 @@ export function traceViewCone(visionState, player, radar, force){
  * result directly, so the output must not change.
  *
  * @param {VisionState} visionState
- * @param {VisionPlayerState} player
+ * @param {VisionPlumberState} plumber
  * @param {boolean} radar
  */
-export function combineMask(visionState, player, radar){
-  const px2=player.x, py2=player.y;
+export function combineMask(visionState, plumber, radar){
+  const px2=plumber.x, py2=plumber.y;
   const vis=visionState.visArr, cone=visionState.coneArr, tgt=visionState.maskTgt;
   const fadeSpan = VIEW_FADE_FAR-VIEW_FADE_NEAR;
   let i=0;
@@ -289,18 +289,18 @@ export function combineMask(visionState, player, radar){
 }
 
 /**
- * Works out which rooms are visible from the room the player is in, and starts
+ * Works out which rooms are visible from the room the plumber is in, and starts
  * a crossfade toward that. `instant` skips the fade (floor start, retry).
  *
  * @param {VisionState} visionState
- * @param {VisionPlayerState} player
+ * @param {VisionPlumberState} plumber
  * @param {boolean} radar
  * @param {number} dt - seconds since the last step (currently unused).
  * @param {boolean} instant - jump straight to the new scope.
  * @returns {boolean} true if the room changed.
  */
-export function scopeRoomLight(visionState, player, radar, dt, instant){
-  const here = createRegionAt(visionState.regionOf)(player.x, player.y);
+export function scopeRoomLight(visionState, plumber, radar, dt, instant){
+  const here = createRegionAt(visionState.regionOf)(plumber.x, plumber.y);
   if (here === visionState.visRegion && !instant) return false;
 
   // Remember the current field so the change fades instead of popping.
@@ -345,7 +345,7 @@ export function scopeRoomLight(visionState, player, radar, dt, instant){
   }
   if (instant){
     visionState.visArr.set(visionState.visTgt);
-    snapMask(visionState, player, radar);
+    snapMask(visionState, plumber, radar);
   }
   return true;
 }
@@ -390,8 +390,8 @@ export function smoothMask(visionState, dt){
 
 /* Skips the easing and jumps to the settled mask. Used at floor start, on a
    retry, and by the tests, which need the final value and not one 55 ms behind. */
-export function snapMask(visionState, player, radar){
-  traceViewCone(visionState, player, radar, true);
+export function snapMask(visionState, plumber, radar){
+  traceViewCone(visionState, plumber, radar, true);
   visionState.maskArr.set(visionState.maskTgt);
   dirty.mask = true;
 }

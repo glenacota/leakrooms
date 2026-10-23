@@ -61,7 +61,7 @@ test('a bot driving real key events can finish all five levels', () => {
     const cand=[[e.x+1,e.y],[e.x-1,e.y],[e.x,e.y+1],[e.x,e.y-1]]
       .filter(([x,y])=>x>=0&&y>=0&&x<W&&y<H&&G.grid[IDX(x,y)]===1);
     if(!cand.length) return null;
-    const px=G.player.x, py=G.player.y;
+    const px=G.plumber.x, py=G.plumber.y;
     let b=cand[0], bd=Infinity;
     for(const [cx,cy] of cand){
       const d=Math.abs(cx-px)+Math.abs(cy-py);
@@ -128,10 +128,10 @@ test('a bot driving real key events can finish all five levels', () => {
     let fromHere=null, fromX0=-99, fromY0=-99;
 
     while(A.floorIdx<5 && t<60*maxMinutes){
-      if(!withEntity && G.agents.length) G.agents.length=0;
+      if(!withEntity && G.lifeforms.length) G.lifeforms.length=0;
 
       const live=G.batteries.filter(b=>!b.taken);
-      const px=G.player.x, py=G.player.y, cur=IDX(Math.floor(px),Math.floor(py));
+      const px=G.plumber.x, py=G.plumber.y, cur=IDX(Math.floor(px),Math.floor(py));
 
       /* The objective list is the level: seal every riser, then walk back to the
          door, and the walk home starts only once the list is empty. Sealing is
@@ -216,7 +216,7 @@ test('a bot driving real key events can finish all five levels', () => {
       const here=field[cur];
 
       let ta=null, td=99;
-      for(const a of G.agents){
+      for(const a of G.lifeforms){
         if(a.state==='DORMANT'||a.rise<=0.5) continue;
         const d=Math.hypot(a.x-px,a.y-py);
         if(d<td){ td=d; ta=a; }
@@ -283,9 +283,9 @@ test('a bot driving real key events can finish all five levels', () => {
         path=null; goalId=-1;
       }
 
-      const bx0=G.player.x, by0=G.player.y;
+      const bx0=G.plumber.x, by0=G.plumber.y;
       A.updateReal(1/60); t+=1/60;
-      if(Math.abs(G.player.x-bx0)+Math.abs(G.player.y-by0) > 1e-6) hasMovedLastFrame=true;
+      if(Math.abs(G.plumber.x-bx0)+Math.abs(G.plumber.y-by0) > 1e-6) hasMovedLastFrame=true;
       lowestBatt=Math.min(lowestBatt,G.batt);
       /* Clock headroom, not battery headroom: seconds left is the number that can
          end a level, and the tightest moment is the last frame of the walk home

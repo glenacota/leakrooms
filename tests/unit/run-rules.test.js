@@ -33,16 +33,16 @@ test('the run is five levels, three minutes and one door', () => {
   for (let i=0;i<want.length;i++){
     t.assert(A.LEVELS[i].leaks===want[i][0],
       `level ${i+1} has ${A.LEVELS[i].leaks} leaks, want ${want[i][0]}`);
-    t.assert(A.LEVELS[i].forms===want[i][1],
-      `level ${i+1} has ${A.LEVELS[i].forms} lifeforms, want ${want[i][1]}`);
+    t.assert(A.LEVELS[i].lifeforms===want[i][1],
+      `level ${i+1} has ${A.LEVELS[i].lifeforms} lifeforms, want ${want[i][1]}`);
   }
-  console.log(`  level table: ${A.LEVELS.map((l,i)=>`${i+1}:${l.leaks}L/${l.forms}F`).join(' ')}`);
+  console.log(`  level table: ${A.LEVELS.map((l,i)=>`${i+1}:${l.leaks}L/${l.lifeforms}F`).join(' ')}`);
 
   /* The built levels have to match the table, on every level. */
   for (let f=0; f<A.LEVELS_N; f++){
     buildFloor(f, 90210+f*131);
     t.assert(G.leaks.length===A.LEVELS[f].leaks, `built level ${f+1} has ${G.leaks.length} pipes`);
-    t.assert(G.agents.length===A.LEVELS[f].forms, `built level ${f+1} has ${G.agents.length} lifeforms`);
+    t.assert(G.lifeforms.length===A.LEVELS[f].lifeforms, `built level ${f+1} has ${G.lifeforms.length} lifeforms`);
     t.assert(G.exitTiles.length===1, `built level ${f+1} has ${G.exitTiles.length} doors`);
     t.assert(G.clock===180, `level ${f+1} opens with ${G.clock}s, want 180`);
   }
@@ -153,7 +153,7 @@ test('the run is five levels, three minutes and one door', () => {
     buildFloor(0, 8080);
     const door = G.exitTiles[0];
     t.assert(G.exitTiles.length===1, `level 1 has ${G.exitTiles.length} doors`);
-    const d = Math.hypot(door.x+0.5-G.player.x, door.y+0.5-G.player.y);
+    const d = Math.hypot(door.x+0.5-G.plumber.x, door.y+0.5-G.plumber.y);
     t.assert(d < 14, `the door is ${d.toFixed(1)} tiles from the spawn — you did not come in through it`);
     /* Nothing in the game looks for it: there is no discovery flag to flip and
        no search to run. */
@@ -176,8 +176,8 @@ test('the run is five levels, three minutes and one door', () => {
       A.STATE = 'play';
       t.assert(G.leaks.length > 0, `level ${f+1} opened with no pipes to seal`);
       for (const L of G.leaks){ A.sealLeak(L); sealed++; }
-      A.emitNoise(0.3, G.player.x, G.player.y);
-      A.emitNoise(0.3, G.player.x, G.player.y);
+      A.emitNoise(0.3, G.plumber.x, G.plumber.y);
+      A.emitNoise(0.3, G.plumber.x, G.plumber.y);
       noises += 2;
       t.assert(A.runStat.sealed===sealed,
         `after ${f+1} level(s) the run has sealed ${A.runStat.sealed}, want ${sealed}`);

@@ -18,7 +18,7 @@ import { createCollision } from './collision.js';
  *   selfNoise: number,
  *   ambientNoise: number,
  *   stat: {noises:number, deaths:number, sealed:number},
- *   agents: Array<{x:number,y:number,state:string,born:number}>,
+ *   lifeforms: Array<{x:number,y:number,state:string,born:number}>,
  *   leaks: Array<{x:number,y:number,sx:number,sy:number,fixed:boolean}>,
  *   leaksOpen: number,
  *   grid: Uint8Array,
@@ -140,16 +140,16 @@ export function alert(a, x, y, power, mine, baseR, px, py){
 }
 
 // Tells every lifeform that can hear the sound. baseR is the open-floor range, and walls shorten it per lifeform.
-export function alertAgents(noiseState, baseR, power, x, y, mine){
-  const px = noiseState.player.x;
-  const py = noiseState.player.y;
-  for (const a of noiseState.agents){
-    if (a.state==='WALK' && a.born>0) continue;
-    const d = Math.hypot(a.x-x, a.y-y);
+export function alertLifeforms(noiseState, baseR, power, x, y, mine){
+  const px = noiseState.plumber.x;
+  const py = noiseState.plumber.y;
+  for (const lf of noiseState.lifeforms){
+    if (lf.state==='WALK' && lf.born>0) continue;
+    const d = Math.hypot(lf.x-x, lf.y-y);
     if (d > baseR) continue;
-    const eff = baseR - wallSteps(noiseState.grid, a.x, a.y, x, y)*NOISE.WALL_COST;
+    const eff = baseR - wallSteps(noiseState.grid, lf.x, lf.y, x, y)*NOISE.WALL_COST;
     if (d > eff) continue;
-    alert(a, x, y, power, mine, baseR, px, py);
+    alert(lf, x, y, power, mine, baseR, px, py);
   }
 }
 
@@ -160,7 +160,7 @@ export function alertAgents(noiseState, baseR, power, x, y, mine){
  * @param {number} power - loudness (see LOUD and the noise constants).
  * @param {number} x - where the sound is made, in tiles.
  * @param {number} y
- * @param {boolean} [mine] - true if the player made it, so it shows on the player's own noise bar.
+ * @param {boolean} [mine] - true if the plumber made it, so it shows on the plumber's own noise bar.
  */
 export function emitNoise(noiseState, power, x, y, mine){
   noiseState.noise = Math.max(noiseState.noise, power);
@@ -169,7 +169,7 @@ export function emitNoise(noiseState, power, x, y, mine){
   else noiseState.ambientNoise = Math.max(noiseState.ambientNoise, power);
   noiseState.stat.noises++;
   emit('stat', 'noises');
-  alertAgents(noiseState, hearRadius(power), power, x, y, mine);
+  alertLifeforms(noiseState, hearRadius(power), power, x, y, mine);
 }
 
 /* A noise that continues, such as walking or an open pipe. It is called every
@@ -180,15 +180,15 @@ export function sustainedNoise(noiseState, power, x, y, mine){
   noiseState.noisePeak = Math.max(noiseState.noisePeak, power);
   if (mine) noiseState.selfNoise = Math.max(noiseState.selfNoise, power);
   else noiseState.ambientNoise = Math.max(noiseState.ambientNoise, power);
-  alertAgents(noiseState, hearRadius(power), power, x, y, mine);
+  alertLifeforms(noiseState, hearRadius(power), power, x, y, mine);
 }
 
-/* A hunting lifeform touching the player is fatal. A lifeform that was not
+/* A hunting lifeform touching the plumber is fatal. A lifeform that was not
    hunting yet starts hunting and makes a loud noise instead. */
-export function brush(a, p, noiseState){
-  if (a.state==='HUNT'){ emit('caught'); return; }
-  a.state='HUNT'; a.target={x:p.x, y:p.y}; a.t=0;
-  a.rise=Math.max(a.rise, 0.85);
+export function brush(lf, p, noiseState){
+  if (lf.state==='HUNT'){ emit('caught'); return; }
+  lf.state='HUNT'; lf.target={x:p.x, y:p.y}; lf.t=0;
+  lf.rise=Math.max(lf.rise, 0.85);
   emitNoise(noiseState, NOISE.BRUSH, p.x, p.y);
   emit('flash', 'IT TOUCHED YOU');
   emit('sfx', 'rattle', 1);

@@ -21,12 +21,12 @@ test('agents stay out of geometry and react to noise', () => {
   let bad=0, hunted=0, dormant=0;
   for (let i=0;i<3000;i++){
     if (i%11===0){
-      emitNoise(1.0, G.player.x, G.player.y);
-      for (const a of G.agents) emitNoise(1.0, a.x, a.y);
+      emitNoise(1.0, G.plumber.x, G.plumber.y);
+      for (const a of G.lifeforms) emitNoise(1.0, a.x, a.y);
     }
     update(0.016);
     if (A.STATE!=='play'){ A.STATE='play'; }
-    for (const a of G.agents){
+    for (const a of G.lifeforms){
       if (!Number.isFinite(a.x)||!Number.isFinite(a.y)) bad++;
       if (inWall(a.x, a.y, 0.33, true)) bad++;
       if (a.state==='HUNT') hunted++;
@@ -75,7 +75,7 @@ test('a wandering lifeform touches you if it reaches you', () => {
   /* --- DARK TEST ---
      Zero out light and visibility so the LOS check in tickAgents never fires.
      Put a WALK agent at one end, player at the other, facing each other. */
-  const agent = G.agents[0];
+  const agent = G.lifeforms[0];
   agent.x = xStart + 1.5;
   agent.y = midY;
   agent.state = 'WALK';
@@ -84,13 +84,13 @@ test('a wandering lifeform touches you if it reaches you', () => {
   agent.t = 10; // long target timer
   agent.target = { x: midX, y: midY }; // walk toward player
 
-  G.player.x = midX;
-  G.player.y = midY;
-  G.player.px = midX;
-  G.player.py = midY;
+  G.plumber.x = midX;
+  G.plumber.y = midY;
+  G.plumber.px = midX;
+  G.plumber.py = midY;
 
   /* Zero light and vis at player position so LOS check fails. */
-  const pi = Math.floor(G.player.y)*W + Math.floor(G.player.x);
+  const pi = Math.floor(G.plumber.y)*W + Math.floor(G.plumber.x);
   G.lightArr[pi] = 0;
   G.visArr[pi] = 0;
 
@@ -117,7 +117,7 @@ test('a wandering lifeform touches you if it reaches you', () => {
   buildFloor(0, 4242);
   A.STATE = 'play';
 
-  const agent2 = G.agents[0];
+  const agent2 = G.lifeforms[0];
   agent2.x = xStart + 1.5;
   agent2.y = midY;
   agent2.state = 'WALK';
@@ -126,10 +126,10 @@ test('a wandering lifeform touches you if it reaches you', () => {
   agent2.t = 10;
   agent2.target = { x: midX, y: midY };
 
-  G.player.x = midX;
-  G.player.y = midY;
-  G.player.px = midX;
-  G.player.py = midY;
+  G.plumber.x = midX;
+  G.plumber.y = midY;
+  G.plumber.px = midX;
+  G.plumber.py = midY;
 
   /* Ensure light and vis are high at player position. */
   G.lightArr[pi] = 1;
@@ -165,7 +165,7 @@ test('SEARCH timeout goes to WALK, never DORMANT', () => {
   A.STATE = 'play';
 
   /* Create a SEARCH agent with a very short timer. */
-  const agent = G.agents[0];
+  const agent = G.lifeforms[0];
   agent.x = 10.5; agent.y = 10.5;
   agent.state = 'SEARCH';
   agent.born = 0;
@@ -239,7 +239,7 @@ test('SEARCH follows distance field to reach no-LOS target in time', () => {
   console.log(`  test pair: (${pair.ax},${pair.ay}) -> (${pair.bx},${pair.by}), pathLen=${pair.pathLen}`);
 
   /* Place a SEARCH agent at start, target at end. */
-  const agent = G.agents[0];
+  const agent = G.lifeforms[0];
   agent.x = pair.ax; agent.y = pair.ay;
   agent.state = 'SEARCH';
   agent.born = 0;
@@ -247,7 +247,7 @@ test('SEARCH follows distance field to reach no-LOS target in time', () => {
   agent.t = 4.5; // full SEARCH timer
   agent.target = {x: pair.bx, y: pair.by};
   agent.wakeCd = 0; agent.stepT = 0; agent.face = 0;
-  G.player = {x: pair.bx, y: pair.by, face: 0};
+  G.plumber = {x: pair.bx, y: pair.by, face: 0};
 
   let success = false;
   for (let frame=0; frame<300; frame++){ // 5 seconds at 60Hz (timer is 4.5s)
@@ -272,7 +272,7 @@ test('HUNT hold: agent holds and turns for 2s at target, then gives up; loud sou
   A.STATE = 'play';
 
   /* Place a HUNT agent right at its target. */
-  const agent = G.agents[0];
+  const agent = G.lifeforms[0];
   agent.x = 10.5; agent.y = 10.5;
   agent.state = 'HUNT';
   agent.born = 0;
@@ -281,7 +281,7 @@ test('HUNT hold: agent holds and turns for 2s at target, then gives up; loud sou
   agent.target = { x: 10.5, y: 10.5 }; // target is right here
   agent.face = 0;
   agent.wakeCd = 0; agent.stepT = 0;
-  G.player = {x: 10.5, y: 10.5, face: 0};
+  G.plumber = {x: 10.5, y: 10.5, face: 0};
 
   /* Step a few frames - agent should be in hold phase (a.hold > 0). */
   let face0 = agent.face;
@@ -314,7 +314,7 @@ test('HUNT hold: agent holds and turns for 2s at target, then gives up; loud sou
   /* Now test: loud sound during hold should retarget immediately. */
   buildFloor(0, 4242);
   A.STATE = 'play';
-  const agent2 = G.agents[0];
+  const agent2 = G.lifeforms[0];
   agent2.x = 20.5; agent2.y = 20.5;
   agent2.state = 'HUNT';
   agent2.born = 0; agent2.rise = 1;
@@ -322,7 +322,7 @@ test('HUNT hold: agent holds and turns for 2s at target, then gives up; loud sou
   agent2.target = { x: 20.5, y: 20.5 };
   agent2.face = 0;
   agent2.wakeCd = 0; agent2.stepT = 0;
-  G.player = {x: 20.5, y: 20.5, face: 0};
+  G.plumber = {x: 20.5, y: 20.5, face: 0};
 
   /* Start hold by stepping once. */
   update(1/60);

@@ -27,14 +27,14 @@ console.log('[16] the repair — five seconds, standing still');
   const firstOpen = () => G.leaks.find(L=>!L.fixed);
   const standAt = (L) => {
     const r = L || firstOpen();
-    G.player.x = r.sx+0.5; G.player.y = r.sy+0.5;
+    G.plumber.x = r.sx+0.5; G.plumber.y = r.sy+0.5;
     return r;
   };
 
   /* --- the spot exists and is in reach --- */
   buildFloor(1, 77777);
   const L0 = standAt();
-  sa.assert(A.leakReach(G.player.x, G.player.y),
+  sa.assert(A.leakReach(G.plumber.x, G.plumber.y),
     'standing on the pipe does not put you in repair reach');
   sa.assert(A.leakReach(L0.sx+0.5, L0.sy+0.5),
     'the centre of the repair spot is not in reach');
@@ -53,7 +53,7 @@ console.log('[16] the repair — five seconds, standing still');
     keys.w=keys.s=keys.a=keys.d=false; keys.shift=false;
     let frames=0, t=0;
     while (L0.repair < A.REPAIR_TIME && !L0.fixed && frames < 4000){
-      G.player.x = L0.sx+0.5; G.player.y = L0.sy+0.5;
+      G.plumber.x = L0.sx+0.5; G.plumber.y = L0.sy+0.5;
       update(1/60); t += 1/60; frames++;
     }
     const sealed = G.leaks.filter(l=>l.fixed);
@@ -75,7 +75,7 @@ console.log('[16] the repair — five seconds, standing still');
     const openBefore = G.leaksOpen;
     standAt(L0);
     for (let i=0;i<600;i++){
-      G.player.x = L0.sx+0.5; G.player.y = L0.sy+0.5;
+      G.plumber.x = L0.sx+0.5; G.plumber.y = L0.sy+0.5;
       update(1/60);
     }
     sa.assert(L0.repair===0, `a sealed pipe still has ${L0.repair}s of progress on it`);
@@ -91,7 +91,7 @@ console.log('[16] the repair — five seconds, standing still');
     buildFloor(1, 31415);
     const L = standAt();
     for (let i=0;i<180;i++){
-      G.player.x = L.sx+0.5; G.player.y = L.sy+0.5;
+      G.plumber.x = L.sx+0.5; G.plumber.y = L.sy+0.5;
       update(1/60);
     }
     const partial = L.repair;
@@ -124,12 +124,12 @@ console.log('[16] the repair — five seconds, standing still');
     /* a dormant agent placed right next to the pipe must WAKE from the repair
        alone — the whole tension of the mechanic is that standing still
        announces you, so this asserts the announcement is real. */
-    const sleeper = G.agents.find(a=>a.state==='DORMANT');
+    const sleeper = G.lifeforms.find(a=>a.state==='DORMANT');
     sa.assert(sleeper, 'level 5 has no dormant Lifeform to wake — the tension cannot exist');
     if (sleeper){
       sleeper.x = L.sx+0.5; sleeper.y = L.sy+0.5; sleeper.born=0;
       for (let i=0;i<90;i++){
-        G.player.x = L.sx+0.5; G.player.y = L.sy+0.5;
+        G.plumber.x = L.sx+0.5; G.plumber.y = L.sy+0.5;
         update(1/60);
         if (sleeper.state!=='DORMANT') break;
       }
@@ -153,7 +153,7 @@ console.log('[16] the repair — five seconds, standing still');
        The question is "did the level end", so the baseline is where it started. */
     const f0 = A.floorIdx;
     const door = G.exitTiles[0];
-    const atDoor = ()=>{ G.player.x = door.x+0.5; G.player.y = door.y+0.5; };
+    const atDoor = ()=>{ G.plumber.x = door.x+0.5; G.plumber.y = door.y+0.5; };
     const others = G.leaks.slice(0, G.leaks.length-1);
 
     /* Sitting on the door with the work undone: nothing happens, however long

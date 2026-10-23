@@ -1,7 +1,7 @@
-import { drawRigger } from '../cast/rigger.js';
-import { drawStalker } from '../cast/stalker.js';
+import { drawPlumber as drawPlumberSprite } from '../cast/plumber.js';
+import { drawLifeform as drawLifeformSprite } from '../cast/lifeform.js';
 import { TAU } from '../cast/primitives.js';
-import { CATCH_R, DOOR_HOLD, FLOOR, HAND_OFF, MAP_H, MAP_W, TILE, WALL_FACE } from '../config/constants.js';
+import { CATCH_R, DOOR_HOLD, FLOOR, HAND_OFF, MAP_H, MAP_W, PLUMBER, TILE, WALL_FACE } from '../config/constants.js';
 import { G } from '../sim/state.js';
 import { ctx } from './canvas.js';
 
@@ -59,7 +59,7 @@ function doorSprites(){
  * ceiling line above it) is in the carpet tile BELOW it (see bakeTiles). So the
  * door is painted there, centred on the band, because the band is the wall and
  * the rest of that tile is floor. It is drawn after the flood and the wall
- * layers, so it lands on top of the face, and the player (drawn later) stands in
+ * layers, so it lands on top of the face, and the plumber (drawn later) stands in
  * front of the frame.
  *
  * @param {object} e - the door: x, y, facing, and `open` (the swing, 0 to 1, written by tickDoor).
@@ -176,18 +176,18 @@ export function drawDoor(e, t){
 }
 
 /**
- * Draws the player. The Rigger sprite is drawn by drawRigger. This function owns
+ * Draws the plumber. The Plumber sprite is drawn by drawPlumber. This function owns
  * the shadow, the facing, the walking cycle and the radar in the hand. Every part
- * stays inside the collision circle (R = 0.33 tiles).
+ * stays inside the collision circle (PLUMBER.RADIUS = 0.33 tiles).
  *
- * @param {object} p - the player.
+ * @param {object} p - the plumber.
  * @param {number} t - the frame timestamp.
  * @param {number} [wx] - smoothed world position (see the y-sort in the actors
- *   pass). They default to the player's own position, so a caller with no
+ *   pass). They default to the plumber's own position, so a caller with no
  *   smoothing still draws it in the right place.
  * @param {number} [wy]
  */
-export function drawPlayer(p, t, wx, wy){
+export function drawPlumber(p, t, wx, wy){
   const x=(wx===undefined?p.x:wx)*TILE, y=(wy===undefined?p.y:wy)*TILE;
 
   // A tight contact shadow, kept small so it never spills onto a wall
@@ -204,7 +204,7 @@ export function drawPlayer(p, t, wx, wy){
   ctx.translate(x,y);
   ctx.rotate(p.face + Math.PI/2);
 
-  drawRigger(ctx, { T:TILE, phase, gait: p.moving ? 1 : 0, t });
+  drawPlumberSprite(ctx, { T:TILE, phase, gait: p.moving ? 1 : 0, t });
 
   // The radar, held out in front at the same offset the vision cone starts from
   const rg = G.radar ? 1 : 0.35;
@@ -225,21 +225,21 @@ const DORMANT_FILL = Array.from({length:20}, (_,i)=>{
 });
 
 /**
- * Draws a lifeform (the Stalker, drawn by drawStalker). Its look depends on
- * `a.rise`, how far up it is:
+ * Draws a lifeform (the Lifeform, drawn by drawLifeform). Its look depends on
+ * `lf.rise`, how far up it is:
  *   dormant   a patch of static on the carpet
  *   rising    the body gathers out of its own footprint
  *   hunting   fully up
  * The shadow is drawn here and the body by the sprite.
  *
- * @param {object} a - the lifeform.
+ * @param {object} lf - the lifeform.
  * @param {number} t - the frame timestamp.
  * @param {number} [wx] - smoothed world position (defaults to its own).
  * @param {number} [wy]
  */
-export function drawAgent(a, t, wx, wy){
-  const x=(wx===undefined?a.x:wx)*TILE, y=(wy===undefined?a.y:wy)*TILE;
-  const h = a.rise;
+export function drawLifeform(lf, t, wx, wy){
+  const x=(wx===undefined?lf.x:wx)*TILE, y=(wy===undefined?lf.y:wy)*TILE;
+  const h = lf.rise;
 
   // The shadow is sized to the body and not to the rise
   ctx.fillStyle='rgba(6,5,3,0.5)';
@@ -263,17 +263,17 @@ export function drawAgent(a, t, wx, wy){
      they are coming. The phase runs off the frame clock and the amount of stride
      comes from the state: hunting strides fully, searching drifts, walking is in
      between. */
-  const gait = a.state==='HUNT' ? 1 : a.state==='WALK' ? 0.55 : 0.3;
+  const gait = lf.state==='HUNT' ? 1 : lf.state==='WALK' ? 0.55 : 0.3;
 
-  /* CLIP TO THE FLOOR. The Stalker's legs reach further than its collision
+  /* CLIP TO THE FLOOR. The Lifeform's legs reach further than its collision
      circle, so drawn without a clip it would stride over a partition into the
      next room, which looks like walking through walls (and a wall it can cross is
      a wall that cannot save you). The clip is the walkable tiles within 2 tiles of
      it, so its legs stop at the wall line like its body does. It is built every
      frame from the grid, at most 25 rectangles. */
   const CR = 2;
-  const cx0 = Math.max(0, Math.floor(a.x - CR)), cx1 = Math.min(MAP_W-1, Math.ceil(a.x + CR));
-  const cy0 = Math.max(0, Math.floor(a.y - CR)), cy1 = Math.min(MAP_H-1, Math.ceil(a.y + CR));
+  const cx0 = Math.max(0, Math.floor(lf.x - CR)), cx1 = Math.min(MAP_W-1, Math.ceil(lf.x + CR));
+  const cy0 = Math.max(0, Math.floor(lf.y - CR)), cy1 = Math.min(MAP_H-1, Math.ceil(lf.y + CR));
   ctx.save();
   ctx.beginPath();
   for (let ty=cy0; ty<=cy1; ty++)
@@ -283,19 +283,19 @@ export function drawAgent(a, t, wx, wy){
 
   ctx.save();
   ctx.translate(x, y);
-  ctx.rotate(-a.face + Math.PI/2 + Math.sin(t*0.0018)*0.05);
+  ctx.rotate(-lf.face + Math.PI/2 + Math.sin(t*0.0018)*0.05);
 
   /* `danger` is how close it is to hunting you: 0.25 while wandering, 1 while
      chasing. It drives the rim on the hit zone. */
-  drawStalker(ctx, { T:TILE, h, phase: (t*0.0009) % 1, gait, t,
-                     danger: a.state==='HUNT' ? 1 : 0.25 });
+  drawLifeformSprite(ctx, { T:TILE, h, phase: (t*0.0009) % 1, gait, t,
+                      danger: lf.state==='HUNT' ? 1 : 0.25 });
 
   ctx.restore();   // the rotation and translation
   ctx.restore();   // the floor clip
 }
 
-/* The drawing seam. The actors pass draws the cast through ENT.player and
-   ENT.agent, so a test can replace one of them without touching the render
+/* The drawing seam. The actors pass draws the cast through ENT.plumber and
+   ENT.lifeform, so a test can replace one of them without touching the render
    loop. Extra arguments are passed straight through: the loop gives the smoothed
    wx and wy, and dropping them would draw the figure at its unsmoothed position. */
-export const ENT = { player:(p,t,...r)=>drawPlayer(p,t,...r), agent:(a,t,...r)=>drawAgent(a,t,...r) };
+export const ENT = { plumber:(p,t,...r)=>drawPlumber(p,t,...r), lifeform:(lf,t,...r)=>drawLifeform(lf,t,...r) };

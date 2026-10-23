@@ -33,8 +33,26 @@ export const DOOR_EASE = 6;        // how quickly the door leaf moves toward its
 /* ---------- Movement and bodies ---------- */
 export const WALK   = 3.3;               // tiles per second
 export const SPRINT = 6.0;
-export const R      = 0.33;              // player collision radius
-export const RA     = 0.34;              // lifeform collision radius (slightly bulkier)
+
+/* Plumber (player character) constants */
+export const PLUMBER = Object.freeze({
+  RADIUS: 0.33,              // collision radius
+});
+
+/* Lifeform (hostile creature) constants */
+export const LIFEFORM = Object.freeze({
+  RADIUS: 0.34,              // collision radius (slightly bulkier)
+  WALK_SPEED: 1.5,           // tiles per second while wandering
+  WALK_STEP: 0.1,            // extra wander speed per floor
+  SEARCH_SPEED: 2.3,         // tiles per second toward a noise it is investigating
+  SIGHT: 8,                  // tiles — closer than this and it looks
+  SIGHT_DOT: 0.28,           // and only inside this cone of its facing
+  SIGHT_AMBIENT: 0.30,       // ...and only if the light you stand in is above this
+});
+
+/* Back-compat aliases (to be removed after full migration) */
+export const R  = PLUMBER.RADIUS;
+export const RA = LIFEFORM.RADIUS;
 
 /* The hit zone. A lifeform catches you inside this distance, and the Stalker
    draws a disc of exactly this radius under itself, so the dangerous area is
@@ -272,14 +290,9 @@ export const NOISE = Object.freeze({
    every difficulty, which is why they are frozen constants and not preset
    values. The chase SPEED lives in config/tuning.js, because a preset is
    allowed to move it. */
-export const AGENT = Object.freeze({
-  WALK_SPEED: 1.5,     // tiles per second while wandering
-  WALK_STEP: 0.1,      // extra wander speed per floor
-  SEARCH_SPEED: 2.3,   // tiles per second toward a noise it is investigating
-  SIGHT: 8,            // tiles — closer than this and it looks
-  SIGHT_DOT: 0.28,     // and only inside this cone of its facing
-  SIGHT_AMBIENT: 0.30, // ...and only if the light you stand in is above this
-});
+// LIFEFORM table is defined above with PLUMBER for symmetry.
+/* Back-compat alias (to be removed after full migration) */
+export const AGENT = LIFEFORM;
 
 /* ---------- Names the rest of the tree already imports ----------
    These read off the table, so there is one place to change a noise power and

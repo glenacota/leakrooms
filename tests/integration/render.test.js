@@ -30,11 +30,11 @@ test('render survives 400 frames of full draw', () => {
 /* The camera mixes world and device coordinates, so a mistake here inverts the
    view or applies SCALE twice without throwing anything. This locks the mapping:
    the player centred, a tile to the left on the left, one transform only. */
-test('the camera centres the player and keeps the world upright', () => {
+test('the camera centres the plumber and keeps the world upright', () => {
   const t = softAssert();
 {
   buildFloor(2, 31337);
-  G.player.x = 51.25; G.player.y = 18.6; G.player.face = 0;
+  G.plumber.x = 51.25; G.plumber.y = 18.6; G.plumber.face = 0;
   for (let i=1;i<=90;i++) render(1000 + i*16.7);   // let the camera settle
 
   calls.list.length = 0;
@@ -52,19 +52,19 @@ test('the camera centres the player and keeps the world upright', () => {
   const TW = A.TILE;
   const w2s = (wx,wy)=> [ SCALE*(wx*TW + tx), SCALE*(wy*TW + ty) ];
 
-  const [pxDev, pyDev] = w2s(G.player.x, G.player.y);
+  const [pxDev, pyDev] = w2s(G.plumber.x, G.plumber.y);
   const CW = A.cvs.width, CH = A.cvs.height;
   const tol = TW*SCALE*0.6;
   t.assert(Math.abs(pxDev-CW/2) < tol,
-    `player x is ${(pxDev-CW/2).toFixed(0)}px from centre (tol ${tol.toFixed(0)})`);
+    `plumber x is ${(pxDev-CW/2).toFixed(0)}px from centre (tol ${tol.toFixed(0)})`);
   t.assert(Math.abs(pyDev-CH/2) < tol,
-    `player y is ${(pyDev-CH/2).toFixed(0)}px from centre`);
+    `plumber y is ${(pyDev-CH/2).toFixed(0)}px from centre`);
 
   // orientation: 5 tiles to the LEFT must be LEFT of centre on screen
-  const [lxDev] = w2s(G.player.x-5, G.player.y);
-  const [rDev ] = w2s(G.player.x+5, G.player.y);
-  const [,uDev] = w2s(G.player.x, G.player.y-5);
-  const [,dDev] = w2s(G.player.x, G.player.y+5);
+  const [lxDev] = w2s(G.plumber.x-5, G.plumber.y);
+  const [rDev ] = w2s(G.plumber.x+5, G.plumber.y);
+  const [,uDev] = w2s(G.plumber.x, G.plumber.y-5);
+  const [,dDev] = w2s(G.plumber.x, G.plumber.y+5);
   t.assert(lxDev < pxDev, `X inverted: 5 tiles left landed ${(lxDev-pxDev).toFixed(0)}px from centre`);
   t.assert(rDev > pxDev, 'X inverted (right)');
   t.assert(uDev < pyDev, `Y inverted (up): up=${uDev} vs centre=${pyDev}`);
@@ -103,7 +103,7 @@ test('the camera centres the player and keeps the world upright', () => {
   t.assert(wetDraw[4]===76*A.TILE && wetDraw[5]===76*A.TILE,
     `flood image spans ${wetDraw[4]}x${wetDraw[5]} world units, want ${76*A.TILE} — the water is not tile-aligned`);
 
-  console.log(`  player at ${pxDev.toFixed(0)},${pyDev.toFixed(0)}; viewport centre ${CW/2},${CH/2}`);
+  console.log(`  plumber at ${pxDev.toFixed(0)},${pyDev.toFixed(0)}; viewport centre ${CW/2},${CH/2}`);
   console.log(`  10 tiles spans ${span.toFixed(0)}px; lightmap and flood both aligned with geometry`);
 }
   t.done();
@@ -123,14 +123,14 @@ test('the leak is drawn where it is, not just where it is computed', () => {
   const L=G.leaks.find(l=>!l.fixed) || G.leaks[0];
 
   // stand on the repair spot facing the pipe, so it is on screen and lit
-  G.player.x=L.sx+0.5; G.player.y=L.sy+0.5;
-  G.player.face=Math.atan2((L.y+0.5)-G.player.y,(L.x+0.5)-G.player.x);
+  G.plumber.x=L.sx+0.5; G.plumber.y=L.sy+0.5;
+  G.plumber.face=Math.atan2((L.y+0.5)-G.plumber.y,(L.x+0.5)-G.plumber.x);
   /* Let the room crossfade SETTLE before asserting anything about the mask.
-     Teleporting the player starts a 0.3s scope transition, and snapMask()
+     Teleporting the plumber starts a 0.3s scope transition, and snapMask()
      retraces the cone but does not finish the fade — so a mask read three
      frames after arriving is a half-faded value and the pipe looks dim for
      reasons that have nothing to do with the pipe. */
-  for (let i=0;i<40;i++){ G.player.x=L.sx+0.5; G.player.y=L.sy+0.5; update(1/60); }
+  for (let i=0;i<40;i++){ G.plumber.x=L.sx+0.5; G.plumber.y=L.sy+0.5; update(1/60); }
   A.snapMask();
 
   t.assert(A.onScreen(L.x+0.5, L.y+0.5),
@@ -148,7 +148,7 @@ test('the leak is drawn where it is, not just where it is computed', () => {
      first or this measures the smoothing instead of the drawing. */
   const tileScreen = (tx,ty)=>{
     const T=A.TILE*A.SCALE, cx=A.cvs.width/2, cy=A.cvs.height/2;
-    return [Math.round(cx+(tx-G.player.x)*T), Math.round(cy+(ty-G.player.y)*T)];
+    return [Math.round(cx+(tx-G.plumber.x)*T), Math.round(cy+(ty-G.plumber.y)*T)];
   };
   for (let i=0;i<90;i++) render(1000+i*16.7);
   const [lx,ly] = tileScreen(L.x, L.y);
@@ -177,8 +177,8 @@ test('the leak is drawn where it is, not just where it is computed', () => {
   /* and the progress ring: it must be painted while wrenching, which is the
      only moment-to-moment feedback the repair gives */
   {
-    G.player.x=L.sx+0.5; G.player.y=L.sy+0.5;
-    for (let i=0;i<30;i++){ G.player.x=L.sx+0.5; G.player.y=L.sy+0.5; update(1/60); }
+    G.plumber.x=L.sx+0.5; G.plumber.y=L.sy+0.5;
+    for (let i=0;i<30;i++){ G.plumber.x=L.sx+0.5; G.plumber.y=L.sy+0.5; update(1/60); }
     t.assert(L.repair>0.4, `only ${L.repair}s of progress after 0.5s held`);
     /* The ring is drawn at the CENTRE of the repair tile, and it is drawn with an
        arc and a stroke — so it is asserted on those. Looking for the leak's
@@ -234,21 +234,21 @@ console.log('[29] canvas state — nothing outlives the frame that opened it');
     A.STATE = 'play';
     /* An agent NORTH of the player is the exact y-sort order that triggered it:
        the clip is opened first and the Rigger is drawn inside it. */
-    const p = G.player;
-    G.agents.length = 0;
-    G.agents[0] = { x:p.x, y:p.y-4, rise:1, face:0, state:'WALK', born:1, huntT:0,
+    const p = G.plumber;
+    G.lifeforms.length = 0;
+    G.lifeforms[0] = { x:p.x, y:p.y-4, rise:1, face:0, state:'WALK', born:1, huntT:0,
                      searchT:0, target:null, path:[], stuck:0, ripT:0 };
     update(0.016);
 
-    const real = A.ENT.player;
-    A.ENT.player = (pp,t)=>{ clipWhenPlayerDrawn = liveClips(); return real(pp,t); };
+    const real = A.ENT.plumber;
+    A.ENT.plumber = (pp,t)=>{ clipWhenPlayerDrawn = liveClips(); return real(pp,t); };
     render(1000);
-    A.ENT.player = real;
+    A.ENT.plumber = real;
 
     t.assert(depth === 0, `render() finished ${depth} canvas state(s) deep — something saved without restoring`);
     t.assert(liveClips() === 0, `${liveClips()} clip(s) survived the frame`);
     t.assert(clipWhenPlayerDrawn === 0,
-      `the player was drawn with ${clipWhenPlayerDrawn} clip(s) live — something earlier in the frame never released its clip`);
+      `the plumber was drawn with ${clipWhenPlayerDrawn} clip(s) live — something earlier in the frame never released its clip`);
 
     /* and it does not accumulate: twenty frames leave the stack where it was */
     for (let i=0;i<20;i++){ update(0.016); render(2000+i*16); }
@@ -257,7 +257,7 @@ console.log('[29] canvas state — nothing outlives the frame that opened it');
     c.save = realSave; c.restore = realRestore; c.clip = realClip;
   }
   console.log('  every save in a frame is popped in that frame');
-  console.log('  and nothing is clipped when the player is drawn');
+  console.log('  and nothing is clipped when the plumber is drawn');
 }
   t.done();
 });
