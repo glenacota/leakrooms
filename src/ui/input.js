@@ -79,6 +79,14 @@ function onKeyDown(e){
     return;
   }
 
+  /* F toggle fullscreen from any screen. */
+  if (k==='f'){
+    if (!e.repeat) toggleFullscreen();
+    delete keys[k];
+    e.preventDefault();
+    return;
+  }
+
   /* ESC with the difficulty chooser open closes the chooser first. The chooser
      is the top layer of the work order screen, and one mistimed ESC should not
      throw the player back to the title. This must run before backSplash. */
@@ -224,6 +232,15 @@ export function toggleMute(){
   setOption('muted', next);
   flash(next ? 'AUDIO MUTED' : 'AUDIO ON');
   if (!next) Audio_.blip(true);
+}
+
+/* Toggles fullscreen (the F key). */
+export function toggleFullscreen(){
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen();
+  } else {
+    document.exitFullscreen();
+  }
 }
 
 // Attaches the keyboard and focus listeners. Called once from boot().
