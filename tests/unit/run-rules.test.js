@@ -72,8 +72,8 @@ test('the run is five levels, three minutes and one door', () => {
     G.clock = 0.5;
     A.updateReal(1);
     t.assert(A.STATE!=='play', 'the clock ran out and nothing happened');
-    const sub = els['dead-sub'].textContent;
-    t.assert(/CLOCK/.test(sub), `running out of time said "${sub}"`);
+    const title = els['dead-title'].textContent;
+    t.assert(title === "TIME'S UP", `running out of time set title to "${title}"`);
     t.assert(A.lives===2, 'running out of time cost no life');
     /* It is announced before it is fatal, so the last thirty seconds are
        the player's to spend rather than a surprise */

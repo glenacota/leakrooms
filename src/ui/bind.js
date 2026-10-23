@@ -45,9 +45,24 @@ export function bindDom(){
   on('screen', name => { if (name === null) hideAll(); else show(name); });
   on('hud', on_ => { const h = document.getElementById('hud'); if (on_) h.classList.add('on'); else h.classList.remove('on'); });
   on('dead', ({ lives, cause }) => {
+    const title = document.getElementById('dead-title');
     const sub = document.getElementById('dead-sub');
-    if (lives > 0) sub.textContent = `${lives} LIVES REMAINING \u2014 ${cause}`;
-    else sub.textContent = 'SIGNAL LOST';
+    const btn = document.getElementById('btn-retry');
+    if (lives > 0) {
+      // Life lost: show cause-specific title, TRY AGAIN button, lives remaining sub
+      if (cause === 'IT CAUGHT YOU') {
+        title.textContent = 'CAUGHT';
+      } else if (cause === 'THE CLOCK RAN OUT') {
+        title.textContent = "TIME'S UP";
+      }
+      btn.textContent = 'TRY AGAIN';
+      sub.textContent = `${lives} LIVES LEFT \u2022 SEALED PIPES STAY SEALED`;
+    } else {
+      // No lives left: SHIFT OVER, START OVER button, OUT OF LIVES sub
+      title.textContent = 'SHIFT OVER';
+      btn.textContent = 'START OVER';
+      sub.textContent = 'OUT OF LIVES';
+    }
   });
   on('win', ({ sealed, deaths, noises, floors, time }) => {
     document.getElementById('win-stats').innerHTML =
