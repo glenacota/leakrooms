@@ -61,9 +61,10 @@
   align-items:center;
   gap:8px;
   font-size:13px;
-  line-height:1.5;
+  line-height:1.8;
   white-space:nowrap;
 }
+.crt-row.noise{margin-top:10px}
 
 /* The label is dimmer than the value but not the darkest yellow in the
    palette, and the outline under it does the separating. */
@@ -79,6 +80,8 @@
   font-variant-numeric:tabular-nums;  /* digits keep the same width, so numbers do not jitter */
   letter-spacing:.02em;
 }
+/* The number is a reading out of full scale, so it carries its unit. */
+#val-noise::after{ content:'%'; }
 
 /* The second label in a row, set apart from the pair before it. */
 .crt-lbl.sep{ margin-left:10px; }
@@ -165,6 +168,7 @@
   background:rgba(8,7,3,.78);
   border:1px solid rgba(228,230,168,.5);
   overflow:hidden;
+  margin-bottom:2px;
 }
 .bar i{
   position:absolute;
@@ -193,7 +197,9 @@
 }
 /* The threshold is the one mark on the bar that is red: it is the line the
    player is trying to stay under, and nothing else on the bar is a limit. */
-.bar.noise u.loud{ left:59%; width:1px; background:var(--danger); }
+.bar.noise u.loud{ left:59%; width:2px; background:var(--danger); }
+/* Let the LOUD tag poke above the shell instead of being clipped by it. */
+.bar.noise{ overflow:visible;}
 /* The peak decays slowly so a quarter-second sprint stays on screen long
    enough to read. */
 .bar.noise u.peak{ background:#ff8f6b; opacity:0; }
@@ -202,6 +208,21 @@
 .bar.noise i.leak{
   background:linear-gradient(90deg,#3c5a60,#8fc4cc);
   opacity:.9;
+}
+/* The LOUD tag names the red hairline: it is the one line on the bar that is
+   a limit, not a reading, and it sits centred on the hairline above the shell. */
+.bar.noise .loud-tag{
+  position:absolute;
+  left:59%;
+  bottom:100%;
+  margin-bottom:0px;
+  transform:translateX(-50%);
+  font-size:10px;
+  color:var(--danger);
+  text-shadow: 0 0 24px black;
+  font-weight: 900;
+  letter-spacing:.25em;
+  white-space:nowrap;
 }
 @media (prefers-reduced-motion: reduce){
   .bar.noise u{ transition:none; }

@@ -124,8 +124,8 @@ test('[24] the HUD — one glass panel in the corner, and it reserves nothing', 
   const barLabels = barRows.map(s => (s.match(/class="crt-lbl[^"]*">([A-Z][A-Z ]*)</)||[])[1]).sort();
   /* The labels are a set, so the expectation is sorted too and the assertion
      does not depend on which of them happens to come first alphabetically. */
-  t.assert(JSON.stringify(barLabels)===JSON.stringify(['RADAR','NOISE'].sort()),
-    `bars are on ${JSON.stringify(barLabels)}, expected RADAR/NOISE only`);
+  t.assert(JSON.stringify(barLabels)===JSON.stringify(['NOISE','RADAR'].sort()),
+    `bars are on ${JSON.stringify(barLabels)}, expected NOISE/RADAR only`);
   t.assert((hudHtml.match(/class="bar/g)||[]).length===2,
     'there are more bars than the two continuous readings');
 

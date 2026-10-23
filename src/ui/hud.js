@@ -18,6 +18,7 @@ export const HUD = {
   noisePeak: document.getElementById('bar-noise-peak'),
   noiseLeak: document.getElementById('bar-noise-leak'),
   noiseLoud: document.querySelector('.bar.noise u.loud'),
+  noiseLoudTag: document.getElementById('tag-loud'),
   vBatt: document.getElementById('val-batt'),
   vNoise: document.getElementById('val-noise'),
   vClock: document.getElementById('val-clock'),
@@ -97,6 +98,8 @@ export function updateHUD(){
   hudSet(HUD.noiseLeak, 'noiseLeak', 'width', (Math.max(0, Math.min(1, G.leakTotal/NOISE_FS))*100)+'%');
   // The LOUD hairline is placed from the constant, so it always marks the real threshold.
   hudSet(HUD.noiseLoud, 'noiseLoud', 'left', (LOUD/NOISE_FS*100)+'%');
+  // The LOUD tag names that same line, so it always sits on the hairline too.
+  hudSet(HUD.noiseLoudTag, 'noiseLoudTag', 'left', (LOUD/NOISE_FS*100)+'%');
 
   /* ---------- Pipes ----------
      One mark per pipe on the floor. The exact count is on the prompt line. */
