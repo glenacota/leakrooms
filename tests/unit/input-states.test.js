@@ -1,6 +1,7 @@
 import test from 'node:test';
 import { softAssert } from '../helpers/soft-assert.js';
 import { loadGame } from '../helpers/harness.js';
+import { pad } from '../../src/sim/keys.js';
 
 /* loadGame() installs the real keydown handler the test drives; it has to run
    before the test body, and static imports hoist above any other module code */
@@ -68,11 +69,14 @@ console.log('[UI] losing the window releases the keys and pauses the run');
   pressCode('w', 'KeyW');
   t.assert(!!A.keys['w'], 'W could not be held at all — this file cannot test anything else');
 
+  pad.x = 1; pad.y = -1; pad.sprint = true;
   const blur = global.window._h.blur;
   t.assert(typeof blur === 'function', 'no blur handler was registered');
   blur();
   t.assert(!A.keys['w'],
     'W is still held after the window lost focus — the player comes back sprinting into a wall with NOISE up');
+  t.assert(pad.x === 0 && pad.y === 0 && pad.sprint === false,
+    'the stick is still held after the window lost focus');
   t.assert(A.STATE === 'pause',
     `blur during play left STATE '${A.STATE}', want 'pause' — a run nobody is watching keeps burning the clock`);
 

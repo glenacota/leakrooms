@@ -1,7 +1,7 @@
 import { DIFFICULTIES } from '../config/presets.js';
 import { SETTINGS, setOption } from '../settings/store.js';
 import { Audio_ } from '../audio/index.js';
-import { keys } from '../sim/keys.js';
+import { keys, clearInput } from '../sim/keys.js';
 import { G } from '../sim/state.js';
 import { STATE, dismissClear, retryFloor, runAgain } from '../game/run.js';
 import { flash } from './hud.js';
@@ -37,11 +37,20 @@ const GAME_CODES = {
   KeyR:'r', KeyM:'m',
 };
 
+/* The radar toggle, pulled out of the key handler so a touch button can call
+   the same code. It does nothing outside a live run. */
+export function toggleRadar(){
+  if (!(G && STATE==='play')) return;
+  if (G.radar) G.radar = false;
+  else if (G.batt<=0) flash('NO POWER — THE RADAR IS DEAD');
+  else { G.radar = true; G.radarRattleT = 0; }
+}
+
 /* Releases every held key. Used when the window loses focus: the browser stops
    sending keyup events to a window that is not focused, so a held key would
    otherwise stay held forever. */
 function clearKeys(){
-  for (const k in keys) delete keys[k];
+  clearInput();
 }
 
 /* The one keydown handler. The order of the branches matters, because several
@@ -193,11 +202,7 @@ function onKeyDown(e){
     }
   }
 
-  if (k==='r' && G && STATE==='play'){
-    if (G.radar) G.radar = false;
-    else if (G.batt<=0) flash('NO POWER — THE RADAR IS DEAD');
-    else { G.radar = true; G.radarRattleT = 0; }
-  }
+  if (k==='r') toggleRadar();
   if (e.key==='Escape' && (STATE==='play'||STATE==='pause')) togglePause();
   if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key)){
     /* One exception: on the pause screen, arrows move a focused slider and

@@ -13,7 +13,7 @@ import { SETTINGS } from '../settings/store.js';
 import { Audio_ } from '../audio/index.js';
 import { emit, on } from '../util/events.js';
 import { initFlood } from '../sim/flood.js';
-import { keys } from '../sim/keys.js';
+import { clearInput } from '../sim/keys.js';
 import { snapMask } from '../sim/vision.js';
 import { G } from '../sim/state.js';
 import { buildFloor } from './floor.js';
@@ -98,7 +98,7 @@ export function transition(to){
   setState(to);
   emit('screen', to === 'play' ? null : to);
   emit('hud', to === 'play');
-  for (const k in keys) delete keys[k];
+  clearInput();
   emit('state', STATE);
 }
 

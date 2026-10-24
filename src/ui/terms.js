@@ -1,7 +1,7 @@
 import { FLOOR_CLOCK, REPAIR_TIME } from '../config/tuning.js';
 import { DIFFICULTIES } from '../config/presets.js';
 import { SETTINGS } from '../settings/store.js';
-import { keys } from '../sim/keys.js';
+import { clearInput } from '../sim/keys.js';
 
 /* ============================================================
    THE TERMS OF THE SHIFT (difficulty)
@@ -61,6 +61,6 @@ export function setTermsOpen(v){
   if (!v){
     /* Keys held while the chooser was open must not carry into the run. The
        work order has no movement, so closing the chooser clears them. */
-    for (const kk in keys) keys[kk] = false;
+    clearInput();
   }
 }

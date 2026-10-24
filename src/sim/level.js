@@ -207,12 +207,12 @@ export function genLevel(rng, floorNum=0){
   /* Picks a floor tile inside a room. Rooms contain wall stubs, so a random pick
      can land inside a wall and is checked. `away` and `minD` keep a pickup away
      from a point (the spawn, or a pipe), so a battery is never handed over for free. */
-  const floorTileIn = (r, pad=1, away=null, minD=0) => {
-    const w = r.rw-2*pad, h = r.rh-2*pad;
+  const floorTileIn = (r, inset=1, away=null, minD=0) => {
+    const w = r.rw-2*inset, h = r.rh-2*inset;
     if (w > 0 && h > 0){
       for (let i=0;i<16;i++){
-        const tx = r.rx+pad + Math.floor(rng()*w);
-        const ty = r.ry+pad + Math.floor(rng()*h);
+        const tx = r.rx+inset + Math.floor(rng()*w);
+        const ty = r.ry+inset + Math.floor(rng()*h);
         if (maze.grid[ty*MAP_W+tx]!==FLOOR) continue;
         if (away && Math.hypot(tx+0.5-away.x, ty+0.5-away.y) < minD) continue;
         return {x:tx, y:ty};
