@@ -218,8 +218,8 @@
   margin-bottom:0px;
   transform:translateX(-50%);
   font-size:10px;
-  color:var(--danger);
-  text-shadow: 0 0 24px black;
+  color:rgb(216, 135, 123);
+  text-shadow: 0 0 14px black;
   font-weight: 900;
   letter-spacing:.25em;
   white-space:nowrap;
