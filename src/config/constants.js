@@ -34,6 +34,16 @@ export const DOOR_EASE = 6;        // how quickly the door leaf moves toward its
 export const WALK   = 3.3;               // tiles per second
 export const SPRINT = 6.0;
 
+/* The on-screen stick (touch). First-guess numbers: tune them on a real device. */
+export const STICK = Object.freeze({
+  DEAD: 0.2,          // fraction of the radius with no response at all
+  SPRINT_ON: 0.88,    // pushing past this fraction of the radius starts a sprint
+  SPRINT_OFF: 0.80,   // a sprint lasts until you come back below this
+  RADIUS_VMIN: 0.11,  // stick radius as a share of the short screen side
+  RADIUS_MIN: 44,     // CSS pixels: smallest the stick radius gets
+  RADIUS_MAX: 80,     // CSS pixels: largest the stick radius gets
+});
+
 /* Plumber (player character) constants */
 export const PLUMBER = Object.freeze({
   RADIUS: 0.33,              // collision radius
