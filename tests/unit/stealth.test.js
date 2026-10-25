@@ -24,7 +24,6 @@ function atOffset(dx = OFF, dy = 0){
 
 test('stealth: first wake per state flashes once, repeats are silent', () => {
   const t = softAssert();
-{
   buildFloor(0, 4242);
   const flash = () => els['flashnote'].textContent;
 
@@ -66,7 +65,5 @@ test('stealth: first wake per state flashes once, repeats are silent', () => {
   t.assert(flash() === again,
     'a repeated RISING wake flashed again');
 
-  console.log('  stealth: first wake per state flashes once, repeats are silent');
-}
-  t.done();
+  console.log('  stealth: first wake per state flashes once, repeats are silent');;
 });

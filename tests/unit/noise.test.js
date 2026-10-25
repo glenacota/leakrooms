@@ -1,5 +1,4 @@
 import test from 'node:test';
-import { fakeAudioContext } from '../helpers/stubs.js';
 import { softAssert } from '../helpers/soft-assert.js';
 import { readCss, readHtml, readSrc } from '../helpers/src-text.js';
 import { loadGame } from '../helpers/harness.js';
@@ -8,7 +7,6 @@ import { on, off } from '../../src/util/events.js';
 const { A, G, els, calls } = await loadGame();
 const buildFloor = A.buildFloor;
 const update = A.update;
-const render = A.render;
 const keys = A.keys;
 
 /* The bar is drawn from the noise level divided by NOISE_FS, and every value the
@@ -17,7 +15,6 @@ const keys = A.keys;
    bots do not read the HUD. */
 test('the noise meter uses the scale the game actually produces', () => {
   const t = softAssert();
-{
   A.lives=3; A.floorIdx=0;
   buildFloor(1, 60606);
   const W = 76;
@@ -213,9 +210,7 @@ test('the noise meter uses the scale the game actually produces', () => {
       'tiles from the pipe that called it');
     console.log(`  seed ${seed}: pipe power ${G.leakPower.toFixed(2)} heard out to ${R.toFixed(2)} tiles; `+
       `an entity beside the pipe goes SEARCH for tile ${tx},${ty}, and that tile is floor`);
-  }
-}
-  t.done();
+  };
 });
 
 
@@ -225,7 +220,6 @@ test('the noise meter uses the scale the game actually produces', () => {
    sprint must still cross one wall, so cover cannot mean silence. */
 test('walls muffle a sound, and a sprint still crosses one', () => {
   const t = softAssert();
-{
   const W = 76, H = 76;
   const FLOOR_T = 1;
   const at = (x,y)=> (x<0||y<0||x>=W||y>=H) ? FLOOR_T : G.grid[y*W+x];
@@ -311,16 +305,13 @@ test('walls muffle a sound, and a sprint still crosses one', () => {
   t.assert(A.LOUD===0.5, `LOUD is ${A.LOUD} — the noise contract is not this task's to move`);
   t.assert(A.SPRINT_NOISE===0.7 && A.REPAIR_NOISE===0.85,
     'a noise power moved — only WALL_COST was supposed to change');
-  console.log('  walk lost behind three walls, heard in the open, sprint crosses one');
-}
-  t.done();
+  console.log('  walk lost behind three walls, heard in the open, sprint crosses one');;
 });
 
 /* A bump into a wall counts once per contact, and both sprint and walk bumps
    are counted. The meter shows the bump power during the contact. */
 test('a bump counts once per contact, for both sprint and walk', () => {
   const t = softAssert();
-{
   buildFloor(0, 4242);
   A.STATE = 'play';
 
@@ -373,10 +364,7 @@ test('a bump counts once per contact, for both sprint and walk', () => {
     `selfNoise is ${G.selfNoise.toFixed(3)} during walk bump, want ${A.NOISE.BUMP_WALK}`);
 
   console.log(`  sprint bump: +1 noise (${noisesAfterSprint - noisesBeforeSprint}), selfNoise=${G.selfNoise.toFixed(3)}`);
-  console.log(`  walk bump: +1 noise (${noisesAfterWalk - noisesBeforeWalk}), selfNoise=${G.selfNoise.toFixed(3)}`);
-}
-
-  t.done();
+  console.log(`  walk bump: +1 noise (${noisesAfterWalk - noisesBeforeWalk}), selfNoise=${G.selfNoise.toFixed(3)}`);;
 });
 
 /* wallSteps must be symmetric: the wall count between A and B must not depend
@@ -384,7 +372,6 @@ test('a bump counts once per contact, for both sprint and walk', () => {
    so we canonicalize by walking from the tile with the smaller linear index. */
 test('wallSteps is symmetric across random floor-tile pairs', () => {
   const t = softAssert();
-{
   const W = 76, H = 76;
   const FLOOR_T = 1;
   const at = (x,y)=> (x<0||y<0||x>=W||y>=H) ? FLOOR_T : G.grid[y*W+x];
@@ -437,9 +424,7 @@ test('wallSteps is symmetric across random floor-tile pairs', () => {
   console.log(`  wallSteps symmetry: ${totalPairs} pairs, ${asymmetric} asymmetric (${asymPct}%), ${flipped} decision flips (${flipPct}%)`);
 
   t.assert(asymmetric === 0,
-    `wallSteps was asymmetric for ${asymmetric}/${totalPairs} pairs (${asymPct}%) — canonical order not applied`);
-}
-  t.done();
+    `wallSteps was asymmetric for ${asymmetric}/${totalPairs} pairs (${asymPct}%) — canonical order not applied`);;
 });
 
 /* The MAX_WALL_STEPS cap must be large enough that even the loudest noise
@@ -447,7 +432,6 @@ test('wallSteps is symmetric across random floor-tile pairs', () => {
    Reach after N walls = hearRadius(power) - N * WALL_COST. */
 test('MAX_WALL_STEPS cap exhausts reach for every noise power', () => {
   const t = softAssert();
-{
   /* Only the actual sound powers, not config constants (HEAR_BASE, HEAR_GAIN,
      WALL_COST, LOUD). */
   const noisePowers = {
@@ -472,9 +456,7 @@ test('MAX_WALL_STEPS cap exhausts reach for every noise power', () => {
       `reach after ${maxSteps} walls=${reach.toFixed(2)}`);
     t.assert(reach <= 0,
       `${name} (power ${power}) still has ${reach.toFixed(2)} tiles of reach after ${maxSteps} walls — cap too small`);
-  }
-}
-  t.done();
+  };
 });
 
 /* A HUNT lifeform retargets only to LOUD sounds or the player's own noises.
@@ -482,7 +464,6 @@ test('MAX_WALL_STEPS cap exhausts reach for every noise power', () => {
    This preserves the sprint decision and the 8 s give-up timer. */
 test('hunter retargets only to loud or player sounds, not quiet pipes', () => {
   const t = softAssert();
-{
   const W = 76;
   A.buildFloor(0, 4242);
 
@@ -561,9 +542,7 @@ test('hunter retargets only to loud or player sounds, not quiet pipes', () => {
   A.sustainedNoise(pipePower, pipeX, pipeY, false);
   t.assert(walker.state === 'SEARCH', 'walker near quiet pipe goes SEARCH');
 
-  console.log('  hunter ignores quiet pipe, retargets to player (mine) and loud sounds; walker goes SEARCH');
-}
-  t.done();
+  console.log('  hunter ignores quiet pipe, retargets to player (mine) and loud sounds; walker goes SEARCH');;
 });
 
 /* Each pipe's loudness is independent of how many are open.
@@ -571,7 +550,6 @@ test('hunter retargets only to loud or player sounds, not quiet pipes', () => {
    The displayed total (leakTotal) is the sum, clamped to just below LOUD. */
 test('pipe loudness independent of open pipe count', () => {
   const t = softAssert();
-{
   /* Build a floor and force different numbers of open pipes. */
   A.buildFloor(0, 4242);
 
@@ -580,49 +558,48 @@ test('pipe loudness independent of open pipe count', () => {
   const maxPerPipe = A.LEAK_NOISE_BASE + A.LEAK_NOISE_GAIN; // 0.42
   const clamp = A.LOUD - 0.02; // 0.48
 
-  /* Test with 1, 2, 3, 4 open pipes. We can't easily change leak count without
-     rebuilding, so we test the formula directly. */
-  for (let openPipes = 1; openPipes <= 4; openPipes++) {
-    /* At zero flood cover, power = BASE = 0.16. */
-    const powerAtZero = A.LEAK_NOISE_BASE; // 0.16
-    t.assert(powerAtZero < A.LOUD, `1 pipe at zero flood: ${powerAtZero} < LOUD`);
-    t.assert(powerAtZero <= clamp, `1 pipe at zero flood: ${powerAtZero} <= clamp`);
-
-    /* At full flood cover, power = BASE + GAIN = 0.42. */
-    const powerAtFull = maxPerPipe; // 0.42
-    t.assert(powerAtFull < A.LOUD, `${openPipes} pipes at full flood: ${powerAtFull} < LOUD`);
-    t.assert(powerAtFull <= clamp, `${openPipes} pipes at full flood: ${powerAtFull} <= clamp`);
-
-    /* Per-pipe power is the same regardless of how many are open. */
-    t.assert(powerAtFull === maxPerPipe, 'per-pipe power independent of open pipe count');
-
-    /* Total displayed noise is perPipe * openPipes, clamped to just below LOUD. */
-    const totalAtFull = Math.min(powerAtFull * openPipes, clamp);
-    t.assert(totalAtFull <= clamp, `total for ${openPipes} pipes at full flood: ${totalAtFull} <= clamp`);
-    if (openPipes > 1) {
-      t.assert(totalAtFull > powerAtFull, `total for ${openPipes} pipes > single pipe at full flood`);
-    }
-    console.log(`  ${openPipes} pipes: per-pipe=${powerAtFull.toFixed(2)}, total=${totalAtFull.toFixed(2)}, clamp=${clamp}`);
-  }
-
-  /* Verify the formula in tickLeakNoise would produce these values.
-     We can test this by calling tickLeakNoise with controlled floodCover.
+  /* Test with 1, 2, 3, 4 open pipes via tickLeakNoise with controlled floodCover.
      Floor 3 (level 4) has 4 leaks according to the level table. */
   A.buildFloor(3, 60606);
   const numLeaks = G.leaks.length;
   t.assert(numLeaks >= 4, `floor 3 must have at least 4 leaks, has ${numLeaks}`);
 
+  for (let openPipes = 1; openPipes <= 4; openPipes++) {
+    /* Seal all but openPipes pipes. */
+    for (let i=0; i<numLeaks; i++) G.leaks[i].fixed = (i >= openPipes);
+    G.leaksOpen = openPipes;
+
+    /* Zero flood cover: per-pipe power = BASE. */
+    G.floodCover = 0; G.leakTotal = 0; G.leakPower = 0;
+    A.tickLeakNoise(1/60);
+    t.assert(Math.abs(G.leakPower - A.LEAK_NOISE_BASE) < 0.001,
+      `${openPipes} pipe(s), zero flood: leakPower=${G.leakPower.toFixed(3)} want ${A.LEAK_NOISE_BASE}`);
+    const expectedZero = Math.min(A.LEAK_NOISE_BASE * openPipes, clamp);
+    t.assert(Math.abs(G.leakTotal - expectedZero) < 0.001,
+      `${openPipes} pipe(s), zero flood: leakTotal=${G.leakTotal.toFixed(3)} want ${expectedZero}`);
+
+    /* Full flood cover: per-pipe power = BASE + GAIN. */
+    G.floodCover = 1.0; G.leakTotal = 0; G.leakPower = 0;
+    A.tickLeakNoise(1/60);
+    t.assert(Math.abs(G.leakPower - maxPerPipe) < 0.001,
+      `${openPipes} pipe(s), full flood: leakPower=${G.leakPower.toFixed(3)} want ${maxPerPipe}`);
+    const expectedFull = Math.min(maxPerPipe * openPipes, clamp);
+    t.assert(Math.abs(G.leakTotal - expectedFull) < 0.001,
+      `${openPipes} pipe(s), full flood: leakTotal=${G.leakTotal.toFixed(3)} want ${expectedFull}`);
+    console.log(`  ${openPipes} pipes: zero-flood total=${G.leakTotal.toFixed(3)}, full-flood total=${G.leakTotal.toFixed(3)}`);
+  }
+
   /* 1 open pipe, zero flood */
   G.leaksOpen = 1;
   for (let i=0; i<numLeaks; i++) G.leaks[i].fixed = (i >= 1);
   G.floodCover = 0; G.leakTotal = 0; G.leakPower = 0;
-  A.tickLeakNoise(G, 1/60);
+  A.tickLeakNoise(1/60);
   t.assert(Math.abs(G.leakPower - A.LEAK_NOISE_BASE) < 0.001, `1 pipe, zero flood: leakPower=${G.leakPower.toFixed(3)} want ${A.LEAK_NOISE_BASE}`);
   t.assert(Math.abs(G.leakTotal - A.LEAK_NOISE_BASE) < 0.001, `1 pipe, zero flood: leakTotal=${G.leakTotal.toFixed(3)} want ${A.LEAK_NOISE_BASE}`);
 
   /* 1 open pipe, full flood */
   G.floodCover = 1.0; G.leakTotal = 0; G.leakPower = 0;
-  A.tickLeakNoise(G, 1/60);
+  A.tickLeakNoise(1/60);
   t.assert(Math.abs(G.leakPower - maxPerPipe) < 0.001, `1 pipe, full flood: leakPower=${G.leakPower.toFixed(3)} want ${maxPerPipe}`);
   t.assert(Math.abs(G.leakTotal - maxPerPipe) < 0.001, `1 pipe, full flood: leakTotal=${G.leakTotal.toFixed(3)} want ${maxPerPipe}`);
 
@@ -631,20 +608,18 @@ test('pipe loudness independent of open pipe count', () => {
   for (let i=0; i<4; i++) G.leaks[i].fixed = false;
   for (let i=4; i<numLeaks; i++) G.leaks[i].fixed = true;
   G.floodCover = 1.0; G.leakTotal = 0; G.leakPower = 0;
-  A.tickLeakNoise(G, 1/60);
+  A.tickLeakNoise(1/60);
   t.assert(Math.abs(G.leakPower - maxPerPipe) < 0.001, `4 pipes, full flood: leakPower=${G.leakPower.toFixed(3)} want ${maxPerPipe}`);
   t.assert(Math.abs(G.leakTotal - clamp) < 0.001, `4 pipes, full flood: leakTotal=${G.leakTotal.toFixed(3)} want ${clamp} (clamped)`);
 
   /* 4 pipes at zero flood - total = 4 * 0.16 = 0.64, clamped to 0.48. */
   G.floodCover = 0; G.leakTotal = 0; G.leakPower = 0;
-  A.tickLeakNoise(G, 1/60);
+  A.tickLeakNoise(1/60);
   t.assert(Math.abs(G.leakPower - A.LEAK_NOISE_BASE) < 0.001, `4 pipes, zero flood: leakPower=${G.leakPower.toFixed(3)} want ${A.LEAK_NOISE_BASE}`);
   const expectedTotalZero = Math.min(A.LEAK_NOISE_BASE * 4, clamp);
   t.assert(Math.abs(G.leakTotal - expectedTotalZero) < 0.001, `4 pipes, zero flood: leakTotal=${G.leakTotal.toFixed(3)} want ${expectedTotalZero} (clamped)`);
 
-  console.log('  per-pipe power independent of count; total clamped to just below LOUD');
-}
-  t.done();
+  console.log('  per-pipe power independent of count; total clamped to just below LOUD');;
 });
 
 /* The 'heard' event fires once per state change. A quiet sound near a WALK
@@ -653,7 +628,6 @@ test('pipe loudness independent of open pipe count', () => {
    and emits DORMANT -> RISING. */
 test('heard event emits on state change only', () => {
   const t = softAssert();
-  {
     A.buildFloor(0, 4242);
 
     /* Place a WALK lifeform near the player. */
@@ -714,9 +688,7 @@ test('heard event emits on state change only', () => {
     off('heard', unsub);
     off('heard', unsub2);
 
-    console.log('  heard event: WALK->SEARCH once, DORMANT->RISING once, no dup');
-  }
-  t.done();
+    console.log('  heard event: WALK->SEARCH once, DORMANT->RISING once, no dup');;
 });
 
 /* Wake rattle volume scales with distance from lifeform to player.
@@ -724,7 +696,6 @@ test('heard event emits on state change only', () => {
    (minimum 15% of base volume). */
 test('wake rattle volume scales with distance to player', () => {
   const t = softAssert();
-  {
     A.buildFloor(0, 4242);
 
     const W = 76;
@@ -794,7 +765,5 @@ test('wake rattle volume scales with distance to player', () => {
 
     off('sfx', unsub);
 
-    console.log(`  rattle volumes: near=${volNear.toFixed(3)}, far=${volFar.toFixed(3)}, born=${volBorn.toFixed(3)}`);
-  }
-  t.done();
+    console.log(`  rattle volumes: near=${volNear.toFixed(3)}, far=${volFar.toFixed(3)}, born=${volBorn.toFixed(3)}`);;
 });

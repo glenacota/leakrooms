@@ -168,7 +168,6 @@ console.log('[14] the radar — off by default, total while on, expensive');
    noise is the player's own (mine=true), so it shows on the noise bar. */
 test('[14b] the radar hums at RADAR while on, and goes quiet when off', () => {
   const t = softAssert();
-{
   buildFloor(0, 9090);
 
   /* The radar starts silent. */
@@ -192,7 +191,5 @@ test('[14b] the radar hums at RADAR while on, and goes quiet when off', () => {
   G.radar = false;
   for (let i=0;i<60;i++) update(1/60);   // 1 second of decay
   t.assert(G.selfNoise===0, `one second after switching off, selfNoise is ${G.selfNoise.toFixed(2)}, want 0`);
-  console.log(`  radar hums at ${A.RADAR_NOISE} while on, decays to 0 within a second of going off`);
-}
-  t.done();
+  console.log(`  radar hums at ${A.RADAR_NOISE} while on, decays to 0 within a second of going off`);;
 });

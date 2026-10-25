@@ -11,7 +11,6 @@ const { distanceField, nextStep, visitedCount } = await import('../../src/sim/pa
 /* Unreachable tiles (walls, off-map) give -1. */
 test('unreachable tiles give -1', () => {
   const t = softAssert();
-{
   buildFloor(0, 4242);
   const grid = G.grid;
 
@@ -32,15 +31,12 @@ test('unreachable tiles give -1', () => {
   t.assert(field[wy*MAP_W+wx] === -1, `wall tile is ${field[wy*MAP_W+wx]}, expected -1`);
 
   /* Off-map access (handled by nextStep bounds, but field is only MAP_W*MAP_H). */
-  console.log('  unreachable tiles correctly give -1');
-}
-  t.done();
+  console.log('  unreachable tiles correctly give -1');;
 });
 
 /* The field decreases by exactly 1 along a returned step. */
 test('field decreases by exactly 1 along nextStep', () => {
   const t = softAssert();
-{
   buildFloor(0, 4242);
   const grid = G.grid;
 
@@ -75,15 +71,12 @@ test('field decreases by exactly 1 along nextStep', () => {
     t.assert(steps < MAP_W*MAP_H, 'infinite loop protection');
   }
   t.assert(cx === tx && cy === ty, `reached target after ${steps} steps`);
-  console.log(`  gradient walk: ${steps} steps, each decreasing by 1`);
-}
-  t.done();
+  console.log(`  gradient walk: ${steps} steps, each decreasing by 1`);;
 });
 
 /* Two builds of the same floor give identical fields. */
 test('distanceField is deterministic for the same seed', () => {
   const t = softAssert();
-{
   const seed = 12345;
   buildFloor(0, seed);
   const grid1 = new Uint8Array(G.grid);
@@ -105,15 +98,12 @@ test('distanceField is deterministic for the same seed', () => {
     if (field1[i] !== field2[i]) diffs++;
   }
   t.assert(diffs === 0, `${diffs} differences between two builds of the same seed`);
-  console.log('  two builds of same seed produce identical fields');
-}
-  t.done();
+  console.log('  two builds of same seed produce identical fields');;
 });
 
 /* A field visits at most MAP_W * MAP_H tiles. */
 test('visited count never exceeds map size', () => {
   const t = softAssert();
-{
   buildFloor(0, 4242);
   const grid = G.grid;
 
@@ -127,15 +117,12 @@ test('visited count never exceeds map size', () => {
     const count = visitedCount(field);
     t.assert(count <= MAP_W * MAP_H, `visited ${count} tiles, max is ${MAP_W*MAP_H}`);
   }
-  console.log('  visited count <= MAP_W*MAP_H for all targets');
-}
-  t.done();
+  console.log('  visited count <= MAP_W*MAP_H for all targets');;
 });
 
 /* nextStep returns null at target or on unreachable tiles. */
 test('nextStep returns null at target and unreachable', () => {
   const t = softAssert();
-{
   buildFloor(0, 4242);
   const grid = G.grid;
 
@@ -158,7 +145,5 @@ test('nextStep returns null at target and unreachable', () => {
   const atWall = nextStep(field, wx, wy);
   t.assert(atWall === null, `nextStep on wall returned ${JSON.stringify(atWall)}, expected null`);
 
-  console.log('  nextStep returns null at target and walls');
-}
-  t.done();
+  console.log('  nextStep returns null at target and walls');;
 });

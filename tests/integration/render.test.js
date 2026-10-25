@@ -14,16 +14,13 @@ const render = A.render;
    drives 400 frames of draw plus update and asserts no exception escapes. */
 test('render survives 400 frames of full draw', () => {
   const t = softAssert();
-{
   buildFloor(2, 4242);
   let now=Date.now(), err=null;
   try {
     for(let i=0;i<400;i++){ render(now+=16); update(0.016); }
   } catch(e){ err=e; }
   t.assert(!err, 'render threw: '+(err&&err.message));
-  console.log(err? '  FAIL' : '  ok — no exceptions');
-}
-  t.done();
+  console.log(err? '  FAIL' : '  ok — no exceptions');;
 });
 
 
@@ -32,7 +29,6 @@ test('render survives 400 frames of full draw', () => {
    the player centred, a tile to the left on the left, one transform only. */
 test('the camera centres the plumber and keeps the world upright', () => {
   const t = softAssert();
-{
   buildFloor(2, 31337);
   G.plumber.x = 51.25; G.plumber.y = 18.6; G.plumber.face = 0;
   for (let i=1;i<=90;i++) render(1000 + i*16.7);   // let the camera settle
@@ -104,9 +100,7 @@ test('the camera centres the plumber and keeps the world upright', () => {
     `flood image spans ${wetDraw[4]}x${wetDraw[5]} world units, want ${76*A.TILE} — the water is not tile-aligned`);
 
   console.log(`  plumber at ${pxDev.toFixed(0)},${pyDev.toFixed(0)}; viewport centre ${CW/2},${CH/2}`);
-  console.log(`  10 tiles spans ${span.toFixed(0)}px; lightmap and flood both aligned with geometry`);
-}
-  t.done();
+  console.log(`  10 tiles spans ${span.toFixed(0)}px; lightmap and flood both aligned with geometry`);;
 });
 
 
@@ -116,7 +110,6 @@ test('the camera centres the plumber and keeps the world upright', () => {
    invisible while every assertion about it still passes. So check the pixels. */
 test('the leak is drawn where it is, not just where it is computed', () => {
   const t = softAssert();
-{
   const W=76;
   buildFloor(2, 2468);
   for (let i=0;i<60*10;i++) update(1/60);          // let the pipes actually stain
@@ -199,9 +192,7 @@ test('the leak is drawn where it is, not just where it is computed', () => {
     t.assert(calls.list.some(c=>c[0]==='stroke'),
       'the ring was traced but never stroked — it is a circle nobody can see');
   }
-  console.log('  the pipe and the wrench ring land on screen, not off in device-pixel space');
-}
-  t.done();
+  console.log('  the pipe and the wrench ring land on screen, not off in device-pixel space');;
 });
 
 

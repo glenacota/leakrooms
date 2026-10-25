@@ -17,7 +17,6 @@ A.setHeadless(false, false);
    stops movement for the rest of the run and nothing else reports it. */
 test('random walks never put the player inside walls', () => {
   const t = softAssert();
-{
   buildFloor(0, 999);
   let inside=0;
   for (let i=0;i<5000;i++){
@@ -29,9 +28,7 @@ test('random walks never put the player inside walls', () => {
     if (!Number.isFinite(G.plumber.x) || !Number.isFinite(G.plumber.y)) { inside += 1000; break; }
   }
   t.assert(inside===0, `${inside} frames with player inside geometry / NaN`);
-  console.log('  player never penetrated geometry, no NaN');
-}
-  t.done();
+  console.log('  player never penetrated geometry, no NaN');;
 });
 
 /* Tile connectivity is not navigability: a one-tile corridor can be connected on
@@ -40,7 +37,6 @@ test('random walks never put the player inside walls', () => {
    the spawn, so no position on the map can soft-lock the player. */
 test('every legal position is reachable by the player disc', () => {
   const t = softAssert();
-{
   const STEP=0.25, R=0.33;
   const NX=Math.floor(76/STEP), NY=Math.floor(76/STEP);
   let trappedTotal=0, cellsTotal=0;
@@ -98,9 +94,7 @@ test('every legal position is reachable by the player disc', () => {
     }
   }
   console.log(`  ${cellsTotal} free disc positions sampled across 25 floors`);
-  t.assert(trappedTotal===0, `${trappedTotal} positions are legal but unreachable — the player can soft-lock there`);
-}
-  t.done();
+  t.assert(trappedTotal===0, `${trappedTotal} positions are legal but unreachable — the player can soft-lock there`);;
 });
 
 /* The nudge that slides the player along a wall must be bounded by the step.
@@ -108,7 +102,6 @@ test('every legal position is reachable by the player disc', () => {
    reads as a speed bonus. The bound must not cap a free sprint either. */
 test('wall contact does not accelerate, and a free sprint still runs', () => {
   const t = softAssert();
-{
   buildFloor(3, 8642);
   const keys = A.keys;
 
@@ -156,9 +149,7 @@ test('wall contact does not accelerate, and a free sprint still runs', () => {
     const dist=Math.abs(G.plumber.x-sx0);
     console.log(`  1s sprinting in the open: ${dist.toFixed(2)} tiles (expect ~${(6.0).toFixed(1)})`);
     t.assert(dist > 5.0, `sprint only covered ${dist.toFixed(2)} tiles in 1s — movement was over-constrained`);
-  }
-}
-  t.done();
+  };
 });
 
 /* Pressing into a wall must move the player only along the wall. The nudge
@@ -166,7 +157,6 @@ test('wall contact does not accelerate, and a free sprint still runs', () => {
    the same way; a fallback that relocates the player outright is a teleport. */
 test('pressing into a wall drifts sideways not at all', () => {
   const t = softAssert();
-{
   const keys = A.keys;
   const release = ()=>{ keys.w=keys.a=keys.s=keys.d=false; keys.shift=false; };
 
@@ -228,7 +218,5 @@ test('pressing into a wall drifts sideways not at all', () => {
     const drift=Math.abs(G.plumber.y-y0);
     t.assert(drift < 0.05, `pressing ${label} into a wall drifted ${drift.toFixed(3)} tiles vertically`);
   }
-  console.log('  no lateral drift on any axis, no teleports');
-}
-  t.done();
+  console.log('  no lateral drift on any axis, no teleports');;
 });

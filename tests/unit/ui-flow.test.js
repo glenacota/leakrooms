@@ -9,14 +9,8 @@ import { loadGame } from '../helpers/harness.js';
 
 const __dirname = fileURLToPath(new URL('../..', import.meta.url));
 const { A, G, els, calls, store, press, askedIds } = await loadGame();
-const seededRNG = A.mulberry32(0xC0FFEE);
-const moveEnt = A.moveEnt;
-const blocked = A.blocked;
 const keys = A.keys;
-const emitNoise = A.emitNoise;
 const buildFloor = A.buildFloor;
-const update = A.update;
-const render = A.render;
 
 
 /* Two splash frames sit in front of the game, so the path a player walks to reach
@@ -24,7 +18,6 @@ const render = A.render;
    and what is left held afterwards. */
 test('the splash chain walks the riser, then the work order, then the run', () => {
   const t = softAssert();
-{
   const html = readHtml();
   const css  = readCss();
 
@@ -175,16 +168,13 @@ test('the splash chain walks the riser, then the work order, then the run', () =
   t.assert(A.STATE==='splash', 'M advanced the splash chain');
   A.setOption('muted', false);
   console.log('  ENTER / any key / click advance, ESC steps back, one screen at a time');
-  console.log('  M toggles mute from every screen, survives a reload, and never advances the splash');
-}
-  t.done();
+  console.log('  M toggles mute from every screen, survives a reload, and never advances the splash');;
 });
 /* The splash paints a floor plan, and the only version of that worth shipping is
    the one the run is actually built from. Nothing the player does between seeing
    the plan and playing it may re-roll the seed. */
 test('the splash plan is painted from the seed the run uses', () => {
   const t = softAssert();
-{
   const html = readHtml();
   const css  = readCss();
   const splashHtml = html.slice(html.indexOf('id="screen-splash"'), html.indexOf('id="screen-order"'));
@@ -230,16 +220,13 @@ test('the splash plan is painted from the seed the run uses', () => {
   A.rollRunSeed();
   t.assert(A.RUN_SEED!==seedAtBoot, 'a new run kept the old seed — RUN IT AGAIN is the same building');
   t.assert(G.seed===A.RUN_SEED, 'the re-rolled seed did not reach the level');
-  console.log(`  plan rolls at two speeds, faded to ${op?op[1]:'?'}, loops seamlessly, and matches seed #${(A.RUN_SEED>>>0).toString(16)}`);
-}
-  t.done();
+  console.log(`  plan rolls at two speeds, faded to ${op?op[1]:'?'}, loops seamlessly, and matches seed #${(A.RUN_SEED>>>0).toString(16)}`);;
 });
 /* The work order and the pause modal are the same document, which is a design
    claim worth asserting: same ticket markup, same controls block, and numbers
    that belong to the run in front of you rather than the static splash copy. */
 test('the pause screen shows the work order with the run written on it', () => {
   const t = softAssert();
-{
   const html = readHtml();
   const splash = html.slice(html.indexOf('id="screen-splash"'));
   const order  = html.slice(html.indexOf('id="screen-order"'),  html.indexOf('id="screen-pause"'));
@@ -446,9 +433,7 @@ test('the pause screen shows the work order with the run written on it', () => {
     'RESTART RUN wiped the stamped terms — preferences are not progress');
 
   A.STATE='play'; A.hideAll();
-  console.log('  pause = the work order, live numbers, settings and briefing as pages of it; terms taken at the door; RESTART RUN two-stage');
-}
-  t.done();
+  console.log('  pause = the work order, live numbers, settings and briefing as pages of it; terms taken at the door; RESTART RUN two-stage');;
 });
 
 /* The one screen between two levels, asserted on three axes because each of
@@ -457,7 +442,6 @@ test('the pause screen shows the work order with the run written on it', () => {
    real, its clock is frozen, ENTER lets go). */
 test('the floor-clear card shows the clock left and the next floor', () => {
   const t = softAssert();
-{
   const html = fs.readFileSync(__dirname+'/index.html','utf8');
   const css  = readCss();
 
@@ -534,9 +518,7 @@ test('the floor-clear card shows the clock left and the next floor', () => {
   A.STATE = 'play';
   A.nextFloor();
   t.assert(A.STATE==='win',
-    `clearing the fifth floor went to '${A.STATE}', want 'win' — the card must not appear with no floor after it`);
-}
-  t.done();
+    `clearing the fifth floor went to '${A.STATE}', want 'win' — the card must not appear with no floor after it`);;
 });
 
 /* The stub invents an element for any id index.html does not carry, so a write

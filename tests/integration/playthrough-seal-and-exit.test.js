@@ -1,6 +1,7 @@
 import test from 'node:test';
 import { softAssert } from '../helpers/soft-assert.js';
 import { loadGame } from '../helpers/harness.js';
+import { bfsPath } from '../helpers/bot.js';
 
 const { A, G } = await loadGame();
 const buildFloor = A.buildFloor;
@@ -14,36 +15,10 @@ const keys = A.keys;
    that is unreachable where its neighbour is fine only shows up here. */
 test('the bot seals every riser, then walks back out the door', () => {
   const t = softAssert();
-{
   const W=76, H=76, IDX=(x,y)=>y*W+x;
 
   // Cache for distance fields in this test: key = "floorIdx,goalX,goalY"
   const distFieldCache = new Map();
-
-  // The same path machinery the earlier bot uses, pointed at a riser.
-  function bfsPath(sx,sy,gx,gy){
-    if(sx===gx && sy===gy) return [];
-    const prev=new Int32Array(W*H).fill(-1);
-    const st=IDX(sx,sy), goal=IDX(gx,gy);
-    if(G.grid[st]!==1||G.grid[goal]!==1) return null;
-    prev[st]=st; const q=[st];
-    for(let h=0;h<q.length;h++){
-      const c=q[h];
-      if(c===goal) break;
-      const cx=c%W, cy=(c/W)|0;
-      for(const [nx,ny] of [[cx+1,cy],[cx-1,cy],[cx,cy+1],[cx,cy-1]]){
-        if(nx<0||ny<0||nx>=W||ny>=H) continue;
-        const ni=IDX(nx,ny);
-        if(G.grid[ni]!==1||prev[ni]>=0) continue;
-        prev[ni]=c; q.push(ni);
-      }
-    }
-    if(prev[goal]<0) return null;
-    const out=[]; let c=goal;
-    while(c!==st){ out.push([c%W,(c/W)|0]); c=prev[c]; }
-    out.push([sx,sy]);
-    return out.reverse();
-  }
 
   /* The door is a wall tile, so the bot cannot path to it. It paths to the
      floor tile beside it, which is how the game decides you are close enough
@@ -161,7 +136,7 @@ test('the bot seals every riser, then walks back out the door', () => {
 
       const stale = !path || wi>=path.length ||
                     Math.hypot(px-fromX, py-fromY) > 2.5;
-      if (stale){ fromX=px; fromY=py; path=bfsPath(Math.floor(px),Math.floor(py),goal.x,goal.y); wi=0; }
+      if (stale){ fromX=px; fromY=py; path=bfsPath(Math.floor(px),Math.floor(py),goal.x,goal.y, G.grid, W, H); wi=0; }
       if (!path){ noPath++; break; }
       while (wi<path.length-1 && Math.hypot(path[wi][0]+0.5-px, path[wi][1]+0.5-py) < 0.45) wi++;
       /* bfsPath returns [] when the player is already on the goal tile, which is
@@ -205,7 +180,5 @@ test('the bot seals every riser, then walks back out the door', () => {
     `${risersSealed}/${risersWanted} pipes were sealed — the tallies do not agree`);
   t.assert(descended===A.LEVELS_N, `the bot walked back out on ${descended}/${A.LEVELS_N} levels`);
   console.log(`  bot: ${risersSealed} pipes sealed, ${descended}/${A.LEVELS_N} levels walked back out`);
-  A.floorIdx=0;
-}
-  t.done();
+  A.floorIdx=0;;
 });

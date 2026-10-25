@@ -13,7 +13,6 @@ A.setHeadless(false, false);
    so only this file can tell the two apart. */
 test('G.wet describes the tile the player ends the frame on', () => {
   const t = softAssert();
-{
   buildFloor(0, 4242);
   const W = 76;
   /* A deep tile: inside the pre-warmed front, so the value is exactly 1 and a
@@ -36,16 +35,13 @@ test('G.wet describes the tile the player ends the frame on', () => {
     `G.wet is ${G.wet} but the player now stands on ${A.wetAt(G.plumber.x, G.plumber.y)} — ` +
     'tickMovement sampled the position before the move');
   t.assert(G.wet === 1, `G.wet is ${G.wet} on a fully wet tile`);
-  console.log(`  G.wet is the arrival tile: ${G.wet} after one step through water`);
-}
-  t.done();
+  console.log(`  G.wet is the arrival tile: ${G.wet} after one step through water`);;
 });
 
 /* p.moving must be true while a move key is held and false when released.
    Also it must start false on a fresh floor. */
 test('p.moving reflects the held key state', () => {
   const t = softAssert();
-{
   buildFloor(0, 4242);
 
   /* At floor start the flag is false. */
@@ -60,7 +56,5 @@ test('p.moving reflects the held key state', () => {
   keys['d'] = false;
   update(1/60);
   update(1/60);
-  t.assert(G.plumber.moving === false, 'player.moving is false after key release');
-}
-  t.done();
+  t.assert(G.plumber.moving === false, 'player.moving is false after key release');;
 });

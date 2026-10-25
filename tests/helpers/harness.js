@@ -3,7 +3,7 @@
    expects, boots the real game against them, and returns the handles the suite
    works through: A (the API), G (a live proxy on the game state), els, calls,
    store and press. */
-import { calls, els, fakeCanvas, fakeEl, fakeCtx } from './stubs.js';
+import { calls, els, fakeCanvas, fakeCtx } from './stubs.js';
 import * as dom from './dom.js';
 
 /* Every id the game has asked for so far.
@@ -23,12 +23,12 @@ global.document = {
     askedIds.push(id);
     if (id in els) return els[id];
     const found = dom.getElementById(id);
-    return (els[id] = found || fakeEl(id));
+    return (els[id] = found || dom.makeEl(id));
   },
   querySelector(sel){
     if (sel in els) return els[sel];
     const found = dom.querySelector(sel);
-    return (els[sel] = found || fakeEl(sel));
+    return (els[sel] = found || dom.makeEl(sel));
   },
   querySelectorAll(sel){ return dom.querySelectorAll(sel); },
   /* The game creates its own canvases (the light bake, the mask, the packed
@@ -111,34 +111,29 @@ function makeRecordingCtx(){
 }
 
 export async function loadGame(opts = {}){
+  let recCtx = null;
   if (opts.recordMain) {
     // make #game a recording canvas before the game boots
-    const rec = makeRecordingCtx();
+    recCtx = makeRecordingCtx();
     const cv = fakeCanvas();
-    cv._ctx = rec;
+    cv._ctx = recCtx;
     els.game = cv;
     // override getContext just in case
-    cv.getContext = () => rec;
-    const mod = await import('../../src/boot.js');
-    mod.boot();
-    const { __api: A } = await import('./api.js');
-    const G  = new Proxy({}, { get:(_,k)=>A.G[k], set:(_,k,v)=>{A.G[k]=v; return true;} });
-    /* `code` as well as `key`: the game reads the movement cluster, the radar and
-       the mute from the physical key, so a press that sends only the character
-       would be pressing a letter rather than a key and the layout bug that
-       distinction exists for would stay invisible. A real browser sends both. */
-    const press = (key, extra={}) => global.window._h.keydown({
-      key, repeat:false, metaKey:false, ctrlKey:false, altKey:false,
-      code: /^[a-z]$/i.test(key) ? 'Key'+key.toUpperCase() : key,
-      preventDefault(){}, ...extra });
-    return { A, G, els, calls, store, press, recCtx: rec, askedIds };
+    cv.getContext = () => recCtx;
   }
   const mod = await import('../../src/boot.js');
   mod.boot();
   const { __api: A } = await import('./api.js');
   const G  = new Proxy({}, { get:(_,k)=>A.G[k], set:(_,k,v)=>{A.G[k]=v; return true;} });
+  /* `code` as well as `key`: the game reads the movement cluster, the radar and
+     the mute from the physical key, so a press that sends only the character
+     would be pressing a letter rather than a key and the layout bug that
+     distinction exists for would stay invisible. A real browser sends both. */
   const press = (key, extra={}) => global.window._h.keydown({
     key, repeat:false, metaKey:false, ctrlKey:false, altKey:false,
+    code: /^[a-z]$/i.test(key) ? 'Key'+key.toUpperCase() : key,
     preventDefault(){}, ...extra });
-  return { A, G, els, calls, store, press, askedIds };
+  const result = { A, G, els, calls, store, press, askedIds };
+  if (opts.recordMain) result.recCtx = recCtx;
+  return result;
 }

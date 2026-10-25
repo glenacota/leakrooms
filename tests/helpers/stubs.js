@@ -62,26 +62,6 @@ export function fakeCanvas(){
   return cv;
 }
 
-export function fakeEl(id){
-  const el = {
-    id, style:{}, dataset:{}, textContent:'', innerHTML:'', value:'',
-    clientWidth:1280, clientHeight:720,
-    classList:{ _s:new Set(),
-      add(c){ (Array.isArray(c)?c:[c]).forEach(x=>this._s.add(x)); },
-      remove(c){ (Array.isArray(c)?c:[c]).forEach(x=>this._s.delete(x)); },
-      toggle(c,f){ f? this._s.add(c) : this._s.delete(c); },
-      contains(c){ return this._s.has(c); } },
-    addEventListener(){}, removeEventListener(){},
-    getContext:()=>fakeCtx(),
-    width:0,height:0,
-    /* The game drives modal transitions through button.click(), including from the
-       key handler, so the stub has to activate the handler the way a browser
-       would rather than just hold the property. */
-    click(){ if (this.onclick) this.onclick(); },
-  };
-  return el;
-}
-
 export const els = {};
 
 /* An AudioParam that remembers what it was last told to do. The real one does

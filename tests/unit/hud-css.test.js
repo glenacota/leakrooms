@@ -7,14 +7,7 @@ import { loadGame } from '../helpers/harness.js';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const { A, G, els, calls, store, press } = await loadGame();
-const seededRNG = A.mulberry32(0xC0FFEE);
-const moveEnt = A.moveEnt;
-const blocked = A.blocked;
-const keys = A.keys;
-const emitNoise = A.emitNoise;
 const buildFloor = A.buildFloor;
-const update = A.update;
-const render = A.render;
 
 
 /* ============ TEST 24: the HUD — one glass panel in the corner

@@ -1,7 +1,6 @@
 import test from 'node:test';
 import { softAssert } from '../helpers/soft-assert.js';
 import { loadGame } from '../helpers/harness.js';
-import { createCollision } from '../../src/sim/collision.js';
 
 const { A, G } = await loadGame();
 const buildFloor = A.buildFloor;
@@ -11,6 +10,7 @@ const REPAIR_NOISE = A.REPAIR_NOISE;
 const REPAIR_REACH = A.REPAIR_REACH;
 const hearRadius = A.hearRadius;
 const sustainedNoise = A.sustainedNoise;
+const wallSteps = A.wallSteps;
 const alert = A.alert;
 const tickRepair = A.tickRepair;
 const tickLifeforms = A.tickLifeforms;
@@ -20,7 +20,6 @@ const tickLifeforms = A.tickLifeforms;
    the wrench, stand the player at the pipe's standing spot, step frames. */
 test('a rising lifeform ignores further sound until it is up (real wrench path)', () => {
   const t = softAssert();
-{
   const W = 76;
   const seedsToTry = [4242, 60606, 88, 9001, 31337, 2718, 12345, 1, 7, 99, 42, 1337];
 
@@ -40,27 +39,9 @@ test('a rising lifeform ignores further sound until it is up (real wrench path)'
         /* Check if the wrench noise reaches this agent. */
         const baseR = hearRadius(REPAIR_NOISE);
         if (d > baseR) continue;
-        const { grid } = G;
-        const { solid } = createCollision(grid);
-        /* wallSteps equivalent - count walls on the line */
-        let walls = 0;
-        const sx = Math.floor(a.x), sy = Math.floor(a.y);
-        const ex = Math.floor(standX), ey = Math.floor(standY);
-        let cx = sx, cy = sy;
-        const dx = Math.abs(ex - sx), dy = -Math.abs(ey - sy);
-        const stepX = sx < ex ? 1 : -1, stepY = sy < ey ? 1 : -1;
-        let err = dx + dy;
-        for (let guard = 0; guard < W + W; guard++){
-          if (cx === ex && cy === ey) break;
-          const e2 = 2 * err;
-          if (e2 >= dy){ err += dy; cx += stepX; }
-          if (e2 <= dx){ err += dx; cy += stepY; }
-          if (cx === ex && cy === ey) break;
-          if (solid(cx, cy)) walls++;
-        }
-        const eff = baseR - walls * 3.0;
+        const eff = baseR - wallSteps(a.x, a.y, standX, standY) * 3.0;
         if (d > eff) continue;
-        chosen = { L, agent: a, dist: d, walls, baseR, eff };
+        chosen = { L, agent: a, dist: d, baseR, eff };
         chosenSeed = seed;
         break;
       }
@@ -70,7 +51,7 @@ test('a rising lifeform ignores further sound until it is up (real wrench path)'
   }
 
   t.assert(chosen, `no DORMANT coil within 4-12 tiles of a pipe that hears the wrench on any of ${seedsToTry.length} seeds`);
-  console.log(`  seed ${chosenSeed}: chosen coil at dist ${chosen.dist.toFixed(2)} tiles, walls=${chosen.walls}, baseR=${chosen.baseR.toFixed(2)}, eff=${chosen.eff.toFixed(2)}`);
+  console.log(`  seed ${chosenSeed}: chosen coil at dist ${chosen.dist.toFixed(2)} tiles, baseR=${chosen.baseR.toFixed(2)}, eff=${chosen.eff.toFixed(2)}`);
 
   /* Rebuild the chosen floor so G is set up correctly. */
   buildFloor(4, chosenSeed);
@@ -176,7 +157,5 @@ test('a rising lifeform ignores further sound until it is up (real wrench path)'
   }
   t.assert(huntFrameBurst !== null, 'agent never reached HUNT after burst within 100 frames');
   t.assert(huntFrameBurst >= 80, `agent reached HUNT at frame ${huntFrameBurst} after burst, expected >= 80`);
-  console.log(`  burst frame ${huntFrameBurst}: state=${agent.state}`);
-}
-  t.done();
+  console.log(`  burst frame ${huntFrameBurst}: state=${agent.state}`);;
 });

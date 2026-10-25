@@ -1,7 +1,6 @@
 import { mulberry32 } from '../../src/util/rng.js';
 import { hash2 } from '../../src/util/hash.js';
 import { LEVELS, LEVELS_N } from '../../src/config/levels.js';
-import { PAL } from '../../src/config/palette.js';
 import { DIFFICULTIES, WATER_TINTS } from '../../src/config/presets.js';
 import { SETTINGS_DEFAULTS, SETTINGS_SCHEMA, SETTINGS_KEY, settingsValid } from '../../src/settings/schema.js';
 import { FLOORS, FLOOR_CLOCK, REPAIR_TIME, HUNT_BASE, HUNT_STEP, applyDifficulty } from '../../src/config/tuning.js';
@@ -9,9 +8,7 @@ import { Audio_ } from '../../src/audio/index.js';
 import { drawPlumber, drawLifeform, drawDoor, ENT } from '../../src/render/entities.js';
 import { drawPlumber as drawPlumberSprite } from '../../src/cast/plumber.js';
 import { drawLifeform as drawLifeformSprite } from '../../src/cast/lifeform.js';
-import { TAU } from '../../src/cast/primitives.js';
-import { cvs, ctx, VW, VH, DPR, SCALE, resize, renderScaleIdx, setRenderScaleIdx } from '../../src/render/canvas.js';
-import { carpetPat, wallPat, ceilPat, scanPat, grainFull, buildPatterns, buildGrainFull } from '../../src/render/textures.js';
+import { cvs, ctx, SCALE } from '../../src/render/canvas.js';
 import { G, installFloorState } from '../../src/sim/state.js';
 import { keys } from '../../src/sim/keys.js';
 import { view } from '../../src/util/view.js';
@@ -102,7 +99,18 @@ tickLifeforms, updateLifeform, randomFloorNear,
 tickClock,
 tickDoor,
 tickRadarReveal,
-emitNoise, sustainedNoise, alertLifeforms, brush, alert,
+tickFlood, wetAt, floodCover, sealLeak, leakReach, leakAt, initFlood, packWet,
+hearRadius, sustainedNoise,
+Audio_,
+get SETTINGS(){ return SETTINGS; },
+get SETTINGS_DEFAULTS(){ return SETTINGS_DEFAULTS; },
+get SETTINGS_SCHEMA(){ return SETTINGS_SCHEMA; },
+get DIFFICULTIES(){ return DIFFICULTIES; },
+get WATER_TINTS(){ return WATER_TINTS; },
+loadSettings, saveSettings, resetSettings, applySettings, setOption,
+settingsValid, get SETTINGS_KEY(){ return SETTINGS_KEY; },
+advanceSplash, backSplash, show, hideAll, get SCREENS(){ return SCREENS; },
+nextFloor, dismissClear, get clearCard(){ return clearCard; },
 get STATE(){ return STATE; },
 set STATE(v){ setState(v); },
 get floorIdx(){ return floorIdx; }, set floorIdx(v){ setFloorIdx(v); },
@@ -135,23 +143,6 @@ get LEAK_RETREAT(){ return LEAK_RETREAT; },
 get WET_RISE(){ return WET_RISE; },
 get LEAK_LURE(){ return LEAK_LURE; },
 get WALK(){ return WALK; }, get SPRINT(){ return SPRINT; },
-tickFlood, wetAt, floodCover, sealLeak, leakReach, leakAt, initFlood, packWet,
-hearRadius, sustainedNoise,
-Audio_,
-get SETTINGS(){ return SETTINGS; },
-get SETTINGS_DEFAULTS(){ return SETTINGS_DEFAULTS; },
-get SETTINGS_SCHEMA(){ return SETTINGS_SCHEMA; },
-get DIFFICULTIES(){ return DIFFICULTIES; },
-get WATER_TINTS(){ return WATER_TINTS; },
-loadSettings, saveSettings, resetSettings, applySettings, setOption,
-settingsValid, get SETTINGS_KEY(){ return SETTINGS_KEY; },
-advanceSplash, backSplash, show, hideAll, get SCREENS(){ return SCREENS; },
-nextFloor, dismissClear, get clearCard(){ return clearCard; },
-/* the real frame loop, not update(): the floor clock is frozen by the gate in
-   frame() rather than by update() refusing to run, so a test that drives
-   update() directly is measuring the wrong thing. requestAnimationFrame is
-   stubbed to a no-op, so calling frame() runs one frame, not a loop. */
-frame,
 paintSplashPlan, rollRunSeed, get RUN_SEED(){ return RUN_SEED; },
 set RUN_SEED(v){ setRunSeed(v); },
 mulberry32, seedSplash,
@@ -162,7 +153,6 @@ get termsOpen(){ return termsOpen; },
 setTermsOpen,
 resetRun,
 get resetArmed(){ return resetArmed; },
-set resetArmed(v){ resetArmed = v; },
 get FLOORS(){ return FLOORS; },
 get HUNT_BASE(){ return HUNT_BASE; }, get HUNT_STEP(){ return HUNT_STEP; },
 get lives(){ return lives; }, set lives(v){ setLives(v); },
@@ -170,7 +160,7 @@ set runTime(v){ setRunTime(v); },
 get runLives(){ return runLives; },
 get runStat(){ return runStat; },
 /* the cast: the avatar's rig and the thing hunting it */
-drawPlumber, drawLifeform, drawDoor, ENT,
+drawLifeform, drawDoor, ENT,
 drawPlumberSprite, drawLifeformSprite,
 /* Collision helpers for tests - create from current G.grid */
 blocked(x, y, r){ return createCollision(G.grid).blocked(x, y, r); },

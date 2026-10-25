@@ -8,14 +8,8 @@ import { loadGame } from '../helpers/harness.js';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const { A, G, els, calls, store, press } = await loadGame();
-const seededRNG = A.mulberry32(0xC0FFEE);
-const moveEnt = A.moveEnt;
-const blocked = A.blocked;
-const keys = A.keys;
 const emitNoise = A.emitNoise;
 const buildFloor = A.buildFloor;
-const update = A.update;
-const render = A.render;
 
 
 /* The level table and the clock are the promises this file defends. Other
@@ -24,7 +18,6 @@ const render = A.render;
    turn a five-level run into a six-riser one and the suite would stay green. */
 test('the run is five levels, three minutes and one door', () => {
   const t = softAssert();
-{
   t.assert(A.LEVELS_N===5, `the run has ${A.LEVELS_N} levels, want 5`);
   /* Level 2 carries two lifeforms. This literal and the table in
      src/config/levels.js have to change together; pin what the game does. */
@@ -208,8 +201,6 @@ test('the run is five levels, three minutes and one door', () => {
     A.STATE = 'splash';
     A.lives=3; A.floorIdx=0; A.runTime=0;
     buildFloor(0, 4242);
-  }
-}
-  t.done();
+  };
 });
 

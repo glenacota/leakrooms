@@ -17,7 +17,6 @@ A.setHeadless(false, true);
 A.setHeadless(false, true);
 test('light is scoped to the room you are standing in', () => {
   const t = softAssert();
-{
   const W=76, H=76, DARK=A.DARK_ROOM, HOP=A.HOP_FALL;
 
   const hopsFrom = (start)=>{
@@ -238,9 +237,7 @@ test('light is scoped to the room you are standing in', () => {
         'the corridor gets brighter toward the far end');
     }
   }
-  function regionOfIdx(i){ return A.internals.regionOf[i]; }
-}
-  t.done();
+  function regionOfIdx(i){ return A.internals.regionOf[i]; };
 });
 
 /* The cone is 200 degrees and stopped by walls. Two failures look the same on
@@ -251,7 +248,6 @@ test('light is scoped to the room you are standing in', () => {
    aggregate numbers: the stub is one tile of 5776. */
 test('the cone of vision rotates and is blocked by walls', () => {
   const t = softAssert();
-{
   const W=76, HALF=A.VIEW_HALF;
 
   buildFloor(1, 5150);
@@ -465,7 +461,5 @@ test('the cone of vision rotates and is blocked by walls', () => {
     t.assert(holes===0, `${holes} walls are darker than the floor in front of them — they read as holes`);
   }
 
-  console.log('  cone rotates, occludes at walls, and never reaches past the room scope');
-}
-  t.done();
+  console.log('  cone rotates, occludes at walls, and never reaches past the room scope');;
 });

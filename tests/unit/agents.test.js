@@ -14,7 +14,6 @@ A.setHeadless(false, false);
    AI has stopped responding to sound. */
 test('agents stay out of geometry and react to noise', () => {
   const t = softAssert();
-{
   /* Level 5, deliberately: it is the level with both a dormant coil and a
      woken hunter in it, and level 1 has exactly one thing in the building. */
   buildFloor(A.LEVELS_N-1, 999);
@@ -36,9 +35,7 @@ test('agents stay out of geometry and react to noise', () => {
   }
   t.assert(bad===0, `${bad} entity integrity violations`);
   t.assert(hunted>0, 'entity never entered HUNT state');
-  console.log(`  ok — ${hunted} hunting-frames, ${dormant} dormant-frames, no geometry escapes`);
-}
-  t.done();
+  console.log(`  ok — ${hunted} hunting-frames, ${dormant} dormant-frames, no geometry escapes`);;
 });
 
 /* A wandering lifeform touches you if it reaches you.
@@ -47,7 +44,6 @@ test('agents stay out of geometry and react to noise', () => {
    Lit variant: a WALK state lifeform in light must still catch as before. */
 test('a wandering lifeform touches you if it reaches you', () => {
   const t = softAssert();
-{
   buildFloor(0, 4242);
   A.STATE = 'play';
 
@@ -150,9 +146,7 @@ test('a wandering lifeform touches you if it reaches you', () => {
   }
   t.assert(touchedLit, 'lit corridor: IT TOUCHED YOU flash was not emitted');
   t.assert(huntedLit, 'lit corridor: walker did not transition to HUNT after touching player');
-  console.log(`  lit corridor: walker touched player at frame ${touchedLit && huntedLit ? 'OK' : 'FAIL'}`);
-}
-  t.done();
+  console.log(`  lit corridor: walker touched player at frame ${touchedLit && huntedLit ? 'OK' : 'FAIL'}`);;
 });
 
 /* SEARCH timeout goes to WALK, not DORMANT. The "may go back to sleep"
@@ -160,7 +154,6 @@ test('a wandering lifeform touches you if it reaches you', () => {
    overwrote it with WALK whenever born <= 0 (always true after grace). */
 test('SEARCH timeout goes to WALK, never DORMANT', () => {
   const t = softAssert();
-{
   buildFloor(0, 4242);
   A.STATE = 'play';
 
@@ -188,9 +181,7 @@ test('SEARCH timeout goes to WALK, never DORMANT', () => {
   t.assert(!everDormant, 'agent entered DORMANT after SEARCH timeout — should stay WALK');
   t.assert(agent.state === 'WALK', `after 200 frames, state is ${agent.state}, expected WALK`);
 
-  console.log('  SEARCH timeout -> WALK; never DORMANT afterwards');
-}
-  t.done();
+  console.log('  SEARCH timeout -> WALK; never DORMANT afterwards');;
 });
 
 /* SEARCH with distance field: a searching lifeform sent to a spot with no
@@ -198,7 +189,6 @@ test('SEARCH timeout goes to WALK, never DORMANT', () => {
    would run out at 2.3 tiles/s. */
 test('SEARCH follows distance field to reach no-LOS target in time', () => {
   const t = softAssert();
-{
   buildFloor(0, 4242);
   A.STATE = 'play';
 
@@ -223,7 +213,7 @@ test('SEARCH follows distance field to reach no-LOS target in time', () => {
     const hasLOS = A.G.los(ax, ay, bx, by);
     if (!hasLOS){
       /* Check path length via distance field. */
-      const field = A.distanceField(G.grid, b.x, b.y);
+      const field = A.distanceField(b.x, b.y);
       const pathLen = field[a.y*W+a.x];
       if (pathLen >= 0 && pathLen <= 15){ // reachable within ~15 steps
         pair = {ax, ay, bx, by, pathLen};
@@ -231,7 +221,7 @@ test('SEARCH follows distance field to reach no-LOS target in time', () => {
     }
   }
   if (!pair){
-    console.log('  WARNING: no suitable pair found, skipping test');
+    t.assert(pair, 'found no-LOS pair with path <= 15 tiles');
     t.done();
     return;
   }
@@ -246,20 +236,20 @@ test('SEARCH follows distance field to reach no-LOS target in time', () => {
   agent.rise = 1;
   agent.t = 4.5; // full SEARCH timer
   agent.target = {x: pair.bx, y: pair.by};
-  agent.wakeCd = 0; agent.stepT = 0; agent.face = 0;
-  G.plumber = {x: pair.bx, y: pair.by, face: 0};
+  agent.face = 0;
+  G.plumber = {x: pair.bx - 8, y: pair.by - 8, face: 0};
 
   let success = false;
+  let framesUsed = 0;
   for (let frame=0; frame<300; frame++){ // 5 seconds at 60Hz (timer is 4.5s)
+    framesUsed = frame;
     update(1/60);
     const d = Math.hypot(agent.x - pair.bx, agent.y - pair.by);
     if (d < 0.5){ success = true; break; }
     if (agent.state !== 'SEARCH') break; // timed out or retargeted
   }
   t.assert(success, `SEARCH agent did not reach target in time (state=${agent.state}, t=${agent.t.toFixed(2)})`);
-  console.log(`  SEARCH reached target in ${(300-frame).toFixed(0)} frames`);
-}
-  t.done();
+  console.log(`  SEARCH reached target in ${framesUsed} frames`);;
 });
 
 /* HUNT hold-and-turn: when a HUNT lifeform reaches its target, it holds
@@ -267,7 +257,6 @@ test('SEARCH follows distance field to reach no-LOS target in time', () => {
    A new loud sound during the hold retargets it immediately. */
 test('HUNT hold: agent holds and turns for 2s at target, then gives up; loud sound retargets during hold', () => {
   const t = softAssert();
-{
   buildFloor(0, 4242);
   A.STATE = 'play';
 
@@ -280,7 +269,6 @@ test('HUNT hold: agent holds and turns for 2s at target, then gives up; loud sou
   agent.t = 0; // just started hunting
   agent.target = { x: 10.5, y: 10.5 }; // target is right here
   agent.face = 0;
-  agent.wakeCd = 0; agent.stepT = 0;
   G.plumber = {x: 10.5, y: 10.5, face: 0};
 
   /* Step a few frames - agent should be in hold phase (a.hold > 0). */
@@ -321,7 +309,6 @@ test('HUNT hold: agent holds and turns for 2s at target, then gives up; loud sou
   agent2.t = 0;
   agent2.target = { x: 20.5, y: 20.5 };
   agent2.face = 0;
-  agent2.wakeCd = 0; agent2.stepT = 0;
   G.plumber = {x: 20.5, y: 20.5, face: 0};
 
   /* Start hold by stepping once. */
@@ -338,7 +325,5 @@ test('HUNT hold: agent holds and turns for 2s at target, then gives up; loud sou
     `agent should retarget to loud sound during hold, target is (${agent2.target.x},${agent2.target.y})`);
   t.assert(agent2.state === 'HUNT', 'state should remain HUNT');
 
-  console.log('  HUNT hold-and-turn: holds 2s, turns, then gives up; loud sound retargets during hold');
-}
-  t.done();
+  console.log('  HUNT hold-and-turn: holds 2s, turns, then gives up; loud sound retargets during hold');;
 });

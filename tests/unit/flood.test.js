@@ -15,7 +15,6 @@ A.setHeadless(false, false);
    reaches LOUD stops being a lure and becomes a level-wide hunt trigger. */
 test('leaks are placed on walls, stay reachable, and flood downhill', () => {
   const t = softAssert();
-{
   const W=76;
 
   /* placement, across 30 floors and every riser on each one */
@@ -374,7 +373,5 @@ test('leaks are placed on walls, stay reachable, and flood downhill', () => {
        worse than sweeping, and the trail has to be the cheap option */
     t.assert(A.LEAK_NOISE_BASE+0.08 < A.LOUD, 'wading is loud enough to wake things');
     console.log(`  wrench ${A.REPAIR_NOISE} > LOUD ${A.LOUD} > drip ${A.LEAK_NOISE_BASE}`);
-  }
-}
-  t.done();
+  };
 });

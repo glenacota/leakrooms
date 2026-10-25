@@ -2,6 +2,7 @@ import test from 'node:test';
 import { fakeAudioContext } from '../helpers/stubs.js';
 import { softAssert } from '../helpers/soft-assert.js';
 import { loadGame } from '../helpers/harness.js';
+import { bfsPath } from '../helpers/bot.js';
 
 const { A, G, els, calls } = await loadGame();
 const buildFloor = A.buildFloor;
@@ -17,7 +18,6 @@ const emitNoise = A.emitNoise;
    below. */
 test('a bot driving real key events can finish all five levels', () => {
   const t = softAssert();
-{
   const W=76,H=76, IDX=(x,y)=>y*W+x;
 
   // Cache for distance fields: key = "floorIdx,goalX,goalY"
@@ -70,39 +70,6 @@ test('a bot driving real key events can finish all five levels', () => {
     return {x:b[0], y:b[1], tile:IDX(b[0],b[1])};
   }
   const distTo=(f,tile)=> f ? (f[tile]>=0?f[tile]:9999) : 9999;
-
-  /**
-   * The shortest walkable route from one tile to another.
-   * @param {number} sx start tile column
-   * @param {number} sy start tile row
-   * @param {number} gx goal tile column
-   * @param {number} gy goal tile row
-   * @returns {number[][]|null} tile pairs from start to goal inclusive, or null
-   *   when no route exists
-   */
-  function bfsPath(sx,sy,gx,gy){
-    if(sx===gx && sy===gy) return [];
-    const prev=new Int32Array(W*H).fill(-1);
-    const st=IDX(sx,sy), goal=IDX(gx,gy);
-    if(G.grid[st]!==1||G.grid[goal]!==1) return null;
-    prev[st]=st; const q=[st];
-    for(let h=0;h<q.length;h++){
-      const c=q[h];
-      if(c===goal) break;
-      const cx=c%W, cy=(c/W)|0;
-      for(const [nx,ny] of [[cx+1,cy],[cx-1,cy],[cx,cy+1],[cx,cy-1]]){
-        if(nx<0||ny<0||nx>=W||ny>=H) continue;
-        const ni=IDX(nx,ny);
-        if(G.grid[ni]!==1||prev[ni]>=0) continue;
-        prev[ni]=c; q.push(ni);
-      }
-    }
-    if(prev[goal]<0) return null;
-    const out=[]; let c=goal;
-    while(c!==st){ out.push([c%W,(c/W)|0]); c=prev[c]; }
-    out.push([sx,sy]);
-    return out.reverse();
-  }
 
   /**
    * Plays one five-level run with the bot.
@@ -234,7 +201,7 @@ test('a bot driving real key events can finish all five levels', () => {
                       IDX(goal.x,goal.y)!==goalId;
         if(stale){
           pathFromX=px; pathFromY=py; goalId=IDX(goal.x,goal.y);
-          path=bfsPath(cx,cy,goal.x,goal.y); wi=0;
+          path=bfsPath(cx,cy,goal.x,goal.y, G.grid, W, H); wi=0;
         }
         if(path && path.length){
           while(wi<path.length-1 &&
@@ -342,7 +309,5 @@ test('a bot driving real key events can finish all five levels', () => {
   // Informational only. The bot ignores the lifeform until it is 9 tiles away
   // and flees into whatever dead end is nearest, so its death rate says nothing
   // about difficulty. Only a human playtest can tune that.
-  console.log(`     (informational: bot deaths are not a difficulty signal)`);
-}
-  t.done();
+  console.log(`     (informational: bot deaths are not a difficulty signal)`);;
 });

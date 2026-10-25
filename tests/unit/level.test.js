@@ -8,7 +8,6 @@ A.setHeadless(false, false);
 
 test('every generated floor is connected, playable and lit', () => {
   const t = softAssert();
-{
   let totalFloors=0, totalTiles=0, minOpen=1, maxOpen=0;
   for (let s=0; s<50; s++){
     buildFloor(s % 5, s*104729+17);
@@ -126,9 +125,7 @@ test('every generated floor is connected, playable and lit', () => {
   const LR=globalThis.__lit/(globalThis.__lit+globalThis.__dark);
   t.assert(LR>0.72, `only ${(LR*100).toFixed(0)}% of rooms are lit across 50 floors (want >72%)`);
   console.log(`  ${(LR*100).toFixed(0)}% of rooms are lit overall.`);
-  console.log(`  ${totalFloors} floors OK. avg reachable tiles ${Math.round(totalTiles/totalFloors)}, range ${minOpen}-${maxOpen}`);
-}
-  t.done();
+  console.log(`  ${totalFloors} floors OK. avg reachable tiles ${Math.round(totalTiles/totalFloors)}, range ${minOpen}-${maxOpen}`);;
 });
 
 /* Rooms are capped in area and linked by 2-tile gates, per the level spec.
@@ -136,7 +133,6 @@ test('every generated floor is connected, playable and lit', () => {
    oversized room breaks the sightlines the whole vision model rests on. */
 test('rooms stay small and link to each other through 2-tile gates', () => {
   const t = softAssert();
-{
   let rooms=0, floors=0, side=[], maxArea=0, over120=0;
   for (let f=0; f<30; f++){
     buildFloor(f, 4000+f*613);
@@ -188,9 +184,7 @@ test('rooms stay small and link to each other through 2-tile gates', () => {
     if (opens < 2) isolated++;
   }
   console.log(`  rooms with fewer than 2 doorway tiles: ${isolated}/${G.rooms.length}`);
-  t.assert(isolated === 0, `${isolated} rooms are effectively sealed — they do not flow into each other`);
-}
-  t.done();
+  t.assert(isolated === 0, `${isolated} rooms are effectively sealed — they do not flow into each other`);;
 });
 
 /* genLevel is the pure stage that decides the whole geometry: door, pipes,
@@ -198,7 +192,6 @@ test('rooms stay small and link to each other through 2-tile gates', () => {
    over twenty seeds, plus the determinism claim that one seed gives one level. */
 test('genLevel is pure and produces a well-formed level', () => {
   const t = softAssert();
-{
   for (let s=0; s<20; s++){
     const seed = 1000 + s*7777;
     const W = 76;
@@ -280,16 +273,13 @@ test('genLevel is pure and produces a well-formed level', () => {
         `${tag}: ${part} differ between two identical seeds — the level is not reproducible`);
   }
   console.log('  20 seeds, no buildFloor: door, pipes, fixtures, pickups, graffiti all well-formed');
-  console.log('  ...and every one of them byte-identical across two builds of the same seed');
-}
-  t.done();
+  console.log('  ...and every one of them byte-identical across two builds of the same seed');;
 });
 /* These assertions are on the door fields the renderer actually reads: the leaf
    angle and the facing. If the hold has no representation in the world, a bot
    that walks to the door and waits still leaves the suite green. */
 test('the door leaf follows the hold and the door faces south', () => {
   const t = softAssert();
-{
   const settle = n => { for (let i=0;i<n;i++) A.update(1/60); };
   const standAt = (e, tiles) => {
     const DIR = { S:[0,1], N:[0,-1], E:[1,0], W:[-1,0] }[e.facing];
@@ -349,9 +339,7 @@ test('the door leaf follows the hold and the door faces south', () => {
     t.assert(G.exitTiles[0].open < 0.02, `${tag}: the new floor's door did not start shut`);
   }
   console.log('  shut on a wet floor, ajar on the latch, cranking on the hold, shut again after');
-  console.log('  the new floor, and the facing names the side with floor on it');
-}
-  t.done();
+  console.log('  the new floor, and the facing names the side with floor on it');;
 });
 
 /* Every floor builds six canvases, and building the next one has to release
@@ -361,7 +349,6 @@ test('the door leaf follows the hold and the door faces south', () => {
    it was the pixels behind a live element. */
 test('the canvases of a replaced floor are released, not dropped', () => {
   const t = softAssert();
-{
   buildFloor(0, 1);
   const old = {
     tiles: G.tilesCv, walls: G.wallsCv,
@@ -381,9 +368,7 @@ test('the canvases of a replaced floor are released, not dropped', () => {
   t.assert(G.tilesCv.width > 0 && G.tilesCv.height > 0,
     'the floor just built is already 0x0 — dispose ran after setG');
   t.assert(G.tilesCv !== old.tiles, 'the tile layer was reused across floors instead of rebuilt');
-  console.log(`  5 canvases released on rebuild; the new floor is ${G.tilesCv.width}x${G.tilesCv.height}`);
-}
-  t.done();
+  console.log(`  5 canvases released on rebuild; the new floor is ${G.tilesCv.width}x${G.tilesCv.height}`);;
 });
 
 /* genLevel is a pure function of its seed, and everything it builds came
@@ -393,7 +378,6 @@ test('the canvases of a replaced floor are released, not dropped', () => {
    from the layout so that making the cast deterministic cannot shift a pipe. */
 test('the same seed builds the same cast ten seconds in', () => {
   const t = softAssert();
-{
   const run = () => {
     A.buildFloor(0, 4242);
     for (let i=0; i<600; i++) A.update(1/60);
@@ -412,9 +396,7 @@ test('the same seed builds the same cast ten seconds in', () => {
   t.assert(layout === JSON.stringify([G.grid, G.leaks, G.exitTiles, G.fixtures, G.batteries, G.graffiti]),
     'the level itself is not identical across two builds of one seed');
 
-  console.log(`  ${G.lifeforms.length} agents, 600 steps, identical both times`);
-}
-  t.done();
+  console.log(`  ${G.lifeforms.length} agents, 600 steps, identical both times`);;
 });
 
 /* A retry rebuilds the same building from the same seed, so the carpet, the
@@ -425,7 +407,6 @@ test('the same seed builds the same cast ten seconds in', () => {
    the layout and the state holds the clones. */
 test('the static bake is cached and a played floor leaves no mark', () => {
   const t = softAssert();
-{
   buildFloor(1, 7);
   const tiles = G.tilesCv, walls = G.wallsCv, light = G.lightCv;
   const exits = G.exitTiles;
@@ -463,7 +444,5 @@ test('the static bake is cached and a played floor leaves no mark', () => {
   t.assert(tiles.width === 0 && tiles.height === 0,
     `the retired tile layer is still ${tiles.width}x${tiles.height} — the cache dropped it instead of releasing it`);
 
-  console.log(`  one seed: 3 canvases reused across a retry; a new seed retires them (${tiles.width}x${tiles.height})`);
-}
-  t.done();
+  console.log(`  one seed: 3 canvases reused across a retry; a new seed retires them (${tiles.width}x${tiles.height})`);;
 });
