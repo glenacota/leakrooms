@@ -16,15 +16,16 @@
    ============================================================ */
 import { STICK } from '../config/constants.js';
 import { STATE } from '../game/run.js';
+import { SETTINGS } from '../settings/store.js';
 import { pad } from '../sim/keys.js';
 import { on } from '../util/events.js';
 import { stickMap } from '../util/stick.js';
 import { toggleRadar } from './input.js';
 import { togglePause } from './pause.js';
 
-/* Which half of the screen the stick lives on. One variable, because a setting
-   will change it later. The buttons sit on the other side. */
-const stickSide = 'left';
+/* Which half of the screen the stick lives on. It is a setting; the buttons sit
+   on the other side. */
+const stickSide = () => SETTINGS.touchSide === 'right' ? 'right' : 'left';
 
 let mode = 'kbm';
 let forced = false;
@@ -45,7 +46,7 @@ function stickRadius(){
 
 function onStickSide(x){
   const half = (window.innerWidth || 0) / 2;
-  return stickSide === 'left' ? x < half : x >= half;
+  return stickSide() === 'left' ? x < half : x >= half;
 }
 
 /* The control under a finger, by walking up from the event target. A pointer
@@ -74,7 +75,15 @@ function releaseAll(){
   held.clear();
 }
 
+/* Tells the stylesheet which side the stick is on, so the radar button can sit
+   on the other one. Read again on every state change as well, because the saved
+   setting is loaded after initTouch() runs. */
+function layout(){
+  if (layer && layer.dataset) layer.dataset.side = stickSide();
+}
+
 function refresh(){
+  layout();
   const show = visible();
   if (layer) layer.hidden = !show;
   if (!show) releaseAll();
@@ -175,6 +184,10 @@ export function initTouch(){
   on('state', refresh);
   on('input:mode', setMode);
   on('input:lost', releaseAll);
+  /* A finger that is down when the side changes would be on the wrong half. */
+  on('settings:changed', key => {
+    if (key === 'touchSide' || key === '*'){ releaseAll(); layout(); }
+  });
 
   const q = globalThis.location && globalThis.location.search;
   forced = !!q && new URLSearchParams(q).get('input') === 'touch';

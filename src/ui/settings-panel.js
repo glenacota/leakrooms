@@ -12,6 +12,9 @@ export const SEGMENTS = {
   difficulty: () => Object.keys(DIFFICULTIES).map(k => [k, DIFFICULTIES[k].label]),
   waterHue:   () => [['slate','SLATE'],['teal','TEAL'],['violet','VIOLET'],['grey','GREY']],
   flash:      () => [['true','ON'],['false','OFF']],
+  touchHud:   () => [['auto','AUTO'],['always','ALWAYS'],['minimal','MINIMAL']],
+  touchSide:  () => [['left','LEFT'],['right','RIGHT']],
+  haptics:    () => [['on','ON'],['off','OFF']],
 };
 
 /* Builds and wires the settings controls from the empty rows in index.html.
