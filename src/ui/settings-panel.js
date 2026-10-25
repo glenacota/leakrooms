@@ -14,7 +14,7 @@ export const SEGMENTS = {
   flash:      () => [['true','ON'],['false','OFF']],
   touchHud:   () => [['auto','AUTO'],['always','ALWAYS'],['minimal','MINIMAL']],
   touchSide:  () => [['left','LEFT'],['right','RIGHT']],
-  haptics:    () => [['on','ON'],['off','OFF']],
+  haptics:    () => [['true','ON'],['false','OFF']],
 };
 
 /* Builds and wires the settings controls from the empty rows in index.html.

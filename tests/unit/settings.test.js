@@ -1,7 +1,6 @@
 import test from 'node:test';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { fakeAudioContext } from '../helpers/stubs.js';
 import { softAssert } from '../helpers/soft-assert.js';
 import { readCss, readHtml, readSrc } from '../helpers/src-text.js';
 import { loadGame } from '../helpers/harness.js';
@@ -275,14 +274,15 @@ console.log('[28] resetting the settings from the ticket leaves the terms alone'
    Three enums that only show in touch mode. They go through the same store as
    everything else, so the same four promises apply: valid defaults, a round
    trip, an old save without them loads, and RESET puts them back. */
-const TOUCH_KEYS = { touchHud: ['auto', 'always', 'minimal'], touchSide: ['left', 'right'], haptics: ['on', 'off'] };
+const TOUCH_KEYS = { touchHud: ['auto', 'always', 'minimal'], touchSide: ['left', 'right'], haptics: [true, false] };
 
 test('[touch settings] defaults, validity and round trip', () => {
   const D = A.SETTINGS_DEFAULTS;
-  assertEqual(D.touchHud, 'auto'); assertEqual(D.touchSide, 'left'); assertEqual(D.haptics, 'on');
+  assertEqual(D.touchHud, 'auto'); assertEqual(D.touchSide, 'left'); assertEqual(D.haptics, true);
   for (const [k, values] of Object.entries(TOUCH_KEYS)){
     for (const v of values) assertEqual(A.settingsValid(k, v), true, `${k}=${v} should be valid`);
-    for (const bad of ['', 'LEFT', 1, true, null, undefined])
+    const bads = k === 'haptics' ? ['', 'on', 'off', 1, null, undefined] : ['', 'LEFT', 1, true, null, undefined];
+    for (const bad of bads)
       assertEqual(A.settingsValid(k, bad), false, `${k}=${String(bad)} should be invalid`);
     for (const v of values){
       assertEqual(A.setOption(k, v), true);
@@ -299,21 +299,25 @@ test('[touch settings] an old save without them loads with the defaults', () => 
   assertEqual(A.SETTINGS.difficulty, 'hard');
   assertEqual(A.SETTINGS.touchHud, 'auto');
   assertEqual(A.SETTINGS.touchSide, 'left');
-  assertEqual(A.SETTINGS.haptics, 'on');
+  assertEqual(A.SETTINGS.haptics, true);
   // A bad value in the new fields falls back on its own and leaves the rest.
-  global.__store.set(A.SETTINGS_KEY, JSON.stringify({ touchSide: 'up', haptics: 'off', master: 0.4 }));
+  global.__store.set(A.SETTINGS_KEY, JSON.stringify({ touchSide: 'up', haptics: false, master: 0.4 }));
   A.loadSettings();
   assertEqual(A.SETTINGS.touchSide, 'left');
-  assertEqual(A.SETTINGS.haptics, 'off');
+  assertEqual(A.SETTINGS.haptics, false);
   assertEqual(A.SETTINGS.master, 0.4);
+  // A save from before haptics was a boolean falls back to the default.
+  global.__store.set(A.SETTINGS_KEY, JSON.stringify({ haptics: 'off' }));
+  A.loadSettings();
+  assertEqual(A.SETTINGS.haptics, true);
 });
 
 test('[touch settings] RESET SETTINGS restores them', () => {
-  A.setOption('touchHud', 'minimal'); A.setOption('touchSide', 'right'); A.setOption('haptics', 'off');
+  A.setOption('touchHud', 'minimal'); A.setOption('touchSide', 'right'); A.setOption('haptics', false);
   A.resetSettings({ keepTerms: true });
   assertEqual(A.SETTINGS.touchHud, 'auto');
   assertEqual(A.SETTINGS.touchSide, 'left');
-  assertEqual(A.SETTINGS.haptics, 'on');
+  assertEqual(A.SETTINGS.haptics, true);
   // ...and the pause button does the same through the UI.
   A.setOption('touchSide', 'right');
   document.getElementById('btn-settings-reset').click();
@@ -326,7 +330,7 @@ test('[touch settings] every touch row is built, pressed correctly, and marked t
   for (const [k, values] of Object.entries(TOUCH_KEYS)){
     const row = rows.find(r => r.dataset.opt === k);
     assertEqual(!!row, true, `no row for ${k}`);
-    assertEqual(row.querySelectorAll('button').map(b => b.dataset.value).join(), values.join());
+    assertEqual(row.querySelectorAll('button').map(b => b.dataset.value).join(), values.map(String).join());
   }
   const html = readHtml();
   for (const k of Object.keys(TOUCH_KEYS)){

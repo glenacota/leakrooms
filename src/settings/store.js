@@ -1,7 +1,12 @@
 import { SETTINGS_DEFAULTS, SETTINGS_SCHEMA, SETTINGS_KEY, settingsValid } from './schema.js';
+import { DIFFICULTIES } from '../config/presets.js';
 import { emit } from '../util/events.js';
 
 export let SETTINGS = Object.assign({}, SETTINGS_DEFAULTS);
+
+/* The difficulty preset the run is on. SETTINGS.difficulty is validated against
+   DIFFICULTIES on every load and write, so it always names a real preset. */
+export function currentTerms(){ return DIFFICULTIES[SETTINGS.difficulty]; }
 
 /* Reads the saved settings. Every failure path falls back to the defaults for
    the affected field and never throws: localStorage is missing in the test
