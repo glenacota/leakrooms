@@ -1,5 +1,5 @@
-import { FLOOR_CLOCK, REPAIR_TIME } from '../config/tuning.js';
-import { SETTINGS, currentTerms } from '../settings/store.js';
+import { SETTINGS, currentTerms, setOption } from '../settings/store.js';
+import { DIFFICULTIES } from '../config/presets.js';
 import { clearInput } from '../sim/keys.js';
 
 /* ============================================================
@@ -49,6 +49,31 @@ export function paintTerms(){
   if (note){
     note.textContent = `${d.lives} lives \u00b7 ${Math.round(d.clock)}s on the clock \u00b7 ${d.repairTime}s at the pipe`;
   }
+}
+
+/**
+ * Handles a key press while the difficulty chooser is open. The number keys pick
+ * a difficulty (in DIFFICULTIES order), and left and right cycle through them
+ * like clicking the buttons.
+ *
+ * @param {KeyboardEvent} e
+ * @returns {boolean} true if the key was one of the chooser's.
+ */
+export function handleTermsKey(e){
+  const list = Object.keys(DIFFICULTIES);
+  const at = Math.max(0, list.indexOf(String(SETTINGS.difficulty)));
+  if (/^[1-9]$/.test(e.key) && +e.key <= list.length){
+    setOption('difficulty', list[+e.key-1]);
+    e.preventDefault();
+    return true;
+  }
+  if (e.key==='ArrowLeft' || e.key==='ArrowRight'){
+    const step = e.key==='ArrowRight' ? 1 : -1;
+    setOption('difficulty', list[(at + step + list.length) % list.length]);
+    e.preventDefault();
+    return true;
+  }
+  return false;
 }
 
 // Opens or closes the difficulty chooser on the work order screen.
