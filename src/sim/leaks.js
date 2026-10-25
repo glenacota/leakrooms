@@ -52,7 +52,7 @@ export function sealLeak(L, leakState){
   // Clear the progress bar, so a number that means "work in progress" does not sit at 100% forever.
   L.repair = 0;
   leakState.leaksOpen = Math.max(0, leakState.leaksOpen-1);
-  emit('sfx', 'seal', );
+  emit('sfx', 'seal');
   emit('flash', leakState.leaksOpen
     ? `PIPE SEALED \u2014 ${leakState.leaksOpen} STILL OPEN`
     : 'EVERY PIPE SEALED \u2014 GET BACK TO THE DOOR');

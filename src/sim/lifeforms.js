@@ -18,7 +18,7 @@ import { distanceField, nextStep } from './path.js';
 /**
  * Lifeform state bundle passed by reference.
  * @typedef {{
- *   lifeforms: Array<{x:number,y:number,face:number,state:string,born:number,rise:number,target:{x:number,y:number},t:number,stepT:number,wakeCd:number,stepT:number}>,
+ *   lifeforms: Array<{x:number,y:number,face:number,state:string,born:number,rise:number,target:{x:number,y:number},t:number}>,
  *   plumber: {x:number,y:number,face:number},
  *   seenBy: number,
  *   nearest: number,
@@ -82,7 +82,6 @@ export function updateLifeform(lifeformState, lf, dt, p){
 
   if (lf.state==='RISING'){
     lf.rise = Math.min(1, lf.rise + dt/1.4);
-    lf.wakeCd = Math.max(0, lf.wakeCd-dt);
     if (lf.rise>=1){ lf.state='HUNT'; lf.t=0; }
     return;
   }
@@ -94,7 +93,7 @@ export function updateLifeform(lifeformState, lf, dt, p){
       lf.t = 2.6 + lifeformState.arng()*3;
     }
     lf.t -= dt;
-    const spd = LIFEFORM.WALK_SPEED + lifeformState.floor*LIFEFORM.WALK_STEP;
+    const spd = LIFEFORM.WALK_SPEED;
     const ang = Math.atan2(lf.target.y-lf.y, lf.target.x-lf.x);
     lf.face = ang;
     moveEnt(lf, Math.cos(ang)*spd*dt, Math.sin(ang)*spd*dt, LIFEFORM.RADIUS);
@@ -104,7 +103,7 @@ export function updateLifeform(lifeformState, lf, dt, p){
 
   if (lf.state==='HUNT'){
     lf.rise = Math.min(1, lf.rise + dt*2.4);
-    const spd = HUNT_BASE + lifeformState.floor*HUNT_STEP;
+    const spd = HUNT_BASE;
     const tgt = lf.target || {x:p.x,y:p.y};
     const tx = Math.floor(tgt.x), ty = Math.floor(tgt.y);
     const cx = Math.floor(lf.x), cy = Math.floor(lf.y);

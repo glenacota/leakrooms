@@ -1,7 +1,6 @@
 import { emit } from '../util/events.js';
 import { view } from '../util/view.js';
-import { RENDER_SCALES } from '../config/constants.js';
-import { VIEW_T, TILE } from '../config/constants.js';
+import { RENDER_SCALES, VIEW_T, TILE } from '../config/constants.js';
 
 /* ---------- The main canvas ---------- */
 export let cvs = document.getElementById('game');
@@ -60,6 +59,5 @@ window.addEventListener('resize', onWindowResize);
    so this only announces the events. The listeners are in ui/bind.js. */
 cvs.addEventListener('contextlost', e => {
   if (e && e.preventDefault) e.preventDefault();
-  emit('contextlost');
 });
 cvs.addEventListener('contextrestored', () => emit('contextrestored'));

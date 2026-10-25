@@ -2,6 +2,7 @@ import test from 'node:test';
 import { softAssert } from '../helpers/soft-assert.js';
 import { loadGame } from '../helpers/harness.js';
 import { makeInWall } from '../helpers/oracles.js';
+import { PLUMBER } from '../../src/config/constants.js';
 const { A, G } = await loadGame();
 const buildFloor = A.buildFloor;
 const update = A.update;
@@ -205,9 +206,9 @@ test('pressing into a wall drifts sideways not at all', () => {
     // the player should end up flush with the wall: centre-to-face distance == radius
     const wallFace = Math.floor(G.plumber.y);          // boundary below the wall tile
     const gap = G.plumber.y - wallFace;
-    console.log(`  final gap to wall face ${gap.toFixed(3)} tiles (collision radius ${A.R})`);
-    t.assert(gap >= A.R - 0.02 && gap <= A.R + 0.12,
-      `ended ${gap.toFixed(3)} tiles from the wall face; expected flush at ~${A.R} (not sunk in, not short)`);
+    console.log(`  final gap to wall face ${gap.toFixed(3)} tiles (collision radius ${PLUMBER.RADIUS})`);
+    t.assert(gap >= PLUMBER.RADIUS - 0.02 && gap <= PLUMBER.RADIUS + 0.12,
+      `ended ${gap.toFixed(3)} tiles from the wall face; expected flush at ~${PLUMBER.RADIUS} (not sunk in, not short)`);
   }
   release();
 

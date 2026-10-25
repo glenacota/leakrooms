@@ -23,7 +23,6 @@ import { ctx } from './canvas.js';
    back, which small text on the door would not. (The word for the same state is
    on the HUD.)
    ============================================================ */
-const DOOR_ROT = { S:0, N:Math.PI, E:-Math.PI/2, W:Math.PI/2 };
 
 /* The lamp and its glow on the wall are radial gradients, drawn every frame for
    every door. They never change shape — only how bright they are, which the
@@ -77,7 +76,7 @@ export function drawDoor(e, t){
   const hw = OW/2, hh = OH/2;
   const cycling = G.descend>0.02 && G.descend<DOOR_HOLD;
 
-  const rot = DOOR_ROT[e.facing] !== undefined ? DOOR_ROT[e.facing] : 0;
+  const rot = 0;
 
   ctx.save();
   ctx.translate((e.x+0.5)*TILE, (e.y+1)*TILE + WALL_FACE/2);

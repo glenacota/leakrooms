@@ -9,7 +9,7 @@ import { MAP_W, MAP_H, WALL, FLOOR } from '../config/constants.js';
  *   5. Make sure everything is one connected area
  *
  * @param {Function} rng - a seeded random number function (0 to 1).
- * @returns {{grid: Uint8Array, rooms: object[], leaves: object[]}} grid has
+ * @returns {{grid: Uint8Array, rooms: object[]}} grid has
  *   WALL (0) or FLOOR (1) per tile, and rooms have rx, ry, rw, rh.
  */
 export function genMaze(rng){
@@ -208,5 +208,5 @@ export function genMaze(rng){
     }
   }
 
-  return { grid, rooms, leaves };
+  return { grid, rooms };
 }

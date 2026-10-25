@@ -38,7 +38,7 @@ test('light is scoped to the room you are standing in', () => {
         const i=y*W+x;
         if (G.grid[i]!==1 || A.internals.regionOf[i]!==ri) continue;
         G.plumber.x=x+0.5; G.plumber.y=y+0.5;
-        A.scopeRoomLight(0, true);
+        A.scopeRoomLight(true);
         return true;
       }
     return false;
@@ -186,7 +186,7 @@ test('light is scoped to the room you are standing in', () => {
           G.plumber.x=x+0.5; G.plumber.y=y+0.5; placedB=true; break;
         }
       t.assert(placedB, 'room B had no standable floor tile');
-      A.scopeRoomLight(0, false);
+      A.scopeRoomLight(false);
       const during = A.internals.visArr[ai];
       t.assert(during > litBefore - 1e-6,
         'the room you left went dark on the same frame you entered the new one — no crossfade');
@@ -275,7 +275,7 @@ test('the cone of vision rotates and is blocked by walls', () => {
   const set=(fx,fy,face)=>{
     G.plumber.x=spot.x; G.plumber.y=spot.y; G.plumber.face=face;
     G.radar=false;
-    A.scopeRoomLight(0,true);
+    A.scopeRoomLight(true);
     A.snapMask();
   };
 

@@ -1,5 +1,4 @@
-import { MAP_W, MAP_H } from '../config/constants.js';
-import { WALL } from '../config/constants.js';
+import { MAP_W, MAP_H, WALL } from '../config/constants.js';
 
 /* Line of sight between two points, using Bresenham's line algorithm: it walks
    the tiles on the straight line and stops at the first wall. The bake and

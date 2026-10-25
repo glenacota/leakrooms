@@ -60,10 +60,6 @@ export const LIFEFORM = Object.freeze({
   SIGHT_AMBIENT: 0.30,       // ...and only if the light you stand in is above this
 });
 
-/* Back-compat aliases (to be removed after full migration) */
-export const R  = PLUMBER.RADIUS;
-export const RA = LIFEFORM.RADIUS;
-
 /* The hit zone. A lifeform catches you inside this distance, and the Stalker
    draws a disc of exactly this radius under itself, so the dangerous area is
    visible. Both read this one constant, so they cannot disagree. */
@@ -301,10 +297,6 @@ export const NOISE = Object.freeze({
    every difficulty, which is why they are frozen constants and not preset
    values. The chase SPEED lives in config/tuning.js, because a preset is
    allowed to move it. */
-// LIFEFORM table is defined above with PLUMBER for symmetry.
-/* Back-compat alias (to be removed after full migration) */
-export const AGENT = LIFEFORM;
-
 /* ---------- Names the rest of the tree already imports ----------
    These read off the table, so there is one place to change a noise power and
    every existing import keeps working. */

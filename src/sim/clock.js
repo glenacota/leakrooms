@@ -48,7 +48,7 @@ export function tickClock(clockState, dt){
       ? 'THIRTY SECONDS \u2014 SEAL THE LEAK, THEN THE DOOR'
       : 'THIRTY SECONDS \u2014 GET TO THE DOOR';
     emit('flash', msg);
-    emit('sfx', 'sting', );
+    emit('sfx', 'sting');
   }
   return true;
 }

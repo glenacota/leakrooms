@@ -3,6 +3,7 @@ import { fakeAudioContext } from '../helpers/stubs.js';
 import { softAssert } from '../helpers/soft-assert.js';
 import { readCss, readHtml, readSrc } from '../helpers/src-text.js';
 import { loadGame } from '../helpers/harness.js';
+import { PLUMBER } from '../../src/config/constants.js';
 
 const { A, G, els, calls } = await loadGame();
 const buildFloor = A.buildFloor;
@@ -22,7 +23,7 @@ test('[8] avatar fits inside the collision disc', () => {
 console.log('[8] avatar fits inside the collision disc');
 {
   // geometry of drawPlumber, in tiles, relative to the plumber's tile centre
-  const R = A.R;
+  const R = PLUMBER.RADIUS;
   const parts = [
     ['shadow',     0.0375, 0.0750, 0.190, 0.110],
     ['boot L',    -0.088, -0.085, 0.058, 0.078],

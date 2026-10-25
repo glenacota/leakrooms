@@ -295,11 +295,10 @@ export function combineMask(visionState, plumber, radar){
  * @param {VisionState} visionState
  * @param {VisionPlumberState} plumber
  * @param {boolean} radar
- * @param {number} dt - seconds since the last step (currently unused).
  * @param {boolean} instant - jump straight to the new scope.
  * @returns {boolean} true if the room changed.
  */
-export function scopeRoomLight(visionState, plumber, radar, dt, instant){
+export function scopeRoomLight(visionState, plumber, radar, instant){
   const here = createRegionAt(visionState.regionOf)(plumber.x, plumber.y);
   if (here === visionState.visRegion && !instant) return false;
 

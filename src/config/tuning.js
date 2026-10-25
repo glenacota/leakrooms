@@ -11,7 +11,7 @@ import { LEVELS_N } from './levels.js';
    constants.js are not part of this: difficulty never changes them.
    ============================================================ */
 
-export let FLOORS = LEVELS_N;
+export const FLOORS = LEVELS_N;
 
 /* How long you get on each level to seal every pipe and walk back to the door
    you came in through. This is the pressure of a floor: the water is the
@@ -27,7 +27,6 @@ export let HUNT_STEP = 0.34;       // extra speed added per level
  * @param {object} d - one entry of DIFFICULTIES (see presets.js).
  */
 export function applyDifficulty(d){
-  FLOORS = LEVELS_N;
   FLOOR_CLOCK = d.clock;
   REPAIR_TIME = d.repairTime;
   HUNT_BASE = d.huntBase;

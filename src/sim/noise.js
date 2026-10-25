@@ -112,7 +112,6 @@ export function alert(a, x, y, power, mine, baseR, px, py){
   if (a.state==='DORMANT'){
     if (!loud) return;
     a.state='RISING'; a.rise=0; a.target={x,y};
-    a.stepT = 0;
     const baseVol = a.born>0 ? 1 : 0.55;
     const dToPlayer = Math.hypot(a.x - px, a.y - py);
     const reach = baseR || hearRadius(power);

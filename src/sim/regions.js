@@ -13,7 +13,6 @@ import { FLOOR, HOP_FALL, MAP_H, MAP_W } from '../config/constants.js';
 export function labelRegions(level) {
   const grid = level.grid;
   const at = (x, y) => grid[y * MAP_W + x];
-  const inB = (x, y) => x >= 0 && y >= 0 && x < MAP_W && y < MAP_H;
 
   /* ---------- Rooms ----------
      Room rectangles come from separate BSP leaves, so they never overlap. Only

@@ -6,15 +6,12 @@ import { hash2 } from '../util/hash.js';
 
 /**
  * @param {object} level - the result of genLevel.
- * @param {Function} [rng] - optional seeded random function. If omitted, uses level.rng
- *   (the layout RNG). Providing a separate RNG makes lifeform placement reproducible
- *   across retries without being affected by how much the layout RNG was consumed.
+ * @param {Function} rng - seeded random function (0 to 1).
  * @returns {object[]} the lifeforms: one walker first, then dormant coils.
  */
 export function spawnLifeforms(level, rng){
   const spawn = level.spawn;
   const spec = level.spec;
-  rng = rng || level.rng;
   // The room farthest from the door, where the walker starts, so nothing is standing in the room you walk into.
   let far = null, fd = -1;
   for (const r of level.rooms){
@@ -28,24 +25,19 @@ export function spawnLifeforms(level, rng){
      difficulty). */
   const lifeforms = [];
   const lifeformRooms = new Set();
-  const firstFar = far && far.rw>=5 && far.rh>=5
-    ? far
-    : level.rooms.reduce((b,r)=>{
-        const d = Math.hypot(r.rx+r.rw/2-spawn.x, r.ry+r.rh/2-spawn.y);
-        return (!b || d>b.d) ? {r,d} : b;
-      }, null)?.r;
-  if (spec.lifeforms > 0 && firstFar){
-    lifeformRooms.add(firstFar);
+  if (spec.lifeforms > 0 && far){
+    lifeformRooms.add(far);
     lifeforms.push({
-      x: firstFar.rx+firstFar.rw/2, y: firstFar.ry+firstFar.rh/2,
+      x: far.rx+far.rw/2, y: far.ry+far.rh/2,
       state:'WALK', t:0, rise:0, target:null,
       // The opening direction is hashed from the room, so it depends only on the level. Math.random() would make it impossible to reproduce from the seed.
-      face: hash2(firstFar.rx, firstFar.ry)*6.28,
-      wakeCd:0, stepT:0, born:3.5
+      face: hash2(far.rx, far.ry)*6.28,
+      born:3.5
     });
   }
   const coilRooms = level.rooms.filter(r=>r.rw>=5&&r.rh>=5 && !lifeformRooms.has(r));
-  for (let i=0; coilRooms.length && lifeforms.length<spec.lifeforms; i++){
+  // Bound the placement attempts so a run of bad RNG draws cannot loop forever.
+  for (let attempts=0; coilRooms.length && lifeforms.length<spec.lifeforms && attempts<coilRooms.length*4; attempts++){
     const r = coilRooms[(rng()*coilRooms.length)|0];
     const cx = r.rx+r.rw/2, cy = r.ry+r.rh/2;
     /* Not in the spawn room, and not on top of a pipe: a coil sharing a tile with
@@ -57,7 +49,7 @@ export function spawnLifeforms(level, rng){
       x: r.rx+1+Math.floor(rng()*(r.rw-2)),
       y: r.ry+1+Math.floor(rng()*(r.rh-2)),
       state:'DORMANT', t:0, rise:0, target:null, face:0,
-      wakeCd:0, stepT:0, born:0
+      born:0
     });
   }
   return lifeforms;

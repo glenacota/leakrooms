@@ -2,7 +2,7 @@ import { BATT_MAX, NOISE, RADAR_DRAIN, PLUMBER, SPRINT, WALK } from '../config/c
 import { emit } from '../util/events.js';
 import { createCollision } from './collision.js';
 import { seedSplash, wetAt } from './flood.js';
-import { emitNoise, sustainedNoise } from './noise.js';
+import { sustainedNoise } from './noise.js';
 import { keys, pad } from './keys.js';
 
 /**
@@ -54,15 +54,13 @@ export function tickBattery(plumberMeta, plumber, batteries, dt){
  *
  * @param {number} dt - seconds since the last step.
  * @param {PlumberState} plumber
- * @param {PlumberMetaState} plumberMeta
  * @param {Uint8Array} grid
- * @param {Array<{x:number,y:number,taken:boolean}>} batteries
  * @param {FloodState} floodState
  * @returns {{moving: boolean, bumped: boolean, sprinting: boolean, wet: number}}
  *   what happened this frame, for the steps that run after movement. `wet` is
  *   how wet the tile the plumber ENDED the frame on is.
  */
-export function tickMovement(plumber, plumberMeta, grid, batteries, floodState, dt){
+export function tickMovement(plumber, grid, floodState, dt){
   const { moveEnt, unstick } = createCollision(grid);
 
   let ix=0, iy=0;

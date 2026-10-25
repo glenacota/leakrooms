@@ -60,7 +60,7 @@ import { buildGlowSprite, render, setSimAlpha } from '../../src/render/render.js
 import { SETTINGS, loadSettings, saveSettings, resetSettings, setOption } from '../../src/settings/store.js';
 import { on, emit } from '../../src/util/events.js';
 import * as _C from '../../src/config/constants.js';
-const { AGENT, BAKE_FLOOR, BATT_MAX, BRUSH_NOISE, CATCH_R, DARK_ROOM, DOOR_AJAR, DOOR_EASE, DOOR_HOLD, DOOR_NOISE, FLICKER_DEPTH, HAND_OFF, HOP_FALL, LEAK_HEADSTART, LEAK_LURE, LEAK_NOISE_BASE, LEAK_NOISE_GAIN, LEAK_RETREAT, LEAK_SPREAD, LIGHT_FADE, LIGHT_FADE_STEPS, LOUD, LS, MAP_H, MAP_W, MASK_TAU, NOISE, NOISE_FS, PIPE_FAR, PIPE_GAP, R, RA, RADAR_DRAIN, RENDER_SCALES, REPAIR_DECAY, REPAIR_NOISE, REPAIR_REACH, SCALE_BAD_FRAMES, SCALE_DROP_MS, SCALE_GOOD_FRAMES, SCALE_RECOVER_MS, SHEEN_STEPS, SPRINT, SPRINT_NOISE, TILE, VHS_PASS, VIEW_DEG, VIEW_FADE_FAR, VIEW_FADE_NEAR, VIEW_HALF, VIEW_MID, VIEW_RANGE, VIEW_RAYS, VIEW_T, WALK, WALL, WALL_FACE, WET_DRAW, WET_EDGE, WET_FALL, WET_RISE, FLOOR } = _C;
+const { BAKE_FLOOR, BATT_MAX, BRUSH_NOISE, CATCH_R, DARK_ROOM, DOOR_AJAR, DOOR_EASE, DOOR_HOLD, DOOR_NOISE, FLICKER_DEPTH, HAND_OFF, HOP_FALL, LEAK_HEADSTART, LEAK_LURE, LEAK_NOISE_BASE, LEAK_NOISE_GAIN, LEAK_RETREAT, LEAK_SPREAD, LIGHT_FADE, LIGHT_FADE_STEPS, LOUD, LS, MAP_H, MAP_W, MASK_TAU, NOISE, NOISE_FS, PIPE_FAR, PIPE_GAP, RADAR_DRAIN, RENDER_SCALES, REPAIR_DECAY, REPAIR_NOISE, REPAIR_REACH, SCALE_BAD_FRAMES, SCALE_DROP_MS, SCALE_GOOD_FRAMES, SCALE_RECOVER_MS, SHEEN_STEPS, SPRINT, SPRINT_NOISE, TILE, VHS_PASS, VIEW_DEG, VIEW_FADE_FAR, VIEW_FADE_NEAR, VIEW_HALF, VIEW_MID, VIEW_RANGE, VIEW_RAYS, VIEW_T, WALK, WALL, WALL_FACE, WET_DRAW, WET_EDGE, WET_FALL, WET_RISE, FLOOR } = _C;
 
 function setHeadless(px, vis){ setPixels(px); setVision(vis); }
 
@@ -107,14 +107,14 @@ get STATE(){ return STATE; },
 set STATE(v){ setState(v); },
 get floorIdx(){ return floorIdx; }, set floorIdx(v){ setFloorIdx(v); },
 get keys(){ return keys; },
-get HAND_OFF(){ return HAND_OFF; }, get R(){ return R; }, drawLifeform,
+get HAND_OFF(){ return HAND_OFF; }, drawLifeform,
 get cvs(){ return cvs; }, get ctxRef(){ return ctx; }, get SCALE(){ return SCALE; },
 get TILE(){ return TILE; },
 get WET_DRAW(){ return WET_DRAW; },
 get LOUD(){ return LOUD; },
   /* The whole noise table, so a test can assert on the contract as a whole
      instead of naming four constants and hoping the rest are covered. */
-  NOISE, AGENT,
+  NOISE,
 get NOISE_FS(){ return NOISE_FS; },
 get DOOR_NOISE(){ return DOOR_NOISE; },
 get BRUSH_NOISE(){ return BRUSH_NOISE; },
@@ -187,7 +187,7 @@ floodCover: () => floodCover(G),
 /* Vision wrappers - G serves as VisionState */
 traceViewCone: (force) => { /* HAND_OFF */ return traceViewCone(G, G.plumber, G.radar, force); },
 combineMask: () => combineMask(G, G.plumber, G.radar),
-scopeRoomLight: (dt, instant) => scopeRoomLight(G, G.plumber, G.radar, dt, instant),
+scopeRoomLight: (instant) => scopeRoomLight(G, G.plumber, G.radar, instant),
 fadeRoomLight: (dt) => fadeRoomLight(G, dt),
 smoothMask: (dt) => smoothMask(G, dt),
 snapMask: () => snapMask(G, G.plumber, G.radar),
@@ -197,7 +197,7 @@ castFan: (out, ox, oy, facing, halfAngle, range, rays, gain, fall) => castFan(ou
 
 /* Plumber wrappers - G serves as PlumberMetaState, G.plumber as PlumberState */
 tickBattery: (dt) => tickBattery(G, G.plumber, G.batteries, dt),
-tickMovement: (dt) => tickMovement(G.plumber, G, G.grid, G.batteries, G, dt),
+tickMovement: (dt) => tickMovement(G.plumber, G.grid, G, dt),
 
 /* Lifeform wrappers - G serves as LifeformState */
 tickLifeforms: (dt) => tickLifeforms(G, dt),

@@ -51,17 +51,18 @@ export function update(state, dt){
      It is written every step and not worked out later, because collision can
      refuse a move, and `prev` has to be the position that was really simulated
      from. */
-  if (state.plumber){ state.plumber.px = state.plumber.x; state.plumber.py = state.plumber.y; }
+  state.plumber.px = state.plumber.x;
+  state.plumber.py = state.plumber.y;
   for (const lf of state.lifeforms){ lf.px = lf.x; lf.py = lf.y; }
   if (!tickClock(state, dt)) return;
   tickBattery(state, state.plumber, state.batteries, dt);
-  const mv = tickMovement(state.plumber, state, state.grid, state.batteries, state, dt);
+  const mv = tickMovement(state.plumber, state.grid, state, dt);
   state.wet = mv.wet;                  // the tile the plumber is standing on now
 
   /* Room-scoped light. It runs AFTER movement, so the room you just walked into
      lights up this frame. Run before movement, it would lag a frame behind and
      look like the lights chasing you. */
-  scopeRoomLight(state, state.plumber, state.radar, dt, false);
+  scopeRoomLight(state, state.plumber, state.radar, false);
   fadeRoomLight(state, dt);
   /* Retrace the cone on any movement, then ease the mask toward it. Both halves
      matter: retracing alone still steps a tile at a time, and easing alone
@@ -72,7 +73,7 @@ export function update(state, dt){
      comes back recombines whatever the crossfade moved in the meantime. */
   if (wantVision){
     if (traceViewCone(state, state.plumber, state.radar, false) || state.scopeDirty){ combineMask(state, state.plumber, state.radar); state.scopeDirty = false; }
-    if (smoothMask(state, dt)) if (state) state.dirty.mask = true;
+    if (smoothMask(state, dt)) state.dirty.mask = true;
   }
 
   // The flood runs after movement, so the water you are standing in is the water you just walked into.

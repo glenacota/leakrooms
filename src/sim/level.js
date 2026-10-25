@@ -1,5 +1,5 @@
 import { genMaze } from './maze.js';
-import { MAP_W, MAP_H, WALL, FLOOR, PIPE_GAP, REPAIR_REACH, PIPE_FAR, R } from '../config/constants.js';
+import { MAP_W, MAP_H, WALL, FLOOR, PIPE_GAP, REPAIR_REACH, PIPE_FAR, PLUMBER } from '../config/constants.js';
 import { LEVELS, LEVELS_N } from '../config/levels.js';
 import { NOTES } from '../config/notes.js';
 import { hash2 } from '../util/hash.js';
@@ -33,24 +33,8 @@ export function genLevel(rng, floorNum=0){
      runs out), not a hunt for the exit. */
 
   // Which way the door opens
-  const FACINGS = [['S',0,1],['N',0,-1],['E',1,0],['W',-1,0]];
-  function wallFacing(tx, ty, r){
-    const open = [];
-    for (const [dir,dx,dy] of FACINGS)
-      if (inB(tx+dx,ty+dy) && at(tx+dx,ty+dy)===FLOOR) open.push({dir,dx,dy});
-    if (!open.length) return 'S';            // cannot happen: the slot touches floor
-    /* South wins whenever it is available. The renderer paints the wall face on
-       the south side, so a door facing any other way would not match the wall
-       behind it. (A pillar corner with floor to the south and east is the
-       usual case.) The room-centre sort only decides cases the slot rule
-       cannot reach. */
-    if (open.some(o=>o.dir==='S')) return 'S';
-    if (open.length>1 && r){
-      const cx=r.rx+r.rw/2, cy=r.ry+r.rh/2;
-      open.sort((a,b)=>Math.hypot(tx+a.dx-cx, ty+a.dy-cy)-Math.hypot(tx+b.dx-cx, ty+b.dy-cy));
-    }
-    return open[0].dir;
-  }
+  // The bake paints exactly one wall face per wall tile — the south one — so a
+  // door always faces SOUTH. That is a rendering contract, not a choice.
 
   /* A slot for the door is a wall tile with floor directly SOUTH of it. This is
      a rendering rule and not a style choice: the bake paints one wall face per
@@ -105,7 +89,7 @@ export function genLevel(rng, floorNum=0){
     if (!cand.length) cand = wallSlotFor(maze.rooms[(rng()*maze.rooms.length)|0] || entryRoom);
     if (cand.length){
       const [bx,by] = cand[(rng()*cand.length)|0];
-      exitTiles.push({x:bx, y:by, open:0, facing:wallFacing(bx,by,entryRoom)});
+      exitTiles.push({x:bx, y:by, open:0, facing:'S'});
     }
   }
   /* A last resort that should never run on a 76x76 map, because every room has
@@ -153,12 +137,12 @@ export function genLevel(rng, floorNum=0){
       if (!inB(nx,ny) || at(nx,ny)!==FLOOR) continue;
       const px = nx + 0.5, py = ny + 0.5;
       let inside = false;
-      for (let ty=Math.floor(py-R); ty<=Math.floor(py+R) && !inside; ty++)
-        for (let tx=Math.floor(px-R); tx<=Math.floor(px+R); tx++){
+      for (let ty=Math.floor(py-PLUMBER.RADIUS); ty<=Math.floor(py+PLUMBER.RADIUS) && !inside; ty++)
+        for (let tx=Math.floor(px-PLUMBER.RADIUS); tx<=Math.floor(px+PLUMBER.RADIUS); tx++){
           if (!inB(tx,ty) || at(tx,ty)!==WALL) continue;
           const cx = px<tx?tx:(px>tx+1?tx+1:px);
           const cy = py<ty?ty:(py>ty+1?ty+1:py);
-          if ((px-cx)**2 + (py-cy)**2 < R*R){ inside=true; break; }
+          if ((px-cx)**2 + (py-cy)**2 < PLUMBER.RADIUS*PLUMBER.RADIUS){ inside=true; break; }
         }
       if (inside) continue;
       return {x:nx, y:ny};
@@ -296,6 +280,6 @@ export function genLevel(rng, floorNum=0){
                     text:NOTES[(rng()*NOTES.length)|0], seen:false });
   }
 
-  return { grid, rooms: maze.rooms, leaves: maze.leaves, spawn, exit: exitTiles,
-           leaks, fixtures, batteries, graffiti, spec, rng };
+  return { grid, rooms: maze.rooms, spawn, exit: exitTiles,
+           leaks, fixtures, batteries, graffiti, spec };
 }

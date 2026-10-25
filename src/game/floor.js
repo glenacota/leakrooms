@@ -11,7 +11,6 @@
    half is almost always already correct, and regenerating it means running a
    flood fill and repainting 116k pixels to arrive at the same picture. */
 
-import { MAP_H, MAP_W, WALL } from '../config/constants.js';
 import { mulberry32 } from '../util/rng.js';
 import { makeLos } from '../util/grid.js';
 import { genLevel } from '../sim/level.js';
@@ -27,9 +26,9 @@ import { reset as resetRepaint } from '../render/repaint.js';
    walls and the light bake are the same pixels for the same building, so a
    retry hands them straight back; the mask and the packed water change with
    the player and are built every time. */
-const ALL_CANVASES = ['tilesCv', 'wallsCv', 'lightCv', 'maskCv', 'wetCv', 'postCv'];
+const ALL_CANVASES = ['tilesCv', 'wallsCv', 'lightCv', 'maskCv', 'wetCv'];
 const STATIC_CANVASES = ['tilesCv', 'wallsCv', 'lightCv'];
-const PER_FLOOR_CANVASES = ['maskCv', 'wetCv', 'postCv'];
+const PER_FLOOR_CANVASES = ['maskCv', 'wetCv'];
 
 /* ---------- The cached half ---------- */
 
@@ -63,10 +62,6 @@ export function getStaticLevel(seed, floorNum){
   const level = genLevel(mulberry32(seed + floorNum*7919), floorNum);
   const grid = level.grid;
 
-  // Index of all wall tiles in row order. The vision cone walks this list instead of the whole map.
-  const idx = [];
-  for (let i=0;i<MAP_W*MAP_H; i++) if (grid[i]===WALL) idx.push(i);
-
   /* labelRegions and computeLightArr are now pure functions. Run them before
      installing any facade. */
   const { regionOf, regionAdj, regionCount } = labelRegions(level);
@@ -79,7 +74,6 @@ export function getStaticLevel(seed, floorNum){
   cache = {
     ...level,
     lightArr,
-    wallIdx: Int32Array.from(idx),
     regionOf, regionAdj, regionCount,
     gfx: {
       tilesCv: G.tilesCv, tilesCtx: G.tilesCtx,
@@ -114,7 +108,7 @@ export function makeFloorState(level, floorNum, seed){
      matches. buildFloor re-bakes them and hands the fresh ones back. */
 
   // Light the room the plumber starts in. From here on the lit room follows them.
-  scopeRoomLight(G, G.plumber, G.radar, 0, true);
+  scopeRoomLight(G, G.plumber, G.radar, true);
   snapMask(G, G.plumber, G.radar);
 
   initFlood(G, G.plumber);
@@ -151,8 +145,4 @@ export function buildFloor(floorNum, seed){
   if (staleImages){
     refreshStaticCanvases(cached);
   }
-}
-
-export function disposeFloor(g){
-  releaseCanvases(g, ALL_CANVASES);
 }

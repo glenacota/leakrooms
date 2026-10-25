@@ -162,15 +162,6 @@ export function createPerFloorCanvases() {
   G.wetCtx = G.wetCv.getContext('2d');
   G.wetImg = G.wetCtx.createImageData(MAP_W, MAP_H);
   for (let i=0;i<MAP_W*MAP_H;i++) G.wetImg.data[i*4+3] = 0;
-
-  // Handy shortcut to the canvases above, used by the renderer and the tests.
-  G.gfx = {
-    lightCv: G.lightCv, lightCtx: G.lightCtx, lightImg: G.lightImg,
-    maskCv: G.maskCv, maskCtx: G.maskCtx, maskImg: G.maskImg,
-    tilesCv: G.tilesCv, tilesCtx: G.tilesCtx,
-    wallsCv: G.wallsCv, wallsCtx: G.wallsCtx,
-    wetCv: G.wetCv, wetCtx: G.wetCv.getContext('2d'), wetImg: G.wetImg
-  };
 }
 
 /**
@@ -198,11 +189,6 @@ export function areStaticCanvasesStale(cached) {
 export function refreshStaticCanvases(cached) {
   attachFloorImages();
   Object.assign(cached.gfx, {
-    tilesCv: G.tilesCv, tilesCtx: G.tilesCtx,
-    wallsCv: G.wallsCv, wallsCtx: G.wallsCtx,
-    lightCv: G.lightCv, lightCtx: G.lightCtx, lightImg: G.lightImg,
-  });
-  Object.assign(G.gfx, {
     tilesCv: G.tilesCv, tilesCtx: G.tilesCtx,
     wallsCv: G.wallsCv, wallsCtx: G.wallsCtx,
     lightCv: G.lightCv, lightCtx: G.lightCtx, lightImg: G.lightImg,
