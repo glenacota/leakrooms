@@ -15,7 +15,7 @@ export const voices = {
     const a=this.ctx, t=a.currentTime;
     const k=this.powerVol(power);
     const o=a.createOscillator(); o.type='sine';
-    o.frequency.setValueAtTime(80*k?80:80, t);
+    o.frequency.setValueAtTime(80, t);
     o.frequency.exponentialRampToValueAtTime(40, t+0.08);
     const g=a.createGain();
     g.gain.setValueAtTime(0.12*vol*k, t);
@@ -24,7 +24,7 @@ export const voices = {
     o.start(t); o.stop(t+0.1);
   },
 
-  splash(vol, wet, power){         // wet boot squelch with low thump
+  splash(vol, power){         // wet boot squelch with low thump
     if (!this.ok) return;
     const a=this.ctx, t=a.currentTime;
     const k=this.powerVol(power);

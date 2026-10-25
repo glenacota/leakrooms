@@ -115,7 +115,7 @@ export function tickMovement(plumber, grid, floodState, dt){
     if (plumber.stepT<=0){
       plumber.stepT = sprinting ? 0.26 : 0.46;
       plumber.stepDur = plumber.stepT;
-      if (inWater) emit('sfx', 'splash', sprinting?1.4:0.5, preWet, stepPow);
+      if (inWater) emit('sfx', 'splash', sprinting?1.4:0.5, stepPow);
       else       emit('sfx', 'step', sprinting?1.4:0.5, stepPow);
     }
     // Wading pushes a ripple ahead of you, a trace of where you have been on top of the noise you already made.

@@ -17,7 +17,6 @@ export function syncAmbience(){
 /* Moves one step forward: title to work order, then work order to the run.
    Called by key presses, clicks and ENTER, so all three behave the same. */
 export function advanceSplash(){
-  Audio_.unlock();
   if (STATE==='splash'){
     setState('order');
     /* Show the run seed on the ticket's stub. It is the same number that
@@ -35,7 +34,6 @@ export function advanceSplash(){
 
 // ESC: one step back (work order to title). Returns false when there is nothing behind the current screen.
 export function backSplash(){
-  Audio_.unlock();
   if (STATE==='order'){ setState('splash'); show('splash'); syncAmbience(); return true; }
   return false;
 }

@@ -199,7 +199,6 @@ export function resetRun(){
 // CLOCK IN: starts a new run on floor 1.
 export function startRun(){
 Audio_.init();
-Audio_.unlock();
 /* The seed is not rolled here. It was rolled before the title screen was
    painted, and the plan behind the title has to be the level the player is
    about to play. A finished run rolls its own (see rollRunSeed). */

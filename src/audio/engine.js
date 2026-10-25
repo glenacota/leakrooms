@@ -2,9 +2,7 @@ import { SETTINGS } from '../settings/store.js';
 
 export const engine = {
   ctx:null, ok:false,
-  hum:null, humGain:null,
-  hiss:null, hissGain:null,
-  drone:null, droneGain:null, droneFilter:null,
+  droneGain:null, droneFilter:null,
   // The two continuous noise beds. See noiseFloor() and leakBed() in voices.js.
   floorGain:null, floorFilter:null,
   leakGain:null, leakFilter:null,
@@ -69,24 +67,6 @@ export const engine = {
     this.beds = a.createGain();
     this.beds.gain.value = SETTINGS.ambience;
     this.beds.connect(this.master);
-
-    // --- 60Hz fluorescent hum + its 2nd/3rd harmonics ---
-    this.humGain = a.createGain();
-    this.humGain.gain.value = 0.035;
-    this.humGain.connect(this.beds);
-    [[60,0.55],[120,0.3],[180,0.12]].forEach(([f,g])=>{
-      const o = a.createOscillator(); o.type='sine'; o.frequency.value=f;
-      const gg = a.createGain(); gg.gain.value=g;
-      o.connect(gg); gg.connect(this.humGain); o.start();
-    });
-
-    // --- tape hiss ---
-    this.hissGain = a.createGain();
-    this.hissGain.gain.value = 0.006;
-    const hp = a.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=3800;
-    const hs = a.createBufferSource(); hs.buffer=buf; hs.loop=true;
-    hs.connect(hp); hp.connect(this.hissGain); this.hissGain.connect(this.beds);
-    hs.start();
 
     // --- proximity drone (Lifeform) ---
     this.droneGain = a.createGain();
@@ -194,11 +174,7 @@ export const engine = {
      game comes back to a context nothing will resume, so the next key or click
      does it. The promise's rejection is caught: an unhandled rejection reaches
      the error boundary and would show the fatal card over a game that works. */
-  unlock(){
-    const st = this.ctx && this.ctx.state;
-    if (this.ctx && (st === 'suspended' || st === 'interrupted') && this.ctx.resume)
-      this.ctx.resume().catch(()=>{});
-  },
+  unlock(){ this.resume(); },
 
   /* Pausing also suspends the audio context. A paused game that keeps rendering
      into a live graph does work nobody hears, and on a laptop that can keep a fan
@@ -214,7 +190,7 @@ export const engine = {
   resume(){
     if (!this.ctx) return;
     const st = this.ctx.state;
-    if ((st === 'suspended' || st === 'interrupted') && this.ctx.resume)
+    if (st === 'suspended' || st === 'interrupted')
       try { this.ctx.resume().catch(()=>{}); } catch(e){}
   },
 };
