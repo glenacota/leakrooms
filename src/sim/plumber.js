@@ -3,7 +3,7 @@ import { emit } from '../util/events.js';
 import { createCollision } from './collision.js';
 import { seedSplash, wetAt } from './flood.js';
 import { emitNoise, sustainedNoise } from './noise.js';
-import { keys } from './keys.js';
+import { keys, pad } from './keys.js';
 
 /**
  * Plumber state bundle passed by reference.
@@ -70,6 +70,10 @@ export function tickMovement(plumber, plumberMeta, grid, batteries, floodState, 
   if (keys['d']||keys['arrowright']) ix++;
   if (keys['w']||keys['arrowup'])    iy--;
   if (keys['s']||keys['arrowdown'])  iy++;
+  /* The stick adds to the keys. Both are clamped so keys plus stick cannot
+     exceed full speed. */
+  ix = Math.max(-1, Math.min(1, ix + pad.x));
+  iy = Math.max(-1, Math.min(1, iy + pad.y));
 
   /* Wading is slower than walking on dry floor. The wetness is read BEFORE the
      move, so the speed changes when you enter the water. (Reading it after the
@@ -77,7 +81,7 @@ export function tickMovement(plumber, plumberMeta, grid, batteries, floodState, 
      change a step after you leave the water.) */
   const preWet = wetAt(floodState, plumber.x, plumber.y);
 
-  const sprinting = keys['shift'] && (ix||iy);
+  const sprinting = (keys['shift'] || pad.sprint) && (ix||iy);
   const wade = preWet > 0.25 ? 0.80 : 1;       // knee-deep water costs you a fifth of your speed
   const spd = (sprinting ? SPRINT : WALK) * wade;
   let moving=false, bumped=false;
