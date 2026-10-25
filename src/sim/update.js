@@ -73,7 +73,7 @@ export function update(state, dt){
      comes back recombines whatever the crossfade moved in the meantime. */
   if (wantVision){
     if (traceViewCone(state, state.plumber, state.radar, false) || state.scopeDirty){ combineMask(state, state.plumber, state.radar); state.scopeDirty = false; }
-    if (smoothMask(state, dt)) state.dirty.mask = true;
+    smoothMask(state, dt);
   }
 
   // The flood runs after movement, so the water you are standing in is the water you just walked into.

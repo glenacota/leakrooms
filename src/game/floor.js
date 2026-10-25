@@ -14,7 +14,7 @@
 import { mulberry32 } from '../util/rng.js';
 import { makeLos } from '../util/grid.js';
 import { genLevel } from '../sim/level.js';
-import { labelRegions, createRegionAt } from '../sim/regions.js';
+import { labelRegions } from '../sim/regions.js';
 import { computeLightArr } from '../sim/lightmap.js';
 import { scopeRoomLight, snapMask } from '../sim/vision.js';
 import { initFlood } from '../sim/flood.js';

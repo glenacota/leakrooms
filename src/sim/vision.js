@@ -24,7 +24,7 @@ import {
   VIEW_RANGE, VIEW_RAYS, WALL,
 } from '../config/constants.js';
 import { view } from '../util/view.js';
-import { scopeFor, createRegionAt } from './regions.js';
+import { scopeFor, regionAt } from './regions.js';
 import { dirty } from '../render/repaint.js';
 
 /**
@@ -289,7 +289,7 @@ export function combineMask(visionState, plumber, radar){
  * @returns {boolean} true if the room changed.
  */
 export function scopeRoomLight(visionState, plumber, radar, instant){
-  const here = createRegionAt(visionState.regionOf)(plumber.x, plumber.y);
+  const here = regionAt(visionState.regionOf, plumber.x, plumber.y);
   if (here === visionState.visRegion && !instant) return false;
 
   // Remember the current field so the change fades instead of popping.
@@ -348,7 +348,8 @@ export function fadeRoomLight(visionState, dt){
   if (step !== visionState.visStep){
     visionState.visStep = step;
     const k = step/LIGHT_FADE_STEPS;
-    for (let i=0; i<visionState.visArr.length; i++) visionState.visArr[i] = visionState.visFrom[i] + (visionState.visTgt[i]-visionState.visFrom[i])*k;
+    const { visArr, visFrom, visTgt } = visionState;
+    for (let i=0; i<visArr.length; i++) visArr[i] = visFrom[i] + (visTgt[i]-visFrom[i])*k;
     // The mask includes the room scope, so it has to be recombined, but only on fade steps and not every frame.
     visionState.scopeDirty = true;
   }
@@ -368,12 +369,17 @@ export function fadeRoomLight(visionState, dt){
  */
 export function smoothMask(visionState, dt){
   const k = 1 - Math.exp(-dt/MASK_TAU);
+  const { maskArr, maskTgt } = visionState;
   let moved = false;
-  for (let i=0; i<visionState.maskArr.length; i++){
-    const d = visionState.maskTgt[i]-visionState.maskArr[i];
-    if (d > 0.0025 || d < -0.0025){ visionState.maskArr[i] += d*k; moved = true; }
-    else if (d !== 0){ visionState.maskArr[i] = visionState.maskTgt[i]; moved = true; }
+  for (let i=0; i<maskArr.length; i++){
+    const d = maskTgt[i]-maskArr[i];
+    if (d > 0.0025 || d < -0.0025){ maskArr[i] += d*k; moved = true; }
+    else if (d !== 0){ maskArr[i] = maskTgt[i]; moved = true; }
   }
+  /* The sim owns the dirty flag now: the update.js wrapper line is gone. Only
+     mark it when the mask actually moved, so a settled mask is not repacked
+     every frame and the render trace stays unchanged. */
+  if (moved) dirty.mask = true;
   return moved;
 }
 

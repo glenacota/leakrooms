@@ -79,14 +79,15 @@ export function scopeFor(hops) {
 }
 
 /**
- * Creates a regionAt function bound to a specific regionOf array.
- * @param {Int32Array} regionOf
- * @returns {(x:number, y:number)=>number}
+ * Reads one tile's region without allocating a closure. Called once per frame
+   in scopeRoomLight, so a plain function keeps that call allocation-free.
+ * @param {Int32Array} regionOf - one region id per tile.
+ * @param {number} x - world position, in tiles.
+ * @param {number} y
+ * @returns {number} the region id at that tile, or -1 off the map.
  */
-export function createRegionAt(regionOf) {
-  return (x, y) => {
-    const tx = Math.floor(x), ty = Math.floor(y);
-    if (tx < 0 || ty < 0 || tx >= MAP_W || ty >= MAP_H) return -1;
-    return regionOf[ty * MAP_W + tx];
-  };
+export function regionAt(regionOf, x, y){
+  const tx = Math.floor(x), ty = Math.floor(y);
+  if (tx < 0 || ty < 0 || tx >= MAP_W || ty >= MAP_H) return -1;
+  return regionOf[ty * MAP_W + tx];
 }

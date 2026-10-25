@@ -1,11 +1,12 @@
 import { MAP_W, MAP_H, WALL } from '../config/constants.js';
 
-/**
- * Creates collision functions bound to a specific grid.
- * @param {Uint8Array} grid - the floor grid.
- * @returns {{solid, blocked, unstick, depenetrate, moveEnt}}
- */
-export function createCollision(grid) {
+/* One collision object per grid. A grid never changes while its floor is
+   alive, so plumber, lifeforms and noise can ask for it every frame and get
+   the same allocated-once object back. The WeakMap drops the entry when the
+   grid is retired with its floor. */
+const collisionCache = new WeakMap();
+
+function buildCollision(grid) {
   const at = (x, y) => grid[y * MAP_W + x];
 
   // True if the tile under this point is a wall. Anything off the map counts as a wall.
@@ -96,4 +97,17 @@ export function createCollision(grid) {
   }
 
   return { solid, blocked, unstick, depenetrate, moveEnt };
+}
+
+/**
+ * Creates collision functions bound to a specific grid.
+ * Repeated calls with the same grid return the cached object instead of
+   closing over the grid again, so a frame costs a cache lookup not five new closures.
+ * @param {Uint8Array} grid - the floor grid.
+ * @returns {{solid, blocked, unstick, depenetrate, moveEnt}}
+ */
+export function createCollision(grid) {
+  let c = collisionCache.get(grid);
+  if (!c){ c = buildCollision(grid); collisionCache.set(grid, c); }
+  return c;
 }

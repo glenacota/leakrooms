@@ -66,8 +66,9 @@ export function packWet(){
 export function packMask(){
   if (!wantPixels) return;
   const d = G.maskImg.data;
+  const { maskArr } = G;
   for (let i=0; i<MAP_W*MAP_H; i++){
-    const b = Math.min(255, G.maskArr[i]*255);
+    const b = Math.min(255, maskArr[i]*255);
     const k = i*4;
     d[k]=b; d[k+1]=b; d[k+2]=b; d[k+3]=255;
   }

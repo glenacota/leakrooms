@@ -52,15 +52,16 @@ export function ground(rc){
     const shx0=Math.max(0,x0), shy0=Math.max(0,y0);
     const ph0 = t*0.0011;
     const cap = vw*vh;
+    const { wetArr, maskArr } = G;
     for (let b=0;b<SHEEN_STEPS;b++) bucketCount[b] = 0;
     /* First pass: classify each deep, visible tile once and remember it. The alpha
        needs a sine, and recomputing it per bucket meant a flooded view paid for
        every tile up to four times over. */
     for (let y=shy0;y<=y1;y++) for (let x=shx0;x<=x1;x++){
       const i=y*MAP_W+x;
-      const w = G.wetArr[i];
+      const w = wetArr[i];
       if (w < 0.55) continue;
-      if (G.maskArr[i] < 0.05) continue;
+      if (maskArr[i] < 0.05) continue;
       const n = hash2(x*7+3, y*11+5);
       const a = (w-0.55)/0.45 * 0.05 * (0.5+0.5*Math.sin(ph0 + n*6.28));
       if (a <= 0.003) continue;
