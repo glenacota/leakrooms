@@ -44,7 +44,7 @@ tests/
 
 **Layer Enforcement** (verified in `tests/unit/layers.test.js`):
 
-* `sim/`, `util/`, `config/` → **never** import `render/`, `ui/`, `game/`, `audio/`
+* `sim/`, `util/`, `config/` → **never** import `render/`, `ui/`, `game/`, `audio/` — the one exception is `render/repaint.js` (dirty-rect tracking the sim reads), until Step 11 folds it back into sim
 * `game/run.js`, `game/loop.js` → **never** import `render/`, `ui/` or touch `document`
 * Only `boot.js` crosses layers; nothing imports `boot.js` back.
 
@@ -54,18 +54,24 @@ tests/
 | --- | --- |
 | `src/boot.js` | Composition root (wiring order is strict) |
 | `src/sim/state.js` | `G` facade Proxy (read/write forwards to domain objects) |
-| `src/sim/update.js` | Fixed tick order: clock → battery → movement → vision → flood → leaks → agents → radar → door → audio |
+| `src/sim/update.js` | Fixed tick order: clock → battery → movement → vision → flood → leaks → lifeforms → radar → door → audio |
 | `src/game/run.js` | Run state machine (`splash |
-| `src/game/loop.js` | Fixed-step loop, adaptive resolution, error boundary (3 strikes → fatal) |
+| `src/game/loop.js` | Fixed-step loop, error boundary (3 strikes → fatal) |
+| `src/render/adaptive.js` | Adaptive resolution: the render target the frame budget allows |
 | `src/render/render.js` | Camera, pass orchestration, device/world transforms |
-| `src/config/constants.js` | **Frozen** `NOISE`, `AGENT` (stealth contract) |
+| `src/config/constants.js` | **Frozen** `NOISE` (stealth contract) |
 | `src/config/levels.js` | 5 fixed levels: `[{leaks, forms}, ...]` |
 | `src/util/events.js` | Tiny event bus (simulation emits; UI/audio subscribe) |
 | `tests/helpers/harness.js` | Headless boot stubbing globals; returns `{A, G, press, ...}` |
+| `src/sim/path.js` | Walking-distance field over floor tiles; pure, no RNG, headless-safe |
+| `src/ui/touch.js` | Touch layer: floating stick, radar and pause buttons |
+| `src/ui/touch-hud-rules.js` | Rules for when the HUD panel shows in touch mode |
+| `src/ui/haptics.js` | Short vibration pulses for danger sounds |
+| `src/util/stick.js` | Thumb-stick to movement vector: dead zone, speed rescale, sprint hysteresis |
 
 ### Key Patterns
 
-* **Facade State (`G`)**: A `Proxy` over domain objects (`level`, `leak`, `player`, `agent`, `flood`, `vision`, `noise`, `clock`, `door`), enabling clean floor hot-swapping via `installFloorState()`.
+* **Facade State (`G`)**: A `Proxy` over domain objects (`level`, `leak`, `plumber`, `lifeform`, `flood`, `vision`, `noise`, `clock`, `door`), enabling clean floor hot-swapping via `installFloorState()`.
 * **Event-Driven Decoupling**: Simulation emits facts (`stat`, `caught`, `clock:out`, `door:cycled`, `sfx`) via `util/events.js`; UI and audio layers subscribe.
 * **Deterministic RNG**: `mulberry32` PRNG seeded per floor (`RUN_SEED + floorIdx`). Essential for reproducible simulation tests.
 * **Headless-First**: All simulation and render modules load seamlessly in Node.js using global stubs, allowing tests to drive real `update()` and `render()` pipelines.
@@ -97,7 +103,7 @@ tests/
 * **Headless-Safe**: All modules must load successfully in Node.js with test stubs.
 * **Zero Dependencies**: No external npm packages or build steps; vanilla ES modules only.
 * **Fixed Simulation Step**: Production runs strictly at `1/60` fixed dt. Variable `dt` is restricted to tests.
-* **Frozen Constants**: `NOISE` and `AGENT` constants are `Object.freeze()`d. Difficulty adjustments belong in `tuning.js`/`presets.js`, never here.
+* **Frozen Constants**: `NOISE` is `Object.freeze()`d. Difficulty adjustments belong in `tuning.js`/`presets.js`, never here.
 
 ---
 
@@ -116,8 +122,8 @@ tests/
 | Task | Where to Look |
 | --- | --- |
 | Add a leak type | `sim/leaks.js`, `render/passes/leaks.js`, `config/constants.js` (`PIPE_*`) |
-| Change agent behavior | `sim/agents.js`, `config/constants.js` (`AGENT`), `config/tuning.js` (speeds) |
-| Adjust difficulty | `config/presets.js` (`DIFFICULTIES`), `config/tuning.js` (**never** touch `NOISE`/`AGENT`) |
+| Change lifeform behavior | `sim/lifeforms.js`, `config/constants.js` (`LIFEFORM`), `config/tuning.js` (speeds) |
+| Adjust difficulty | `config/presets.js` (`DIFFICULTIES`), `config/tuning.js` (**never** touch `NOISE`/`LIFEFORM`) |
 | Build new screen/HUD element | `index.html` → `ui/dom.js` → `ui/hud.js` or `ui/pause.js` |
 | Add new audio cue | `audio/voices.js` (oneshots), `audio/ambience.js` (beds), `audio/engine.js` (graph) |
 | Fix render bug | `render/passes/<pass>.js` — inspect `render/render.js` for the `rc` context shape |
@@ -127,11 +133,11 @@ tests/
 
 ## What Never To Do
 
-* ❌ Import `render/`, `ui/`, `game/`, or `audio/` from `sim/`, `util/`, or `config/`.
+* ❌ Import `render/`, `ui/`, `game/`, or `audio/` from `sim/`, `util/`, or `config/` (except `render/repaint.js`, the dirty-rect exception, until Step 11).
 * ❌ Import `render/` or `ui/` from `game/run.js` or `game/loop.js`.
 * ❌ Reference or modify `document` inside `sim/` or `game/`.
 * ❌ Introduce external assets or npm dependencies.
-* ❌ Modify `NOISE.*` or `AGENT.*` (violates the frozen stealth contract).
+* ❌ Modify `NOISE.*` (violates the frozen stealth contract).
 * ❌ Pass variable `dt` to the simulation loop in production.
 * ❌ Alter the `G` state structure without updating `OWNER` and `KEY_ORDER` in `sim/state.js`.
 * ❌ Persist per-floor state across floor resets (`G` is destroyed and rebuilt per floor).
