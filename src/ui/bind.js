@@ -124,7 +124,7 @@ export function bindDom(){
   on('contextrestored', ()=>{
     buildPatterns();
     buildGrainFull();
-    attachFloorImages();
+    attachFloorImages(G);
     repaintDirty.water = true;
     repaintDirty.mask  = true;
   });

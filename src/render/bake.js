@@ -4,33 +4,37 @@ import { G } from '../sim/state.js';
 import { carpetPat, ceilPat, wallPat } from './textures.js';
 
 /**
- * Turns the light bake (G.lightArr) into a canvas, and paints the static tile
- * layers. Runs once per floor, from buildFloor.
+ * Turns the light bake (level.lightArr) into a canvas, and paints the static
+ * tile layers. Runs once per floor, from getStaticLevel, and again after a
+ * lost graphics context. The canvases are written onto `level`, which is the
+ * static level while it is being baked and G when a lost context is rebuilt.
  *
  * Only the ambient light is packed here. Everything that depends on the viewer
  * (room scope, cone of vision, radar) is a separate mask on its own canvas, so
  * there is exactly one multiply, and the mask can only remove light that the
  * bake provides.
+ *
+ * @param {{grid: Uint8Array, lightArr: Float32Array}} level
  */
-export function attachFloorImages(){
-  ensureLightCanvas();
+export function attachFloorImages(level){
+  ensureLightCanvas(level);
   // Canvas size and pixel buffer are looked up once here, because reading them in the loop is slow.
-  const LW = G.lightCv.width, LH = G.lightCv.height, LD = G.lightImg.data;
+  const LW = level.lightCv.width, LH = level.lightCv.height, LD = level.lightImg.data;
   for (let y=0;y<LH;y++){
     const ty=(y/LS)|0, row=ty*MAP_W;
     for (let x=0;x<LW;x++){
       /* The bake is pure brightness (grey), with no tint. Darkness is the
          mask's job, and the hue comes from the surfaces themselves. */
-      const b = Math.min(1, G.lightArr[row + ((x/LS)|0)]);
+      const b = Math.min(1, level.lightArr[row + ((x/LS)|0)]);
       const v = Math.round(255*b);
       const k=(y*LW+x)*4;
       LD[k]=v; LD[k+1]=v; LD[k+2]=v;
       LD[k+3] = 255;
     }
   }
-  G.lightCtx.putImageData(G.lightImg, 0, 0);
+  level.lightCtx.putImageData(level.lightImg, 0, 0);
 
-  bakeTiles();
+  bakeTiles(level);
 }
 
 /**
@@ -47,11 +51,13 @@ export function attachFloorImages(){
  * The patterns are anchored to the world grid. When they were drawn live, their
  * position followed the camera and the speckles swam as the view moved. Baked,
  * they are part of the building.
+ *
+ * @param {{grid: Uint8Array}} level
  */
-export function bakeTiles(){
-  ensureTilesCanvas();
+export function bakeTiles(level){
+  ensureTilesCanvas(level);
   {
-    const g = G.tilesCtx;
+    const g = level.tilesCtx;
     g.setTransform(1,0,0,1,0,0);
     // ---------- Carpet ----------
     g.fillStyle = carpetPat;
@@ -66,9 +72,9 @@ export function bakeTiles(){
     }
   }
 
-  ensureWallsCanvas();
+  ensureWallsCanvas(level);
   {
-    const g = G.wallsCtx;
+    const g = level.wallsCtx;
     g.setTransform(1,0,0,1,0,0);
     /* ---------- Wall faces and contact shadow ----------
        The face is the vertical side of a partition, drawn into the floor tile
@@ -76,9 +82,10 @@ export function bakeTiles(){
        is what makes a top-down maze look like a photographed room and not a
        colour-coded grid. */
     const FACE = WALL_FACE;
+    const { grid } = level;
     for (let y=0;y<MAP_H;y++) for (let x=0;x<MAP_W;x++){
-      if (G.grid[y*MAP_W+x]!==WALL) continue;
-      if (y+1>=MAP_H || G.grid[(y+1)*MAP_W+x]!==FLOOR) continue;
+      if (grid[y*MAP_W+x]!==WALL) continue;
+      if (y+1>=MAP_H || grid[(y+1)*MAP_W+x]!==FLOOR) continue;
       const fx=x*TILE, fy=(y+1)*TILE;
 
       // Shadow cast onto the carpet
@@ -105,43 +112,43 @@ export function bakeTiles(){
        made a solid wall block look like decking. Edges are only drawn where the
        wall actually meets carpet. */
     for (let y=0;y<MAP_H;y++) for (let x=0;x<MAP_W;x++){
-      if (G.grid[y*MAP_W+x]!==WALL) continue;
+      if (grid[y*MAP_W+x]!==WALL) continue;
       g.fillStyle = ceilPat;
       g.fillRect(x*TILE, y*TILE, TILE, TILE);
     }
     g.fillStyle='rgba(28,26,16,0.55)';
     for (let y=0;y<MAP_H;y++) for (let x=0;x<MAP_W;x++){
-      if (G.grid[y*MAP_W+x]!==WALL) continue;
-      const below = (y+1<MAP_H && G.grid[(y+1)*MAP_W+x]===FLOOR);
+      if (grid[y*MAP_W+x]!==WALL) continue;
+      const below = (y+1<MAP_H && grid[(y+1)*MAP_W+x]===FLOOR);
       if (below){ g.fillRect(x*TILE, y*TILE+TILE-2, TILE, 2); }
-      if (x>0      && G.grid[y*MAP_W+x-1]===FLOOR) g.fillRect(x*TILE, y*TILE, 2, TILE);
-      if (x<MAP_W-1 && G.grid[y*MAP_W+x+1]===FLOOR) g.fillRect(x*TILE+TILE-2, y*TILE, 2, TILE);
-      if (y>0      && G.grid[(y-1)*MAP_W+x]===FLOOR) g.fillRect(x*TILE, y*TILE, TILE, 2);
-      if (y<MAP_H-1 && G.grid[(y+1)*MAP_W+x]===FLOOR) g.fillRect(x*TILE, y*TILE+TILE-2, TILE, 2);
+      if (x>0      && grid[y*MAP_W+x-1]===FLOOR) g.fillRect(x*TILE, y*TILE, 2, TILE);
+      if (x<MAP_W-1 && grid[y*MAP_W+x+1]===FLOOR) g.fillRect(x*TILE+TILE-2, y*TILE, 2, TILE);
+      if (y>0      && grid[(y-1)*MAP_W+x]===FLOOR) g.fillRect(x*TILE, y*TILE, TILE, 2);
+      if (y<MAP_H-1 && grid[(y+1)*MAP_W+x]===FLOOR) g.fillRect(x*TILE, y*TILE+TILE-2, TILE, 2);
     }
   }
 }
 
 /* ---------- Canvas creation (renderer-owned) ---------- */
 
-function ensureLightCanvas() {
+function ensureLightCanvas(level) {
   // Always create a fresh canvas on attachFloorImages (context restore needs new objects)
-  G.lightCv = document.createElement('canvas');
-  G.lightCv.width = MAP_W * LS; G.lightCv.height = MAP_H * LS;
-  G.lightCtx = G.lightCv.getContext('2d');
-  G.lightImg = G.lightCtx.createImageData(G.lightCv.width, G.lightCv.height);
+  level.lightCv = document.createElement('canvas');
+  level.lightCv.width = MAP_W * LS; level.lightCv.height = MAP_H * LS;
+  level.lightCtx = level.lightCv.getContext('2d');
+  level.lightImg = level.lightCtx.createImageData(level.lightCv.width, level.lightCv.height);
 }
 
-function ensureTilesCanvas() {
-  G.tilesCv = document.createElement('canvas');
-  G.tilesCv.width = MAP_W * TILE; G.tilesCv.height = MAP_H * TILE;
-  G.tilesCtx = G.tilesCv.getContext('2d');
+function ensureTilesCanvas(level) {
+  level.tilesCv = document.createElement('canvas');
+  level.tilesCv.width = MAP_W * TILE; level.tilesCv.height = MAP_H * TILE;
+  level.tilesCtx = level.tilesCv.getContext('2d');
 }
 
-function ensureWallsCanvas() {
-  G.wallsCv = document.createElement('canvas');
-  G.wallsCv.width = MAP_W * TILE; G.wallsCv.height = MAP_H * TILE;
-  G.wallsCtx = G.wallsCv.getContext('2d');
+function ensureWallsCanvas(level) {
+  level.wallsCv = document.createElement('canvas');
+  level.wallsCv.width = MAP_W * TILE; level.wallsCv.height = MAP_H * TILE;
+  level.wallsCtx = level.wallsCv.getContext('2d');
 }
 
 /**
@@ -184,7 +191,7 @@ export function areStaticCanvasesStale(cached) {
  * Refreshes static canvases after context loss.
  */
 export function refreshStaticCanvases(cached) {
-  attachFloorImages();
+  attachFloorImages(G);
   Object.assign(cached.gfx, {
     tilesCv: G.tilesCv, tilesCtx: G.tilesCtx,
     wallsCv: G.wallsCv, wallsCtx: G.wallsCtx,

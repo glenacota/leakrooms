@@ -1,12 +1,7 @@
-import { createLevelState } from './LevelState.js';
-import { createLeakState } from './LeakState.js';
-import { createPlumberState } from './PlumberState.js';
-import { createLifeformState } from './LifeformState.js';
-import { createFloodState } from './FloodState.js';
-import { createVisionState } from './VisionState.js';
-import { createNoiseState } from './NoiseState.js';
-import { createClockState } from './ClockState.js';
-import { createDoorState } from './DoorState.js';
+import {
+  createLevelState, createLeakState, createPlumberState, createLifeformState,
+  createFloodState, createVisionState, createNoiseState, createClockState, createDoorState,
+} from './state-domains.js';
 import { repaintDirty } from '../util/repaint.js';
 
 /* All the state of the current floor lives behind G. No state exists until
@@ -82,31 +77,15 @@ const KEY_ORDER = [
 /* Keys that exist on the facade but are computed/assembled (not owned by a single domain). */
 const COMPUTED_KEYS = new Set(['gfx', 'dirty']);
 
-/* Check if we're using the domain structure (domains.level exists) or a flat object. */
-function isDomainMode() {
-  return domains && domains.level;
-}
-
-function getDomainOwner(k) {
-  return OWNER[k];
-}
-
 function getTarget(k) {
   if (!domains) return null;
-  if (isDomainMode()) {
-    const owner = getDomainOwner(k);
-    return owner ? domains[owner] : null;
-  }
-  // Flat object mode (used by getStaticLevel)
-  return domains;
+  const owner = OWNER[k];
+  return owner ? domains[owner] : null;
 }
 
 function hasKey(k) {
   if (!domains) return false;
-  if (isDomainMode()) {
-    return OWNER.hasOwnProperty(k) || COMPUTED_KEYS.has(k);
-  }
-  return k in domains;
+  return OWNER.hasOwnProperty(k) || COMPUTED_KEYS.has(k);
 }
 
 function assembleGfx(d) {
@@ -122,7 +101,7 @@ function assembleGfx(d) {
 export const G = new Proxy({}, {
   get(_, k) {
     if (!domains) return undefined;
-    if (COMPUTED_KEYS.has(k) && isDomainMode()) {
+    if (COMPUTED_KEYS.has(k)) {
       if (k === 'gfx') return assembleGfx(domains);
       if (k === 'dirty') return repaintDirty;
     }
@@ -139,11 +118,7 @@ export const G = new Proxy({}, {
     return hasKey(k);
   },
   ownKeys() {
-    if (!domains) return [];
-    if (isDomainMode()) {
-      return KEY_ORDER;
-    }
-    return Reflect.ownKeys(domains);
+    return domains ? KEY_ORDER : [];
   },
   getOwnPropertyDescriptor(_, k) {
     if (!hasKey(k)) return undefined;
@@ -178,6 +153,5 @@ export function createGameState(level, floorNum, seed){
   };
 }
 
-/* Installs a floor's state behind the facade. Accepts either the domain structure
-   (from createGameState) or a flat object (used by getStaticLevel). */
+/* Installs a floor's state (from createGameState) behind the facade. */
 export function installFloorState(d){ domains = d; }

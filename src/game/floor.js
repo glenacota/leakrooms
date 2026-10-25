@@ -62,23 +62,22 @@ export function getStaticLevel(seed, floorNum){
   const level = genLevel(mulberry32(seed + floorNum*7919), floorNum);
   const grid = level.grid;
 
-  /* labelRegions and computeLightArr are pure functions. Run them before
-     installing any facade. */
+  /* labelRegions and computeLightArr are pure functions. The canvases are
+     baked onto a plain object, so no facade is needed. */
   const { regionOf, regionAdj, regionCount } = labelRegions(level);
   const lightArr = computeLightArr(level, makeLos(grid));
 
-  /* Install a minimal facade just for attachFloorImages (which reads grid, regionOf, lightArr). */
-  installFloorState({ grid, regionOf, regionAdj, regionCount, lightArr });
-  attachFloorImages();
+  const baked = { grid, lightArr };
+  attachFloorImages(baked);
 
   cache = {
     ...level,
     lightArr,
     regionOf, regionAdj, regionCount,
     gfx: {
-      tilesCv: G.tilesCv, tilesCtx: G.tilesCtx,
-      wallsCv: G.wallsCv, wallsCtx: G.wallsCtx,
-      lightCv: G.lightCv, lightCtx: G.lightCtx, lightImg: G.lightImg,
+      tilesCv: baked.tilesCv, tilesCtx: baked.tilesCtx,
+      wallsCv: baked.wallsCv, wallsCtx: baked.wallsCtx,
+      lightCv: baked.lightCv, lightCtx: baked.lightCtx, lightImg: baked.lightImg,
     },
   };
   return cache;

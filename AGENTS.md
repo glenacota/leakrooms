@@ -71,7 +71,7 @@ tests/
 
 ### Key Patterns
 
-* **Facade State (`G`)**: A `Proxy` over domain objects (`level`, `leak`, `plumber`, `lifeform`, `flood`, `vision`, `noise`, `clock`, `door`), enabling clean floor hot-swapping via `installFloorState()`.
+* **Facade State (`G`)**: A `Proxy` over domain objects (`level`, `leak`, `plumber`, `lifeform`, `flood`, `vision`, `noise`, `clock`, `door`) built by the factories in `sim/state-domains.js`, enabling clean floor hot-swapping via `installFloorState()`.
 * **Event-Driven Decoupling**: Simulation emits facts (`stat`, `caught`, `clock:out`, `door:cycled`, `sfx`) via `util/events.js`; UI and audio layers subscribe.
 * **Deterministic RNG**: `mulberry32` PRNG seeded per floor (`RUN_SEED + floorIdx`). Essential for reproducible simulation tests.
 * **Headless-First**: All simulation and render modules load seamlessly in Node.js using global stubs, allowing tests to drive real `update()` and `render()` pipelines.
