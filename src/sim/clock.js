@@ -1,4 +1,5 @@
 import { emit } from '../util/events.js';
+import { tickNoiseDecay } from './noise.js';
 
 /**
  * Clock state bundle passed by reference.
@@ -23,7 +24,7 @@ import { emit } from '../util/events.js';
  * The last 30 seconds are announced once, loudly, because a clock that only
  * lives in the corner of the HUD is one players ignore.
  *
- * Also advances the floor time and decays the noise meters.
+ * Also advances the floor time and delegates noise decay to noise.js.
  *
  * @param {ClockState} clockState
  * @param {number} dt - seconds since the last step.
@@ -32,13 +33,7 @@ import { emit } from '../util/events.js';
  */
 export function tickClock(clockState, dt){
   clockState.time += dt;
-  clockState.noise = Math.max(0, clockState.noise - dt*1.55);
-  // The player's own noise decays at the same rate as the total, so the yellow part of the bar empties as fast as the building's hiss appears under it.
-  clockState.selfNoise = Math.max(0, clockState.selfNoise - dt*1.55);
-  clockState.ambientNoise = Math.max(0, clockState.ambientNoise - dt*1.55);
-
-  /* Peak decays at 0.24/s (0.004 per 60 Hz frame), but never below the current noise. */
-  clockState.noisePeak = Math.max(clockState.noise, clockState.noisePeak - dt*0.24);
+  tickNoiseDecay(clockState, dt);
 
   clockState.clock = Math.max(0, clockState.clock - dt);
   if (clockState.clock <= 0){ emit('clock:out'); return false; }

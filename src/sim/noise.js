@@ -6,7 +6,7 @@
    LOUD). Loud sounds wake sleepers and start hunts.
    ============================================================ */
 
-import { MAP_W, MAP_H, NOISE } from '../config/constants.js';
+import { MAP_W, MAP_H, NOISE, SOUND_POWERS } from '../config/constants.js';
 import { emit } from '../util/events.js';
 import { createCollision } from './collision.js';
 
@@ -33,27 +33,21 @@ import { createCollision } from './collision.js';
 // How far a sound of this power carries through open floor, in tiles.
 export const hearRadius = power => NOISE.HEAR_BASE + power*NOISE.HEAR_GAIN;
 
-/* The walk along a sound's path counts walls and stops after this many.
-   The cap is derived from the loudest noise power in the NOISE table:
-   once the remaining reach drops to zero or below, counting more walls
-   changes nothing.  maxReach = hearRadius(maxPower), so the number of
-   walls that can fit before reach is exhausted is
-   ceil(maxReach / WALL_COST).
-
-   Only the actual sound powers are considered (not config constants like
-   HEAR_BASE, HEAR_GAIN, WALL_COST, or the LOUD threshold). */
-const NOISE_POWERS = Object.freeze({
-  WALK: NOISE.WALK,
-  WADE: NOISE.WADE,
-  SPRINT: NOISE.SPRINT,
-  REPAIR: NOISE.REPAIR,
-  BUMP_SPRINT: NOISE.BUMP_SPRINT,
-  BUMP_WALK: NOISE.BUMP_WALK,
-  DOOR: NOISE.DOOR,
-  BRUSH: NOISE.BRUSH,
-});
-export const maxNoisePower = Math.max(...Object.values(NOISE_POWERS));
+/* The cap stops counting walls once the loudest sound has no reach left. */
+export const maxNoisePower = Math.max(...SOUND_POWERS);
 export const MAX_WALL_STEPS = Math.ceil(hearRadius(maxNoisePower) / NOISE.WALL_COST);
+
+/**
+ * Decays noise meters and their peak marker.
+ * @param {Pick<NoiseState, 'noise'|'noisePeak'|'selfNoise'|'ambientNoise'>} state
+ * @param {number} dt - seconds since the last step.
+ */
+export function tickNoiseDecay(state, dt){
+  state.noise = Math.max(0, state.noise - dt*1.55);
+  state.selfNoise = Math.max(0, state.selfNoise - dt*1.55);
+  state.ambientNoise = Math.max(0, state.ambientNoise - dt*1.55);
+  state.noisePeak = Math.max(state.noise, state.noisePeak - dt*0.24);
+}
 
 /* Counts the wall tiles between two points, up to the cap.
    It walks a straight line (Bresenham) through every tile the line actually
@@ -103,9 +97,16 @@ export function wallSteps(grid, ax, ay, x, y){
     Lifeforms still in their opening grace period (born > 0) ignore everything
     except waking from dormancy.
     A lifeform that is RISING ignores all further sound until it is up. */
-export function alert(a, x, y, power, mine, baseR, px, py){
+/**
+ * @param {{state:string,x:number,y:number,born:number}} a
+ * @param {{x:number,y:number,power:number,mine:boolean}} src
+ * @param {{baseR:number,px:number,py:number}} ctx
+ */
+export function alert(a, src, ctx){
   if (a.state==='RISING') return;
 
+  const { x, y, power, mine } = src;
+  const { baseR, px, py } = ctx;
   const loud = (power||0) >= NOISE.LOUD;
   const dist = Math.hypot(a.x - x, a.y - y);
 
@@ -148,7 +149,7 @@ export function alertLifeforms(noiseState, baseR, power, x, y, mine){
     if (d > baseR) continue;
     const eff = baseR - wallSteps(noiseState.grid, lf.x, lf.y, x, y)*NOISE.WALL_COST;
     if (d > eff) continue;
-    alert(lf, x, y, power, mine, baseR, px, py);
+    alert(lf, { x, y, power, mine }, { baseR, px, py });
   }
 }
 
@@ -162,13 +163,9 @@ export function alertLifeforms(noiseState, baseR, power, x, y, mine){
  * @param {boolean} [mine] - true if the plumber made it, so it shows on the plumber's own noise bar.
  */
 export function emitNoise(noiseState, power, x, y, mine){
-  noiseState.noise = Math.max(noiseState.noise, power);
-  noiseState.noisePeak = Math.max(noiseState.noisePeak, power);
-  if (mine) noiseState.selfNoise = Math.max(noiseState.selfNoise, power);
-  else noiseState.ambientNoise = Math.max(noiseState.ambientNoise, power);
+  sustainedNoise(noiseState, power, x, y, mine);
   noiseState.stat.noises++;
   emit('stat', 'noises');
-  alertLifeforms(noiseState, hearRadius(power), power, x, y, mine);
 }
 
 /* A noise that continues, such as walking or an open pipe. It is called every

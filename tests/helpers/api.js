@@ -14,7 +14,7 @@ import { keys } from '../../src/sim/keys.js';
 import { view } from '../../src/util/view.js';
 import { makeLos } from '../../src/util/grid.js';
 import { createCollision } from '../../src/sim/collision.js';
-import { hearRadius, alertLifeforms, emitNoise, sustainedNoise, brush, alert, wallSteps, MAX_WALL_STEPS } from '../../src/sim/noise.js';
+import { hearRadius, alertLifeforms, emitNoise, sustainedNoise, tickNoiseDecay, brush, alert, wallSteps, MAX_WALL_STEPS } from '../../src/sim/noise.js';
 import { distanceField } from '../../src/sim/path.js';
 import { initFlood, seedSplash, wetAt, tickFlood, floodCover } from '../../src/sim/flood.js';
 import { tickBattery, tickMovement } from '../../src/sim/plumber.js';
@@ -57,7 +57,7 @@ import { buildGlowSprite, render, setSimAlpha } from '../../src/render/render.js
 import { SETTINGS, loadSettings, saveSettings, resetSettings, setOption } from '../../src/settings/store.js';
 import { on, emit } from '../../src/util/events.js';
 import * as _C from '../../src/config/constants.js';
-const { BAKE_FLOOR, BATT_MAX, BRUSH_NOISE, CATCH_R, DARK_ROOM, DOOR_AJAR, DOOR_EASE, DOOR_HOLD, DOOR_NOISE, FLICKER_DEPTH, HAND_OFF, HOP_FALL, LEAK_HEADSTART, LEAK_LURE, LEAK_NOISE_BASE, LEAK_NOISE_GAIN, LEAK_RETREAT, LEAK_SPREAD, LIGHT_FADE, LIGHT_FADE_STEPS, LOUD, LS, MAP_H, MAP_W, MASK_TAU, NOISE, NOISE_FS, PIPE_FAR, PIPE_GAP, RADAR_DRAIN, RENDER_SCALES, REPAIR_DECAY, REPAIR_NOISE, REPAIR_REACH, SCALE_BAD_FRAMES, SCALE_DROP_MS, SCALE_GOOD_FRAMES, SCALE_RECOVER_MS, SHEEN_STEPS, SPRINT, SPRINT_NOISE, TILE, VHS_PASS, VIEW_DEG, VIEW_FADE_FAR, VIEW_FADE_NEAR, VIEW_HALF, VIEW_MID, VIEW_RANGE, VIEW_RAYS, VIEW_T, WALK, WALL, WALL_FACE, WET_DRAW, WET_EDGE, WET_FALL, WET_RISE, FLOOR } = _C;
+const { BAKE_FLOOR, BATT_MAX, BRUSH_NOISE, CATCH_R, DARK_ROOM, DOOR_AJAR, DOOR_EASE, DOOR_HOLD, DOOR_NOISE, FLICKER_DEPTH, HAND_OFF, HOP_FALL, LEAK_HEADSTART, LEAK_LURE, LEAK_NOISE_BASE, LEAK_NOISE_GAIN, LEAK_RETREAT, LEAK_SPREAD, LIGHT_FADE, LIGHT_FADE_STEPS, LOUD, LS, MAP_H, MAP_W, MASK_TAU, NOISE, NOISE_FS, SOUND_POWERS, PIPE_FAR, PIPE_GAP, RADAR_DRAIN, RENDER_SCALES, REPAIR_DECAY, REPAIR_NOISE, REPAIR_REACH, SCALE_BAD_FRAMES, SCALE_DROP_MS, SCALE_GOOD_FRAMES, SCALE_RECOVER_MS, SHEEN_STEPS, SPRINT, SPRINT_NOISE, TILE, VHS_PASS, VIEW_DEG, VIEW_FADE_FAR, VIEW_FADE_NEAR, VIEW_HALF, VIEW_MID, VIEW_RANGE, VIEW_RAYS, VIEW_T, WALK, WALL, WALL_FACE, WET_DRAW, WET_EDGE, WET_FALL, WET_RISE, FLOOR } = _C;
 
 function setHeadless(px, vis){ setPixels(px); setVision(vis); }
 
@@ -123,6 +123,7 @@ get LOUD(){ return LOUD; },
   /* The whole noise table, so a test can assert on the contract as a whole
      instead of naming four constants and hoping the rest are covered. */
   NOISE,
+  SOUND_POWERS,
 get NOISE_FS(){ return NOISE_FS; },
 get DOOR_NOISE(){ return DOOR_NOISE; },
 get BRUSH_NOISE(){ return BRUSH_NOISE; },
@@ -207,8 +208,9 @@ tickRadarReveal: () => tickRadarReveal(G),
 emitNoise: (power, x, y, mine) => emitNoise(G, power, x, y, mine),
 sustainedNoise: (power, x, y, mine) => sustainedNoise(G, power, x, y, mine),
 alertLifeforms: (baseR, power, x, y, mine) => alertLifeforms(G, baseR, power, x, y, mine),
+tickNoiseDecay: (dt) => tickNoiseDecay(G, dt),
 brush: (lf, p) => brush(lf, p, G),
-alert: (lf, x, y, power, mine) => alert(lf, x, y, power, mine),
+alert: (lf, src, ctx) => alert(lf, src, ctx),
 wallSteps: (ax, ay, x, y) => wallSteps(G.grid, ax, ay, x, y),
 MAX_WALL_STEPS,
 distanceField: (tx, ty) => distanceField(G.grid, tx, ty),

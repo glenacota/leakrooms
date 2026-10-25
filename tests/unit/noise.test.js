@@ -1,6 +1,5 @@
 import test from 'node:test';
 import { softAssert } from '../helpers/soft-assert.js';
-import { readCss, readHtml, readSrc } from '../helpers/src-text.js';
 import { loadGame } from '../helpers/harness.js';
 import { on, off } from '../../src/util/events.js';
 
@@ -8,6 +7,26 @@ const { A, G, els, calls } = await loadGame();
 const buildFloor = A.buildFloor;
 const update = A.update;
 const keys = A.keys;
+
+test('noise decay lowers meters and keeps peak above current noise', () => {
+  const t = softAssert();
+  G.noise = 0.8;
+  G.selfNoise = 0.4;
+  G.ambientNoise = 0.7;
+  G.noisePeak = 0.9;
+
+  A.tickNoiseDecay(1);
+
+  t.assert(Math.abs(G.noise - 0) < 1e-9, `noise is ${G.noise}, expected 0`);
+  t.assert(Math.abs(G.selfNoise - 0) < 1e-9, `selfNoise is ${G.selfNoise}, expected 0`);
+  t.assert(Math.abs(G.ambientNoise - 0) < 1e-9, `ambientNoise is ${G.ambientNoise}, expected 0`);
+  t.assert(Math.abs(G.noisePeak - 0.66) < 1e-9, `noisePeak is ${G.noisePeak}, expected 0.66`);
+
+  G.noise = 0.8;
+  G.noisePeak = 0.1;
+  A.tickNoiseDecay(1);
+  t.assert(Math.abs(G.noisePeak - G.noise) < 1e-9, 'noisePeak fell below current noise');
+});
 
 /* The bar is drawn from the noise level divided by NOISE_FS, and every value the
    game produces is between 0 and NOISE_FS. A bar that divides by something else
@@ -434,28 +453,18 @@ test('MAX_WALL_STEPS cap exhausts reach for every noise power', () => {
   const t = softAssert();
   /* Only the actual sound powers, not config constants (HEAR_BASE, HEAR_GAIN,
      WALL_COST, LOUD). */
-  const noisePowers = {
-    WALK: A.NOISE.WALK,
-    WADE: A.NOISE.WADE,
-    SPRINT: A.NOISE.SPRINT,
-    REPAIR: A.NOISE.REPAIR,
-    BUMP_SPRINT: A.NOISE.BUMP_SPRINT,
-    BUMP_WALK: A.NOISE.BUMP_WALK,
-    DOOR: A.NOISE.DOOR,
-    BRUSH: A.NOISE.BRUSH,
-  };
-  const maxPower = Math.max(...Object.values(noisePowers));
+  const maxPower = Math.max(...A.SOUND_POWERS);
   const maxSteps = Math.ceil(A.hearRadius(maxPower) / A.NOISE.WALL_COST);
 
   t.assert(A.MAX_WALL_STEPS === maxSteps,
     `MAX_WALL_STEPS is ${A.MAX_WALL_STEPS}, expected ${maxSteps} (from max power ${maxPower})`);
 
-  for (const [name, power] of Object.entries(noisePowers)) {
+  for (const power of A.SOUND_POWERS) {
     const reach = A.hearRadius(power) - maxSteps * A.NOISE.WALL_COST;
-    console.log(`  ${name}: power=${power}, hearRadius=${A.hearRadius(power).toFixed(2)}, ` +
+    console.log(`  power=${power}, hearRadius=${A.hearRadius(power).toFixed(2)}, ` +
       `reach after ${maxSteps} walls=${reach.toFixed(2)}`);
     t.assert(reach <= 0,
-      `${name} (power ${power}) still has ${reach.toFixed(2)} tiles of reach after ${maxSteps} walls — cap too small`);
+      `power ${power} still has ${reach.toFixed(2)} tiles of reach after ${maxSteps} walls — cap too small`);
   };
 });
 

@@ -280,6 +280,21 @@ export const NOISE = Object.freeze({
   WALL_COST: 3.0,
 });
 
+/** Sound levels used to derive the maximum wall-step count. */
+export const SOUND_POWERS = Object.freeze([
+  NOISE.WALK,
+  NOISE.WADE,
+  NOISE.SPRINT,
+  NOISE.REPAIR,
+  NOISE.BUMP_SPRINT,
+  NOISE.BUMP_WALK,
+  NOISE.RADAR,
+  NOISE.DOOR,
+  NOISE.BRUSH,
+]);
+/** Alias retained for code that names the noise-power set. */
+export const NOISE_POWERS = SOUND_POWERS;
+
 /* ---------- Lifeforms ----------
    The things hunting you are not tuning: every number here is the same on
    every difficulty, which is why they are frozen constants and not preset
