@@ -108,7 +108,7 @@
     <div class="splash-plate">
       <h1>LEAKROOMS</h1>
       <h2>The Backrooms are flooding. <b>Seal the leaks</b>. Get back in one piece.</h2>
-      <p class="go">PRESS <b>ANY KEY</b></p>
+      <p class="go"><span class="kbd-only">PRESS <b>ANY KEY</b></span><span class="touch-only">TAP <b>ANYWHERE</b> TO CLOCK IN</span></p>
     </div>
     <footer class="screen-footer">
       <p class="footer-left">
@@ -173,7 +173,7 @@
           <div class="seed" id="order-seed">#88D-0000</div>
           <div class="stub-note">
             <small>CONTROLS</small>
-            <div class="controls controls-big">
+            <div class="controls controls-big kbd-only">
               <div><b>WASD / arrows</b><span>move</span></div>
               <div><b>SHIFT</b><span>sprint</span></div>
               <div><b>R</b><span>radar</span></div>
@@ -181,13 +181,20 @@
               <div><b>F</b><span>fullscreen</span></div>
               <div><b>ESC</b><span>pause / settings</span></div>
             </div>
+            <div class="controls controls-big touch-only">
+              <div><b>LEFT THUMB</b><span>drag to move</span></div>
+              <div><b>TO THE EDGE</b><span>push to run</span></div>
+              <div><b>LIFT</b><span>hold still</span></div>
+              <div><b>RADAR</b><span>corner button</span></div>
+              <div><b>II</b><span>pause / settings</span></div>
+            </div>
           </div>
         </div>
       </div>
 
       <div class="order-cta">
-        <button id="btn-start"><b>CLICK TO BEGIN</b></button>
-        <span class="cta-hint">OR PRESS <b>ENTER</b> &nbsp;&middot;&nbsp; (<b>ESC</b> GOES BACK)</span>
+        <button id="btn-start"><b><span class="kbd-only">CLICK TO BEGIN</span><span class="touch-only">TAP TO BEGIN</span></b></button>
+        <span class="cta-hint kbd-only">OR PRESS <b>ENTER</b> &nbsp;&middot;&nbsp; (<b>ESC</b> GOES BACK)</span>
       </div>
       <footer class="screen-footer">
         <p class="footer-left">
@@ -320,7 +327,7 @@
           <div class="badge" id="pause-terms">NORMAL</div>
           <div class="stub-note">
             <small>CONTROLS</small>
-            <div class="controls controls-big">
+            <div class="controls controls-big kbd-only">
               <div><b>WASD / arrows</b><span>move</span></div>
               <div><b>SHIFT</b><span>sprint</span></div>
               <div><b>R</b><span>radar</span></div>
@@ -328,12 +335,20 @@
               <div><b>F</b><span>fullscreen</span></div>
               <div><b>ESC</b><span>resume</span></div>
             </div>
+            <div class="controls controls-big touch-only">
+              <div><b>LEFT THUMB</b><span>drag to move</span></div>
+              <div><b>TO THE EDGE</b><span>push to run</span></div>
+              <div><b>LIFT</b><span>hold still</span></div>
+              <div><b>RADAR</b><span>corner button</span></div>
+              <div><b>II</b><span>pause</span></div>
+            </div>
           </div>
         </div>
       </div>
 
       <div class="order-cta">
-        <span class="cta-hint">PRESS <b>ESC</b> OR <b>ENTER</b> TO RESUME THE MISSION</span>
+        <span class="cta-hint kbd-only">PRESS <b>ESC</b> OR <b>ENTER</b> TO RESUME THE MISSION</span>
+        <span class="cta-hint touch-only">TAP <b>RESUME</b> TO RETURN TO THE MISSION</span>
       </div>
       <footer class="screen-footer">
         <p class="footer-left">
@@ -372,7 +387,7 @@
         </div>
       </div>
 
-      <button id="btn-descend"><b>PRESS ENTER TO DESCEND</b></button>
+      <button id="btn-descend"><b><span class="kbd-only">PRESS ENTER TO DESCEND</span><span class="touch-only">TAP TO DESCEND</span></b></button>
     </div>
   </div>
 
@@ -405,17 +420,27 @@
        tablet. The detection and the swap live in src/ui/mobile.js. -->
   <div id="screen-mobile" class="screen hidden">
     <div class="tape">
-      <h1 class="bad">DESKTOP ONLY</h1>
-      <p class="sub">HANDHELD UNITS ARE NOT AUTHORISED</p>
+      <h1 class="bad">UNIT NOT AUTHORISED</h1>
+      <p class="sub">THIS HANDHELD CANNOT TAKE TOUCH ORDERS</p>
       <p class="hint">
         <a href="https://github.com/glenacota/leakrooms" target="_blank" rel="noopener noreferrer" class="footer-link">
           <b>LEAKROOMS</b>
-        </a> IS CLOCKED IN WITH A KEYBOARD.<br>
-        THERE IS NO TOUCH INPUT ON THE FLOOR.<br>
-        CLOCK IN FROM A DESKTOP TERMINAL TO BEGIN THE SHIFT.
+        </a> NEEDS A TOUCHSCREEN WITH POINTER SUPPORT, OR A KEYBOARD.<br>
+        THIS BROWSER OFFERS NEITHER.<br>
+        TRY A CURRENT BROWSER, OR CLOCK IN FROM A DESKTOP TERMINAL.
       </p>
       <p class="hint"><i>NO REFUNDS FOR LOST EQUIPMENT. OR PERSONNEL.</i></p>
     </div>
+  </div>
+
+  <!-- ------------ ROTATE CARD ------------
+       Covers everything while a touch device is held upright: the floor does
+       not fit a tall screen. css/touch.css shows it, src/ui/touch.js pauses the
+       run when it appears. It is not one of the screens and takes no buttons. -->
+  <div id="rotate" aria-live="polite">
+    <p class="rot-icon" aria-hidden="true">&#8635;</p>
+    <h1>TURN YOUR PHONE SIDEWAYS</h1>
+    <p class="rot-sub">THE FLOOR IS WIDER THAN IT IS TALL.<br>THE SHIFT IS ON HOLD.</p>
   </div>
 
   <!-- ============ FATAL ERROR ============

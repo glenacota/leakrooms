@@ -142,3 +142,55 @@ html[data-input=touch] #crt{ height:100dvh; }
   right:auto;
   left:calc(18px + env(safe-area-inset-left));
 }
+
+/* ---------- Copy that depends on the input ---------- */
+
+/* A line that names a key has a twin for touch. Which one shows follows the
+   input mode, not the screen size, so a tablet with a keyboard reads keys. No
+   data-input yet (the first instant of a load) counts as keyboard. */
+[data-input=touch] .kbd-only{ display:none !important; }
+html:not([data-input=touch]) .touch-only{ display:none !important; }
+
+/* ---------- The rotate card ---------- */
+
+/* Held upright on a touch device, the floor does not fit: cover everything and
+   ask. The level is above the screens (5), the footer (10) and the error card,
+   so nothing shows through. The run is paused by src/ui/touch.js. */
+#rotate{
+  display:none;
+  position:absolute; inset:0;
+  z-index:30;
+  flex-direction:column; align-items:center; justify-content:center;
+  gap:14px;
+  padding:24px;
+  text-align:center;
+  background:#000;
+  color:var(--yellow);
+}
+#rotate h1{ font-size:22px; letter-spacing:.18em; line-height:1.4; }
+#rotate .rot-icon{ font-size:56px; line-height:1; color:var(--yellow-dim); }
+#rotate .rot-sub{ font-size:12px; letter-spacing:.16em; line-height:1.8; color:var(--yellow-dim); }
+@media (orientation:portrait) and (pointer:coarse){
+  #rotate{ display:flex; }
+}
+
+/* ---------- Screens, in touch mode ---------- */
+
+/* A thumb needs a bigger target than a mouse. The menu buttons are 28 px tall by
+   default; this brings them up without changing how they look. */
+[data-input=touch] .seg button,
+[data-input=touch] .setrow.buttons button,
+[data-input=touch] .pause-tabs button,
+[data-input=touch] .stamp-terms .chg{ min-height:40px; }
+
+/* Keep clear of the notch and the home bar. env() is zero where there is
+   none, and needs viewport-fit=cover (index.html). */
+[data-input=touch] .screen{
+  padding:env(safe-area-inset-top) env(safe-area-inset-right)
+          env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+[data-input=touch] .crt-tl{
+  top:calc(10px + env(safe-area-inset-top));
+  left:calc(12px + env(safe-area-inset-left));
+}
+[data-input=touch] #prompt{ padding-bottom:calc(20px + env(safe-area-inset-bottom)); }

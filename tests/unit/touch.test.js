@@ -3,7 +3,10 @@ import assert from 'node:assert/strict';
 import { loadGame } from '../helpers/harness.js';
 import { pad, keys } from '../../src/sim/keys.js';
 import { transition } from '../../src/game/run.js';
-import { emit } from '../../src/util/events.js';
+import { emit, on } from '../../src/util/events.js';
+import { bindRotate } from '../../src/ui/touch.js';
+import { readCss, readHtml } from '../helpers/src-text.js';
+import fs from 'node:fs';
 
 const { A, G } = await loadGame();
 
@@ -244,4 +247,38 @@ test('[TOUCH] the stick side follows the setting, live, and the radar goes oppos
 
   resetSettings();
   assert.equal(layer.dataset.side, 'left');
+});
+
+test('[TOUCH] portrait shows the rotate card, pauses the run once, and rotating back does not resume', () => {
+  // The card and its media query ship.
+  assert.ok(/id="rotate"/.test(readHtml()), 'no #rotate card in the markup');
+  const css = fs.readFileSync(new URL('../../css/touch.css', import.meta.url), 'utf8');
+  assert.ok(/@media\s*\(orientation:\s*portrait\)\s*and\s*\(pointer:\s*coarse\)\s*\{\s*#rotate\s*\{\s*display:\s*flex/.test(css),
+    'the card is not shown by a portrait + coarse query');
+  assert.ok(/#rotate\s*\{[^}]*z-index:\s*30/.test(css), 'the card is not above the screens');
+
+  const mq = { matches: false, fns: [], addEventListener(t, f){ this.fns.push(f); },
+    set(v){ this.matches = v; for (const f of this.fns) f({ matches: v }); } };
+  bindRotate(mq);
+  assert.equal(mq.fns.length, 1);
+
+  startTouchRun();
+  let changes = 0;
+  const off = on('state', () => { changes++; });
+  mq.set(true);                          // turned upright
+  assert.equal(A.STATE, 'pause');
+  assert.equal(changes, 1, 'the run was not paused exactly once');
+  mq.set(true);                          // a second event while upright must not toggle again
+  assert.equal(A.STATE, 'pause');
+  mq.set(false);                         // turned back sideways
+  assert.equal(A.STATE, 'pause', 'rotating back resumed the run on its own');
+  assert.equal(changes, 1);
+  off();
+
+  // Upright outside a run does nothing.
+  transition('splash');
+  mq.set(true);
+  assert.equal(A.STATE, 'splash');
+  // A query list that cannot listen is ignored, not an error.
+  assert.doesNotThrow(() => { bindRotate(null); bindRotate({}); });
 });

@@ -404,3 +404,75 @@ button:active{ transform:translateY(1px); }
   color: white;
   padding: 0 1rem;
 }
+/* ---------- Short windows: a phone held sideways ---------- */
+
+/* The ticket is taller than 360 to 412 px, and its two buttons that matter (BEGIN
+   and RESUME) used to sit at the bottom of a scroll. So on a short window the
+   ticket is tightened, the stub stays beside the body instead of stacking under
+   it, and the button row sticks to the bottom of the scroll so it is always in
+   reach. This is placed after the width queries on purpose: at 740 px wide the
+   820 rule would stack the stub, and these rules have to win over it. */
+@media (max-height:480px){
+  .order-wrap{ max-height:100%; gap:8px; }
+  .order-body{ padding:10px 14px 8px; }
+  .order-head{ padding-bottom:6px; margin-bottom:8px; }
+  .order-head h2{ font-size:20px; letter-spacing:.16em; }
+  .order-head .meta{ font-size:11px; margin-top:4px; }
+  .order .field{ margin:6px 0; font-size:13px; }
+  .order .field span{ line-height:1.6; margin-bottom:0; }
+  .order .notes li{ font-size:12px; }
+  .stamp-terms{ margin:10px 0 0; }
+  .pause-tabs{ margin-bottom:8px; }
+  .settings-grid{ gap:8px 18px; margin:4px 0 2px; }
+  .setrow.section{ margin-top:2px; padding-top:0; }
+  /* The briefing scrolled inside the ticket on its own. Here the whole ticket
+     scrolls, and two nested scrollers fight over a thumb. */
+  .pause-page[data-pause-page="briefing"]{ max-height:none; overflow:visible; padding-right:0; }
+
+  .setrow.buttons{ margin-top:8px; gap:8px; }
+  .setrow.buttons button{
+    padding:8px 10px; font-size:11px; letter-spacing:.12em; white-space:nowrap;
+  }
+  /* RESUME is right there, so the hint line under it has nothing to add. */
+  #screen-pause .order-cta{ display:none; }
+  /* The footer links are not worth a strip of a 360 px screen. */
+  #screen-order .screen-footer, #screen-pause .screen-footer{ display:none; }
+}
+
+/* The buttons that matter stay in reach while the ticket scrolls under them. This
+   is taller than the query above because an iPad with the touch settings added
+   no longer shows the whole pause page in 768 px either. Touch mode only, so a
+   laptop window is left as it was. */
+@media (max-height:820px){
+  [data-input=touch] .order-cta{
+    position:sticky; bottom:0; width:100%; padding:6px 0;
+    background:rgb(6,5,3);        /* solid: text must not show through the bar */
+  }
+  [data-input=touch] .setrow.buttons{
+    position:sticky; bottom:0; padding:6px 0;
+    background:rgb(12,10,6);
+  }
+  /* The pause ticket has its own buttons, and a second bar would sit on them. */
+  #screen-pause .order-cta{ position:static; background:none; }
+}
+
+/* Wide enough for it, keep the stub beside the body. */
+@media (max-height:480px) and (min-width:560px){
+  .order{ grid-template-columns:1fr 200px; }
+  .order-side{
+    border-left:2px dashed rgba(228,230,168,.28); border-top:none;
+    flex-direction:column; flex-wrap:nowrap; gap:0; align-items:stretch;
+    padding:10px 12px;
+  }
+  .order-side small:not(:first-child){ margin-top:6px; }
+  .order-side .big{ font-size:26px; }
+  .order-side .badge{ font-size:16px; }
+  .order-side .seed{ font-size:13px; }
+  .order-side .stub-note{ padding-top:8px; }
+  .controls-big{ font-size:11px; }
+  .controls-big b{ font-size:11px; min-width:0; }
+  .controls-big span{ font-size:11px; }
+}
+
+/* The title and the footers keep clear of a rounded corner and the bottom bar. */
+.screen-footer{ padding-bottom:calc(8px + env(safe-area-inset-bottom)); }
