@@ -40,7 +40,6 @@ export function resetSettings(opts){
   const terms = (opts && opts.keepTerms) ? SETTINGS.difficulty : null;
   SETTINGS = Object.assign({}, SETTINGS_DEFAULTS);
   if (terms) SETTINGS.difficulty = terms;
-  // The 'settings:changed' listener in ui/bind.js marks the water image stale, so there is nothing to call from here.
   emit('settings:changed', '*');
   saveSettings();
 }
@@ -48,9 +47,6 @@ export function resetSettings(opts){
 export function setOption(key, value){
   if (!settingsValid(key, value)) return false;
   SETTINGS[key] = value;
-  /* The water tint is baked into the water image's pixels, so a new tint makes
-     the image stale even though the water itself did not move. The listener
-     handles that; here the change is only announced. */
   emit('settings:changed', key);
   saveSettings();
   return true;

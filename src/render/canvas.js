@@ -16,14 +16,14 @@ export function setRenderScaleIdx(v){ renderScaleIdx = v; }
  * mask all follow from it, so everything stays aligned when the size changes.
  *
  * The device pixel ratio is capped at 2 and then multiplied by the current
- * adaptive render scale (see game/loop.js). A retina screen has four times the
- * pixels of the same window on a normal screen, and every cost in the renderer
- * grows with the pixels touched. So the ratio is a starting point and not a
- * fixed decision: if frames stay slow, the loop lowers the render scale one step
- * and calls this again.
+ * adaptive render scale. A retina screen has four times the pixels of the same
+ * window on a normal screen, and every cost in the renderer grows with the
+ * pixels touched. So the ratio is a starting point and not a fixed decision:
+ * if frames stay slow, the loop lowers the render scale one step and calls
+ * this again.
  *
- * This runs synchronously on purpose, because the loop calls it in the middle of
- * a frame after changing the scale. The window's resize event is debounced
+ * This runs synchronously on purpose, because the loop calls it in the middle
+ * of a frame after changing the scale. The window's resize event is debounced
  * separately below.
  */
 export function resize(){

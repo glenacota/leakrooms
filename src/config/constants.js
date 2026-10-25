@@ -16,13 +16,7 @@ export const VIEW_T = 27;                // tiles across the viewport
 
 /* The lit face of a wall: how tall the wallpaper band is, as a fraction of a
    tile. It is drawn into the carpet tile BELOW each wall (see bakeTiles in
-   render/bake.js) and it is the surface the door is painted on.
-
-   Do not make it taller without making the floor taller too. The band is
-   carved out of the floor that characters walk on: at 0.74 it left only 10px
-   of carpet, and anyone standing along a wall looked like they were floating
-   in front of it. A taller band also eats the contact shadow that sells the
-   wall's height. */
+   render/bake.js) and it is the surface the door is painted on. */
 export const WALL_FACE = TILE*0.46;
 
 /* ---------- The door ---------- */
@@ -60,9 +54,9 @@ export const LIFEFORM = Object.freeze({
   SIGHT_AMBIENT: 0.30,       // ...and only if the light you stand in is above this
 });
 
-/* The hit zone. A lifeform catches you inside this distance, and the Stalker
-   draws a disc of exactly this radius under itself, so the dangerous area is
-   visible. Both read this one constant, so they cannot disagree. */
+/* The hit zone. A lifeform catches you inside this distance, and draws a disc
+   of exactly this radius under itself, so the dangerous area is visible. Both
+   read this one constant, so they cannot disagree. */
 export const CATCH_R = 0.52;
 
 /* How far in front of the body the character holds the radar. The vision cone
@@ -72,9 +66,7 @@ export const HAND_OFF = 0.135;
 /* ---------- Battery and radar ---------- */
 export const BATT_MAX   = 100;
 /* The radar is the only tool and it is expensive: a full battery gives under
-   18 seconds of sweeping. It has to be switched off and thought about. The
-   torch it replaced drained 2.4 per second and could be held forever, which
-   made the battery a formality. */
+   18 seconds of sweeping. It has to be switched off and thought about. */
 export const RADAR_DRAIN = 5.6;          // per second while sweeping
 
 /* The radar gauge is drawn as a battery: a shell with a terminal on the right
@@ -104,10 +96,9 @@ export const BATT_LOW  = 35;
    corner, and four pipes would become one pipe sealed four times. */
 export const PIPE_GAP = 12;
 
-/* How fast the water front moves outward, in seconds per tile. At 1.4 the
-   water reached the spawn within half a minute and the floor became a lake, so
-   following it stopped being a skill. At 3.2 the front advances about half a
-   tile every two seconds: clearly alive, but still easy to hold in your head. */
+/* How fast the water front moves outward, in seconds per tile. At 3.2 the
+   front advances about half a tile every two seconds: clearly alive, but still
+   easy to hold in your head. */
 export const LEAK_SPREAD  = 3.2;
 
 /* How fast the water front moves back in once every pipe is sealed, in seconds
@@ -177,10 +168,8 @@ export const WALL = 0, FLOOR = 1;
 export const DARK_ROOM      = 0.0;
 
 /* How visible a room is, by how many gates away it is (index = gates passed).
-   It used to drop straight from 1.0 to 0.3 to 0, which blacked out long
-   corridors 10 tiles ahead even in a straight line of sight. A gradual
-   falloff lets light arrive smoothly instead of stopping at an invisible
-   boundary. */
+   A gradual falloff lets light arrive smoothly instead of stopping at an
+   invisible boundary. */
 export const HOP_FALL = [1.0, 0.85, 0.50, 0.26, 0.17, 0.11];
 
 /* Distance fade for rooms that are not your own. Without it a 40-tile corridor
@@ -235,10 +224,9 @@ export const FLICKER_DEPTH = 0.65;
    together to show banding. The scratch data is in render/passes/ground.js. */
 export const SHEEN_STEPS = 4;
 
-/* Adaptive resolution: the available render scales and when to switch (the
-   logic is in game/loop.js). The "drop" and "recover" thresholds are far apart
-   on purpose, so a machine near the boundary does not keep switching back
-   and forth. */
+/* Adaptive resolution: the available render scales and when to switch.
+   The "drop" and "recover" thresholds are far apart on purpose, so a
+   machine near the boundary does not keep switching back and forth. */
 export const RENDER_SCALES = [1, 0.8, 0.65, 0.5];
 export const SCALE_DROP_MS  = 20;      // average frame time that lowers the resolution
 export const SCALE_RECOVER_MS= 12;     // average frame time that allows raising it again
@@ -302,11 +290,7 @@ export const NOISE = Object.freeze({
    every existing import keeps working. */
 
 /* What a full noise bar means: the loudest sustained thing you can do, the
-   wrench. It must not be BATT_MAX: the bar used to divide by that, so a sprint
-   filled 1% of it while the bar still turned red.
-
-   On the bar: walk 26%, wading 35%, sprint 85%, wrench 100%, and LOUD sits at
-   59%. The standing hiss of four open pipes is 14% to 56%. */
+   wrench. It must not be BATT_MAX. */
 export const NOISE_FS = NOISE.REPAIR;
 
 export const LOUD        = NOISE.LOUD;

@@ -4,24 +4,16 @@ import { SETTINGS } from '../../settings/store.js';
 import { cvs, ctx } from '../canvas.js';
 import { buildGrainFull, grainFull, scanPat } from '../textures.js';
 
-/* The source for the chroma ghost: a quarter-size copy of the SCREEN. It does
-   not belong to a floor, because the screen is the same size whichever floor is
-   under it. Keeping it on G meant recreating it (and leaving the old one for the
-   garbage collector) whenever a floor changed. It is kept here, next to
-   vigCv and dangerCv below, for the same reason. */
+/* A quarter-size copy of the screen, used by the chroma ghost. It does not
+   belong to a floor, because the screen is the same size whichever floor is
+   under it. It is kept here, next to vigCv and dangerCv below, for the same
+   reason. */
 let postCv = null;
 
 /* ---------- Full-screen overlays, drawn from stored images ----------
    The vignette and the awareness wash are radial gradients covering the whole
-   canvas, and both were rebuilt and filled every frame. A gradient fill is worked
-   out per pixel, while drawing a stored image is not, and these two only change
-   when the canvas size does. A full-screen gradient costs about twice a
-   full-screen drawImage, and was being paid sixty times a second for a picture
-   that never moved.
-
-   These are not new effects: the stops and radii are the same. The danger wash
-   moves its per-frame `0.62*seen` alpha into globalAlpha, which is exactly what
-   multiplying a gradient stop by a constant did. */
+   canvas. Drawing a stored image is cheaper than recomputing a gradient per
+   pixel every frame, and they only change when the canvas size changes. */
 let vigCv = null, dangerCv = null;
 
 // The vignette is canvas-sized: it is a fixed proportion of the frame.
@@ -60,14 +52,11 @@ let dropT = 0;
 export function post(rc){
   const {t} = rc;
   /* ---------- 7. Danger and awareness ----------
-     Both overlays are stored images (buildVignette and buildDangerWash). They are
-     rebuilt when the canvas is resized, and the lazy checks below are a backup that
-     costs nothing once the size has settled. */
+     Both overlays are stored images (buildVignette and buildDangerWash). The
+     lazy checks below rebuild them only when the canvas size changes. */
   if (!vigCv || vigCv.width!==cvs.width || vigCv.height!==cvs.height) buildVignette();
   /* The danger wash is half resolution, so the check compares against the size it
-     WOULD be built at and not against cvs.width itself. With an odd width, the half
-     size never matched, so the wash was rebuilt every frame, which cost more than
-     the gradient it replaced. */
+     WOULD be built at and not against cvs.width itself. */
   const dw = Math.max(1, cvs.width>>1), dh = Math.max(1, cvs.height>>1);
   if (!dangerCv || dangerCv.width!==dw || dangerCv.height!==dh) buildDangerWash();
 
@@ -77,19 +66,13 @@ export function post(rc){
     ctx.drawImage(dangerCv, 0, 0, cvs.width, cvs.height);
     ctx.globalAlpha = 1;
   }
-  /* The vignette. It was stronger (0.52) when the whole floor was lit and its only
-     job was to stop the frame looking like a wallpaper sample. Now the room scope
-     and the cone do the framing, and a vignette that strong eats the palette at the
-     edges of the very room you are standing in. */
+  /* The vignette. It frames the edges so the floor does not look like a wallpaper sample. */
   ctx.drawImage(vigCv, 0, 0);
 
   /* ---------- 8. VHS tape effect ----------
-     A scrolling tracking band, scanlines, grain, a chroma ghost and dropouts. This
-     is the pass that makes the game look like a recording and not a window. It is
-     always on: it was once a setting, but the two things players turned it down for
-     (the scanline crawl and the shake) are still here at full strength, so a middle
-     setting could not have been honest. The snapshot is taken before the passes
-     that read it.
+     A scrolling tracking band, scanlines, grain, a chroma ghost and dropouts.
+     This pass makes the game look like a recording and not a window. It is
+     always on. The snapshot is taken before the passes that read it.
 
      The strength is now a setting again (SETTINGS.crt). The default is 1.0, which
      is the full VHS_PASS and the exact look the game has always shipped. The
@@ -97,12 +80,9 @@ export function post(rc){
      still the ceiling and the identity of the tape look. */
   const vhs = VHS_PASS * SETTINGS.crt * (G.radar ? 5000 : 1);
   /* The snapshot gives the chroma ghost something to read that does not include
-     the ghost itself. It was a full-size copy of the canvas, and the ghost then
-     drew that copy twice more at screen size: three full-screen operations for a
-     3%-alpha smear 1 to 3 px wide. It is now a QUARTER-size copy, scaled back up
-     with smoothing, which looks like a slightly soft ghost (which is what chroma
-     bleed looks like anyway). It is still taken before every pass that reads it, so
-     there is no feedback. */
+     the ghost itself. It is a QUARTER-size copy of the canvas, scaled back up
+     with smoothing, which looks like a slightly soft ghost. It is still taken
+     before every pass that reads it, so there is no feedback. */
   const POST_S = 0.25;
   const pw = Math.max(1, Math.round(cvs.width * POST_S));
   const ph = Math.max(1, Math.round(cvs.height * POST_S));

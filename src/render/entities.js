@@ -100,10 +100,9 @@ export function drawDoor(e, t){
   ctx.fillStyle = 'rgba(16,20,12,0.88)';
   ctx.fillRect(-hw, -hh, OW, OH);
 
-  /* The frame is an outline (two jambs and a head) and not a filled shape. It
-     used to paint its own wall colour, which made sense when the door sat on the
-     wall tile. Painted on the lit face, a fill would erase the wallpaper the
-     door was placed on, so now the wall shows through the gaps. */
+  /* The frame is an outline (two jambs and a head) and not a filled shape.
+     Painted on the lit face, a fill would erase the wallpaper the door was
+     placed on, so now the wall shows through the gaps. */
   ctx.strokeStyle = '#9c9a68'; ctx.lineWidth = 2.5;
   ctx.strokeRect(-hw-1.5, -hh-1.5, OW+3, OH+3);
   ctx.strokeStyle = 'rgba(40,38,24,0.5)'; ctx.lineWidth = 1;

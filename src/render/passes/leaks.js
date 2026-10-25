@@ -19,9 +19,7 @@ export function leaks(rc){
   for (const L of G.leaks){
     /* DEVICE space, not world space. This pass runs after ctx.restore(), so the
        context is back to the identity and a world coordinate would be a raw pixel.
-       An earlier version drew the whole pipe at world coordinates, so it was
-       painted at pixel (1360, 1360), off screen, while every logic test passed. The
-       coordinates are converted with the same w2s helpers the lighting pass uses,
+       Coordinates are converted with the same w2s helpers the lighting pass uses,
        and sizes are in device pixels. */
     const lt = L.y*MAP_W + L.x;
     if (!G.wetArr || G.maskArr[lt] <= 0.02) continue;

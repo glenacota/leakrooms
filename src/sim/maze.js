@@ -20,14 +20,11 @@ export function genMaze(rng){
 
   const leaves = [];
   /* ---------- Step 1: split into cells ----------
-     Splitting is driven by SIZE and not by a fixed depth. A fixed depth ran out
-     while cells were still about 18 tiles across, and every floor kept at least
-     one room big enough to feel like an empty field.
-
-     MAXROOM is a real ceiling: a cut is clamped so a child is never wider than
-     its parent, and splitting is only refused when a cell is too narrow to divide
-     without making a closet. The longer axis is always cut, so cells converge
-     toward the ceiling and do not drift past it. */
+     Splitting is driven by SIZE, not by a fixed depth. MAXROOM is a real
+     ceiling: a cut is clamped so a child is never wider than its parent, and
+     splitting stops when a cell is too narrow to divide without making a
+     closet. The longer axis is always cut, so cells converge toward the
+     ceiling. */
   const MAXROOM = 12, MINCUT = 6;
   (function split(x,y,w,h,depth){
     const tooNarrow = (w < MINCUT*2 && h < MINCUT*2);
@@ -62,10 +59,8 @@ export function genMaze(rng){
 
   /* ---------- Step 2: carve the rooms ----------
      Each room is inset unevenly in its cell, so the partitions look like
-     temporary site walls and not a regular grid. The insets are capped: with
-     small cells, an uncapped inset of 3+3 could make a room wider than its
-     cell, which spilled into the partition band and joined two rooms into one
-     big open space. */
+     temporary site walls and not a regular grid. The insets are capped so a
+     small cell never produces a room wider than its cell. */
   const MINROOM = 6;
   const inset = span => 1 + Math.floor(rng()*Math.min(2, Math.max(1, Math.floor((span-MINROOM)/2))));
   for (const L of leaves){
@@ -81,9 +76,9 @@ export function genMaze(rng){
   }
 
   /* ---------- Step 3: punch the gates ----------
-     The wall between two rooms can be up to 6 tiles thick, so a fixed 2-tile
-     punch would end inside the wall. Instead, tunnel along the gate line in both
-     directions until it breaks into room floor on each side. */
+     The wall between two rooms can be up to 6 tiles thick, so the gate is
+     tunneled along the line in both directions until it breaks into room
+     floor on each side. */
   for (const d of doors){
     for (let k=0; k<d.width; k++){
       const a = d.along + k;
@@ -116,10 +111,7 @@ export function genMaze(rng){
   }
 
   /* ---------- Step 4: wall stubs inside rooms ----------
-     The BSP alone still leaves some rooms big enough to feel empty. Short wall
-     stubs add wall area and make alcoves without cutting a room in two. (A full
-     split could strand one half, and the connection repair below would then
-     tunnel back through a visible hole in the wall.) */
+     Short wall stubs add wall area and make alcoves without cutting a room in two. */
   for (const L of rooms){
     if (L.rw < 6 && L.rh < 6) continue;
     const cym = L.ry + L.rh/2;

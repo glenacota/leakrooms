@@ -6,11 +6,6 @@ export const engine = {
   // The two continuous noise beds. See noiseFloor() and leakBed() in voices.js.
   floorGain:null, floorFilter:null,
   leakGain:null, leakFilter:null,
-  /* The beds' own gain node, between the beds and the master. The continuous
-     layers (hum, hiss, floor, leak, drone, title ambience) connect here instead
-     of straight to master, so the ambience setting can turn them down without
-     also turning down the one-shot SFX — the information channel stays at the
-     master level while the atmosphere gets its own knob. */
   beds:null, bedsVol:0.6,
   master:null, mute:null, masterVol:0.7, muted:false,
 
@@ -28,14 +23,6 @@ export const engine = {
     for (let i=0;i<len;i++) d[i] = Math.random()*2-1;
     this.noise = buf;
 
-    /* --- MASTER. Every voice connects to this node and not to the
-       destination, so one gain node is the whole volume control (and the
-       settings panel drives it). It must connect onward to the mute node. An
-       earlier version connected it to ITSELF, which is a closed loop: every
-       voice fed a node that went nowhere, and the game was silent while
-       everything else worked. The headless tests run with no AudioContext, so
-       none of them could see it. The audio test now builds the graph and checks
-       that it reaches the destination. */
     this.master = a.createGain();
     this.master.gain.value = SETTINGS.master;
     /* Mute is its own node, after the volume. Folding it into the volume (set
@@ -45,12 +32,10 @@ export const engine = {
     this.mute = a.createGain();
     this.mute.gain.value = SETTINGS.muted ? 0 : 1;
     this.master.connect(this.mute);
-    /* A compressor between the mute and the speakers. A door cycling while a
-       wrench runs while a Stalker arrives can sum past 0 dB and clip, which is
-       the loudest and ugliest sound the game could make. It sits AFTER the mute so
-       muting stays total, and after the master so it never fights the volume
-       slider. The settings are gentle on purpose: this is a safety net, not a
-       loudness effect. */
+    /* A compressor between the mute and the speakers. Loud simultaneous sounds
+       can sum past 0 dB and clip. It sits AFTER the mute so muting stays total,
+       and after the master so it never fights the volume slider. The settings
+       are gentle on purpose: this is a safety net, not a loudness effect. */
     this.comp = a.createDynamicsCompressor();
     this.comp.threshold.value = -3;
     this.comp.knee.value = 6;
@@ -60,10 +45,6 @@ export const engine = {
     this.mute.connect(this.comp);
     this.comp.connect(a.destination);
 
-    /* --- BEDS BUS. Every continuous layer connects to this node and not to the
-       master, so the ambience setting can turn the atmosphere down without
-       touching the one-shot SFX. It sits before the mute and the master, so
-       muting stays total and the volume slider still scales everything. */
     this.beds = a.createGain();
     this.beds.gain.value = SETTINGS.ambience;
     this.beds.connect(this.master);
@@ -82,12 +63,9 @@ export const engine = {
 
     /* --- THE NOISE FLOOR.
        A band-limited noise layer whose gain follows the HUD's NOISE bar, plus a
-       low sine under it that only comes up as the bar fills. Every other noise
-       source is a one-shot with a fixed peak, so without this layer the bar could
-       fill while the mix stayed the same, and the meter and the speakers would be
-       two instruments reporting two different numbers. It ramps over 0.06 s:
-       fast enough to answer the bar, slow enough that a 0.26 s sprint burst does
-       not click. */
+       low sine under it that only comes up as the bar fills. It ramps over
+       0.06 s: fast enough to answer the bar, slow enough that a 0.26 s sprint
+       burst does not click. */
     this.floorGain = a.createGain();
     this.floorGain.gain.value = 0;
     this.floorFilter = a.createBiquadFilter();
@@ -111,8 +89,7 @@ export const engine = {
        What an open pipe sounds like: pressurised water, not a drip. One shared
        voice, driven by the pipes' TOTAL noise and quieter with distance to the
        nearest open pipe, so a burst pipe is something you can walk toward with
-       your ears. It stays under the wrench by construction, because the wrench
-       has to remain the loudest decision in the game. */
+       your ears. */
     this.leakGain = a.createGain();
     this.leakGain.gain.value = 0;
     this.leakFilter = a.createBiquadFilter();
@@ -133,10 +110,6 @@ export const engine = {
     const llg=a.createGain(); llg.gain.value=140;
     llfo.connect(llg); llg.connect(lg.frequency); llfo.start();
 
-    /* The saved settings are applied AFTER the graph exists. applySettings()
-       runs at boot, before there is a node to reach, which used to make a saved
-       "muted" be ignored for the whole session. `ok` goes true first because
-       both setters check it. */
     this.ok = true;
     this.setMaster(SETTINGS.master);
     this.setMuted(SETTINGS.muted);

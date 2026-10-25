@@ -19,11 +19,8 @@ export function attachFloorImages(){
   for (let y=0;y<LH;y++){
     const ty=(y/LS)|0, row=ty*MAP_W;
     for (let x=0;x<LW;x++){
-      /* The bake is pure brightness (grey), with no tint. It used to be tinted
-         yellow with a warm lift to stop unlit floor going black. Now darkness
-         is the mask's job, and tinting the bake would apply the yellow twice: a
-         lit room would come out green-yellow on top of a palette that is already
-         the right colour. The hue comes from the surfaces themselves. */
+      /* The bake is pure brightness (grey), with no tint. Darkness is the
+         mask's job, and the hue comes from the surfaces themselves. */
       const b = Math.min(1, G.lightArr[row + ((x/LS)|0)]);
       const v = Math.round(255*b);
       const k=(y*LW+x)*4;

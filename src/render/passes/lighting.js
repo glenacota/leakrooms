@@ -4,15 +4,9 @@ import { fixtureVis } from '../../sim/vision.js';
 import { cvs, ctx, SCALE } from '../canvas.js';
 
 /* ---------- The ceiling-light glow sprite ----------
-   Each lit fixture used to fill a rectangle of side 2*r*TILE under 'lighter'
-   from a gradient built on the spot. The radius goes up to 19 tiles, so that
-   rectangle is bigger than the screen, and one of them measured 9.5 ms. Drawing
-   a pre-made sprite of the same size measured 1.4 ms, and the sprite is built
-   once at boot.
-
-   The three colour stops are the fluorescents' own colours, at the same alphas
-   the old gradient used, at full strength. The per-frame strength is applied
-   through globalAlpha. */
+   Each lit fixture draws a pre-made sprite instead of a per-frame gradient,
+   built once at boot. The three colour stops are the fluorescents' own colours,
+   at full strength. The per-frame strength is applied through globalAlpha. */
 let glowSprite = null;
 export function buildGlowSprite(){
   const S = 128;
@@ -72,9 +66,7 @@ export function lighting(rc){
     ctx.globalAlpha = a;
     ctx.drawImage(glowSprite, fx-rr, fy-rr, rr*2, rr*2);
     ctx.globalAlpha = 1;
-    /* The tube itself has a FIXED physical size. It used to scale with the light
-       radius (10 to 19 tiles), painting a 130 to 400 px additive slab per fixture,
-       and two or three overlapping would blow the frame out to white. */
+    /* The tube itself has a FIXED physical size. */
     const tw2 = 2.4*T, th2 = 0.34*T;
     ctx.save();
     ctx.translate(fx, fy);

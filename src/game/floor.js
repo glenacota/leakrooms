@@ -62,7 +62,7 @@ export function getStaticLevel(seed, floorNum){
   const level = genLevel(mulberry32(seed + floorNum*7919), floorNum);
   const grid = level.grid;
 
-  /* labelRegions and computeLightArr are now pure functions. Run them before
+  /* labelRegions and computeLightArr are pure functions. Run them before
      installing any facade. */
   const { regionOf, regionAdj, regionCount } = labelRegions(level);
   const lightArr = computeLightArr(level, makeLos(grid));

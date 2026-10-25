@@ -30,9 +30,7 @@ import { syncImages } from './pack.js';
    One mapping is used everywhere:
       device_px = SCALE * (world_tiles*TILE + tx)
    so the player's tile is always at the centre of the viewport, and the light
-   bake (which shares the same origin) lines up with the geometry. An earlier
-   version mixed an already-scaled offset with a device-space one, applied SCALE
-   twice, and panned the world the wrong way. */
+   bake (which shares the same origin) lines up with the geometry. */
 export const cam = {x:0, y:0, jx:0, jy:0};
 
 export { setSimAlpha } from './passes/actors.js';

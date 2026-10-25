@@ -88,16 +88,13 @@ export function initFlood(floodState, player) {
   floodState.wetSum = 0;
   floodState.wetEdgeD = -1;
   floodState.wetFloor = floodState.wetByDist.length;
-  /* Start with the spawn room already damp. Otherwise the first seconds are a
-     clean carpet with no clue, and the water looks like it switched on, not
-     like it has been running all along. */
+  /* Start with the spawn room already damp. */
   seedSplash(floodState, player.x, player.y, 0.30);
 
-  /* Pre-warm: set the flood directly to where it would be after
-     LEAK_HEADSTART seconds. Simulating it would mean thousands of tickFlood
-     calls on every floor build, and the end state is exactly "everything
-     inside the front is fully wet". wetSum is added up in the same pass, so
-     the sum and the array start in agreement. */
+  /* Pre-warm: set the flood directly to where it would be after LEAK_HEADSTART
+     seconds. The end state is exactly "everything inside the front is fully
+     wet". wetSum is added up in the same pass, so the sum and the array start
+     in agreement. */
   {
     const front = Math.min(floodState.wetMaxDist, LEAK_HEADSTART / LEAK_SPREAD);
     floodState.wetFront = front;
@@ -110,14 +107,12 @@ export function initFlood(floodState, player) {
       if (floodState.waterDist[i] <= front) { floodState.wetArr[i] = 1; sum += 1; }
     }
     floodState.wetSum = sum;
-    // The spawn puddle may reach past the pre-warmed front, so keep whichever reaches further.
+    // The spawn puddle may reach past the pre-warmed front, so keep whichever
+    // reaches further.
     floodState.wetEdgeD = Math.max(floodState.wetEdgeD, Math.floor(front));
   }
 
   floodState.floodCover = floodState.wetFloor ? floodState.wetSum / floodState.wetFloor : 0;
-  /* Flag the water image as stale. buildFloor can run in the middle of a frame
-     (the door rebuilds the floor from update()), and the fresh image would
-     otherwise be drawn as black over the new carpet for one frame. */
   markWetAll();
 }
 
@@ -135,9 +130,6 @@ export function seedSplash(floodState, wx, wy, amount) {
     if (w > floodState.wetArr[i]) {
       floodState.wetSum += w - floodState.wetArr[i]; floodState.wetArr[i] = w;
       markWetTile(i);
-      /* A splash can wet a tile beyond the flood's edge. The per-frame pass
-         stops at the edge, so without this the tile would be a permanent damp
-         spot that never dries. */
       if (w > WET_EDGE && floodState.waterDist[i] > floodState.wetEdgeD) floodState.wetEdgeD = floodState.waterDist[i];
     }
   }
@@ -190,28 +182,20 @@ export function tickFlood(floodState, dt) {
     ? Math.min(floodState.wetMaxDist, prev + dt / LEAK_SPREAD)
     : Math.max(0, prev - dt / LEAK_RETREAT);
   floodState.wetFront = front;
-  /* A front that has stopped is not the same as settled water. The fade
-     approaches zero but never quite arrives, so the only real "nothing to do"
-     is an empty edge. Stopping when the front stops would leave the last
-     rings of tiles a few percent wet for the rest of the level, and nothing
-     would ever come back for them. */
   if (front === prev && floodState.wetEdgeD < 0) return;
 
   /* Every tile inside the front still moves toward its target, because a tile
-     keeps darkening for WET_RISE seconds after the front passes it. An earlier
-     version only updated the band the front had just swept, and left tiles
-     stuck around 10% wet, so the floor looked permanently damp and not flooded.
+     keeps darkening for WET_RISE seconds after the front passes it.
 
      The bound is the larger of the wet edge and the front, so the drying rings
-     outside the front are still visited (see the notes above floodField). */
+     outside the front are still visited. */
   const boundD = Math.max(floodState.wetEdgeD, Math.ceil(Math.max(prev, front)));
   const hi = floodState.wetIndexAtDist[Math.min(boundD + 1, floodState.wetIndexAtDist.length - 1)] - 1;
   if (hi < 0) return;
   const tau = floodState.leaksOpen > 0 ? WET_RISE : WET_FALL;
   const k = 1 - Math.exp(-dt / tau);
   /* With the front at zero there is no water at all, including on the pipe's
-     own standing tile. "distance <= front" would say otherwise for distance 0
-     and leave a permanent damp patch under the pipe you just fixed. */
+     own standing tile. "distance <= front" would say otherwise for distance 0. */
   const anyWater = front > 0;
   let sum = floodState.wetSum;
   let changed = false;
@@ -225,11 +209,9 @@ export function tickFlood(floodState, dt) {
     if (cur !== target) {
       const next = cur + (target - cur) * k;
       /* A tile that has faded below the edge goes to exactly zero, and one very
-         close to full goes to exactly one. A thousand tiles left at 1.2% would
-         keep the flood gauge from ever reaching zero. */
+         close to full goes to exactly one. */
       const snapped = target === 0 ? (next <= WET_EDGE ? 0 : next)
                                    : ((1 - next) < 0.004 ? 1 : next);
-      // wetSum is kept up to date by adding the change, not by re-adding the array every frame.
       sum += snapped - cur;
       floodState.wetArr[i] = snapped;
       changed = true;

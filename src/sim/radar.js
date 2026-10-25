@@ -12,10 +12,9 @@ import { NOISE } from '../config/constants.js';
  * }} RadarState
  */
 
-/* The radar lights the whole floor, so "can you see it" is no longer a question
-   about angles and walls: it is just "is it on your screen". That is checked
-   against the same rectangle the renderer draws, so something is revealed on
-   the frame it appears.
+/* The radar lights the whole floor, so "can you see it" is just "is it on your
+   screen". That is checked against the same rectangle the renderer draws, so
+   something is revealed on the frame it appears.
 
    Nothing in the world needs finding any more (the door is where you came in,
    and the pipes show themselves in water). So the radar's one remaining job is

@@ -23,8 +23,7 @@ import { clearInput } from '../sim/keys.js';
 export let termsOpen = false;
 
 /* Turns seconds into words for the work order text: 240 is "4 minutes", 150 is
-   "2 minutes 30 seconds". The briefing used to say "3 minutes" and "5 seconds"
-   whatever the difficulty, which was wrong for two of the three. */
+   "2 minutes 30 seconds". */
 export function proseClock(s){
   const m = Math.floor(s/60), r = Math.round(s%60);
   const mins = m ? `${m} minute${m===1?'':'s'}` : '';

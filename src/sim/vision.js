@@ -101,9 +101,7 @@ export function fixtureVis(f, visionState){
  * much brightness is lost at maximum range (0 for none). The cone passes 0: it
  * is only about angles and walls, and brightness falloff is a separate step.
  *
- * Each ray walks the grid one tile at a time (the Amanatides-Woo method). An
- * earlier version sampled at fixed distances and could skip a wall it was only
- * clipping, which lit the pocket behind it. This is also cheaper.
+ * Each ray walks the grid one tile at a time (the Amanatides-Woo method).
  *
  * @param {Float32Array} out - one value per tile; the best value seen is kept.
  * @param {number} ox - eye position, in tiles.
@@ -196,23 +194,21 @@ export function traceViewCone(visionState, plumber, radar, force){
   const ey = plumber.y + Math.sin(plumber.face)*HAND_OFF;
 
   /* The cone has no distance falloff. It is only about angle and walls: within
-     100 degrees of where you face, until a wall. An earlier version faded with
-     range like a light, so the far corner of your own room was dimmer than the
-     tile underfoot. What you can see is bright and what you cannot is black. */
+     100 degrees of where you face, until a wall. What you can see is bright and
+     what you cannot is black. */
   castFan(visionState.coneArr, ex, ey, plumber.face, VIEW_HALF, VIEW_RANGE, VIEW_RAYS, 1, 0, visionState.grid);
 
   // Always see the tile under the plumber, or backing into a corner (where every ray exits early) would draw the figure in a black hole.
   if (tx>=0&&ty>=0&&tx<MAP_W&&ty<MAP_H) visionState.coneArr[ty*MAP_W+tx]=1;
 
   /* Walls: a wall whose face you can see is visible, and takes the brightest
-     floor tile it touches, with no dimming. Dimming walls here as well as in the
-     bake made them darker than the floor in front of them, which is how a hole
-     looks. A wall deep inside a block with nothing lit around it stays black, so
-     you cannot see the inside of the building.
+     floor tile it touches, with no dimming. A wall deep inside a block with
+     nothing lit around it stays black, so you cannot see the inside of the
+     building.
 
-     This walks visionState.wallIdx (the wall tiles only) and not the whole map. The bounds
-     checks stay, because a wall on the map edge has no neighbour on one side and
-     reading past it would wrap into the next row. */
+     This walks visionState.wallIdx (the wall tiles only) and not the whole map.
+     The bounds checks stay, because a wall on the map edge has no neighbour on
+     one side and reading past it would wrap into the next row. */
   const grid=visionState.grid, cone=visionState.coneArr, widx=visionState.wallIdx;
   for (let k=0;k<widx.length;k++){
     const i = widx[k];
@@ -275,12 +271,6 @@ export function combineMask(visionState, plumber, radar){
       tgt[i] = v;
     }
   }
-  /* The mask is deliberately not blurred. A 3x3 blur once made the player's own
-     fully lit tile average with the dark tiles around it (0.55 underfoot), so the
-     character stood in a dim spot in the middle of a lit room. Any blur of a field
-     with hard zeros in it eats into the lit side of every edge. The mask canvas is
-     drawn with bilinear scaling from 76x76 up to full screen, which already
-     softens edges across about a tile without leaking. */
   /* Radar: keep the normally visible part fully lit; only the dark part becomes 15% transparent. */
   if (radar){
     const tgt = visionState.maskTgt;

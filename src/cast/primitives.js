@@ -49,10 +49,7 @@ export function rim(g, cx, cy, rx, ry) {
 }
 
 /* An arm from the shoulder to the hand. The shoulder sits BEHIND the centre
-   of the body and the hand level with it, so the limb hangs along the flank:
-   reaching further forward than this puts two pale blobs above the head, and
-   from directly overhead a top-down figure with two blobs above its head is
-   a rabbit. */
+   of the body and the hand level with it, so the limb hangs along the flank. */
 export function arm(g, T, side, cy, swing, col, handCol, reach) {
   const r = reach || 1;
   const sx = side * T * 0.155, sy = cy + T * 0.05;
@@ -65,13 +62,11 @@ export function arm(g, T, side, cy, swing, col, handCol, reach) {
 
 /* Where both feet are, this frame. One plan, two consumers: the legs are
    drawn to it and the boots are drawn on it, so the legs cannot come apart
-   from the boots, which is the usual way a hand-drawn walk cycle falls apart.
+   from the boots.
 
-   It writes into two module-level scratch records instead of building and
-   returning an array. Both consumers run back to back on the same sprite and
-   nothing else reads the plan while either is drawing, so reusing the records
-   is safe, and it avoids allocating an array, an object and a `stride` result
-   twice per sprite per frame. */
+   It writes into two module-level scratch records instead of allocating per
+   call. Both consumers run back to back on the same sprite and nothing else
+   reads the plan while either is drawing, so reusing the records is safe. */
 const FOOT_A = { s:0, x:0, y:0, ang:0, sc:1 };
 const FOOT_B = { s:0, x:0, y:0, ang:0, sc:1 };
 const FOOT_PLAN = [FOOT_A, FOOT_B];

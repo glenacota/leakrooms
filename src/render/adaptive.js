@@ -4,10 +4,10 @@
    while, and raises it again when they are fast for a long while. The
    thresholds live in config/constants.js.
 
-   It is a renderer concern, not a loop concern: the loop only knows
-   when a frame happened, so boot() hands adaptResolution to the loop
-   through setFrameHooks. Keeping it out of resize() also means a window
-   resize is never mistaken for a slow machine.
+   It is a renderer concern: the loop only knows when a frame happened,
+   so boot() hands adaptResolution to the loop through setFrameHooks.
+   Keeping it out of resize() also means a window resize is never
+   mistaken for a slow machine.
    ============================================================ */
 
 import { SCALE_BAD_FRAMES, SCALE_DROP_MS, SCALE_GOOD_FRAMES, SCALE_RECOVER_MS, RENDER_SCALES } from '../config/constants.js';

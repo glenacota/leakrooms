@@ -57,8 +57,7 @@ export function buildPatterns(){
 
    The canvas is resized and not recreated, since assigning width and height
    clears it just like a new canvas. That matters because the grain is screen
-   sized, and a window drag or resolution change used to allocate a whole new
-   buffer every time. */
+   sized. */
 export function buildGrainFull(){
   if (!grainFull) grainFull = document.createElement('canvas');
   grainFull.width = cvs.width; grainFull.height = cvs.height;

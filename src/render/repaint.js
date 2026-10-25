@@ -12,9 +12,9 @@ export const dirty = {
 };
 
 /* ---------- Flood dirty box (module-level, shared with flood.js) ----------
-   packWet() turns wetArr into an image, and it used to rewrite the whole map
-   every frame. The water only changes in a band, so the code records the
-   bounding box of the tiles that changed since the last pack, and packWet()
+   packWet() turns wetArr into an image. The water only changes in a band, so
+   the code records the bounding box of the tiles that changed since the last
+   pack, and packWet() rewrites and uploads just that rectangle.
    rewrites and uploads just that rectangle.
 
    An empty box (-1) means "repack everything". That is what a new floor, a
