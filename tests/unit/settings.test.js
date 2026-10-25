@@ -277,3 +277,73 @@ console.log('[28] resetting the settings from the ticket leaves the terms alone'
 }
   t.done();
 });
+
+/* ============ the touch settings ==========================================
+   Three enums that only show in touch mode. They go through the same store as
+   everything else, so the same four promises apply: valid defaults, a round
+   trip, an old save without them loads, and RESET puts them back. */
+const TOUCH_KEYS = { touchHud: ['auto', 'always', 'minimal'], touchSide: ['left', 'right'], haptics: ['on', 'off'] };
+
+test('[touch settings] defaults, validity and round trip', () => {
+  const D = A.SETTINGS_DEFAULTS;
+  assertEqual(D.touchHud, 'auto'); assertEqual(D.touchSide, 'left'); assertEqual(D.haptics, 'on');
+  for (const [k, values] of Object.entries(TOUCH_KEYS)){
+    for (const v of values) assertEqual(A.settingsValid(k, v), true, `${k}=${v} should be valid`);
+    for (const bad of ['', 'LEFT', 1, true, null, undefined])
+      assertEqual(A.settingsValid(k, bad), false, `${k}=${String(bad)} should be invalid`);
+    for (const v of values){
+      assertEqual(A.setOption(k, v), true);
+      assertEqual(A.SETTINGS[k], v);
+      assertEqual(JSON.parse(global.__store.get(A.SETTINGS_KEY))[k], v, `${k} was not saved`);
+    }
+    assertEqual(A.setOption(k, 'nonsense'), false);
+  }
+});
+
+test('[touch settings] an old save without them loads with the defaults', () => {
+  global.__store.set(A.SETTINGS_KEY, JSON.stringify({ difficulty: 'hard', master: 0.3, muted: true }));
+  A.loadSettings();
+  assertEqual(A.SETTINGS.difficulty, 'hard');
+  assertEqual(A.SETTINGS.touchHud, 'auto');
+  assertEqual(A.SETTINGS.touchSide, 'left');
+  assertEqual(A.SETTINGS.haptics, 'on');
+  // A bad value in the new fields falls back on its own and leaves the rest.
+  global.__store.set(A.SETTINGS_KEY, JSON.stringify({ touchSide: 'up', haptics: 'off', master: 0.4 }));
+  A.loadSettings();
+  assertEqual(A.SETTINGS.touchSide, 'left');
+  assertEqual(A.SETTINGS.haptics, 'off');
+  assertEqual(A.SETTINGS.master, 0.4);
+});
+
+test('[touch settings] RESET SETTINGS restores them', () => {
+  A.setOption('touchHud', 'minimal'); A.setOption('touchSide', 'right'); A.setOption('haptics', 'off');
+  A.resetSettings({ keepTerms: true });
+  assertEqual(A.SETTINGS.touchHud, 'auto');
+  assertEqual(A.SETTINGS.touchSide, 'left');
+  assertEqual(A.SETTINGS.haptics, 'on');
+  // ...and the pause button does the same through the UI.
+  A.setOption('touchSide', 'right');
+  document.getElementById('btn-settings-reset').click();
+  assertEqual(A.SETTINGS.touchSide, 'left');
+});
+
+test('[touch settings] every touch row is built, pressed correctly, and marked touch-only', () => {
+  A.setOption('touchSide', 'right');
+  const rows = document.querySelectorAll('.seg[data-opt]');
+  for (const [k, values] of Object.entries(TOUCH_KEYS)){
+    const row = rows.find(r => r.dataset.opt === k);
+    assertEqual(!!row, true, `no row for ${k}`);
+    assertEqual(row.querySelectorAll('button').map(b => b.dataset.value).join(), values.join());
+  }
+  const html = readHtml();
+  for (const k of Object.keys(TOUCH_KEYS)){
+    const row = html.match(new RegExp(`<div class="setrow([^"]*)">\\s*<span class="lbl">[^<]*</span>\\s*<div[^>]*data-opt="${k}"`));
+    assertEqual(!!row && /touch-only/.test(row[1]), true, `${k} row is not marked touch-only`);
+  }
+  assertEqual(/\[data-input=kbm\]\s*\.touch-only\s*\{\s*display\s*:\s*none/.test(fs.readFileSync(new URL('../../css/touch.css', import.meta.url), 'utf8')), true);
+  A.resetSettings();
+});
+
+function assertEqual(a, b, msg){
+  if (a !== b) throw new Error(`${msg || 'mismatch'}: got ${JSON.stringify(a)}, want ${JSON.stringify(b)}`);
+}

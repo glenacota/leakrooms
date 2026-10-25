@@ -215,3 +215,33 @@ test('[TOUCH] the long-press menu is blocked on the layer', () => {
   fire('contextmenu', { preventDefault(){ blocked = true; } });
   assert.equal(blocked, true);
 });
+
+test('[TOUCH] the stick side follows the setting, live, and the radar goes opposite', async () => {
+  const { setOption, resetSettings } = await import('../../src/settings/store.js');
+  startTouchRun();
+  // Left (the default): a finger on the right half does not start a stick.
+  fire('pointerdown', ev(1, 800, 300));
+  assert.equal(ring.hidden, true);
+  assert.equal(layer.dataset.side, 'left');
+
+  // A finger that is down when the side changes is released.
+  fire('pointerdown', ev(2, 200, 300));
+  fire('pointermove', ev(2, 266, 300));
+  assert.ok(!zero());
+  setOption('touchSide', 'right');
+  assert.ok(zero());
+  assert.equal(ring.hidden, true);
+  assert.equal(layer.dataset.side, 'right');
+
+  // Right: the right half works, the left half does not.
+  fire('pointerdown', ev(3, 200, 300));
+  assert.equal(ring.hidden, true);
+  fire('pointerdown', ev(4, 800, 300));
+  assert.equal(ring.hidden, false);
+  fire('pointermove', ev(4, 800, 340));
+  assert.ok(pad.y > 0);
+  fire('pointerup', ev(4, 800, 340));
+
+  resetSettings();
+  assert.equal(layer.dataset.side, 'left');
+});

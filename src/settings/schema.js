@@ -24,6 +24,17 @@ export const SETTINGS_DEFAULTS = {
      photosensitivity trigger; a player who needs it off turns it off here. The
      opacity is a constant, so the toggle is on/off and not a dimmer. */
   flash: true,
+  /* The touch settings. They only show in touch mode, but they are stored like
+     the rest, so a player who plays on both keeps them. How much of the HUD panel
+     shows on touch: 'auto' fades it when nothing needs reading (ui/touch-hud-rules.js),
+     'always' keeps it up, 'minimal' wakes it for noise and the clock only. */
+  touchHud: 'auto',
+  /* Which side of the screen the MOVE stick is on. The radar button takes the
+     other side. */
+  touchSide: 'left',
+  /* Short buzzes for the sounds that mean danger, on phones that can vibrate.
+     It is separate from mute: a player can have the sound off and still feel it. */
+  haptics: 'on',
 };
 
 /* Every field, its type, and its allowed range. The store checks values against
@@ -39,6 +50,9 @@ export const SETTINGS_SCHEMA = {
   ambience:       { type:'range', min:0, max:1 },
   crt:            { type:'range', min:0, max:1 },
   flash:          { type:'bool' },
+  touchHud:       { type:'enum', values:['auto','always','minimal'] },
+  touchSide:      { type:'enum', values:['left','right'] },
+  haptics:        { type:'enum', values:['on','off'] },
 };
 
 export const SETTINGS_KEY = 'leakrooms.settings.v1';

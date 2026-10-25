@@ -127,3 +127,18 @@ html[data-input=touch] #crt{ height:100dvh; }
   [data-input=touch] .crt-tl,
   [data-input=touch] .crt-tl.hud-quiet{ transition:none; }
 }
+
+/* ---------- Touch-only settings ---------- */
+
+/* The touch rows on the pause page mean nothing with a keyboard. They carry
+   .touch-only and are hidden until touch mode is on. */
+[data-input=kbm] .touch-only{ display:none; }
+
+/* ---------- The stick on the right ---------- */
+
+/* touchSide moves the stick, and the radar button goes to the other corner. The
+   pause glyph stays top right either way. */
+#touch[data-side=right] [data-touch=radar]{
+  right:auto;
+  left:calc(18px + env(safe-area-inset-left));
+}
