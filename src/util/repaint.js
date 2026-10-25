@@ -1,12 +1,12 @@
 /**
- * RepaintState — renderer-owned dirty tracking for pixel layers.
+ * RepaintState — shared dirty tracking for pixel layers.
  * The sim marks tiles as changed; the renderer consumes the dirty box
- * and clears the flags. This lives in render/ so sim/ never touches document.
+ * and clears the flags.
  */
 import { MAP_W, MAP_H } from '../config/constants.js';
 
 /* ---------- Dirty flags (read by pack.js) ---------- */
-export const dirty = {
+export const repaintDirty = {
   water: true,
   mask: true,
 };
@@ -23,14 +23,14 @@ let wetDirtyX0 = -1, wetDirtyY0 = -1, wetDirtyX1 = -1, wetDirtyY1 = -1;
 
 // Grows the pending box by one tile. Both writers of wetArr (the flood and the player's splashes) use it.
 export function markWetTile(i) {
-  dirty.water = true;
+  repaintDirty.water = true;
   const x = i % MAP_W, y = (i / MAP_W) | 0;
   if (x < wetDirtyX0) wetDirtyX0 = x; else if (x > wetDirtyX1) wetDirtyX1 = x;
   if (y < wetDirtyY0) wetDirtyY0 = y; else if (y > wetDirtyY1) wetDirtyY1 = y;
 }
 
 export function markWetAll() {
-  dirty.water = true;
+  repaintDirty.water = true;
   wetDirtyX0 = wetDirtyY0 = wetDirtyX1 = wetDirtyY1 = -1;
 }
 
@@ -45,8 +45,8 @@ export function takeWetBox() {
 }
 
 /* Resets the repaint state for a new floor. */
-export function reset() {
-  dirty.water = true;
-  dirty.mask = true;
+export function resetRepaint() {
+  repaintDirty.water = true;
+  repaintDirty.mask = true;
   wetDirtyX0 = wetDirtyY0 = wetDirtyX1 = wetDirtyY1 = -1;
 }

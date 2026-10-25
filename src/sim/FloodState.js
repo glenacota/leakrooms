@@ -1,6 +1,6 @@
 /**
  * FloodState — wet arrays + floodCover.
- * Dirty tracking moved to render/repaint.js (renderer-owned).
+ * Dirty tracking lives in util/repaint.js.
  */
 import { MAP_H, MAP_W } from '../config/constants.js';
 

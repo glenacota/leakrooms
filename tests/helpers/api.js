@@ -18,7 +18,7 @@ import { hearRadius, alertLifeforms, emitNoise, sustainedNoise, tickNoiseDecay, 
 import { distanceField } from '../../src/sim/path.js';
 import { initFlood, seedSplash, wetAt, tickFlood, floodCover } from '../../src/sim/flood.js';
 import { tickBattery, tickMovement } from '../../src/sim/plumber.js';
-import { takeWetBox } from '../../src/render/repaint.js';
+import { takeWetBox } from '../../src/util/repaint.js';
 import { tickLeakNoise, tickRepair, sealLeak, leakAt, leakReach } from '../../src/sim/leaks.js';
 import { tickClock } from '../../src/sim/clock.js';
 import { tickDoor } from '../../src/sim/door.js';

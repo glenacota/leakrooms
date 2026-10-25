@@ -15,7 +15,7 @@
    ============================================================ */
 
 import { FLOOR, LEAK_HEADSTART, LEAK_RETREAT, LEAK_SPREAD, MAP_H, MAP_W, WET_EDGE, WET_FALL, WET_RISE } from '../config/constants.js';
-import { markWetTile, markWetAll } from '../render/repaint.js';
+import { markWetTile, markWetAll } from '../util/repaint.js';
 
 /**
  * Flood state bundle passed by reference.

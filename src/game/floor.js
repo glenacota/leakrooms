@@ -20,7 +20,7 @@ import { scopeRoomLight, snapMask } from '../sim/vision.js';
 import { initFlood } from '../sim/flood.js';
 import { G, createGameState, installFloorState } from '../sim/state.js';
 import { attachFloorImages, createPerFloorCanvases, releaseCanvases, areStaticCanvasesStale, refreshStaticCanvases } from '../render/bake.js';
-import { reset as resetRepaint } from '../render/repaint.js';
+import { resetRepaint } from '../util/repaint.js';
 
 /* Every canvas a floor owns, and the subset the cache keeps. The carpet, the
    walls and the light bake are the same pixels for the same building, so a

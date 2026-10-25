@@ -4,6 +4,7 @@ import { SETTINGS } from '../settings/store.js';
 import { applyDifficulty, FLOOR_CLOCK } from '../config/tuning.js';
 import { Audio_ } from '../audio/index.js';
 import { on } from '../util/events.js';
+import { repaintDirty } from '../util/repaint.js';
 import { G } from '../sim/state.js';
 import { clearCard, clockText, STATE } from '../game/run.js';
 import { paintSplashPlan } from '../render/splash-plan.js';
@@ -55,7 +56,7 @@ export function tickLoudFlash(){
 export function bindDom(){
   on('settings:changed', key => {
     // A new water tint changes the packed water image, even though the water itself did not move.
-    if ((key === '*' || key === 'waterHue' || key === 'waterContrast') && G) G.dirty.water = true;
+    if ((key === '*' || key === 'waterHue' || key === 'waterContrast') && G) repaintDirty.water = true;
     applySettings();
     syncSettingsUI();
   });
@@ -124,8 +125,8 @@ export function bindDom(){
     buildPatterns();
     buildGrainFull();
     attachFloorImages();
-    G.dirty.water = true;
-    G.dirty.mask  = true;
+    repaintDirty.water = true;
+    repaintDirty.mask  = true;
   });
   on('state', () => {
     syncAmbience();

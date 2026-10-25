@@ -25,7 +25,7 @@ import {
 } from '../config/constants.js';
 import { view } from '../util/view.js';
 import { scopeFor, regionAt } from './regions.js';
-import { dirty } from '../render/repaint.js';
+import { repaintDirty } from '../util/repaint.js';
 
 /**
  * Vision state bundle passed by reference.
@@ -379,7 +379,7 @@ export function smoothMask(visionState, dt){
   /* The sim owns the dirty flag now: the update.js wrapper line is gone. Only
      mark it when the mask actually moved, so a settled mask is not repacked
      every frame and the render trace stays unchanged. */
-  if (moved) dirty.mask = true;
+  if (moved) repaintDirty.mask = true;
   return moved;
 }
 
@@ -388,5 +388,5 @@ export function smoothMask(visionState, dt){
 export function snapMask(visionState, plumber, radar){
   traceViewCone(visionState, plumber, radar, true);
   visionState.maskArr.set(visionState.maskTgt);
-  dirty.mask = true;
+  repaintDirty.mask = true;
 }

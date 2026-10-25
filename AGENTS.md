@@ -44,7 +44,7 @@ tests/
 
 **Layer Enforcement** (verified in `tests/unit/layers.test.js`):
 
-* `sim/`, `util/`, `config/` → **never** import `render/`, `ui/`, `game/`, `audio/` — the one exception is `render/repaint.js` (dirty-rect tracking the sim reads), until Step 11 folds it back into sim
+* `sim/`, `util/`, `config/` → **never** import `render/`, `ui/`, `game/`, or `audio/`
 * `game/run.js`, `game/loop.js` → **never** import `render/`, `ui/` or touch `document`
 * Only `boot.js` crosses layers; nothing imports `boot.js` back.
 

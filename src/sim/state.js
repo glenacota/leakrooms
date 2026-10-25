@@ -7,7 +7,7 @@ import { createVisionState } from './VisionState.js';
 import { createNoiseState } from './NoiseState.js';
 import { createClockState } from './ClockState.js';
 import { createDoorState } from './DoorState.js';
-import { dirty as repaintDirty } from '../render/repaint.js';
+import { repaintDirty } from '../util/repaint.js';
 
 /* All the state of the current floor lives behind G. No state exists until
    the first buildFloor() call, and buildFloor() replaces it completely, so
