@@ -64,10 +64,6 @@
   line-height:1.8;
   white-space:nowrap;
 }
-.crt-row.noise{margin-top:10px}
-
-/* The label is dimmer than the value but not the darkest yellow in the
-   palette, and the outline under it does the separating. */
 .crt-lbl{
   color:#b6b87e;
   font-size:14px;
@@ -241,7 +237,6 @@
    level on its own. It changes colour but never size: a number that
    resizes would shift everything around it once a second. */
 .crt-clock{
-  font-size:38px;
   line-height:1.2;
   letter-spacing:.06em;
   color:var(--yellow);

@@ -219,19 +219,7 @@ h1.bad{ color:var(--danger); letter-spacing:.2em; font-size:32px; }
   margin-bottom:32px;
 }
 
-blockquote{
-  font-size:12.5px;
-  line-height:2;
-  text-align:left;
-  color:var(--yellow-dim);
-  border-left:2px solid var(--yellow-deep);
-  padding-left:16px;
-  margin-bottom:26px;
-  font-style:italic;
-}
-
 .controls{
-  gap:8px 20px;
   font-size:10px;
   font-weight: 900;
   letter-spacing:.1em;
@@ -351,8 +339,6 @@ button:active{ transform:translateY(1px); }
 @media (max-width:620px){
   .tape{ padding:22px; max-width:92vw; }
   h1{ font-size:24px; }
-  blockquote{ font-size:11px; }
-  .controls{ grid-template-columns:1fr; }
   .order-body{ padding:16px; }
   .controls-big{ font-size:14px; }
   .controls-big b{ min-width:64px; font-size:14px; }

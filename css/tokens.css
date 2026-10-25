@@ -14,20 +14,14 @@
    one place. Water blue and the danger red are the only colours that
    sit outside this set, on purpose. */
 :root{
-  --bright:      #e4e6a8;   /* palest yellow: wall faces, main text */
-  --pale:        #e1e2bb;
-  --mid:         #d6dea7;
   --carpet:      #c3cb6e;   /* the saturated one the game is named for */
-  --wall-top:    #c6c58b;
 
   /* Names the UI uses for the palette above */
   --yellow:      #e4e6a8;   /* primary UI colour */
   --yellow-dim:  #c3cb6e;
   --yellow-deep: #8f9445;   /* darkest yellow: low-priority text only */
-  --carpet-dark: #6d7434;
   --ink:         #1c1a14;   /* near-black, used for text on yellow buttons */
   --danger:      #d8503c;   /* red accent for warnings and destructive actions */
-  --ok:          #8fd07a;   /* green accent */
   --mono: "Courier New", "Courier", monospace;
 }
 
