@@ -40,8 +40,9 @@ test('[37] the DOM stub resolves the markup it claims to', () => {
   assert.equal(querySelectorAll('[data-pause-tab]').length, 2, 'wrong number of pause tabs');
   assert.equal(querySelectorAll('[data-pause-page]').length, 2, 'wrong number of pause pages');
   /* Ten since the fatal card shipped its RELOAD: the markup gained a button, so
-     this count moved with it. */
-  assert.equal(querySelectorAll('button').length, 10, 'wrong number of buttons');
+     this count moved with it. Thirteen since the touch layer: RESUME, and the
+     radar and pause buttons. */
+  assert.equal(querySelectorAll('button').length, 13, 'wrong number of buttons');
 
   /* Attributes become dataset properties in camelCase — the direction that
      matters, since `data-pause-tab` is `dataset.pauseTab` and not the reverse. */

@@ -21,6 +21,7 @@ import { bindRun } from './game/run.js';
 import { bindDom } from './ui/bind.js';
 import { bindInput } from './ui/input.js';
 import { bindButtons } from './ui/buttons.js';
+import { initTouch } from './ui/touch.js';
 import { isMobileDevice, showMobileNotice } from './ui/mobile.js';
 import { setFatalHook, setFrameHooks } from './game/loop.js';
 import { adaptResolution } from './render/adaptive.js';
@@ -69,11 +70,13 @@ export function boot(){
        1. bindRun      the run reacts to what the simulation reports
        2. bindDom      events are turned into on-screen changes
        3. bindInput    keyboard handling
-       4. bindButtons  button and screen clicks */
+       4. bindButtons  button and screen clicks
+       5. initTouch    the on-screen stick (shown only in touch mode) */
   bindRun();
   bindDom();
   bindInput();
   bindButtons();
+  initTouch();
 
   /* A phone cannot play a keyboard game. Rather than show a title screen that
      nobody can start, swap in the desktop-only card. The key handler checks

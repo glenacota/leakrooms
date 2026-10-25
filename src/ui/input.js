@@ -2,6 +2,7 @@ import { DIFFICULTIES } from '../config/presets.js';
 import { SETTINGS, setOption } from '../settings/store.js';
 import { Audio_ } from '../audio/index.js';
 import { keys, clearInput } from '../sim/keys.js';
+import { emit } from '../util/events.js';
 import { G } from '../sim/state.js';
 import { STATE, dismissClear, retryFloor, runAgain } from '../game/run.js';
 import { flash } from './hud.js';
@@ -69,6 +70,10 @@ function onKeyDown(e){
      (Ctrl+R reloads, Cmd+M minimises). The browser handles those itself, so
      the game must not also act on them or hold the key. */
   if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+  /* A real key press means a keyboard is in use, so the touch layer steps
+     aside. It only announces; touch.js decides what to do with it. */
+  emit('input:mode', 'kbm');
 
   const k = GAME_CODES[e.code] || e.key.toLowerCase();
   keys[k] = true;
@@ -258,6 +263,8 @@ export function bindInput(){
      key, and pause so the clock does not run out in the background. */
   const lostFocus = () => {
     clearKeys();
+    /* The touch layer tracks its own fingers, and clearKeys cannot reach them. */
+    emit('input:lost');
     if (STATE==='play') togglePause();
   };
   window.addEventListener('blur', lostFocus);

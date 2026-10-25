@@ -1,5 +1,6 @@
 import { dismissClear, retryFloor, runAgain, startRun, STATE } from '../game/run.js';
 import { advanceSplash } from './splash.js';
+import { togglePause } from './pause.js';
 import { setTermsOpen, termsOpen } from './terms.js';
 
 /* Attaches the buttons and screen clicks to the run functions that do the
@@ -11,6 +12,10 @@ export function bindButtons(){
   document.getElementById('btn-descend').onclick = ()=>dismissClear();
   document.getElementById('btn-retry').onclick   = ()=>retryFloor();
   document.getElementById('btn-again').onclick   = ()=>runAgain();
+  /* The pause screen's way back into the run for a player with no ESC key.
+     It only acts on the pause screen: togglePause() would also START a pause
+     from play, which a RESUME button must never do. */
+  document.getElementById('btn-resume').onclick  = ()=>{ if (STATE==='pause') togglePause(); };
 
   /* Clicking the BEGIN SHIFT button on the work order screen starts the run.
      Clicking anywhere else on the title or work order screen does nothing.

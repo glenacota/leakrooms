@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="author" content="glenacota">
 <title>LEAKROOMS</title>
 <link rel="icon" type="image/png" href="./logo.png">
@@ -14,6 +14,7 @@
 <link rel="stylesheet" href="css/splash.css">
 <link rel="stylesheet" href="css/settings.css">
 <link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/touch.css">
 </head>
 <body>
 
@@ -74,6 +75,18 @@
       
     </div>
 
+  </div>
+
+  <!-- ============ TOUCH CONTROLS ============
+       The on-screen stick and two buttons, for phones and tablets. A sibling of
+       the HUD on purpose: the HUD is click-through, this layer is not. It is
+       hidden until touch mode is on and a run is being played.
+       Behaviour is in src/ui/touch.js. The buttons have no id because they are
+       found by data-touch, from one listener on #touch. -->
+  <div id="touch" hidden>
+    <div id="touch-ring" hidden><div id="touch-knob"></div></div>
+    <button type="button" data-touch="radar" aria-label="Radar">RADAR</button>
+    <button type="button" data-touch="pause" aria-label="Pause"><i></i><i></i></button>
   </div>
 
   <!-- ============ SCREENS ============
@@ -252,6 +265,7 @@
             </div>
 
             <div class="setrow buttons">
+              <button id="btn-resume">RESUME</button>
               <button id="btn-settings-reset" class="ghost">RESET SETTINGS</button>
               <button id="btn-reset-run" class="ghost danger">RESTART RUN</button>
             </div>
