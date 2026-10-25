@@ -60,7 +60,7 @@ export function bindDom(){
     syncSettingsUI();
   });
   on('screen', name => { if (name === null) hideAll(); else show(name); });
-  on('hud', on_ => { const h = document.getElementById('hud'); if (on_) h.classList.add('on'); else h.classList.remove('on'); });
+  on('hud', showing => { const h = document.getElementById('hud'); if (showing) h.classList.add('on'); else h.classList.remove('on'); });
   on('dead', ({ lives, cause }) => {
     const title = document.getElementById('dead-title');
     const sub = document.getElementById('dead-sub');

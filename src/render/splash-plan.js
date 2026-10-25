@@ -7,7 +7,7 @@
    finding the pipes by following the water downhill.
    ------------------------------------------------------------ */
 
-import { FLOOR, MAP_W } from '../config/constants.js';
+import { FLOOR, MAP_H, MAP_W } from '../config/constants.js';
 import { G } from '../sim/state.js';
 import { VH, VW } from './canvas.js';
 
@@ -27,7 +27,7 @@ export function paintSplashPlan(){
     if (!c) continue;
     c.width = pw; c.height = ph;
   }
-  if (!ctx) return;
+
   ctx.clearRect(0, 0, pw, ph);
 
   const px = (v)=> Math.floor(v*cell);
@@ -37,7 +37,7 @@ export function paintSplashPlan(){
        mostly wall, so filling the walls paints big slabs and the splash turns into
        a checkerboard. Lighting the walkable tiles gives a thin lattice that reads
        as a plan. */
-    for (let y=0; y<MAP_W; y++) for (let x=0; x<MAP_W; x++){
+    for (let y=0; y<MAP_H; y++) for (let x=0; x<MAP_W; x++){
       if (G.grid[y*MAP_W+x] === FLOOR){
         ctx.fillStyle = 'rgba(228,230,168,0.55)';
         ctx.fillRect(ox+px(x), px(y), Math.ceil(cell), Math.ceil(cell));

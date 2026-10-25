@@ -8,7 +8,6 @@ import { G } from '../sim/state.js';
 import { SETTINGS } from '../settings/store.js';
 import { clockText, lives, runLives } from '../game/run.js';
 
-export { clockText } from '../game/run.js';
 
 // Every HUD element the code writes to, looked up once.
 export const HUD = {

@@ -17,9 +17,8 @@
 import { FLOORS } from '../config/tuning.js';
 import { DIFFICULTIES } from '../config/presets.js';
 import { SETTINGS } from '../settings/store.js';
-import { Audio_ } from '../audio/index.js';
 import { G } from '../sim/state.js';
-import { clockText, disarmReset, lives, STATE, transition } from '../game/run.js';
+import { clockText, disarmReset, STATE, transition } from '../game/run.js';
 import { livesHTML } from './hud.js';
 
 export let pausePage = 'settings';      // 'settings' | 'briefing'

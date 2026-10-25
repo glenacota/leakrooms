@@ -9,14 +9,13 @@
 import { resize } from './render/canvas.js';
 import { buildPatterns } from './render/textures.js';
 import { buildGlowSprite } from './render/render.js';
-import { applySettings, tickLoudFlash } from './ui/bind.js';
+import { applySettings, tickLoudFlash, bindDom } from './ui/bind.js';
 import { buildSettingsUI, syncSettingsUI } from './ui/settings-panel.js';
 import { Audio_ } from './audio/index.js';
 import { syncAmbience } from './ui/splash.js';
 import { buildFloor } from './game/floor.js';
 import { paintSplashPlan } from './render/splash-plan.js';
 import { bindRun } from './game/run.js';
-import { bindDom } from './ui/bind.js';
 import { bindInput } from './ui/input.js';
 import { bindButtons } from './ui/buttons.js';
 import { initTouch } from './ui/touch.js';

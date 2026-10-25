@@ -47,14 +47,8 @@ export function toggleRadar(){
   else { G.radar = true; G.radarRattleT = 0; }
 }
 
-/* Releases every held key. Used when the window loses focus: the browser stops
-   sending keyup events to a window that is not focused, so a held key would
-   otherwise stay held forever. */
-function clearKeys(){
-  clearInput();
-}
-
-/* The one keydown handler. The order of the branches matters, because several
+/* The one keydown handler.
+   The order of the branches matters, because several
    of them use the same key (ESC and ENTER each mean different things on
    different screens). Splitting them into separate listeners would make the
    result depend on the order the listeners were registered. */
@@ -229,7 +223,7 @@ function onKeyUp(e){
      after the window is back and other keys have already been released.
      Trusting a single keyup could leave the player sprinting forever, so
      losing Meta releases every key. */
-  if (e.key==='Meta'){ clearKeys(); return; }
+  if (e.key==='Meta'){ clearInput(); return; }
   const k = GAME_CODES[e.code] || e.key.toLowerCase();
   keys[k] = false;
 }
@@ -262,8 +256,8 @@ export function bindInput(){
      releases will arrive, and nobody is watching the run. So release every
      key, and pause so the clock does not run out in the background. */
   const lostFocus = () => {
-    clearKeys();
-    /* The touch layer tracks its own fingers, and clearKeys cannot reach them. */
+    clearInput();
+    /* The touch layer tracks its own fingers, and clearInput cannot reach them. */
     emit('input:lost');
     if (STATE==='play') togglePause();
   };

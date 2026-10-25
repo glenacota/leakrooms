@@ -56,5 +56,4 @@ export function setOption(key, value){
   return true;
 }
 
-// Re-exported so other modules can import everything settings-related from one place.
-export { SETTINGS_DEFAULTS, SETTINGS_SCHEMA, SETTINGS_KEY, settingsValid };
+// The schema lives in schema.js; importers read it from there.

@@ -11,7 +11,7 @@ import { softAssert } from '../helpers/soft-assert.js';
 import { loadGame } from '../helpers/harness.js';
 import { readHtml, readSrc } from '../helpers/src-text.js';
 import {
-  looksHandheld, coarseWithoutFine, isMobileDevice, gateVerdict, mobileVerdict,
+  looksHandheld, coarseWithoutFine, gateVerdict, mobileVerdict,
   isMobileBlocked, showMobileNotice,
 } from '../../src/ui/mobile.js';
 
@@ -41,7 +41,6 @@ test('the handheld notice swaps in, and cannot be walked past', () => {
   t.assert(!coarseWithoutFine(false, false), 'no pointer is read as a handheld');
 
   /* The headless environment is a desktop, and the default check must agree. */
-  t.assert(!isMobileDevice(), 'the headless harness was read as a phone — every test would boot into the notice');
   t.assert(!isMobileBlocked(), 'the notice is already blocking before it was shown');
 
   /* The card is a real screen, ships hidden, and can be brought up. */

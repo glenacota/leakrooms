@@ -198,73 +198,73 @@ export function resetRun(){
 
 // CLOCK IN: starts a new run on floor 1.
 export function startRun(){
-Audio_.init();
-/* The seed is not rolled here. It was rolled before the title screen was
-   painted, and the plan behind the title has to be the level the player is
-   about to play. A finished run rolls its own (see rollRunSeed). */
-setRunLives((DIFFICULTIES[SETTINGS.difficulty] || DIFFICULTIES.normal).lives);
-setLives(runLives); setFloorIdx(0); setRunTime(0);
-// A new run gets a new tally, so the win card never shows the previous run.
-setRunStat({ noises:0, deaths:0, sealed:0 });
-emit('lives');
-/* Floor 0 was already built at boot from the same seed, so building it again
-   would only generate the same level twice. Reuse it when it is untouched:
-   same seed, clock never started, and every pipe still open. That check
-   matters because a run that died on floor 1 and came back through here has
-   the same seed but a played floor. The clock check also catches a
-   difficulty change made after boot. */
-const reuse = G && G.floor===0 && G.seed===RUN_SEED
-              && G.clock >= FLOOR_CLOCK && G.leaksOpen === G.pipes;
-if (!reuse) buildFloor(0, RUN_SEED);
-else {
-  G.clock = FLOOR_CLOCK; G.time = 0; G.batt = BATT_MAX;
-  G.stat = {noises:0, deaths:0, sealed:0};
-  G.radar = false; G.radarRattleT = 0; G.noise = 0; G.noisePeak = 0; G.selfNoise = 0; G.ambientNoise = 0; G.descend = 0; G.seenBy = 0;
-  initFlood(G, G.plumber);
-  snapMask(G, G.plumber, G.radar);
-}
-// A short grace period before lifeforms can notice you, for both paths above.
-for (const lf of G.lifeforms){ lf.born = 3.0; }
-transition('play');
+  Audio_.init();
+  /* The seed is not rolled here. It was rolled before the title screen was
+     painted, and the plan behind the title has to be the level the player is
+     about to play. A finished run rolls its own (see rollRunSeed). */
+  setRunLives((DIFFICULTIES[SETTINGS.difficulty] || DIFFICULTIES.normal).lives);
+  setLives(runLives); setFloorIdx(0); setRunTime(0);
+  // A new run gets a new tally, so the win card never shows the previous run.
+  setRunStat({ noises:0, deaths:0, sealed:0 });
+  emit('lives');
+  /* Floor 0 was already built at boot from the same seed, so building it again
+     would only generate the same level twice. Reuse it when it is untouched:
+     same seed, clock never started, and every pipe still open. That check
+     matters because a run that died on floor 1 and came back through here has
+     the same seed but a played floor. The clock check also catches a
+     difficulty change made after boot. */
+  const reuse = G && G.floor===0 && G.seed===RUN_SEED
+                && G.clock >= FLOOR_CLOCK && G.leaksOpen === G.pipes;
+  if (!reuse) buildFloor(0, RUN_SEED);
+  else {
+    G.clock = FLOOR_CLOCK; G.time = 0; G.batt = BATT_MAX;
+    G.stat = {noises:0, deaths:0, sealed:0};
+    G.radar = false; G.radarRattleT = 0; G.noise = 0; G.noisePeak = 0; G.selfNoise = 0; G.ambientNoise = 0; G.descend = 0; G.seenBy = 0;
+    initFlood(G, G.plumber);
+    snapMask(G, G.plumber, G.radar);
+  }
+  // A short grace period before lifeforms can notice you, for both paths above.
+  for (const lf of G.lifeforms){ lf.born = 3.0; }
+  transition('play');
 }
 
 // REWIND: replays the same floor after a death, or starts a new run if no lives are left.
 export function retryFloor(){
-if (lives<=0){ startRun(); return; }
-/* Keep the leaks that were already sealed: capture their positions before the
-   floor is rebuilt, then re-seal them on the fresh floor. The flood is rebuilt
-   afterwards so it only spreads from the pipes that are still open. */
-const fixedKeys = new Set();
-if (G && Array.isArray(G.leaks)){
+  if (lives<=0){ startRun(); return; }
+  /* Keep the leaks that were already sealed: capture their positions before the
+     floor is rebuilt, then re-seal them on the fresh floor. The flood is rebuilt
+     afterwards so it only spreads from the pipes that are still open. */
+  const fixedKeys = new Set();
+  if (G && Array.isArray(G.leaks)){
+    for (const L of G.leaks){
+      if (L.fixed) fixedKeys.add(`${L.x},${L.y},${L.sx},${L.sy}`);
+    }
+  }
+  buildFloor(floorIdx, RUN_SEED);
+  let fixedCount = 0;
   for (const L of G.leaks){
-    if (L.fixed) fixedKeys.add(`${L.x},${L.y},${L.sx},${L.sy}`);
+    if (fixedKeys.has(`${L.x},${L.y},${L.sx},${L.sy}`)){
+      L.fixed = true;
+      L.fixedAt = 0;
+      L.repair = 0;
+      fixedCount++;
+    }
   }
-}
-buildFloor(floorIdx, RUN_SEED);
-let fixedCount = 0;
-for (const L of G.leaks){
-  if (fixedKeys.has(`${L.x},${L.y},${L.sx},${L.sy}`)){
-    L.fixed = true;
-    L.fixedAt = 0;
-    L.repair = 0;
-    fixedCount++;
-  }
-}
-G.leaksOpen = Math.max(0, G.leaks.length - fixedCount);
-// Rebuild the flood now that the fixed flags are in place, so sealed pipes
-// stop being water sources.
-initFlood(G, G.plumber);
-/* Same seed, so the pipes are in the same places and only the flood restarts.
-   Dying costs a life and the repairs you made, but not what you learned about
-   where the pipes are. */
-for (const lf of G.lifeforms){ lf.born=3.0; }
-transition('play');
+  G.leaksOpen = Math.max(0, G.leaks.length - fixedCount);
+  // Rebuild the flood now that the fixed flags are in place, so sealed pipes
+  // stop being water sources.
+  initFlood(G, G.plumber);
+  /* Same seed, so the pipes are in the same places and only the flood restarts.
+     Dying costs a life and the repairs you made, but not what you learned about
+     where the pipes are. */
+  for (const lf of G.lifeforms){ lf.born=3.0; }
+  transition('play');
 }
 
 // RUN IT AGAIN (win screen): a new building, then a normal start.
 export function runAgain(){
-rollRunSeed();
-startRun();
+  rollRunSeed();
+  startRun();
 }
 
 /* ============================================================

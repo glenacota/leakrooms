@@ -1,7 +1,7 @@
 import { drawPlumber as drawPlumberSprite } from '../cast/plumber.js';
 import { drawLifeform as drawLifeformSprite } from '../cast/lifeform.js';
 import { TAU } from '../cast/primitives.js';
-import { CATCH_R, DOOR_HOLD, FLOOR, HAND_OFF, MAP_H, MAP_W, PLUMBER, TILE, WALL_FACE } from '../config/constants.js';
+import { DOOR_HOLD, FLOOR, HAND_OFF, MAP_H, MAP_W, TILE, WALL_FACE } from '../config/constants.js';
 import { G } from '../sim/state.js';
 import { ctx } from './canvas.js';
 

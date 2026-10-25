@@ -59,111 +59,111 @@ let dropT = 0;
 
 export function post(rc){
   const {t} = rc;
-/* ---------- 7. Danger and awareness ----------
-   Both overlays are stored images (buildVignette and buildDangerWash). They are
-   rebuilt when the canvas is resized, and the lazy checks below are a backup that
-   costs nothing once the size has settled. */
-if (!vigCv || vigCv.width!==cvs.width || vigCv.height!==cvs.height) buildVignette();
-/* The danger wash is half resolution, so the check compares against the size it
-   WOULD be built at and not against cvs.width itself. With an odd width, the half
-   size never matched, so the wash was rebuilt every frame, which cost more than
-   the gradient it replaced. */
-const dw = Math.max(1, cvs.width>>1), dh = Math.max(1, cvs.height>>1);
-if (!dangerCv || dangerCv.width!==dw || dangerCv.height!==dh) buildDangerWash();
+  /* ---------- 7. Danger and awareness ----------
+     Both overlays are stored images (buildVignette and buildDangerWash). They are
+     rebuilt when the canvas is resized, and the lazy checks below are a backup that
+     costs nothing once the size has settled. */
+  if (!vigCv || vigCv.width!==cvs.width || vigCv.height!==cvs.height) buildVignette();
+  /* The danger wash is half resolution, so the check compares against the size it
+     WOULD be built at and not against cvs.width itself. With an odd width, the half
+     size never matched, so the wash was rebuilt every frame, which cost more than
+     the gradient it replaced. */
+  const dw = Math.max(1, cvs.width>>1), dh = Math.max(1, cvs.height>>1);
+  if (!dangerCv || dangerCv.width!==dw || dangerCv.height!==dh) buildDangerWash();
 
-const seen = Math.min(1,G.seenBy);
-if (seen>0.01){
-  ctx.globalAlpha = seen;
-  ctx.drawImage(dangerCv, 0, 0, cvs.width, cvs.height);
-  ctx.globalAlpha = 1;
-}
-/* The vignette. It was stronger (0.52) when the whole floor was lit and its only
-   job was to stop the frame looking like a wallpaper sample. Now the room scope
-   and the cone do the framing, and a vignette that strong eats the palette at the
-   edges of the very room you are standing in. */
-ctx.drawImage(vigCv, 0, 0);
-
-/* ---------- 8. VHS tape effect ----------
-   A scrolling tracking band, scanlines, grain, a chroma ghost and dropouts. This
-   is the pass that makes the game look like a recording and not a window. It is
-   always on: it was once a setting, but the two things players turned it down for
-   (the scanline crawl and the shake) are still here at full strength, so a middle
-   setting could not have been honest. The snapshot is taken before the passes
-   that read it.
-
-   The strength is now a setting again (SETTINGS.crt). The default is 1.0, which
-   is the full VHS_PASS and the exact look the game has always shipped. The
-   setting is a fraction of the constant, not a replacement for it: VHS_PASS is
-   still the ceiling and the identity of the tape look. */
-const vhs = VHS_PASS * SETTINGS.crt * (G.radar ? 5000 : 1);
-/* The snapshot gives the chroma ghost something to read that does not include
-   the ghost itself. It was a full-size copy of the canvas, and the ghost then
-   drew that copy twice more at screen size: three full-screen operations for a
-   3%-alpha smear 1 to 3 px wide. It is now a QUARTER-size copy, scaled back up
-   with smoothing, which looks like a slightly soft ghost (which is what chroma
-   bleed looks like anyway). It is still taken before every pass that reads it, so
-   there is no feedback. */
-const POST_S = 0.25;
-const pw = Math.max(1, Math.round(cvs.width * POST_S));
-const ph = Math.max(1, Math.round(cvs.height * POST_S));
-if (!postCv || postCv.width!==pw || postCv.height!==ph){
-  postCv = document.createElement('canvas');
-  postCv.width = pw; postCv.height = ph;
-}
-const pg = postCv.getContext('2d');
-pg.globalCompositeOperation='copy';
-pg.setTransform(POST_S,0,0,POST_S,0,0);
-pg.drawImage(cvs,0,0);
-pg.setTransform(1,0,0,1,0,0);
-pg.globalCompositeOperation='source-over';
-
-// Tracking band
-const bandY = ((t*0.055) % (cvs.height+220)) - 110;
-const tg=ctx.createLinearGradient(0,bandY,0,bandY+110);
-tg.addColorStop(0,'rgba(255,255,255,0)');
-tg.addColorStop(0.5,`rgba(255,248,220,${0.05 * VHS_PASS * SETTINGS.crt})`);
-tg.addColorStop(1,'rgba(255,255,255,0)');
-ctx.fillStyle=tg; ctx.fillRect(0,bandY,cvs.width,110);
-
-// Scanlines
-ctx.globalCompositeOperation='multiply';
-ctx.globalAlpha = vhs;
-ctx.fillStyle=scanPat;
-ctx.fillRect(0,0,cvs.width,cvs.height);
-ctx.globalAlpha = 1;
-ctx.globalCompositeOperation='source-over';
-
-// Grain
-ctx.globalCompositeOperation='overlay';
-ctx.globalAlpha=0.032*vhs;
-if (!grainFull || grainFull.width!==cvs.width || grainFull.height!==cvs.height) buildGrainFull();
-ctx.drawImage(grainFull, 0, 0);
-ctx.globalAlpha=1;
-ctx.globalCompositeOperation='source-over';
-
-/* Chroma ghost, from the snapshot (bounded, so no feedback). The offset is in
-   DEVICE pixels: the snapshot is drawn back at canvas size, so a shift of `ca`
-   here is a shift of `ca` on screen. */
-ctx.globalCompositeOperation='lighter';
-ctx.globalAlpha=0.03*vhs;
-ctx.imageSmoothingEnabled = false;     // a 4x nearest-neighbour upscale of a 3% smear
-const ca = 1 + Math.round(Math.random()*2);
-ctx.drawImage(postCv, -ca, 0, cvs.width, cvs.height);
-ctx.drawImage(postCv,  ca, 0, cvs.width, cvs.height);
-ctx.imageSmoothingEnabled = true;
-ctx.globalAlpha=1;
-ctx.globalCompositeOperation='source-over';
-
-/* Dropouts. They run on a clock for the same reason the tube dropouts do: a
-   per-frame chance would make the tape wear at whatever rate the display
-   happens to run, and that is not a property of a recording. */
-dropT += rc.dt;
-while (dropT >= 0.05){
-  dropT -= 0.05;
-  if (Math.random() < 0.014*vhs){
-    const y=(Math.random()*cvs.height)|0;
-    ctx.fillStyle='rgba(210,206,190,0.14)';
-    ctx.fillRect(0,y,cvs.width,1+Math.random()*2|0);
+  const seen = Math.min(1,G.seenBy);
+  if (seen>0.01){
+    ctx.globalAlpha = seen;
+    ctx.drawImage(dangerCv, 0, 0, cvs.width, cvs.height);
+    ctx.globalAlpha = 1;
   }
-}
+  /* The vignette. It was stronger (0.52) when the whole floor was lit and its only
+     job was to stop the frame looking like a wallpaper sample. Now the room scope
+     and the cone do the framing, and a vignette that strong eats the palette at the
+     edges of the very room you are standing in. */
+  ctx.drawImage(vigCv, 0, 0);
+
+  /* ---------- 8. VHS tape effect ----------
+     A scrolling tracking band, scanlines, grain, a chroma ghost and dropouts. This
+     is the pass that makes the game look like a recording and not a window. It is
+     always on: it was once a setting, but the two things players turned it down for
+     (the scanline crawl and the shake) are still here at full strength, so a middle
+     setting could not have been honest. The snapshot is taken before the passes
+     that read it.
+
+     The strength is now a setting again (SETTINGS.crt). The default is 1.0, which
+     is the full VHS_PASS and the exact look the game has always shipped. The
+     setting is a fraction of the constant, not a replacement for it: VHS_PASS is
+     still the ceiling and the identity of the tape look. */
+  const vhs = VHS_PASS * SETTINGS.crt * (G.radar ? 5000 : 1);
+  /* The snapshot gives the chroma ghost something to read that does not include
+     the ghost itself. It was a full-size copy of the canvas, and the ghost then
+     drew that copy twice more at screen size: three full-screen operations for a
+     3%-alpha smear 1 to 3 px wide. It is now a QUARTER-size copy, scaled back up
+     with smoothing, which looks like a slightly soft ghost (which is what chroma
+     bleed looks like anyway). It is still taken before every pass that reads it, so
+     there is no feedback. */
+  const POST_S = 0.25;
+  const pw = Math.max(1, Math.round(cvs.width * POST_S));
+  const ph = Math.max(1, Math.round(cvs.height * POST_S));
+  if (!postCv || postCv.width!==pw || postCv.height!==ph){
+    postCv = document.createElement('canvas');
+    postCv.width = pw; postCv.height = ph;
+  }
+  const pg = postCv.getContext('2d');
+  pg.globalCompositeOperation='copy';
+  pg.setTransform(POST_S,0,0,POST_S,0,0);
+  pg.drawImage(cvs,0,0);
+  pg.setTransform(1,0,0,1,0,0);
+  pg.globalCompositeOperation='source-over';
+
+  // Tracking band
+  const bandY = ((t*0.055) % (cvs.height+220)) - 110;
+  const tg=ctx.createLinearGradient(0,bandY,0,bandY+110);
+  tg.addColorStop(0,'rgba(255,255,255,0)');
+  tg.addColorStop(0.5,`rgba(255,248,220,${0.05 * VHS_PASS * SETTINGS.crt})`);
+  tg.addColorStop(1,'rgba(255,255,255,0)');
+  ctx.fillStyle=tg; ctx.fillRect(0,bandY,cvs.width,110);
+
+  // Scanlines
+  ctx.globalCompositeOperation='multiply';
+  ctx.globalAlpha = vhs;
+  ctx.fillStyle=scanPat;
+  ctx.fillRect(0,0,cvs.width,cvs.height);
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation='source-over';
+
+  // Grain
+  ctx.globalCompositeOperation='overlay';
+  ctx.globalAlpha=0.032*vhs;
+  if (!grainFull || grainFull.width!==cvs.width || grainFull.height!==cvs.height) buildGrainFull();
+  ctx.drawImage(grainFull, 0, 0);
+  ctx.globalAlpha=1;
+  ctx.globalCompositeOperation='source-over';
+
+  /* Chroma ghost, from the snapshot (bounded, so no feedback). The offset is in
+     DEVICE pixels: the snapshot is drawn back at canvas size, so a shift of `ca`
+     here is a shift of `ca` on screen. */
+  ctx.globalCompositeOperation='lighter';
+  ctx.globalAlpha=0.03*vhs;
+  ctx.imageSmoothingEnabled = false;     // a 4x nearest-neighbour upscale of a 3% smear
+  const ca = 1 + Math.round(Math.random()*2);
+  ctx.drawImage(postCv, -ca, 0, cvs.width, cvs.height);
+  ctx.drawImage(postCv,  ca, 0, cvs.width, cvs.height);
+  ctx.imageSmoothingEnabled = true;
+  ctx.globalAlpha=1;
+  ctx.globalCompositeOperation='source-over';
+
+  /* Dropouts. They run on a clock for the same reason the tube dropouts do: a
+     per-frame chance would make the tape wear at whatever rate the display
+     happens to run, and that is not a property of a recording. */
+  dropT += rc.dt;
+  while (dropT >= 0.05){
+    dropT -= 0.05;
+    if (Math.random() < 0.014*vhs){
+      const y=(Math.random()*cvs.height)|0;
+      ctx.fillStyle='rgba(210,206,190,0.14)';
+      ctx.fillRect(0,y,cvs.width,1+Math.random()*2|0);
+    }
+  }
 }

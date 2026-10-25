@@ -49,13 +49,6 @@ function pointer(){
   } catch { return { coarse:false, fine:false }; }
 }
 
-/* True when the device is a handheld. Whether it can PLAY is mobileVerdict(). */
-export function isMobileDevice(){
-  if (looksHandheld(userAgent())) return true;
-  const p = pointer();
-  return coarseWithoutFine(p.coarse, p.fine);
-}
-
 /* The decision, kept pure so every case can be tested. A handheld can play when
    the touch layer can work: Pointer Events exist and the primary pointer is
    coarse. A handheld without them has no way to move, so it gets the notice.
