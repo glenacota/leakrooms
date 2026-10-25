@@ -111,3 +111,19 @@ html[data-input=touch] #crt{ height:100dvh; }
   display:block; width:4px; height:18px;
   background:var(--yellow);
 }
+
+/* ---------- The HUD panel in touch mode ---------- */
+
+/* src/ui/touch-hud-rules.js adds .hud-quiet when nothing needs reading. Opacity
+   only: the panel keeps its place and size, so nothing shifts when it comes
+   back. The prompt line is not touched, because "stand still" and "do not move"
+   are the lines a player with a released stick needs. The transition on the
+   quiet rule is the one used when the class arrives (a slow fade out); the one
+   on the plain rule is used when it leaves (a quick return). */
+[data-input=touch] .crt-tl{ transition:opacity .15s ease; }
+[data-input=touch] .crt-tl.hud-quiet{ opacity:0; transition:opacity .6s ease; }
+
+@media (prefers-reduced-motion:reduce){
+  [data-input=touch] .crt-tl,
+  [data-input=touch] .crt-tl.hud-quiet{ transition:none; }
+}

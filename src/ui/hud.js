@@ -62,7 +62,7 @@ function hudSet(el, key, prop, val){
   else if (prop === 'html') el.innerHTML = val;
   else el.style[prop] = val;
 }
-function hudFlag(el, key, cls, on){
+export function hudFlag(el, key, cls, on){
   if (!el || hudCache[key] === on) return;
   hudCache[key] = on;
   el.classList.toggle(cls, on);
