@@ -1,12 +1,11 @@
-import { DIFFICULTIES } from '../config/presets.js';
 import { LOUD } from '../config/constants.js';
-import { SETTINGS } from '../settings/store.js';
+import { SETTINGS, currentTerms } from '../settings/store.js';
 import { applyDifficulty, FLOOR_CLOCK } from '../config/tuning.js';
 import { Audio_ } from '../audio/index.js';
 import { on } from '../util/events.js';
 import { repaintDirty } from '../util/repaint.js';
 import { G } from '../sim/state.js';
-import { clearCard, clockText, STATE } from '../game/run.js';
+import { clearCard, clockText, DEATH_CAUSE, STATE } from '../game/run.js';
 import { paintSplashPlan } from '../render/splash-plan.js';
 import { attachFloorImages } from '../render/bake.js';
 import { buildGrainFull, buildPatterns } from '../render/textures.js';
@@ -20,7 +19,7 @@ import { syncSettingsUI } from './settings-panel.js';
  * mute. Runs at boot and every time a setting changes.
  */
 export function applySettings(){
-  const d = DIFFICULTIES[SETTINGS.difficulty] || DIFFICULTIES.normal;
+  const d = currentTerms();
   applyDifficulty(d);
   Audio_.setMaster(SETTINGS.master);
   /* Both volume and mute are applied. The M key flips the stored mute flag and
@@ -68,9 +67,9 @@ export function bindDom(){
     const btn = document.getElementById('btn-retry');
     if (lives > 0) {
       // Life lost: show cause-specific title, TRY AGAIN button, lives remaining sub
-      if (cause === 'IT CAUGHT YOU') {
+      if (cause === DEATH_CAUSE.CAUGHT) {
         title.textContent = 'CAUGHT';
-      } else if (cause === 'THE CLOCK RAN OUT') {
+      } else if (cause === DEATH_CAUSE.CLOCK) {
         title.textContent = "TIME'S UP";
       }
       btn.textContent = 'TRY AGAIN';

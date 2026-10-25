@@ -17,7 +17,7 @@ export const PULSE_MS = { sting: 25, rattle: 25, door: 25 };
 export const DEAD_MS = 120;
 
 function buzz(ms){
-  if (SETTINGS.haptics === 'off') return;
+  if (!SETTINGS.haptics) return;
   /* vibrate() can refuse, or throw, when the page has had no touch yet. A missed
      buzz is not worth an error. */
   try { navigator.vibrate(ms); } catch (_) { /* refused */ }

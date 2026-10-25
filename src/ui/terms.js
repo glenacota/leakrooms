@@ -1,6 +1,5 @@
 import { FLOOR_CLOCK, REPAIR_TIME } from '../config/tuning.js';
-import { DIFFICULTIES } from '../config/presets.js';
-import { SETTINGS } from '../settings/store.js';
+import { SETTINGS, currentTerms } from '../settings/store.js';
 import { clearInput } from '../sim/keys.js';
 
 /* ============================================================
@@ -35,7 +34,7 @@ export function proseClock(s){
    pause screen, the clock and repair times in the work order and the briefing,
    and the note under the chooser. */
 export function paintTerms(){
-  const d = DIFFICULTIES[SETTINGS.difficulty] || DIFFICULTIES.normal;
+  const d = currentTerms();
   const set = (id, txt)=>{ const el = document.getElementById(id); if (el) el.textContent = txt; };
   set('order-terms', d.label);
   set('pause-terms', d.label);

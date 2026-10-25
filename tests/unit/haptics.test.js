@@ -17,7 +17,7 @@ function withVibrate(fn){
   const log = [];
   setNav({ vibrate: ms => { log.push(ms); return true; } });
   const off = initHaptics();
-  try { fn(log); } finally { off(); restore(); setOption('haptics', 'on'); }
+  try { fn(log); } finally { off(); restore(); setOption('haptics', true); }
 }
 
 test('[HAPTICS] a device with no vibrate does nothing and throws nothing', () => {
@@ -53,10 +53,10 @@ test('[HAPTICS] everything else is silent, including the splash and the HUD flas
 
 test('[HAPTICS] the setting turns it off and on live, and mute does not matter', () => {
   withVibrate(log => {
-    setOption('haptics', 'off');
+    setOption('haptics', false);
     emit('sfx', 'sting'); emit('dead', {});
     assert.deepEqual(log, []);
-    setOption('haptics', 'on');
+    setOption('haptics', true);
     setOption('muted', true);
     emit('sfx', 'sting');
     assert.deepEqual(log, [25], 'mute silenced the buzz');

@@ -15,8 +15,7 @@
    ============================================================ */
 
 import { FLOORS } from '../config/tuning.js';
-import { DIFFICULTIES } from '../config/presets.js';
-import { SETTINGS } from '../settings/store.js';
+import { currentTerms } from '../settings/store.js';
 import { G } from '../sim/state.js';
 import { clockText, disarmReset, STATE, transition } from '../game/run.js';
 import { livesHTML } from './hud.js';
@@ -56,7 +55,7 @@ export function togglePause(){
     set('pause-pipes',  `${sealed}/${G.pipes}`);
     set('pause-lives', livesHTML());
     // The difficulty is shown as a fact. It cannot be changed from here.
-    set('pause-terms',  (DIFFICULTIES[SETTINGS.difficulty] || DIFFICULTIES.normal).label);
+    set('pause-terms',  currentTerms().label);
   }
   else if (STATE==='pause'){ disarmReset(); transition('play'); }
 }
