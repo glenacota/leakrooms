@@ -1,0 +1,113 @@
+/* ============================================================
+   TOUCH LAYER
+   The on-screen stick and the two buttons. The markup is the #touch block in
+   index.html and the behaviour is src/ui/touch.js.
+
+   The layer is a sibling of #hud, not part of it: the HUD stays click-through
+   and keeps its one panel, and the touch controls need to catch fingers.
+   ============================================================ */
+
+/* ---------- The layer ---------- */
+
+/* Off by default. It takes pointers only in touch mode, so on a desktop it can
+   never sit between the mouse and the game. The level (4) is above the stage
+   and below the HUD (5) and every screen (5, later in the page), so a screen
+   always covers the controls. */
+#touch{
+  position:absolute;
+  inset:0;
+  z-index:4;
+  pointer-events:none;
+  touch-action:none;           /* no scroll or pinch-zoom starts on the controls */
+  user-select:none;
+  -webkit-user-select:none;
+  -webkit-touch-callout:none;  /* no long-press menu on iOS */
+  -webkit-tap-highlight-color:transparent;
+}
+[data-input=touch] #touch{ pointer-events:auto; }
+
+/* An author display rule would beat the hidden attribute, so say it again here. */
+#touch [hidden]{ display:none !important; }
+
+/* ---------- Page, in touch mode only ---------- */
+
+/* A swipe at the edge must not pull the page or reload it. */
+html[data-input=touch], html[data-input=touch] body{ overscroll-behavior:none; }
+
+/* 100% is the tall layout height on a phone, with the address bar covering the
+   bottom of it. dvh follows what is actually visible. */
+html[data-input=touch] body,
+html[data-input=touch] #crt{ height:100dvh; }
+
+/* ---------- The stick ---------- */
+
+/* The ring is placed where the thumb landed, and its size is set from the
+   stick radius in script. */
+#touch-ring{
+  position:absolute;
+  border:1.5px solid var(--yellow);
+  border-radius:50%;
+  background:rgba(10,9,5,.18);     /* the same glass as the HUD panel */
+  opacity:.55;
+  transform:translate(-50%,-50%);
+  pointer-events:none;
+  transition:border-color .12s, opacity .12s;
+}
+/* The latch is on: this is the loud pace. Same red as the LOUD mark. */
+#touch-ring.sprint{ border-color:var(--danger); opacity:.8; }
+
+#touch-knob{
+  position:absolute;
+  left:50%; top:50%;
+  width:44px; height:44px;
+  margin:-22px 0 0 -22px;
+  border-radius:50%;
+  background:var(--yellow);
+  opacity:.5;
+  pointer-events:none;
+}
+#touch-ring.sprint #touch-knob{ background:var(--danger); }
+
+/* ---------- The buttons ---------- */
+
+/* The default button look (yellow slab, wide padding) is for the menus, so this
+   resets it. Dim at rest so the map stays the picture, bright while pressed. */
+#touch button{
+  position:absolute;
+  display:flex; align-items:center; justify-content:center;
+  min-width:48px; min-height:48px;
+  padding:0;
+  border:1.5px solid var(--yellow);
+  border-radius:50%;
+  background:rgba(10,9,5,.18);
+  color:var(--yellow);
+  font-size:10px;
+  letter-spacing:.1em;
+  font-weight:900;
+  opacity:.35;
+  cursor:default;
+  box-shadow:none;
+  transition:opacity .08s;
+}
+#touch button:hover{ background:rgba(10,9,5,.18); box-shadow:none; }
+#touch button:active{ transform:none; }
+#touch button.down{ opacity:1; background:rgba(228,230,168,.22); }
+
+/* Opposite the stick. If the stick moves to the right half, this has to move
+   too. */
+#touch [data-touch=radar]{
+  width:68px; height:68px;
+  right:calc(18px + env(safe-area-inset-right));
+  bottom:calc(18px + env(safe-area-inset-bottom));
+}
+/* Top right, so it is clear of the HUD panel in the top left. */
+#touch [data-touch=pause]{
+  width:48px; height:48px;
+  right:calc(12px + env(safe-area-inset-right));
+  top:calc(12px + env(safe-area-inset-top));
+  gap:5px;
+}
+#touch [data-touch=pause] i{
+  display:block; width:4px; height:18px;
+  background:var(--yellow);
+}
