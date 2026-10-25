@@ -159,6 +159,18 @@ function onUp(e){
   }
 }
 
+/* The rotate card (#rotate, shown by css/touch.css) covers the game while a touch
+   device is held upright. Here the run is paused when that begins. Only the
+   change INTO portrait pauses, and nothing resumes: the player taps RESUME on
+   the pause screen once the phone is back sideways. `mq` is a MediaQueryList for
+   the portrait-and-coarse query; it is a parameter so a test can drive it. */
+export function bindRotate(mq){
+  if (!mq || typeof mq.addEventListener !== 'function') return;
+  const onChange = e => { if (e.matches && STATE === 'play') togglePause(); };
+  mq.addEventListener('change', onChange);
+  // Already upright at load: nothing is playing yet, so there is nothing to pause.
+}
+
 // Wires the layer. Called once from boot().
 export function initTouch(){
   layer = document.getElementById('touch');
@@ -188,6 +200,10 @@ export function initTouch(){
   on('settings:changed', key => {
     if (key === 'touchSide' || key === '*'){ releaseAll(); layout(); }
   });
+
+  if (typeof window !== 'undefined' && typeof window.matchMedia === 'function'){
+    bindRotate(window.matchMedia('(orientation: portrait) and (pointer: coarse)'));
+  }
 
   const q = globalThis.location && globalThis.location.search;
   forced = !!q && new URLSearchParams(q).get('input') === 'touch';

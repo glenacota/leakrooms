@@ -21,7 +21,8 @@ import { bindInput } from './ui/input.js';
 import { bindButtons } from './ui/buttons.js';
 import { initTouch } from './ui/touch.js';
 import { initHaptics } from './ui/haptics.js';
-import { isMobileDevice, showMobileNotice } from './ui/mobile.js';
+import { emit } from './util/events.js';
+import { mobileVerdict, showMobileNotice } from './ui/mobile.js';
 import { setFatalHook, setFrameHooks } from './game/loop.js';
 import { adaptResolution } from './render/adaptive.js';
 import { render, setSimAlpha } from './render/render.js';
@@ -99,10 +100,13 @@ export function boot(){
   initTouch();
   initHaptics();
 
-  /* A phone cannot play a keyboard game. Rather than show a title screen that
-     nobody can start, swap in the desktop-only card. The key handler checks
-     isMobileBlocked() so a stray key cannot walk past it. */
-  if (isMobileDevice()) showMobileNotice();
+  /* A handheld plays with the touch layer. One that cannot run it gets the
+     notice instead of a title nobody can start; the key handler checks
+     isMobileBlocked() so a stray key cannot walk past it. The touch mode set
+     here is not locked: a tablet that later gets a key press goes back to kbm. */
+  const verdict = mobileVerdict();
+  if (verdict === 'blocked') showMobileNotice();
+  else if (verdict === 'touch') emit('input:mode', 'touch');
 
   /* Load saved settings and apply them (difficulty and volume), then build
      the settings controls so they show the loaded values. */
