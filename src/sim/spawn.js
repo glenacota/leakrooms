@@ -32,7 +32,8 @@ export function spawnLifeforms(level, rng){
       state:'WALK', t:0, rise:0, target:null,
       // The opening direction is hashed from the room, so it depends only on the level. Math.random() would make it impossible to reproduce from the seed.
       face: hash2(far.rx, far.ry)*6.28,
-      born:3.5
+      born:3.5,
+      hold: 0, holdDone: false
     });
   }
   const coilRooms = level.rooms.filter(r=>r.rw>=5&&r.rh>=5 && !lifeformRooms.has(r));
@@ -49,7 +50,8 @@ export function spawnLifeforms(level, rng){
       x: r.rx+1+Math.floor(rng()*(r.rw-2)),
       y: r.ry+1+Math.floor(rng()*(r.rh-2)),
       state:'DORMANT', t:0, rise:0, target:null, face:0,
-      born:0
+      born:0,
+      hold: 0, holdDone: false
     });
   }
   return lifeforms;

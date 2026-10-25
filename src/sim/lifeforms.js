@@ -105,8 +105,6 @@ export function updateLifeform(lifeformState, lf, dt, p){
     lf.rise = Math.min(1, lf.rise + dt*2.4);
     const spd = HUNT_BASE;
     const tgt = lf.target || {x:p.x,y:p.y};
-    const tx = Math.floor(tgt.x), ty = Math.floor(tgt.y);
-    const cx = Math.floor(lf.x), cy = Math.floor(lf.y);
     const distToTarget = Math.hypot(lf.x - tgt.x, lf.y - tgt.y);
 
     /* Hold-and-turn phase: when we reach the target (within 0.5 tiles), pause for 2s
@@ -126,45 +124,11 @@ export function updateLifeform(lifeformState, lf, dt, p){
       }
     } else {
       lf.t -= dt;
-      /* Line of sight to target? If yes, move straight toward it (with wall slide).
-         If no, follow the distance field gradient around walls. */
-      const hasLOS = lifeformState.los(lf.x, lf.y, tgt.x, tgt.y);
-
-      if (hasLOS){
-        /* Straight line to target when visible. */
-        const ang = Math.atan2(tgt.y-lf.y, tgt.x-lf.x);
-        lf.face = ang;
-        const [dx,dy] = moveEnt(lf, Math.cos(ang)*spd*dt, Math.sin(ang)*spd*dt, LIFEFORM.RADIUS);
-        if (Math.hypot(dx,dy)<0.001){
-          moveEnt(lf, Math.cos(ang+1.57)*spd*dt, Math.sin(ang+1.57)*spd*dt, LIFEFORM.RADIUS);
-        }
-      } else {
-        /* No LOS: follow distance field gradient. Rebuild field when target tile changes
-           or agent moves more than 1 tile from cached position. */
-        if (!lf._pathField || lf._pathTx !== tx || lf._pathTy !== ty || Math.abs(cx - lf._pathCx) > 1 || Math.abs(cy - lf._pathCy) > 1){
-          lf._pathField = distanceField(lifeformState.grid, tx, ty);
-          lf._pathTx = tx; lf._pathTy = ty;
-          lf._pathCx = cx; lf._pathCy = cy;
-        }
-        const step = lf._pathField ? nextStep(lf._pathField, cx, cy) : null;
-        if (step){
-          const ang = Math.atan2(step.y + 0.5 - lf.y, step.x + 0.5 - lf.x);
-          lf.face = ang;
-          moveEnt(lf, Math.cos(ang)*spd*dt, Math.sin(ang)*spd*dt, LIFEFORM.RADIUS);
-        } else {
-          /* Fallback: straight line if no path (should not happen on connected floors). */
-          const ang = Math.atan2(tgt.y-lf.y, tgt.x-lf.x);
-          lf.face = ang;
-          const [dx,dy] = moveEnt(lf, Math.cos(ang)*spd*dt, Math.sin(ang)*spd*dt, LIFEFORM.RADIUS);
-          if (Math.hypot(dx,dy)<0.001){
-            moveEnt(lf, Math.cos(ang+1.57)*spd*dt, Math.sin(ang+1.57)*spd*dt, LIFEFORM.RADIUS);
-          }
-        }
-      }
+      steerToward(lifeformState, lf, tgt, spd, dt, { sidestep: true });
     }
     if (Math.hypot(lf.x-p.x,lf.y-p.y) < CATCH_R) brush(lf, p, lifeformState);
     // After about 8 seconds with nothing new to chase, give up and search nearby
-    if (lf.t < -8){ lf.state='SEARCH'; lf.t=6; lf.target=randomFloorNear(lifeformState, lf.x,lf.y,9, blocked); lf.hold=0; lf.holdDone=0; }
+    if (lf.t < -8){ lf.state='SEARCH'; lf.t=6; lf.target=randomFloorNear(lifeformState, lf.x,lf.y,9, blocked); lf.hold=0; lf.holdDone=false; }
     return;
   }
 
@@ -198,35 +162,56 @@ export function updateLifeform(lifeformState, lf, dt, p){
     }
 
     /* Move toward target: straight line if LOS, else follow distance field. */
-    const tx = Math.floor(lf.target.x), ty = Math.floor(lf.target.y);
-    const cx = Math.floor(lf.x), cy = Math.floor(lf.y);
-    const hasLOS = lifeformState.los(lf.x, lf.y, lf.target.x, lf.target.y);
     const spd = LIFEFORM.SEARCH_SPEED;
-
-    if (hasLOS){
-      const ang = Math.atan2(lf.target.y-lf.y, lf.target.x-lf.x);
-      lf.face = ang;
-      moveEnt(lf, Math.cos(ang)*spd*dt, Math.sin(ang)*spd*dt, LIFEFORM.RADIUS);
-    } else {
-      if (!lf._pathField || lf._pathTx !== tx || lf._pathTy !== ty || Math.abs(cx - lf._pathCx) > 1 || Math.abs(cy - lf._pathCy) > 1){
-        lf._pathField = distanceField(lifeformState.grid, tx, ty);
-        lf._pathTx = tx; lf._pathTy = ty;
-        lf._pathCx = cx; lf._pathCy = cy;
-      }
-      const step = lf._pathField ? nextStep(lf._pathField, cx, cy) : null;
-      if (step){
-        const ang = Math.atan2(step.y + 0.5 - lf.y, step.x + 0.5 - lf.x);
-        lf.face = ang;
-        moveEnt(lf, Math.cos(ang)*spd*dt, Math.sin(ang)*spd*dt, LIFEFORM.RADIUS);
-      } else {
-        const ang = Math.atan2(lf.target.y-lf.y, lf.target.x-lf.x);
-        lf.face = ang;
-        moveEnt(lf, Math.cos(ang)*spd*dt, Math.sin(ang)*spd*dt, LIFEFORM.RADIUS);
-      }
-    }
+    steerToward(lifeformState, lf, lf.target, spd, dt, { sidestep: false });
     if (Math.hypot(lf.x-p.x,lf.y-p.y) < CATCH_R) brush(lf, p, lifeformState);
     if (lf.t<=0){
       lf.state = 'WALK'; lf.rise=1; lf.target=null;
+    }
+  }
+}
+
+/* Steers a lifeform one step toward a target.
+   Straight line when there is line of sight; otherwise follows the cached
+   distance-field gradient (rebuilt only when the target tile changes). Falls
+   back to a straight line when no path exists. When `sidestep` is set, a
+   blocked straight-line move tries a perpendicular nudge so the agent slides
+   along walls instead of stopping dead. */
+function steerToward(lifeformState, lf, tgt, spd, dt, { sidestep } = {}){
+  const { moveEnt } = createCollision(lifeformState.grid);
+  const tx = Math.floor(tgt.x), ty = Math.floor(tgt.y);
+  const cx = Math.floor(lf.x), cy = Math.floor(lf.y);
+  const hasLOS = lifeformState.los(lf.x, lf.y, tgt.x, tgt.y);
+
+  if (hasLOS){
+    const ang = Math.atan2(tgt.y-lf.y, tgt.x-lf.x);
+    lf.face = ang;
+    const [dx,dy] = moveEnt(lf, Math.cos(ang)*spd*dt, Math.sin(ang)*spd*dt, LIFEFORM.RADIUS);
+    if (sidestep && Math.hypot(dx,dy)<0.001){
+      moveEnt(lf, Math.cos(ang+1.57)*spd*dt, Math.sin(ang+1.57)*spd*dt, LIFEFORM.RADIUS);
+    }
+    return;
+  }
+
+  /* No LOS: follow distance field gradient. Rebuild field only when the target
+     tile changes. The field is target-centric, so the agent's own position does
+     not invalidate it. */
+  if (!lf._pathField || lf._pathTx !== tx || lf._pathTy !== ty){
+    lf._pathField = distanceField(lifeformState.grid, tx, ty);
+    lf._pathTx = tx; lf._pathTy = ty;
+  }
+  const step = lf._pathField ? nextStep(lf._pathField, cx, cy) : null;
+  if (step){
+    const ang = Math.atan2(step.y + 0.5 - lf.y, step.x + 0.5 - lf.x);
+    lf.face = ang;
+    moveEnt(lf, Math.cos(ang)*spd*dt, Math.sin(ang)*spd*dt, LIFEFORM.RADIUS);
+  } else {
+    /* Fallback: straight line if no path (should not happen on connected floors). */
+    const ang = Math.atan2(tgt.y-lf.y, tgt.x-lf.x);
+    lf.face = ang;
+    const [dx,dy] = moveEnt(lf, Math.cos(ang)*spd*dt, Math.sin(ang)*spd*dt, LIFEFORM.RADIUS);
+    if (sidestep && Math.hypot(dx,dy)<0.001){
+      moveEnt(lf, Math.cos(ang+1.57)*spd*dt, Math.sin(ang+1.57)*spd*dt, LIFEFORM.RADIUS);
     }
   }
 }
