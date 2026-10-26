@@ -173,7 +173,7 @@ test('the noise meter uses the scale the game actually produces', () => {
     `sprint ${running.toFixed(0)}%, wrench 100%, door clamps`);
 
   /* A pipe is broken in a wall and is repaired from the floor tile beside it, and
-     alert() hands the noise source straight to the entity as the place to walk
+     alert() hands the noise source straight to the Lifeform as the place to walk
      to. So the source must be that floor tile, or a Lifeform grinds its
      collision disc against brick. No bot catches this: none walks to a leak. */
   let witness = null;
@@ -218,7 +218,7 @@ test('the noise meter uses the scale the game actually produces', () => {
     update(1/60);
 
     t.assert(a.state==='SEARCH',
-      `seed ${seed}: an entity one tile from an open pipe (power ${G.leakPower.toFixed(2)}, `+
+      `seed ${seed}: a Lifeform one tile from an open pipe (power ${G.leakPower.toFixed(2)}, `+
       `heard out to ${R.toFixed(2)}) stayed WALK — the pipe is not making a noise anything can hear`);
     const tx = Math.floor(a.target.x), ty = Math.floor(a.target.y);
     t.assert(a.target && G.grid[ty*W+tx] === 1,
@@ -228,7 +228,7 @@ test('the noise meter uses the scale the game actually produces', () => {
       `seed ${seed}: it was sent ${Math.hypot(a.target.x-(L.sx+0.5), a.target.y-(L.sy+0.5)).toFixed(2)} `+
       'tiles from the pipe that called it');
     console.log(`  seed ${seed}: pipe power ${G.leakPower.toFixed(2)} heard out to ${R.toFixed(2)} tiles; `+
-      `an entity beside the pipe goes SEARCH for tile ${tx},${ty}, and that tile is floor`);
+      `a Lifeform beside the pipe goes SEARCH for tile ${tx},${ty}, and that tile is floor`);
   };
 });
 

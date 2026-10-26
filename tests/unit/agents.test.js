@@ -9,13 +9,13 @@ const emitNoise = A.emitNoise;
 const inWall = makeInWall(G);
 A.setHeadless(false, false);
 
-/* Entities move on the same collision disc as the player, so their AI can walk
+/* Lifeforms move on the same collision disc as the player, so their AI can walk
    them into geometry or into NaN. A long noisy run must also reach HUNT, or the
    AI has stopped responding to sound. */
 test('agents stay out of geometry and react to noise', () => {
   const t = softAssert();
   /* Level 5, deliberately: it is the level with both a dormant coil and a
-     woken hunter in it, and level 1 has exactly one thing in the building. */
+     woken lifeform in it, and level 1 has exactly one thing in the building. */
   buildFloor(A.LEVELS_N-1, 999);
   let bad=0, hunted=0, dormant=0;
   for (let i=0;i<3000;i++){
@@ -34,7 +34,7 @@ test('agents stay out of geometry and react to noise', () => {
     if (bad>0) break;
   }
   t.assert(bad===0, `${bad} entity integrity violations`);
-  t.assert(hunted>0, 'entity never entered HUNT state');
+  t.assert(hunted>0, 'lifeform never entered HUNT state');
   console.log(`  ok — ${hunted} hunting-frames, ${dormant} dormant-frames, no geometry escapes`);;
 });
 
@@ -70,15 +70,15 @@ test('a wandering lifeform touches you if it reaches you', () => {
 
   /* --- DARK TEST ---
      Zero out light and visibility so the LOS check in tickAgents never fires.
-     Put a WALK agent at one end, player at the other, facing each other. */
-  const agent = G.lifeforms[0];
-  agent.x = xStart + 1.5;
-  agent.y = midY;
-  agent.state = 'WALK';
-  agent.born = 0;
-  agent.rise = 1;
-  agent.t = 10; // long target timer
-  agent.target = { x: midX, y: midY }; // walk toward player
+     Put a WALK lifeform at one end, player at the other, facing each other. */
+  const walkLifeform = G.lifeforms[0];
+  walkLifeform.x = xStart + 1.5;
+  walkLifeform.y = midY;
+  walkLifeform.state = 'WALK';
+  walkLifeform.born = 0;
+  walkLifeform.rise = 1;
+  walkLifeform.t = 10; // long target timer
+  walkLifeform.target = { x: midX, y: midY }; // walk toward player
 
   G.plumber.x = midX;
   G.plumber.y = midY;
@@ -98,29 +98,29 @@ test('a wandering lifeform touches you if it reaches you', () => {
     if (flashEl && flashEl.textContent && flashEl.textContent.includes('IT TOUCHED YOU')){
       touched = true;
     }
-    if (agent.state === 'HUNT'){
+    if (walkLifeform.state === 'HUNT'){
       hunted = true;
     }
     if (touched && hunted) break;
   }
   t.assert(touched, 'dark corridor: IT TOUCHED YOU flash was not emitted');
-  t.assert(hunted, 'dark corridor: walker did not transition to HUNT after touching player');
-  console.log(`  dark corridor: walker touched player at frame ${touched && hunted ? 'OK' : 'FAIL'}`);
+  t.assert(hunted, 'dark corridor: WALK lifeform did not transition to HUNT after touching player');
+  console.log(`  dark corridor: WALK lifeform touched player at frame ${touched && hunted ? 'OK' : 'FAIL'}`);
 
   /* --- LIT TEST ---
-     Same setup but with light. The walker should still touch and trigger brush.
+     Same setup but with light. The WALK lifeform should still touch and trigger brush.
      In light, the LOS check might also trigger HUNT, but brush must still fire. */
   buildFloor(0, 4242);
   A.STATE = 'play';
 
-  const agent2 = G.lifeforms[0];
-  agent2.x = xStart + 1.5;
-  agent2.y = midY;
-  agent2.state = 'WALK';
-  agent2.born = 0;
-  agent2.rise = 1;
-  agent2.t = 10;
-  agent2.target = { x: midX, y: midY };
+  const walkLifeform2 = G.lifeforms[0];
+  walkLifeform2.x = xStart + 1.5;
+  walkLifeform2.y = midY;
+  walkLifeform2.state = 'WALK';
+  walkLifeform2.born = 0;
+  walkLifeform2.rise = 1;
+  walkLifeform2.t = 10;
+  walkLifeform2.target = { x: midX, y: midY };
 
   G.plumber.x = midX;
   G.plumber.y = midY;
@@ -139,14 +139,14 @@ test('a wandering lifeform touches you if it reaches you', () => {
     if (flashEl && flashEl.textContent && flashEl.textContent.includes('IT TOUCHED YOU')){
       touchedLit = true;
     }
-    if (agent2.state === 'HUNT'){
+    if (walkLifeform2.state === 'HUNT'){
       huntedLit = true;
     }
     if (touchedLit && huntedLit) break;
   }
   t.assert(touchedLit, 'lit corridor: IT TOUCHED YOU flash was not emitted');
-  t.assert(huntedLit, 'lit corridor: walker did not transition to HUNT after touching player');
-  console.log(`  lit corridor: walker touched player at frame ${touchedLit && huntedLit ? 'OK' : 'FAIL'}`);;
+  t.assert(huntedLit, 'lit corridor: lifeform did not transition to HUNT after touching player');
+  console.log(`  lit corridor: lifeform touched player at frame ${touchedLit && huntedLit ? 'OK' : 'FAIL'}`);;
 });
 
 /* SEARCH timeout goes to WALK, not DORMANT. The "may go back to sleep"
@@ -157,29 +157,29 @@ test('SEARCH timeout goes to WALK, never DORMANT', () => {
   buildFloor(0, 4242);
   A.STATE = 'play';
 
-  /* Create a SEARCH agent with a very short timer. */
-  const agent = G.lifeforms[0];
-  agent.x = 10.5; agent.y = 10.5;
-  agent.state = 'SEARCH';
-  agent.born = 0;
-  agent.rise = 1;
-  agent.t = 0.001; // expires immediately
-  agent.target = { x: 10.5, y: 10.5 };
+  /* Create a SEARCH lifeform with a very short timer. */
+  const searchLifeform = G.lifeforms[0];
+  searchLifeform.x = 10.5; searchLifeform.y = 10.5;
+  searchLifeform.state = 'SEARCH';
+  searchLifeform.born = 0;
+  searchLifeform.rise = 1;
+  searchLifeform.t = 0.001; // expires immediately
+  searchLifeform.target = { x: 10.5, y: 10.5 };
 
   /* Step once - timer should expire. */
   update(1/60);
 
-  t.assert(agent.state === 'WALK', `SEARCH timed out to ${agent.state}, expected WALK`);
-  t.assert(agent.rise === 1, `rise should be 1 (fully up), got ${agent.rise}`);
+  t.assert(searchLifeform.state === 'WALK', `SEARCH timed out to ${searchLifeform.state}, expected WALK`);
+  t.assert(searchLifeform.rise === 1, `rise should be 1 (fully up), got ${searchLifeform.rise}`);
 
   /* Step many more frames - it should stay WALK, never go to DORMANT. */
   let everDormant = false;
   for (let i=0;i<200;i++){
     update(1/60);
-    if (agent.state === 'DORMANT') everDormant = true;
+    if (searchLifeform.state === 'DORMANT') everDormant = true;
   }
-  t.assert(!everDormant, 'agent entered DORMANT after SEARCH timeout — should stay WALK');
-  t.assert(agent.state === 'WALK', `after 200 frames, state is ${agent.state}, expected WALK`);
+  t.assert(!everDormant, 'lifeform entered DORMANT after SEARCH timeout — should stay WALK');
+  t.assert(searchLifeform.state === 'WALK', `after 200 frames, state is ${searchLifeform.state}, expected WALK`);
 
   console.log('  SEARCH timeout -> WALK; never DORMANT afterwards');;
 });
@@ -228,15 +228,15 @@ test('SEARCH follows distance field to reach no-LOS target in time', () => {
   t.assert(pair, 'found no-LOS pair with path <= 15 tiles');
   console.log(`  test pair: (${pair.ax},${pair.ay}) -> (${pair.bx},${pair.by}), pathLen=${pair.pathLen}`);
 
-  /* Place a SEARCH agent at start, target at end. */
-  const agent = G.lifeforms[0];
-  agent.x = pair.ax; agent.y = pair.ay;
-  agent.state = 'SEARCH';
-  agent.born = 0;
-  agent.rise = 1;
-  agent.t = 4.5; // full SEARCH timer
-  agent.target = {x: pair.bx, y: pair.by};
-  agent.face = 0;
+  /* Place a SEARCH lifeform at start, target at end. */
+  const searchLifeform = G.lifeforms[0];
+  searchLifeform.x = pair.ax; searchLifeform.y = pair.ay;
+  searchLifeform.state = 'SEARCH';
+  searchLifeform.born = 0;
+  searchLifeform.rise = 1;
+  searchLifeform.t = 4.5; // full SEARCH timer
+  searchLifeform.target = {x: pair.bx, y: pair.by};
+  searchLifeform.face = 0;
   G.plumber = {x: pair.bx - 8, y: pair.by - 8, face: 0};
 
   let success = false;
@@ -244,86 +244,86 @@ test('SEARCH follows distance field to reach no-LOS target in time', () => {
   for (let frame=0; frame<300; frame++){ // 5 seconds at 60Hz (timer is 4.5s)
     framesUsed = frame;
     update(1/60);
-    const d = Math.hypot(agent.x - pair.bx, agent.y - pair.by);
+    const d = Math.hypot(searchLifeform.x - pair.bx, searchLifeform.y - pair.by);
     if (d < 0.5){ success = true; break; }
-    if (agent.state !== 'SEARCH') break; // timed out or retargeted
+    if (searchLifeform.state !== 'SEARCH') break; // timed out or retargeted
   }
-  t.assert(success, `SEARCH agent did not reach target in time (state=${agent.state}, t=${agent.t.toFixed(2)})`);
+  t.assert(success, `SEARCH lifeform did not reach target in time (state=${searchLifeform.state}, t=${searchLifeform.t.toFixed(2)})`);
   console.log(`  SEARCH reached target in ${framesUsed} frames`);;
 });
 
 /* HUNT hold-and-turn: when a HUNT lifeform reaches its target, it holds
    still and turns for 2 s before the 8 s give-up timer starts.
    A new loud sound during the hold retargets it immediately. */
-test('HUNT hold: agent holds and turns for 2s at target, then gives up; loud sound retargets during hold', () => {
+test('HUNT hold: lifeform holds and turns for 2s at target, then gives up; loud sound retargets during hold', () => {
   const t = softAssert();
   buildFloor(0, 4242);
   A.STATE = 'play';
 
-  /* Place a HUNT agent right at its target. */
-  const agent = G.lifeforms[0];
-  agent.x = 10.5; agent.y = 10.5;
-  agent.state = 'HUNT';
-  agent.born = 0;
-  agent.rise = 1;
-  agent.t = 0; // just started hunting
-  agent.target = { x: 10.5, y: 10.5 }; // target is right here
-  agent.face = 0;
+  /* Place a HUNT lifeform right at its target. */
+  const huntLifeform = G.lifeforms[0];
+  huntLifeform.x = 10.5; huntLifeform.y = 10.5;
+  huntLifeform.state = 'HUNT';
+  huntLifeform.born = 0;
+  huntLifeform.rise = 1;
+  huntLifeform.t = 0; // just started hunting
+  huntLifeform.target = { x: 10.5, y: 10.5 }; // target is right here
+  huntLifeform.face = 0;
   G.plumber = {x: 10.5, y: 10.5, face: 0};
 
-  /* Step a few frames - agent should be in hold phase (a.hold > 0). */
-  let face0 = agent.face;
+  /* Step a few frames - lifeform should be in hold phase (a.hold > 0). */
+  let face0 = huntLifeform.face;
   let faceChanged = false;
   for (let i=0; i<30; i++){ // 0.5s
     update(1/60);
-    if (agent.face !== face0) faceChanged = true;
+    if (huntLifeform.face !== face0) faceChanged = true;
   }
   
-  t.assert(agent.state === 'HUNT', `state should be HUNT during hold, got ${agent.state}`);
-  t.assert(agent.hold !== undefined && agent.hold > 0, `agent should have hold timer (${agent.hold})`);
-  t.assert(faceChanged, 'agent should turn during hold');
+  t.assert(huntLifeform.state === 'HUNT', `state should be HUNT during hold, got ${huntLifeform.state}`);
+  t.assert(huntLifeform.hold !== undefined && huntLifeform.hold > 0, `lifeform should have hold timer (${huntLifeform.hold})`);
+  t.assert(faceChanged, 'lifeform should turn during hold');
 
   /* Hold should last 2s total. After ~120 frames, hold expires and give-up timer starts. */
   let afterHold = false;
   for (let i=0; i<150; i++){
     update(1/60);
-    if (agent.hold === 0 && agent.t < 0) afterHold = true;
+    if (huntLifeform.hold === 0 && huntLifeform.t < 0) afterHold = true;
   }
   console.log(`  HUNT hold-and-turn: holds 2s, turns, then gives up; loud sound retargets during hold`);
 
-  /* After 8s more (give-up), agent should switch to SEARCH. */
+  /* After 8s more (give-up), lifeform should switch to SEARCH. */
   let searchReached = false;
   for (let i=0; i<500; i++){
     update(1/60);
-    if (agent.state === 'SEARCH'){ searchReached = true; break; }
+    if (huntLifeform.state === 'SEARCH'){ searchReached = true; break; }
   }
-  t.assert(searchReached, 'agent should transition to SEARCH after 8s give-up');
+  t.assert(searchReached, 'lifeform should transition to SEARCH after 8s give-up');
 
   /* Now test: loud sound during hold should retarget immediately. */
   buildFloor(0, 4242);
   A.STATE = 'play';
-  const agent2 = G.lifeforms[0];
-  agent2.x = 20.5; agent2.y = 20.5;
-  agent2.state = 'HUNT';
-  agent2.born = 0; agent2.rise = 1;
-  agent2.t = 0;
-  agent2.target = { x: 20.5, y: 20.5 };
-  agent2.face = 0;
+  const lifeform2 = G.lifeforms[0];
+  lifeform2.x = 20.5; lifeform2.y = 20.5;
+  lifeform2.state = 'HUNT';
+  lifeform2.born = 0; lifeform2.rise = 1;
+  lifeform2.t = 0;
+  lifeform2.target = { x: 20.5, y: 20.5 };
+  lifeform2.face = 0;
   G.plumber = {x: 20.5, y: 20.5, face: 0};
 
   /* Start hold by stepping once. */
   update(1/60);
-  t.assert(agent2.hold > 0, 'hold should start');
+  t.assert(lifeform2.hold > 0, 'hold should start');
 
   /* During hold, emit a loud sound at a nearby location (5 tiles away, within hearing range). */
   const loudX = 25.5, loudY = 20.5;
   A.sustainedNoise(A.SPRINT_NOISE, loudX, loudY, false); // loud, not mine
 
-  /* Agent should retarget immediately. */
+  /* Lifeform should retarget immediately. */
   update(1/60);
-  t.assert(agent2.target.x === loudX && agent2.target.y === loudY,
-    `agent should retarget to loud sound during hold, target is (${agent2.target.x},${agent2.target.y})`);
-  t.assert(agent2.state === 'HUNT', 'state should remain HUNT');
+  t.assert(lifeform2.target.x === loudX && lifeform2.target.y === loudY,
+    `lifeform should retarget to loud sound during hold, target is (${lifeform2.target.x},${lifeform2.target.y})`);
+  t.assert(lifeform2.state === 'HUNT', 'state should remain HUNT');
 
   console.log('  HUNT hold-and-turn: holds 2s, turns, then gives up; loud sound retargets during hold');;
 });

@@ -6,7 +6,7 @@
    advanced on the frame you died — the clear card came up, the descent was
    free, and the death cost nothing but a life. Nothing in the suite walked into
    it, because the race needs a player on the exact threshold tile with a
-   HUNGER on top of them, which is what this file plants. */
+   Lifeform on top of them, which is what this file plants. */
 import test from 'node:test';
 import { strict as assert } from 'node:assert';
 import { loadGame } from '../helpers/harness.js';

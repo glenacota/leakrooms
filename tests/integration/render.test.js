@@ -197,12 +197,12 @@ test('the leak is drawn where it is, not just where it is computed', () => {
 
 
 /* ============ TEST 29: the canvas state stack survives a frame ============
-   The Rigger used to vanish whenever a Lifeform sorted north of it, which is
-   most frames in the bottom half of a floor. Cause: drawStalker pushed two
+   The Plumber used to vanish whenever a Lifeform sorted north of it, which is
+   most frames in the bottom half of a floor. Cause: drawLifeform pushed two
    canvas states and popped one, so drawAgent's two restores popped the wrong
    pair and its FLOOR CLIP stayed live for the rest of the frame — the player,
    drawn after it in the y-sort, was clipped to the five tiles around the
-   Stalker. Nothing about the player changed; everything after the agent did.
+   Lifeform. Nothing about the player changed; everything after the agent did.
 
    Asserted on the real render(), against the real stub context: no save may
    outlive the frame, and no clip may be live while the player is drawn. */
@@ -224,7 +224,7 @@ console.log('[29] canvas state — nothing outlives the frame that opened it');
     buildFloor(0, 4242);
     A.STATE = 'play';
     /* An agent NORTH of the player is the exact y-sort order that triggered it:
-       the clip is opened first and the Rigger is drawn inside it. */
+       the clip is opened first and the Plumber is drawn inside it. */
     const p = G.plumber;
     G.lifeforms.length = 0;
     G.lifeforms[0] = { x:p.x, y:p.y-4, rise:1, face:0, state:'WALK', born:1, huntT:0,
