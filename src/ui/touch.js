@@ -22,6 +22,7 @@ import { on } from '../util/events.js';
 import { stickMap, sprintThresholds } from '../util/stick.js';
 import { toggleRadar } from './input.js';
 import { togglePause } from './pause.js';
+import { toggleFullscreen } from './fullscreen.js';
 
 /* Which half of the screen the stick lives on. It is a setting; the buttons sit
    on the other side. */
@@ -125,6 +126,10 @@ function onDown(e){
 
   const c = controlAt(e.target);
   if (c){
+    /* The fullscreen glyph acts on click (see initTouch), because the browser
+       only allows fullscreen from a finished tap. Nothing is captured, so the
+       click can reach it. */
+    if (c.name === 'fullscreen') return;
     /* A finger that lands on a button belongs to that button until it lifts. It
        never becomes the stick. */
     if (held.has(e.pointerId)) return;
@@ -195,6 +200,10 @@ export function initTouch(){
   layer.addEventListener('pointermove', onMove);
   layer.addEventListener('pointerup', onUp);
   layer.addEventListener('pointercancel', onUp);
+  layer.addEventListener('click', e => {
+    const c = controlAt(e.target);
+    if (c && c.name === 'fullscreen') toggleFullscreen();
+  });
   // A long press must not open the browser menu over the controls.
   layer.addEventListener('contextmenu', e => { if (e.preventDefault) e.preventDefault(); });
 

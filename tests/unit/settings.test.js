@@ -401,6 +401,42 @@ test('[sprintPush] the row is built, labelled, touch-only, and has one TOUCH hea
   assertEqual(html.indexOf('data-opt="sprintPush"') > html.indexOf('data-opt="haptics"'), true);
 });
 
+/* ============ FULLSCREEN ================================================== */
+test('[fullscreen] valid for auto and off only; default auto', () => {
+  assertEqual(A.SETTINGS_DEFAULTS.fullscreen, 'auto');
+  assertEqual(A.SETTINGS_SCHEMA.fullscreen.values.join(), 'auto,off');
+  for (const v of ['auto', 'off']) assertEqual(A.settingsValid('fullscreen', v), true, v);
+  for (const bad of ['', 'on', 'AUTO', 'always', true, false, 1, null, undefined])
+    assertEqual(A.settingsValid('fullscreen', bad), false, String(bad));
+  assertEqual(A.setOption('fullscreen', 'off'), true);
+  assertEqual(JSON.parse(global.__store.get(A.SETTINGS_KEY)).fullscreen, 'off');
+  assertEqual(A.setOption('fullscreen', 'on'), false);
+  A.resetSettings();
+});
+
+test('[fullscreen] an old save loads auto, a bad value falls back, reset restores', () => {
+  global.__store.set(A.SETTINGS_KEY, JSON.stringify({ master: 0.3 }));
+  A.loadSettings();
+  assertEqual(A.SETTINGS.fullscreen, 'auto');
+  global.__store.set(A.SETTINGS_KEY, JSON.stringify({ fullscreen: 'maybe', master: 0.4 }));
+  A.loadSettings();
+  assertEqual(A.SETTINGS.fullscreen, 'auto');
+  assertEqual(A.SETTINGS.master, 0.4);
+  A.setOption('fullscreen', 'off');
+  A.resetSettings({ keepTerms: true });
+  assertEqual(A.SETTINGS.fullscreen, 'auto');
+});
+
+test('[fullscreen] the row is built and the markup is touch-only', () => {
+  const row = document.querySelectorAll('.seg[data-opt]').find(r => r.dataset.opt === 'fullscreen');
+  assertEqual(!!row, true, 'no row');
+  assertEqual(row.querySelectorAll('button').map(b => b.textContent).join(), 'AUTO,OFF');
+  const html = readHtml();
+  const m = html.match(/<div class="setrow([^"]*)">\s*<span class="lbl">FULLSCREEN<\/span>\s*<div[^>]*data-opt="fullscreen"/);
+  assertEqual(!!m && /touch-only/.test(m[1]), true, 'row missing or not touch-only');
+  assertEqual(/<button id="btn-fullscreen"[^>]*touch-only/.test(html), true, 'button not touch-only');
+});
+
 function assertEqual(a, b, msg){
   if (a !== b) throw new Error(`${msg || 'mismatch'}: got ${JSON.stringify(a)}, want ${JSON.stringify(b)}`);
 }

@@ -2,6 +2,7 @@ import { dismissClear, retryFloor, runAgain, startRun, STATE, armReset, resetArm
 import { advanceSplash } from './splash.js';
 import { togglePause, setPausePage } from './pause.js';
 import { setTermsOpen, termsOpen } from './terms.js';
+import { toggleFullscreen, dismissHint } from './fullscreen.js';
 import { resetSettings } from '../settings/store.js';
 import { syncSettingsUI } from './settings-panel.js';
 
@@ -18,6 +19,12 @@ export function bindButtons(){
      It only acts on the pause screen: togglePause() would also START a pause
      from play, which a RESUME button must never do. */
   document.getElementById('btn-resume').onclick  = ()=>{ if (STATE==='pause') togglePause(); };
+
+  /* The fullscreen button and the tip's dismiss buttons. Both are touch-only
+     and both act on click, which is the gesture fullscreen needs. */
+  document.getElementById('btn-fullscreen').onclick = ()=>{ toggleFullscreen(); };
+  for (const id of ['btn-hint-title','btn-hint-pause'])
+    document.getElementById(id).onclick = ()=>dismissHint();
 
   /* Clicking the BEGIN SHIFT button on the work order screen starts the run.
      Clicking anywhere else on the title or work order screen does nothing.
