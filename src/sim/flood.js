@@ -16,6 +16,7 @@
 
 import { FLOOR, LEAK_HEADSTART, LEAK_RETREAT, LEAK_SPREAD, MAP_H, MAP_W, WET_EDGE, WET_FALL, WET_RISE } from '../config/constants.js';
 import { markWetTile, markWetAll } from '../util/repaint.js';
+import { distanceField } from './path.js';
 
 /**
  * Flood state bundle passed by reference.
@@ -41,35 +42,11 @@ import { markWetTile, markWetAll } from '../util/repaint.js';
  * @typedef {{x:number, y:number}} FloodPlayerState
  */
 
-// BFS distance from the nearest pipe across floor. Computed once when a floor is built and read-only during play.
-function floodField(grid, leaks) {
-  const d = new Int32Array(MAP_W * MAP_H).fill(-1);
-  const q = [];
-  for (const L of leaks) {
-    if (L.fixed) continue;
-    const s = L.sy * MAP_W + L.sx;
-    if (d[s] >= 0) continue;
-    d[s] = 0;
-    q.push(s);
-  }
-  // A BFS visits tiles in non-decreasing distance, so q is already the wetByDist order.
-  for (let h = 0; h < q.length; h++) {
-    const c = q[h], cx = c % MAP_W, cy = (c / MAP_W) | 0;
-    for (const [nx, ny] of [[cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]]) {
-      if (nx < 0 || ny < 0 || nx >= MAP_W || ny >= MAP_H) continue;
-      const ni = ny * MAP_W + nx;
-      if (grid[ni] !== FLOOR || d[ni] >= 0) continue;
-      d[ni] = d[c] + 1;
-      q.push(ni);
-    }
-  }
-  return { dist: d, order: q };
-}
-
 /* Sets up the flood for a new floor, and pre-warms it. Runs inside buildFloor. */
 export function initFlood(floodState, player) {
   floodState.wetArr = new Float32Array(MAP_W * MAP_H);
-  const ff = floodField(floodState.grid, floodState.leaks);
+  const sources = floodState.leaks.filter(L => !L.fixed).map(L => L.sy * MAP_W + L.sx);
+  const ff = distanceField(floodState.grid, sources);
   floodState.waterDist = ff.dist;
   floodState.wetByDist = ff.order;
   floodState.wetMaxDist = floodState.wetByDist.length ? floodState.waterDist[floodState.wetByDist[floodState.wetByDist.length - 1]] : 0;

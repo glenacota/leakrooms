@@ -9,52 +9,51 @@ import { MAP_W, MAP_H, FLOOR } from '../config/constants.js';
 const NEIGHBOURS = [[1,0], [-1,0], [0,1], [0,-1]];
 
 /**
- * Builds a walking-distance field from the target tile.
- * Only FLOOR tiles are traversable; everything else is -1 (unreachable).
+ * Builds a walking-distance field over floor tiles.
+ * Numeric target coordinates preserve the single-source API. An array of
+ * source tile indices or {x,y} tiles returns both distances and BFS visit order.
  *
- * @param {Uint8Array} grid - the floor grid (MAP_W x MAP_H)
- * @param {number} targetX - target tile X (integer)
- * @param {number} targetY - target tile Y (integer)
- * @returns {Int16Array} distance field of size MAP_W * MAP_H.
- *   Value is the minimum number of steps to reach the target, or -1 if unreachable.
+ * @param {Uint8Array} grid
+ * @param {number|Array<number|{x:number,y:number}>} targetX - target X or sources
+ * @param {number} [targetY]
+ * @returns {Int16Array|{dist:Int32Array,order:number[]}}
  */
 export function distanceField(grid, targetX, targetY){
   const size = MAP_W * MAP_H;
-  const field = new Int16Array(size);
-  field.fill(-1);
-
-  const tx = Math.floor(targetX);
-  const ty = Math.floor(targetY);
-
-  /* Target must be on floor and inside the map. */
-  if (tx < 0 || tx >= MAP_W || ty < 0 || ty >= MAP_H) return field;
-  if (grid[ty * MAP_W + tx] !== FLOOR) return field;
-
+  const multi = Array.isArray(targetX) ||
+    (ArrayBuffer.isView(targetX) && typeof targetX[Symbol.iterator] === 'function');
+  const dist = multi ? new Int32Array(size) : new Int16Array(size);
+  dist.fill(-1);
+  const order = [];
   const queue = new Uint32Array(size);
   let head = 0, tail = 0;
 
-  const tidx = ty * MAP_W + tx;
-  field[tidx] = 0;
-  queue[tail++] = tidx;
+  const sources = multi ? targetX : [{
+    x: Math.floor(targetX), y: Math.floor(targetY)
+  }];
+  for (const source of sources){
+    const idx = multi
+      ? (typeof source === 'number' ? source : Math.floor(source.y)*MAP_W+Math.floor(source.x))
+      : source.y*MAP_W+source.x;
+    if (!Number.isInteger(idx) || idx<0 || idx>=size || grid[idx]!==FLOOR || dist[idx]===0) continue;
+    dist[idx]=0;
+    queue[tail++]=idx;
+    order.push(idx);
+  }
 
-  while (head < tail){
-    const idx = queue[head++];
-    const x = idx % MAP_W;
-    const y = (idx / MAP_W) | 0;
-    const d = field[idx];
-    const nd = d + 1;
-
-    for (const [dx, dy] of NEIGHBOURS){
-      const nx = x + dx, ny = y + dy;
-      if (nx < 0 || nx >= MAP_W || ny < 0 || ny >= MAP_H) continue;
-      const nidx = ny * MAP_W + nx;
-      if (field[nidx] !== -1) continue;
-      if (grid[nidx] !== FLOOR) continue;
-      field[nidx] = nd;
-      queue[tail++] = nidx;
+  while (head<tail){
+    const idx=queue[head++], x=idx%MAP_W, y=(idx/MAP_W)|0, nd=dist[idx]+1;
+    for (const [dx,dy] of NEIGHBOURS){
+      const nx=x+dx, ny=y+dy;
+      if (nx<0 || nx>=MAP_W || ny<0 || ny>=MAP_H) continue;
+      const nidx=ny*MAP_W+nx;
+      if (dist[nidx]!==-1 || grid[nidx]!==FLOOR) continue;
+      dist[nidx]=nd;
+      queue[tail++]=nidx;
+      order.push(nidx);
     }
   }
-  return field;
+  return multi ? {dist, order} : dist;
 }
 
 /**

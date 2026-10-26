@@ -9,6 +9,7 @@
 import { MAP_W, MAP_H, NOISE, SOUND_POWERS } from '../config/constants.js';
 import { emit } from '../util/events.js';
 import { createCollision } from './collision.js';
+import { walkLine } from '../util/line.js';
 
 /**
  * Noise state bundle passed by reference.
@@ -63,28 +64,15 @@ export function wallSteps(grid, ax, ay, x, y){
   const sx=Math.floor(ax), sy=Math.floor(ay);
   const ex=Math.floor(x),   ey=Math.floor(y);
 
-  // Canonical order: walk from the tile with the smaller linear index.
-  // This makes wallSteps(a,b) === wallSteps(b,a) because Bresenham is
-  // deterministic for a given start/end, and we fix the direction.
-  const sIdx = sy*MAP_W + sx;
-  const eIdx = ey*MAP_W + ex;
-  const startX = sIdx <= eIdx ? sx : ex;
-  const startY = sIdx <= eIdx ? sy : ey;
-  const endX   = sIdx <= eIdx ? ex : sx;
-  const endY   = sIdx <= eIdx ? ey : sy;
-
-  let cx=startX, cy=startY, steps=0;
-  const dx=Math.abs(endX-startX), dy=-Math.abs(endY-startY);
-  const stepX = startX<endX ? 1 : -1, stepY = startY<endY ? 1 : -1;
-  let err = dx+dy;
-  // The guard is longer than any line inside the map, so it only stops a bug from looping forever.
-  for (let guard=0; guard<MAP_W+MAP_H; guard++){
-    if (cx===endX && cy===endY) break;
-    const e2 = 2*err;
-    if (e2 >= dy){ err += dy; cx += stepX; }
-    if (e2 <= dx){ err += dx; cy += stepY; }
-    if (solid(cx,cy) && ++steps >= MAX_WALL_STEPS) break;
-  }
+  // Fix the direction so both argument orders visit the same tiles.
+  const sIdx = sy*MAP_W + sx, eIdx = ey*MAP_W + ex;
+  const startX = sIdx <= eIdx ? sx : ex, startY = sIdx <= eIdx ? sy : ey;
+  const endX = sIdx <= eIdx ? ex : sx, endY = sIdx <= eIdx ? ey : sy;
+  let first=true, steps=0;
+  walkLine(startX,startY,endX,endY,(cx,cy)=>{
+    if (first){ first=false; return true; }
+    if (solid(cx,cy) && ++steps >= MAX_WALL_STEPS) return false;
+  }, {limit:MAP_W+MAP_H, inclusive:true});
   return steps;
 }
 
