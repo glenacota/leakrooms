@@ -4,6 +4,7 @@ import { TAU } from '../cast/primitives.js';
 import { DOOR_HOLD, FLOOR, HAND_OFF, MAP_H, MAP_W, TILE, WALL_FACE } from '../config/constants.js';
 import { G } from '../sim/state.js';
 import { ctx } from './canvas.js';
+import { radialSprite as buildRadialSprite } from './sprites.js';
 
 /* ============================================================
    THE DOOR
@@ -31,15 +32,10 @@ import { ctx } from './canvas.js';
 const GLOW_R = TILE*2.4, LAMP_R = 7;
 
 function radialSprite(r, innerR, inner, outer){
-  const cv = document.createElement('canvas');
-  cv.width = cv.height = Math.ceil(r*2);
-  const c = cv.getContext('2d');
-  const g = c.createRadialGradient(r, r, innerR, r, r, r);
-  g.addColorStop(0, inner);
-  g.addColorStop(1, outer);
-  c.fillStyle = g;
-  c.fillRect(0, 0, cv.width, cv.height);
-  return cv;
+  const size = Math.ceil(r*2);
+  return buildRadialSprite(size,size,{
+    cx:r, cy:r, r0:innerR, r1:r, stops:[[0,inner],[1,outer]]
+  });
 }
 
 let glowSprite = null, lampReady = null, lampLocked = null;
