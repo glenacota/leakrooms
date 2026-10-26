@@ -15,6 +15,7 @@ export const SEGMENTS = {
   touchHud:   () => [['auto','AUTO'],['always','ALWAYS'],['minimal','MINIMAL']],
   touchSide:  () => [['left','LEFT'],['right','RIGHT']],
   haptics:    () => [['true','ON'],['false','OFF']],
+  fullscreen: () => [['auto','AUTO'],['off','OFF']],
   sprintPush: () => [['light','LIGHT'],['normal','NORMAL'],['firm','FIRM']],
 };
 

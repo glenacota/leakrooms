@@ -397,3 +397,58 @@ test('[SPRINT PUSH] pad.sprint makes the SPRINT noise entry for every preset', (
   assert.equal(peaks[0], peaks[1]); assert.equal(peaks[1], peaks[2]);
   A.setOption('sprintPush', 'normal');
 });
+
+/* ============ the fullscreen glyph ============
+   It must act on click and never on pointerdown: the browser only allows
+   fullscreen from a finished tap. The harness document has no fullscreen, so
+   this gives it a fake root for the length of each test. */
+function withFakeFullscreen(fn){
+  const saved = { root: document.documentElement, en: document.fullscreenEnabled, el: document.fullscreenElement };
+  const calls = { request: 0, exit: 0 };
+  const root = { dataset: { input: 'touch' }, requestFullscreen(){ calls.request++; document.fullscreenElement = root; return Promise.resolve(); } };
+  document.documentElement = root;
+  document.fullscreenEnabled = true;
+  document.fullscreenElement = null;
+  document.exitFullscreen = () => { calls.exit++; document.fullscreenElement = null; return Promise.resolve(); };
+  try { return fn(calls); }
+  finally {
+    document.documentElement = saved.root; document.fullscreenEnabled = saved.en;
+    document.fullscreenElement = saved.el; delete document.exitFullscreen;
+  }
+}
+
+test('[TOUCH] the fullscreen glyph does nothing on pointerdown and acts once on click', () => {
+  withFakeFullscreen(calls => {
+    startTouchRun();
+    const glyph = button('fullscreen');
+    fire('pointerdown', ev(5, 900, 40, { target: glyph }));
+    fire('pointerup', ev(5, 900, 40, { target: glyph }));
+    assert.equal(calls.request, 0, 'fullscreen was requested from a pointer event');
+    fire('click', { target: glyph });
+    assert.equal(calls.request, 1);
+    fire('click', { target: glyph });                    // now fullscreen: the glyph toggles out
+    assert.equal(calls.exit, 1);
+  });
+});
+
+test('[TOUCH] the glyph never becomes the stick, and a click elsewhere does not toggle', () => {
+  withFakeFullscreen(calls => {
+    startTouchRun();
+    fire('pointerdown', ev(6, 100, 40, { target: button('fullscreen') }));   // on the stick half
+    fire('pointermove', ev(6, 166, 40));
+    assert.ok(zero(), 'the glyph finger drove the stick');
+    assert.equal(ring.hidden, true);
+    fire('click', { target: button('radar') });
+    fire('click', { target: layer });
+    assert.equal(calls.request, 0);
+  });
+});
+
+test('[TOUCH] the glyph is a data-touch button in #touch and its click is not pointerdown', () => {
+  const html = readHtml();
+  assert.ok(/<div id="touch"[\s\S]*data-touch="fullscreen"[\s\S]*<\/div>\s*<!-- =+ SCREENS/.test(html), 'glyph is not inside #touch');
+  const css = fs.readFileSync(new URL('../../css/touch.css', import.meta.url), 'utf8');
+  assert.ok(/\[data-fs=unsupported\] #btn-fullscreen,[\s\S]*\[data-fs=on\] \[data-touch=fullscreen\]\s*\{\s*display:none/.test(css));
+  const src = fs.readFileSync(new URL('../../src/ui/touch.js', import.meta.url), 'utf8');
+  assert.ok(/layer\.addEventListener\('click'/.test(src));
+});

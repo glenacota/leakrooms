@@ -20,6 +20,7 @@ import { bindInput } from './ui/input.js';
 import { bindButtons } from './ui/buttons.js';
 import { initTouch } from './ui/touch.js';
 import { initHaptics } from './ui/haptics.js';
+import { initFullscreen } from './ui/fullscreen.js';
 import { emit } from './util/events.js';
 import { mobileVerdict, showMobileNotice } from './ui/mobile.js';
 import { setFatalHook, setFrameHooks } from './game/loop.js';
@@ -91,13 +92,15 @@ export function boot(){
        3. bindInput    keyboard handling
        4. bindButtons  button and screen clicks
        5. initTouch    the on-screen stick (shown only in touch mode)
-       6. initHaptics  short buzzes for danger sounds, where the device can */
+       6. initHaptics  short buzzes for danger sounds, where the device can
+       7. initFullscreen  fullscreen on the first tap, and the home-screen tip */
   bindRun();
   bindDom();
   bindInput();
   bindButtons();
   initTouch();
   initHaptics();
+  initFullscreen();
 
   /* A handheld plays with the touch layer. One that cannot run it gets the
      notice instead of a title nobody can start; the key handler checks

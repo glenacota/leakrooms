@@ -34,15 +34,16 @@ test('[37] the DOM stub resolves the markup it claims to', () => {
   assert.equal(loud.classList.contains('loud'), true, 'the resolved node is not the loud mark');
 
   /* The five collection shapes, against the counts the markup declares:
-     seven segmented rows, four range inputs, two pause tabs, two pause pages. */
-  assert.equal(querySelectorAll('.seg[data-opt]').length, 7, 'wrong number of segmented rows');
+     eight segmented rows, four range inputs, two pause tabs, two pause pages. */
+  assert.equal(querySelectorAll('.seg[data-opt]').length, 8, 'wrong number of segmented rows');
   assert.equal(querySelectorAll('input[type=range][data-opt]').length, 4, 'wrong number of range inputs');
   assert.equal(querySelectorAll('[data-pause-tab]').length, 2, 'wrong number of pause tabs');
   assert.equal(querySelectorAll('[data-pause-page]').length, 2, 'wrong number of pause pages');
   /* Ten since the fatal card shipped its RELOAD: the markup gained a button, so
      this count moved with it. Thirteen since the touch layer: RESUME, and the
-     radar and pause buttons. */
-  assert.equal(querySelectorAll('button').length, 13, 'wrong number of buttons');
+     radar and pause buttons. Seventeen since fullscreen: its glyph, its
+     pause-page button and the two dismiss buttons of the home-screen tip. */
+  assert.equal(querySelectorAll('button').length, 17, 'wrong number of buttons');
 
   /* Attributes become dataset properties in camelCase — the direction that
      matters, since `data-pause-tab` is `dataset.pauseTab` and not the reverse. */

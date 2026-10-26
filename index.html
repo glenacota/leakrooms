@@ -6,6 +6,13 @@
 <meta name="author" content="glenacota">
 <title>LEAKROOMS</title>
 <link rel="icon" type="image/png" href="./logo.png">
+<!-- Home-screen launch: no browser bars. There is no manifest on purpose. -->
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="LEAKROOMS">
+<meta name="theme-color" content="#000000">
+<link rel="apple-touch-icon" href="./logo.png">
 
 <!-- Stylesheets. The order matters: tokens first (shared variables), base last (overrides). -->
 <link rel="stylesheet" href="css/tokens.css">
@@ -87,6 +94,9 @@
     <div id="touch-ring" hidden><div id="touch-knob"></div></div>
     <button type="button" data-touch="radar" aria-label="Radar">RADAR</button>
     <button type="button" data-touch="pause" aria-label="Pause"><i></i><i></i></button>
+    <!-- Beside the pause glyph. It acts on click, not pointerdown: the browser
+         only allows fullscreen from a completed tap. -->
+    <button type="button" data-touch="fullscreen" aria-label="Fullscreen"><i></i></button>
   </div>
 
   <!-- ============ SCREENS ============
@@ -109,6 +119,7 @@
       <h1>LEAKROOMS</h1>
       <h2>The Backrooms are flooding. <b>Seal the leaks</b>. Get back in one piece.</h2>
       <p class="go"><span class="kbd-only">PRESS <b>ANY KEY</b></span><span class="touch-only">TAP <b>ANYWHERE</b> TO CLOCK IN</span></p>
+      <p class="fs-hint touch-only" hidden><span>TIP: SHARE, THEN ADD TO HOME SCREEN, TO PLAY WITHOUT BROWSER BARS.</span><button type="button" id="btn-hint-title" aria-label="Dismiss tip">OK</button></p>
     </div>
     <footer class="screen-footer">
       <p class="footer-left">
@@ -293,10 +304,18 @@
                 <p class="note">How far you push the stick before you run. Running is loud.</p>
               </div>
 
+              <div class="setrow touch-only fs-ui">
+                <span class="lbl">FULLSCREEN</span>
+                <div class="seg" id="set-fullscreen" data-opt="fullscreen" role="group" aria-label="FULLSCREEN"></div>
+              </div>
+
+              <p class="fs-hint touch-only" hidden><span>TIP: SHARE, THEN ADD TO HOME SCREEN, TO PLAY WITHOUT BROWSER BARS.</span><button type="button" id="btn-hint-pause" aria-label="Dismiss tip">OK</button></p>
+
             </div>
 
             <div class="setrow buttons">
               <button id="btn-resume">RESUME</button>
+              <button id="btn-fullscreen" class="ghost touch-only fs-ui">ENTER FULLSCREEN</button>
               <button id="btn-settings-reset" class="ghost">RESET SETTINGS</button>
               <button id="btn-reset-run" class="ghost danger">RESTART RUN</button>
             </div>

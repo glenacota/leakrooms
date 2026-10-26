@@ -130,6 +130,44 @@ html[data-input=touch] #crt{ height:100dvh; }
   background:var(--yellow);
 }
 
+/* The fullscreen glyph: four corner brackets, to the left of the pause glyph.
+   Hidden once the page is fullscreen, and where it cannot be. */
+#touch [data-touch=fullscreen]{
+  width:48px; height:48px;
+  right:calc(70px + env(safe-area-inset-right));
+  top:calc(12px + env(safe-area-inset-top));
+}
+#touch [data-touch=fullscreen] i{
+  display:block; width:20px; height:20px;
+  --c:linear-gradient(var(--yellow),var(--yellow));
+  background:
+    var(--c) 0 0/8px 3px,       var(--c) 0 0/3px 8px,
+    var(--c) 100% 0/8px 3px,    var(--c) 100% 0/3px 8px,
+    var(--c) 0 100%/8px 3px,    var(--c) 0 100%/3px 8px,
+    var(--c) 100% 100%/8px 3px, var(--c) 100% 100%/3px 8px;
+  background-repeat:no-repeat;
+}
+
+/* ---------- Fullscreen controls and the home-screen tip ---------- */
+
+[data-fs=unsupported] #btn-fullscreen,
+[data-fs=unsupported] .fs-ui,
+[data-fs=unsupported] [data-touch=fullscreen],
+[data-fs=on] [data-touch=fullscreen]{ display:none; }
+
+/* One dim line that wraps on a narrow screen. The OK button is small on
+   purpose: it is not part of the game. */
+.fs-hint{
+  display:flex; align-items:center; justify-content:center; flex-wrap:wrap;
+  gap:6px 10px;
+  margin:10px 0 0;
+  font-size:11px; letter-spacing:.08em; line-height:1.5;
+  color:var(--yellow-dim); opacity:.8;
+}
+.fs-hint[hidden]{ display:none !important; }
+.fs-hint button{ font-size:10px; font-weight:900; padding:2px 10px; min-height:0; }
+[data-input=touch] .fs-hint button{ min-height:32px; }
+
 /* ---------- The HUD panel in touch mode ---------- */
 
 /* src/ui/touch-hud-rules.js adds .hud-quiet when nothing needs reading. Opacity

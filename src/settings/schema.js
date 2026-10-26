@@ -43,6 +43,9 @@ export const SETTINGS_SPEC = {
   /* How far the stick is pushed before the plumber runs. It moves only the line
      at which the stick reports sprint (STICK.SPRINT_PRESETS); how loud sprinting
      is stays in the noise table. */
+  /* Whether the first tap on the title asks the browser for fullscreen. 'off'
+     leaves it to the button and the glyph. Nothing is ever requested without a tap. */
+  fullscreen:     { default:'auto', type:'enum', values:['auto','off'] },
   sprintPush:     { default:'normal', type:'enum', values:Object.keys(STICK.SPRINT_PRESETS) },
 };
 
