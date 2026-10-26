@@ -1,4 +1,4 @@
-import { TAU, limb, blob, rim, arm, feet, legs, stride } from './primitives.js';
+import { TAU, blob, rim, arm, feet, legs, stride } from './primitives.js';
 
 /* THE AVATAR: the Plumber. Hard hat, hi-vis vest with two reflective bands that
    slide fore and aft on the stride, tool belt, and a wrench that swings with the

@@ -5,12 +5,12 @@
      RISING   getting up after waking (about 1.4 s), then it hunts
      WALK     wanders the floor; a noise turns it to SEARCH, a loud one to HUNT
      SEARCH   walks to the place it heard something; times out to WALK
-     HUNT     chases its target at HUNT_BASE plus HUNT_STEP per floor
+     HUNT     chases its target at HUNT_BASE per floor
    Noise reactions are in noise.js (alert).
    ============================================================ */
 
 import { LIFEFORM, CATCH_R, LEAK_LURE, MAP_W } from '../config/constants.js';
-import { HUNT_BASE, HUNT_STEP } from '../config/tuning.js';
+import { HUNT_BASE } from '../config/tuning.js';
 import { createCollision } from './collision.js';
 import { brush } from './noise.js';
 import { distanceField, nextStep } from './path.js';
