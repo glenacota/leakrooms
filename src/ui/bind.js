@@ -37,7 +37,7 @@ export function bindDom(){
     if (showing) h.classList.add('on'); else h.classList.remove('on');
   });
   on('lives', renderLives);
-  on('splash:repaint', paintSplashPlan);
+  on('splash:repaint', () => paintSplashPlan());
   on('resize', () => {
     if (G && (STATE === 'splash' || STATE === 'order')) paintSplashPlan();
   });
