@@ -3,6 +3,7 @@ import { G } from '../../sim/state.js';
 import { SETTINGS } from '../../settings/store.js';
 import { cvs, ctx } from '../canvas.js';
 import { buildGrainFull, grainFull, scanPat } from '../textures.js';
+import { radialSprite } from '../sprites.js';
 
 /* A quarter-size copy of the screen, used by the chroma ghost. It does not
    belong to a floor, because the screen is the same size whichever floor is
@@ -19,14 +20,10 @@ let vigCv = null, dangerCv = null;
 // The vignette is canvas-sized: it is a fixed proportion of the frame.
 export function buildVignette(){
   if (!cvs.width || !cvs.height) return;
-  vigCv = document.createElement('canvas');
-  vigCv.width = cvs.width; vigCv.height = cvs.height;
-  const g = vigCv.getContext('2d');
-  const vg = g.createRadialGradient(cvs.width/2, cvs.height/2, cvs.height*0.34,
-                                    cvs.width/2, cvs.height/2, cvs.height*1.05);
-  vg.addColorStop(0, 'rgba(0,0,0,0)');
-  vg.addColorStop(1, 'rgba(0,0,0,0.34)');
-  g.fillStyle = vg; g.fillRect(0,0,cvs.width,cvs.height);
+  vigCv = radialSprite(cvs.width,cvs.height,{
+    cx:cvs.width/2, cy:cvs.height/2, r0:cvs.height*0.34, r1:cvs.height*1.05,
+    stops:[[0,'rgba(0,0,0,0)'],[1,'rgba(0,0,0,0.34)']]
+  });
 }
 
 /* The awareness wash (the red edge when a lifeform sees you) is HALF resolution.
@@ -35,13 +32,10 @@ export function buildVignette(){
 export function buildDangerWash(){
   if (!cvs.width || !cvs.height) return;
   const w = Math.max(1, cvs.width>>1), h = Math.max(1, cvs.height>>1);
-  dangerCv = document.createElement('canvas');
-  dangerCv.width = w; dangerCv.height = h;
-  const g = dangerCv.getContext('2d');
-  const vg = g.createRadialGradient(w/2, h/2, h*0.18, w/2, h/2, h*0.78);
-  vg.addColorStop(0, 'rgba(216,80,60,0)');
-  vg.addColorStop(1, 'rgba(150,26,16,0.62)');
-  g.fillStyle = vg; g.fillRect(0,0,w,h);
+  dangerCv = radialSprite(w,h,{
+    cx:w/2, cy:h/2, r0:h*0.18, r1:h*0.78,
+    stops:[[0,'rgba(216,80,60,0)'],[1,'rgba(150,26,16,0.62)']]
+  });
 }
 
 /* The tape dropout clock. This is the only state the pass keeps between frames.
