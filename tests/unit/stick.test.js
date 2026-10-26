@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { stickMap } from '../../src/util/stick.js';
+import { stickMap, sprintThresholds } from '../../src/util/stick.js';
 import { STICK } from '../../src/config/constants.js';
 
 const near = (a, b, e = 1e-12) => Math.abs(a - b) < e;
@@ -56,4 +56,59 @@ test('[STICK] radius 0 or less returns zeros', () => {
     assert.ok(Object.is(s.x, 0) && Object.is(s.y, 0) && Object.is(s.mag, 0));
     assert.equal(s.sprint, false);
   }
+});
+
+/* ============ SPRINT PUSH presets ============ */
+const PRESETS = { light: 0.75, normal: 0.88, firm: 0.96 };
+const sp = (frac, prev, preset) => stickMap(R*frac, 0, R, prev, preset).sprint;
+
+test('[STICK] sprintThresholds: off is on minus the hysteresis', () => {
+  for (const [name, on] of Object.entries(PRESETS)){
+    const t = sprintThresholds(name);
+    assert.equal(t.on, on);
+    assert.ok(near(t.off, on - STICK.SPRINT_HYST), `${name} off ${t.off}`);
+  }
+  assert.deepEqual(STICK.SPRINT_PRESETS, PRESETS);
+  assert.equal(STICK.SPRINT_ON, undefined);
+  assert.equal(STICK.SPRINT_OFF, undefined);
+});
+
+test('[STICK] each preset: below on stays off, at on turns on, between holds, below off turns off', () => {
+  for (const [name, on] of Object.entries(PRESETS)){
+    const off = on - STICK.SPRINT_HYST;
+    assert.equal(sp(on - 0.01, false, name), false, `${name} below on`);
+    assert.equal(sp(on, false, name), true, `${name} at on`);
+    assert.equal(sp(on + 0.01, false, name), true, `${name} above on`);
+    const mid = (on + off) / 2;
+    assert.equal(sp(mid, true, name), true, `${name} between, latched`);
+    assert.equal(sp(mid, false, name), false, `${name} between, not latched`);
+    assert.equal(sp(off + 0.005, true, name), true, `${name} just above off`);
+    assert.equal(sp(off - 0.01, true, name), false, `${name} below off`);
+  }
+});
+
+test('[STICK] an unknown, missing or non-string preset behaves as normal', () => {
+  for (const bad of [undefined, null, 'turbo', '', 'LIGHT', 0.5, 1, true, {}, [], 'toString', '__proto__', 'hasOwnProperty']){
+    const t = sprintThresholds(bad);
+    assert.equal(t.on, PRESETS.normal, `${String(bad)}`);
+    for (const frac of [0.5, 0.79, 0.85, 0.87, 0.88, 0.95]){
+      for (const prev of [false, true])
+        assert.equal(sp(frac, prev, bad), sp(frac, prev, 'normal'), `${String(bad)} @${frac} prev ${prev}`);
+    }
+  }
+  // Omitting the argument is the four-argument call the old code made.
+  assert.equal(stickMap(R*0.88, 0, R, false).sprint, true);
+});
+
+test('[STICK] dead zone, direction and magnitude are identical across presets', () => {
+  for (const [dx, dy] of [[0, 0], [R*0.19, 0], [R*0.3, R*0.1], [-R*0.5, R*0.5], [0, -R*0.7], [R*0.8, 0], [R*2, 0]]){
+    const base = stickMap(dx, dy, R, false, 'normal');
+    for (const name of Object.keys(PRESETS)){
+      const s = stickMap(dx, dy, R, false, name);
+      assert.ok(Object.is(s.x, base.x) && Object.is(s.y, base.y) && Object.is(s.mag, base.mag),
+        `${name} moved the vector at ${dx},${dy}`);
+    }
+  }
+  // Inside the dead zone nothing sprints, whatever the preset or the latch.
+  for (const name of Object.keys(PRESETS)) assert.equal(sp(0.1, true, name), false);
 });

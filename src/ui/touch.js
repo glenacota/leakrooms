@@ -19,7 +19,7 @@ import { STATE } from '../game/run.js';
 import { SETTINGS } from '../settings/store.js';
 import { pad } from '../sim/keys.js';
 import { on } from '../util/events.js';
-import { stickMap } from '../util/stick.js';
+import { stickMap, sprintThresholds } from '../util/stick.js';
 import { toggleRadar } from './input.js';
 import { togglePause } from './pause.js';
 
@@ -63,10 +63,22 @@ function controlAt(target){
    the mode to keyboard calls this, and the key it carries must survive. */
 function zeroPad(){ pad.x = 0; pad.y = 0; pad.sprint = false; }
 
+/* Where the sprint line is, for the dashed marker in css/touch.css. It is the
+   `on` threshold of the SPRINT PUSH preset, as a fraction of the ring's size. */
+function paintSprintAt(){
+  if (ring && ring.style && ring.style.setProperty)
+    ring.style.setProperty('--sprint-at', String(sprintThresholds(SETTINGS.sprintPush).on));
+}
+
+function setSprintClass(on){
+  ring.classList.toggle('sprint', on);
+  ring.classList.toggle('sprinting', on);
+}
+
 function releaseStick(){
   stick = null;
   zeroPad();
-  if (ring){ ring.hidden = true; ring.classList.remove('sprint'); }
+  if (ring){ ring.hidden = true; setSprintClass(false); }
 }
 
 function releaseAll(){
@@ -133,6 +145,7 @@ function onDown(e){
   ring.style.top = e.clientY + 'px';
   ring.style.width = ring.style.height = (2 * r) + 'px';
   knob.style.transform = 'translate(0px,0px)';
+  paintSprintAt();
   ring.hidden = false;
 }
 
@@ -140,14 +153,14 @@ function onMove(e){
   if (!stick || e.pointerId !== stick.id) return;
   const dx = e.clientX - stick.ox, dy = e.clientY - stick.oy;
   const r = stickRadius();
-  const s = stickMap(dx, dy, r, pad.sprint);
+  const s = stickMap(dx, dy, r, pad.sprint, SETTINGS.sprintPush);
   pad.x = s.x; pad.y = s.y; pad.sprint = s.sprint;
 
   // The knob follows the thumb but stops at the ring.
   const len = Math.hypot(dx, dy);
   const k = len > r ? r / len : 1;
   knob.style.transform = `translate(${dx * k}px,${dy * k}px)`;
-  ring.classList.toggle('sprint', s.sprint);
+  setSprintClass(s.sprint);
 }
 
 function onUp(e){
@@ -199,6 +212,9 @@ export function initTouch(){
   /* A finger that is down when the side changes would be on the wrong half. */
   on('settings:changed', key => {
     if (key === 'touchSide' || key === '*'){ releaseAll(); layout(); }
+    /* The new line applies from the next move. The finger stays down, so the
+       marker is repainted and the latch is left alone. */
+    if (key === 'sprintPush' || key === '*') paintSprintAt();
   });
 
   if (typeof window !== 'undefined' && typeof window.matchMedia === 'function'){

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { loadGame } from '../helpers/harness.js';
 import { pad, keys } from '../../src/sim/keys.js';
 import { transition } from '../../src/game/run.js';
+import { WALK, SPRINT, NOISE } from '../../src/config/constants.js';
 import { emit, on } from '../../src/util/events.js';
 import { bindRotate } from '../../src/ui/touch.js';
 import { readCss, readHtml } from '../helpers/src-text.js';
@@ -281,4 +282,118 @@ test('[TOUCH] portrait shows the rotate card, pauses the run once, and rotating 
   assert.equal(A.STATE, 'splash');
   // A query list that cannot listen is ignored, not an error.
   assert.doesNotThrow(() => { bindRotate(null); bindRotate({}); });
+});
+
+/* ============ SPRINT PUSH ============
+   The radius is 66 px here, so 0.80 of it is 52.8 px. */
+ring.style.setProperty = (k, v) => { ring.style[k] = v; };
+const push = (id, frac) => fire('pointermove', ev(id, 200 + 66 * frac, 300));
+
+function withPreset(name, fn){
+  A.setOption('sprintPush', name);
+  try { fn(); } finally { A.setOption('sprintPush', 'normal'); }
+}
+
+test('[SPRINT PUSH] a 0.80 push sprints on light, and not on normal or firm', () => {
+  for (const [name, want] of [['light', true], ['normal', false], ['firm', false]]){
+    withPreset(name, () => {
+      startTouchRun();
+      fire('pointerdown', ev(1, 200, 300));
+      push(1, 0.80);
+      assert.equal(pad.sprint, want, `${name} at 0.80`);
+      assert.equal(ring.classList.contains('sprinting'), want, `${name} ring class`);
+      fire('pointerup', ev(1, 200, 300));
+      assert.ok(zero());
+    });
+  }
+});
+
+test('[SPRINT PUSH] firm needs 0.96; normal is unchanged from before (0.88 on, holds at 0.85)', () => {
+  withPreset('firm', () => {
+    startTouchRun();
+    fire('pointerdown', ev(1, 200, 300));
+    push(1, 0.95); assert.equal(pad.sprint, false);
+    push(1, 1.0); assert.equal(pad.sprint, true);
+    push(1, 0.90); assert.equal(pad.sprint, true, 'latch holds above 0.88');
+    push(1, 0.85); assert.equal(pad.sprint, false, 'latch drops below 0.88');
+    fire('pointerup', ev(1, 200, 300));
+  });
+  startTouchRun();
+  fire('pointerdown', ev(1, 200, 300));
+  push(1, 0.87); assert.equal(pad.sprint, false);
+  push(1, 0.89); assert.equal(pad.sprint, true);
+  push(1, 0.85); assert.equal(pad.sprint, true);
+  push(1, 0.79); assert.equal(pad.sprint, false);
+  fire('pointerup', ev(1, 200, 300));
+});
+
+test('[SPRINT PUSH] a change mid-drag takes effect on the next move', () => {
+  startTouchRun();
+  fire('pointerdown', ev(1, 200, 300));
+  push(1, 0.80);
+  assert.equal(pad.sprint, false);
+  A.setOption('sprintPush', 'light');
+  assert.equal(pad.sprint, false, 'the change must wait for the next move');
+  push(1, 0.80);
+  assert.equal(pad.sprint, true);
+  A.setOption('sprintPush', 'firm');
+  push(1, 0.80);
+  assert.equal(pad.sprint, false, 'firm: 0.80 is below its off line');
+  fire('pointerup', ev(1, 200, 300));
+  A.setOption('sprintPush', 'normal');
+});
+
+test('[SPRINT PUSH] --sprint-at is set when the ring appears and on settings:changed', () => {
+  startTouchRun();
+  for (const [name, on] of [['light', 0.75], ['normal', 0.88], ['firm', 0.96]]){
+    A.setOption('sprintPush', name);
+    fire('pointerdown', ev(1, 200, 300));
+    assert.equal(Number(ring.style['--sprint-at']), on, `${name} on appear`);
+    fire('pointerup', ev(1, 200, 300));
+  }
+  // While a finger is down the marker follows the setting.
+  fire('pointerdown', ev(1, 200, 300));
+  A.setOption('sprintPush', 'light');
+  assert.equal(Number(ring.style['--sprint-at']), 0.75);
+  emit('settings:changed', '*');
+  assert.equal(Number(ring.style['--sprint-at']), 0.75);
+  A.setOption('sprintPush', 'firm');
+  assert.equal(Number(ring.style['--sprint-at']), 0.96);
+  fire('pointerup', ev(1, 200, 300));
+  A.setOption('sprintPush', 'normal');
+});
+
+test('[SPRINT PUSH] the stylesheet draws the dashed circle and the solid one', () => {
+  const css = fs.readFileSync(new URL('../../css/touch.css', import.meta.url), 'utf8');
+  assert.ok(/#touch-ring::after\s*\{[^}]*var\(--sprint-at/.test(css), 'no circle sized by --sprint-at');
+  assert.ok(/dashed/.test(css.match(/#touch-ring::after\s*\{[^}]*\}/)[0]), 'the circle is not dashed');
+  assert.ok(/#touch-ring\.sprinting::after\s*\{[^}]*solid/.test(css), 'no solid circle while sprinting');
+});
+
+test('[SPRINT PUSH] pad.sprint makes the SPRINT noise entry for every preset', () => {
+  const W = 76;
+  A.buildFloor(0, 4242);
+  let spot = null;
+  for (let ty = 6; ty < W - 6 && !spot; ty++)
+    for (let tx = 6; tx < W - 6 && !spot; tx++){
+      let ok = true;
+      for (let j = -3; j <= 3 && ok; j++)
+        for (let i = -3; i <= 3; i++) if (G.grid[(ty + j) * W + tx + i] !== 1){ ok = false; break; }
+      if (ok) spot = [tx + 0.5, ty + 0.5];
+    }
+  assert.ok(spot, 'no open patch');
+  const peaks = [];
+  for (const name of ['light', 'normal', 'firm']){
+    A.setOption('sprintPush', name);
+    G.plumber.x = spot[0]; G.plumber.y = spot[1]; G.plumber.stepT = 0; G.selfNoise = 0;
+    pad.x = 1; pad.y = 0; pad.sprint = true;
+    let peak = 0;
+    for (let i = 0; i < 15; i++){ A.tickMovement(1 / 60); peak = Math.max(peak, G.selfNoise); }
+    pad.x = 0; pad.sprint = false;
+    assert.ok(peak >= NOISE.SPRINT - 1e-9, `${name}: peak ${peak}, want ${NOISE.SPRINT}`);
+    assert.ok(Math.abs((G.plumber.x - spot[0]) - 15 * SPRINT / 60) < 1e-9, `${name}: speed changed`);
+    peaks.push(peak);
+  }
+  assert.equal(peaks[0], peaks[1]); assert.equal(peaks[1], peaks[2]);
+  A.setOption('sprintPush', 'normal');
 });
