@@ -1,9 +1,7 @@
 import { DIFFICULTIES } from '../config/presets.js';
-import { SETTINGS, setOption, resetSettings } from '../settings/store.js';
+import { SETTINGS, setOption } from '../settings/store.js';
 import { SETTINGS_SCHEMA } from '../settings/schema.js';
-import { armReset, resetArmed, resetRun } from '../game/run.js';
-import { paintTerms, setTermsOpen, termsOpen } from './terms.js';
-import { setPausePage } from './pause.js';
+import { paintTerms } from './terms.js';
 
 /* The buttons for each segmented row (value and label pairs). They are listed
    here and not in the HTML, so the allowed values and their labels cannot
@@ -38,24 +36,7 @@ export function buildSettingsUI(){
     const key = el.dataset.opt;
     el.addEventListener('input', ()=> setOption(key, parseFloat(el.value)));
   }
-  const reset = document.getElementById('btn-settings-reset');
-  /* keepTerms: this button is on the pause screen of a live run, and the
-     difficulty is fixed when the run starts. Resetting it here would change
-     the clock and repair time of the floor the player is standing in. */
-  if (reset) reset.onclick = ()=>{ resetSettings({keepTerms:true}); syncSettingsUI(); };
-  /* The settings page has no BACK button because ESC already does that.
-     The briefing page's tabs are the way between the two pages. */
-  for (const t of document.querySelectorAll('[data-pause-tab]'))
-    t.onclick = ()=> setPausePage(t.dataset.pauseTab);
-  // CHANGE opens and closes the difficulty chooser on the work order screen.
-  const change = document.getElementById('btn-terms-change');
-  if (change) change.onclick = ()=> setTermsOpen(!termsOpen);
-  // RESET GAME needs two taps: the first arms it, the second ends the run.
-  const resetRunBtn = document.getElementById('btn-reset-run');
-  if (resetRunBtn) resetRunBtn.onclick = ()=>{
-    if (!resetArmed){ armReset(); return; }
-    resetRun();
-  };
+
 }
 
 /* Makes every control show the current settings: slider positions, which

@@ -7,6 +7,7 @@ import { REPAIR_TIME } from '../config/tuning.js';
 import { G } from '../sim/state.js';
 import { SETTINGS } from '../settings/store.js';
 import { clockText, lives, runLives } from '../game/run.js';
+import { buildHudSnap, hudVisibility } from './touch-hud-rules.js';
 
 
 // Every HUD element the code writes to, looked up once.
@@ -46,6 +47,25 @@ export function flash(text){
   clearTimeout(flashT);
   flashT = setTimeout(()=>{ el.classList.remove('on'); el.style.opacity=''; }, 3400);
   if (flashT.unref) flashT.unref();   // a browser returns a number
+}
+
+
+let touchHudPanel = null;
+let touchHudPrev = null;
+
+/** Updates touch-mode HUD visibility once per simulation frame. */
+export function tickTouchHud(){
+  if (!touchHudPanel) touchHudPanel = document.querySelector('.crt-tl');
+  const touch = document.documentElement && document.documentElement.dataset.input === 'touch';
+  if (!touch || !G){
+    hudFlag(touchHudPanel, 'touchQuiet', 'hud-quiet', false);
+    return;
+  }
+  const now = performance.now();
+  const snap = buildHudSnap(G, lives, now);
+  const r = hudVisibility(snap, touchHudPrev, now, SETTINGS.touchHud);
+  touchHudPrev = { lives: snap.lives, lastTriggerMs: r.lastTriggerMs };
+  hudFlag(touchHudPanel, 'touchQuiet', 'hud-quiet', !r.visible);
 }
 
 /* ---------- Write-only-when-changed helpers ----------
