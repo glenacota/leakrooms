@@ -115,14 +115,14 @@ html[data-input=touch] #crt{ height:100dvh; }
    too. */
 #touch [data-touch=radar]{
   width:68px; height:68px;
-  right:calc(18px + env(safe-area-inset-right));
-  bottom:calc(18px + env(safe-area-inset-bottom));
+  right:calc(18px + var(--safe-r));
+  bottom:calc(18px + var(--safe-b));
 }
 /* Top right, so it is clear of the HUD panel in the top left. */
 #touch [data-touch=pause]{
   width:48px; height:48px;
-  right:calc(12px + env(safe-area-inset-right));
-  top:calc(12px + env(safe-area-inset-top));
+  right:calc(12px + var(--safe-r));
+  top:calc(12px + var(--safe-t));
   gap:5px;
 }
 #touch [data-touch=pause] i{
@@ -134,8 +134,8 @@ html[data-input=touch] #crt{ height:100dvh; }
    Hidden once the page is fullscreen, and where it cannot be. */
 #touch [data-touch=fullscreen]{
   width:48px; height:48px;
-  right:calc(70px + env(safe-area-inset-right));
-  top:calc(12px + env(safe-area-inset-top));
+  right:calc(70px + var(--safe-r));
+  top:calc(12px + var(--safe-t));
 }
 #touch [data-touch=fullscreen] i{
   display:block; width:20px; height:20px;
@@ -196,7 +196,7 @@ html[data-input=touch] #crt{ height:100dvh; }
    pause glyph stays top right either way. */
 #touch[data-side=right] [data-touch=radar]{
   right:auto;
-  left:calc(18px + env(safe-area-inset-left));
+  left:calc(18px + var(--safe-l));
 }
 
 /* ---------- Copy that depends on the input ---------- */
@@ -237,16 +237,31 @@ html:not([data-input=touch]) .touch-only{ display:none !important; }
 [data-input=touch] .seg button,
 [data-input=touch] .setrow.buttons button,
 [data-input=touch] .pause-tabs button,
-[data-input=touch] .stamp-terms .chg{ min-height:40px; }
+[data-input=touch] .stamp-terms .chg,
+[data-input=touch] button.ghost,
+[data-input=touch] button.danger{ min-height:40px; }
 
-/* Keep clear of the notch and the home bar. env() is zero where there is
-   none, and needs viewport-fit=cover (index.html). */
-[data-input=touch] .screen{
-  padding:env(safe-area-inset-top) env(safe-area-inset-right)
-          env(safe-area-inset-bottom) env(safe-area-inset-left);
+/* The primary button on every screen is the one a thumb has to find. */
+[data-input=touch] #btn-start,
+[data-input=touch] #btn-descend,
+[data-input=touch] #btn-retry,
+[data-input=touch] #btn-again,
+[data-input=touch] #btn-resume{ min-height:44px; }
+
+/* Sliders: a track and a thumb a finger can land on. The track stays thin;
+   the thumb is taller than it, so the row gets room above and below. */
+[data-input=touch] input[type=range]{ height:14px; margin:7px 0; }
+[data-input=touch] input[type=range]::-webkit-slider-thumb{ width:28px; height:28px; }
+[data-input=touch] input[type=range]::-moz-range-thumb{ width:28px; height:28px; }
+
+/* A short touch screen has no room for the legend on the stub, and the stub
+   then ends after LIVES / DIFFICULTY. */
+@media (max-height:520px){
+  [data-input=touch] .order-side .stub-note,
+  [data-input=touch] .controls-big{ display:none; }
 }
-[data-input=touch] .crt-tl{
-  top:calc(10px + env(safe-area-inset-top));
-  left:calc(12px + env(safe-area-inset-left));
-}
-[data-input=touch] #prompt{ padding-bottom:calc(20px + env(safe-area-inset-bottom)); }
+
+/* The screens' own padding keeps them clear of the notch (css/screens.css), and
+   the HUD panel anchors with max() (css/hud.css), so only the prompt needs a
+   touch rule: the home bar sits under it. */
+[data-input=touch] #prompt{ padding-bottom:calc(20px + var(--safe-b)); }
