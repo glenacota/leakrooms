@@ -22,11 +22,20 @@ function walk(dir, out = []) {
 const SRC_FILES = walk(path.join(ROOT, 'src')).sort();
 
 /* Strip comments and string/template literals, preserving newlines and offsets. */
-function strip(src) {
+const TEMPLATE = String.fromCharCode(96);
+
+/* Strip comments and literal text, but retain code inside template expressions. */
+function strip(src, start = 0, templateExpression = false) {
   let out = '';
-  let i = 0;
+  let i = start;
+  let braces = templateExpression ? 1 : 0;
   while (i < src.length) {
     const c = src[i], d = src[i + 1];
+    if (templateExpression && c === '}') {
+      if (--braces === 0) return { text: out + ' ', index: i + 1 };
+      out += c; i++; continue;
+    }
+    if (templateExpression && c === '{') { braces++; out += c; i++; continue; }
     if (c === '/' && d === '/') {
       while (i < src.length && src[i] !== '\n') { out += ' '; i++; }
       continue;
@@ -45,17 +54,23 @@ function strip(src) {
       }
       out += ' '; i++; continue;
     }
-    if (c === '`') {
+    if (c === TEMPLATE) {
       out += ' '; i++;
-      while (i < src.length && src[i] !== '`') {
+      while (i < src.length && src[i] !== TEMPLATE) {
         if (src[i] === '\\') { out += '  '; i += 2; continue; }
+        if (src[i] === '$' && src[i + 1] === '{') {
+          out += '  '; i += 2;
+          const expr = strip(src, i, true);
+          out += expr.text; i = expr.index;
+          continue;
+        }
         out += src[i] === '\n' ? '\n' : ' '; i++;
       }
       out += ' '; i++; continue;
     }
     out += c; i++;
   }
-  return out;
+  return templateExpression ? { text: out, index: i } : out;
 }
 
 /* Read local binding names from named import clauses, including aliases. */
