@@ -124,6 +124,7 @@
 .order-wrap{
   width:min(94vw,960px);
   max-height:94vh; overflow-y:auto; scrollbar-width:thin;
+  max-height:calc(94dvh - var(--safe-t) - var(--safe-b));
   display:flex; flex-direction:column; align-items:center; gap:18px;
 }
 #screen-order, #screen-pause{ background:rgba(6,5,3,.95); }

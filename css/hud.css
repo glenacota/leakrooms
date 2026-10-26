@@ -38,7 +38,7 @@
      0   0   2px #100f07,
      0   0  10px rgba(228,230,168,.5);
 }
-.crt-tl{ top:10px; left:12px; }
+.crt-tl{ top:max(10px, var(--safe-t)); left:max(12px, var(--safe-l)); }
 
 /* The scanlines. Behind the content, over the glass. */
 .crt::before{

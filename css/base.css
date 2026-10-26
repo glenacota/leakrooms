@@ -4,6 +4,14 @@
    stylesheets. Keep it last.
    ============================================================ */
 
+/* ---------- Page behaviour on a handheld ---------- */
+
+/* A phone turned sideways must not inflate the text, and a double tap or a pull
+   must not zoom or scroll the page under the game. */
+html{ -webkit-text-size-adjust:100%; text-size-adjust:100%; }
+html, body{ overscroll-behavior:none; }
+.screen, button{ touch-action:manipulation; }
+
 /* ---------- Narrow windows ---------- */
 
 /* The HUD is a single glass panel in the corner, so a small window does not
@@ -23,7 +31,109 @@
   .crt-lbl{ font-size:9px; letter-spacing:.12em; }
   .bar{ width:70px; height:7px; }
   .crt{ padding:6px 8px 7px; }
-  .crt-tl{ left:8px; }
+  .crt-tl{ left:max(8px, var(--safe-l)); }
+}
+
+/* ---------- Compact tier: a phone held sideways ----------
+   Up to 520 px tall. The ticket keeps two columns, every panel is tightened, and
+   whatever still does not fit scrolls inside its own box, with the buttons that
+   matter pinned in view. Nothing here is a transform or a zoom: the type is
+   smaller, not scaled, and never under 10 px. The screens already pad themselves
+   by the safe-area tokens, so widths here do not subtract them again.
+
+   --pause-chrome is what the pause ticket spends outside its scrolling page: the
+   ticket's padding and border, the heading and the tab row. It was measured in
+   a browser (the audit in the p8 report) and has to be re-measured if any of
+   those change. */
+@media (max-height:520px){
+  :root{ --pause-chrome:112px; }
+
+  .order-wrap{
+    width:min(960px, calc(100% - 16px));
+    max-height:calc(100vh - 8px);
+    max-height:calc(100dvh - var(--safe-t) - var(--safe-b) - 8px);
+    gap:8px;
+  }
+  .order{ grid-template-columns:1fr 170px; }
+  .order-body{ padding:12px 16px; }
+  .order-head{ padding-bottom:6px; margin-bottom:8px; }
+  .order-head h2{ font-size:20px; letter-spacing:.16em; }
+  .order-head .meta{ font-size:12px; margin-top:4px; }
+  .order .field{ margin:6px 0; font-size:13px; }
+  .order .notes li{ font-size:13px; line-height:1.4; }
+
+  .order-side{
+    border-left:2px dashed rgba(228,230,168,.28); border-top:none;
+    flex-direction:column; flex-wrap:nowrap; gap:0; align-items:stretch;
+    padding:10px 12px;
+  }
+  .order-side small{ font-size:10px; }
+  .order-side small:not(:first-child){ margin-top:8px; }
+  .order-side .big{ font-size:24px; }
+  .order-side .badge{ font-size:16px; }
+  .order-side .seed{ font-size:13px; }
+  .stamp-terms{ margin:10px 0 0; }
+
+  /* Settings: three columns when there is width for them. minmax(0,...) lets a
+     column shrink below its widest control instead of pushing the ticket wider. */
+  .order-body, .setrow{ min-width:0; }
+  .settings-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px 16px; margin:8px 0 4px; }
+  @media (min-width:700px){ .settings-grid{ grid-template-columns:repeat(3,minmax(0,1fr)); } }
+  .setrow.section{ margin-top:6px; padding-top:0; }
+  .setrow.buttons{ margin-top:10px; flex-wrap:wrap; justify-content:flex-start; gap:6px 8px; }
+  .pause-tabs{ margin-bottom:8px; }
+
+  /* The pause pages scroll inside the ticket. The tab row and the button row
+     are pinned, so they stay in reach while the controls move under them. */
+  .pause-page[data-pause-page="settings"],
+  .pause-page[data-pause-page="briefing"]{
+    max-height:calc(100vh - var(--pause-chrome) - 8px);
+    max-height:calc(100dvh - var(--safe-t) - var(--safe-b) - var(--pause-chrome) - 8px);
+    overflow-y:auto; padding-right:6px;
+  }
+  .pause-tabs{ position:sticky; top:0; z-index:2; background:rgb(12,10,6); }
+  .setrow.buttons{ position:sticky; bottom:0; z-index:2; padding:6px 0; background:rgb(12,10,6); }
+
+  /* The cards: clear, dead, win, the handheld notice and the fatal card. */
+  .tape{
+    padding:14px 18px;
+    max-height:calc(100vh - 8px);
+    max-height:calc(100dvh - var(--safe-t) - var(--safe-b) - 8px);
+    overflow-y:auto;
+  }
+  h1{ font-size:22px; }
+  h1.bad, .tape.clear h1{ font-size:20px; }
+  .sub{ margin-bottom:10px; }
+  .tape .hint{ font-size:11.5px; line-height:1.6; margin-bottom:12px; }
+  .clear-left{ margin-bottom:12px; }
+  .clear-left b{ font-size:24px; margin-top:4px; }
+  .clear-next{ padding-top:8px; margin-bottom:14px; }
+  .clear-next .k{ margin-bottom:6px; }
+  #rotate{ gap:8px; padding:12px; }
+  #rotate .rot-icon{ font-size:36px; }
+
+  /* The title. */
+  .screen.splash h1{ font-size:min(clamp(34px,8.4vw,84px), 16vh); margin-bottom:6px; }
+  .screen.splash h2{ font-size:15px; margin-bottom:12px; }
+  .splash-plate .go{ margin-top:14px; }
+
+  .screen-footer{ padding:4px max(12px, var(--safe-r)) calc(4px + var(--safe-b)) max(12px, var(--safe-l)); }
+  .footer-left{ font-size:11px; }
+  .footer-left span{ padding:0 .5rem; }
+
+  button{ padding:10px 22px; font-size:12px; letter-spacing:.2em; }
+  .crt-lbl{ font-size:10px; }
+}
+
+/* A 568 px phone: with the stub beside it the pause ticket's body is about 260 px
+   wide, and its four buttons wrap onto three rows that eat the whole page. The
+   stub is only a read-out of the run (the HUD shows the same numbers), so on
+   this width the pause ticket gives its column to the controls, and the
+   buttons tighten to one row. The work order keeps its stub. */
+@media (max-height:520px) and (max-width:640px){
+  #screen-pause .order{ grid-template-columns:1fr; }
+  #screen-pause .order-side{ display:none; }
+  .setrow.buttons button{ padding:6px 8px; font-size:10px; letter-spacing:.06em; }
 }
 
 /* ---------- Reduced motion ---------- */

@@ -23,6 +23,14 @@
   --ink:         #1c1a14;   /* near-black, used for text on yellow buttons */
   --danger:      #d8503c;   /* red accent for warnings and destructive actions */
   --mono: "Courier New", "Courier", monospace;
+
+  /* The notch, the rounded corners and the home bar. Zero on a screen without
+     them. Everything reads these and never env() directly, so a test can
+     override them with an inline style on <html> and see a notched phone. */
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-l: env(safe-area-inset-left, 0px);
 }
 
 /* ---------- Page reset ---------- */
