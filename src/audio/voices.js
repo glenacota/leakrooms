@@ -2,6 +2,34 @@
    synthesized from oscillators and the shared noise buffer, so the game needs no
    audio files. Each one connects to `this.master` (see engine.js) and returns at
    once when there is no audio context. */
+function tone(a, dest, {
+  type, f0, f1, t, dur, peak, frequencyDur=dur, fadeAt=t+dur,
+  stopAt=t+dur, initial=peak, attackAt=null, frequencyValue=false, gainValue=false
+}){
+  const o=a.createOscillator(); o.type=type;
+  if (frequencyValue) o.frequency.value=f0;
+  else o.frequency.setValueAtTime(f0, t);
+  if (f1 != null) o.frequency.exponentialRampToValueAtTime(f1, t+frequencyDur);
+  const g=a.createGain();
+  if (gainValue) g.gain.value=initial;
+  else g.gain.setValueAtTime(initial, t);
+  if (attackAt != null) g.gain.exponentialRampToValueAtTime(peak, attackAt);
+  g.gain.exponentialRampToValueAtTime(0.0001, fadeAt);
+  o.connect(g); g.connect(dest);
+  o.start(t); o.stop(stopAt);
+  return g;
+}
+
+function noiseBurst(a, buffer, dest, {type, frequency, t, dur, peak, fadeAt=t+dur}){
+  const s=a.createBufferSource(); s.buffer=buffer;
+  const f=a.createBiquadFilter(); f.type=type; f.frequency.value=frequency;
+  const g=a.createGain();
+  g.gain.setValueAtTime(peak, t);
+  g.gain.exponentialRampToValueAtTime(0.0001, fadeAt);
+  s.connect(f); f.connect(g); g.connect(dest);
+  s.start(t); s.stop(t+dur);
+}
+
 export const voices = {
   /* How much louder a sound is for being a louder noise. Without it every voice
      had a fixed peak, and the two loudest actions (a sprint and a wrench) could
@@ -10,93 +38,51 @@ export const voices = {
      voices, never the master: this is the mix, not the volume slider. */
   powerVol(p){ return 0.8 + Math.min(2, Math.max(0, p||0))*1.3; },
 
-  step(vol, power){                 // rubber sole on damp concrete thud
+  step(vol, power){
     if (!this.ok) return;
-    const a=this.ctx, t=a.currentTime;
-    const k=this.powerVol(power);
-    const o=a.createOscillator(); o.type='sine';
-    o.frequency.setValueAtTime(80, t);
-    o.frequency.exponentialRampToValueAtTime(40, t+0.08);
-    const g=a.createGain();
-    g.gain.setValueAtTime(0.12*vol*k, t);
-    g.gain.exponentialRampToValueAtTime(0.0001, t+0.09);
-    o.connect(g); g.connect(this.master);
-    o.start(t); o.stop(t+0.1);
+    const a=this.ctx, t=a.currentTime, k=this.powerVol(power);
+    tone(a, this.master, {type:'sine', f0:80, f1:40, t, dur:0.1, frequencyDur:0.08,
+      fadeAt:t+0.09, peak:0.12*vol*k});
   },
 
-  splash(vol, power){         // wet boot squelch with low thump
+  splash(vol, power){
     if (!this.ok) return;
-    const a=this.ctx, t=a.currentTime;
-    const k=this.powerVol(power);
-    const s=a.createBufferSource(); s.buffer=this.noise;
-    const f=a.createBiquadFilter(); f.type='lowpass';
-    f.frequency.value = 600;
-    const g=a.createGain();
-    g.gain.setValueAtTime(0.10*vol*k, t);
-    g.gain.exponentialRampToValueAtTime(0.0001, t+0.25);
-    s.connect(f); f.connect(g); g.connect(this.master);
-    s.start(t); s.stop(t+0.3);
-    const o=a.createOscillator(); o.type='sine';
-    o.frequency.setValueAtTime(70, t);
-    o.frequency.exponentialRampToValueAtTime(40, t+0.2);
-    const g2=a.createGain();
-    g2.gain.setValueAtTime(0.08*vol*k, t);
-    g2.gain.exponentialRampToValueAtTime(0.0001, t+0.22);
-    o.connect(g2); g2.connect(this.master);
-    o.start(t); o.stop(t+0.25);
+    const a=this.ctx, t=a.currentTime, k=this.powerVol(power);
+    noiseBurst(a, this.noise, this.master, {type:'lowpass', frequency:600, t, dur:0.3,
+      fadeAt:t+0.25, peak:0.10*vol*k});
+    tone(a, this.master, {type:'sine', f0:70, f1:40, t, dur:0.25, frequencyDur:0.2,
+      fadeAt:t+0.22, peak:0.08*vol*k});
   },
 
-  drip(vol){                      // single water drop with a short echo (more "pipe")
+  drip(vol){
     if (!this.ok) return;
     const a=this.ctx, t=a.currentTime;
-    const o=a.createOscillator(); o.type='sine';
-    o.frequency.setValueAtTime(900+Math.random()*300, t);
-    o.frequency.exponentialRampToValueAtTime(180, t+0.09);
-    const g=a.createGain();
-    g.gain.setValueAtTime(0.08*vol, t);
-    g.gain.exponentialRampToValueAtTime(0.0001, t+0.13);
-    o.connect(g); g.connect(this.master);
-    o.start(t); o.stop(t+0.15);
-    // short echo
+    const g=tone(a, this.master, {type:'sine', f0:900+Math.random()*300, f1:180, t,
+      dur:0.15, frequencyDur:0.09, fadeAt:t+0.13, peak:0.08*vol});
     const del=a.createDelay(); del.delayTime.value=0.12;
     const fb=a.createGain(); fb.gain.value=0.3;
     const eg=a.createGain(); eg.gain.value=0.4;
     g.connect(del); del.connect(fb); fb.connect(del); del.connect(eg); eg.connect(this.master);
   },
 
-  wrench(power){                   // ratchet clicks with metallic clank
+  wrench(power){
     if (!this.ok) return;
-    const a=this.ctx, t=a.currentTime;
-    const k=this.powerVol(power);
+    const a=this.ctx, t=a.currentTime, k=this.powerVol(power);
     for (let i=0;i<5;i++){
       const st=t+i*0.09;
-      const o=a.createOscillator(); o.type='square';
-      o.frequency.value=1200;
-      const g=a.createGain();
-      g.gain.setValueAtTime(0.07*k, st);
-      g.gain.exponentialRampToValueAtTime(0.0001, st+0.05);
-      o.connect(g); g.connect(this.master);
-      o.start(st); o.stop(st+0.06);
+      tone(a, this.master, {type:'square', f0:1200, t:st, dur:0.06,
+        fadeAt:st+0.05, peak:0.07*k, frequencyValue:true});
     }
   },
 
-  seal(){                          // valve closing clunk + pressure drop
+  seal(){
     if (!this.ok) return;
     const a=this.ctx, t=a.currentTime;
-    const o=a.createOscillator(); o.type='sine';
-    o.frequency.setValueAtTime(90,t);
-    o.frequency.exponentialRampToValueAtTime(50,t+0.4);
-    const g=a.createGain();
-    g.gain.setValueAtTime(0.14,t);
-    g.gain.exponentialRampToValueAtTime(0.0001,t+0.45);
-    o.connect(g); g.connect(this.master);
-    o.start(t); o.stop(t+0.5);
-    const c=a.createOscillator(); c.type='square'; c.frequency.value=400;
-    const gc=a.createGain();
-    gc.gain.setValueAtTime(0.10,t+0.05);
-    gc.gain.exponentialRampToValueAtTime(0.0001,t+0.12);
-    c.connect(gc); gc.connect(this.master);
-    c.start(t+0.05); c.stop(t+0.15);
+    tone(a, this.master, {type:'sine', f0:90, f1:50, t, dur:0.5, frequencyDur:0.4,
+      fadeAt:t+0.45, peak:0.14});
+    const st=t+0.05;
+    tone(a, this.master, {type:'square', f0:400, t:st, dur:0.1,
+      fadeAt:st+0.07, peak:0.10, frequencyValue:true});
   },
 
   /* THE KUDOS: what a sealed floor sounds like. It is sealLeak() turned the right
@@ -111,17 +97,11 @@ export const voices = {
   acclaim(){
     if (!this.ok) return;
     const a=this.ctx, t=a.currentTime;
-    this.silenceBeds();                  // the old floor stops gurgling behind the card
-    const notes=[392,494,587,784];
-    notes.forEach((f,i)=>{
-      const o=a.createOscillator(); o.type='sine'; o.frequency.value=f;
-      const g=a.createGain();
+    this.silenceBeds();
+    [392,494,587,784].forEach((f,i)=>{
       const st=t+i*0.1;
-      g.gain.setValueAtTime(0.0001,st);
-      g.gain.exponentialRampToValueAtTime(0.1,st+0.03);
-      g.gain.exponentialRampToValueAtTime(0.0001,st+0.9);
-      o.connect(g); g.connect(this.master);
-      o.start(st); o.stop(st+1);
+      tone(a, this.master, {type:'sine', f0:f, t:st, dur:1, peak:0.1,
+        initial:0.0001, attackAt:st+0.03, fadeAt:st+0.9, frequencyValue:true});
     });
   },
 
@@ -161,18 +141,13 @@ export const voices = {
     s.start(t); s.stop(t+1.6);
   },
 
-  door(power){                    // heavy vault door with bolt clunks
+  door(power){
     if (!this.ok) return;
-    const a=this.ctx, t=a.currentTime;
-    const k=this.powerVol(power);
+    const a=this.ctx, t=a.currentTime, k=this.powerVol(power);
     for(let i=0;i<3;i++){
       const st=t+i*0.25;
-      const o=a.createOscillator(); o.type='square'; o.frequency.value=120;
-      const g=a.createGain();
-      g.gain.setValueAtTime(0.12*k, st);
-      g.gain.exponentialRampToValueAtTime(0.0001, st+0.12);
-      o.connect(g); g.connect(this.master);
-      o.start(st); o.stop(st+0.15);
+      tone(a, this.master, {type:'square', f0:120, t:st, dur:0.15,
+        fadeAt:st+0.12, peak:0.12*k, frequencyValue:true});
     }
   },
 
@@ -224,18 +199,13 @@ export const voices = {
   },
   silence(){ if (this.ok) this.droneGain.gain.setTargetAtTime(0, this.ctx.currentTime, 0.2); },
 
-  clink(vol=0.4){                  // small metal rattle, played while the radar drains the battery
+  clink(vol=0.4){
     if (!this.ok) return;
     const a=this.ctx, t=a.currentTime;
     for(let i=0;i<4;i++){
       const st=t+i*0.08+Math.random()*0.02;
-      const o=a.createOscillator(); o.type='triangle';
-      o.frequency.value=1800+Math.random()*1200;
-      const g=a.createGain();
-      g.gain.setValueAtTime(0.09*vol, st);
-      g.gain.exponentialRampToValueAtTime(0.0001, st+0.12);
-      o.connect(g); g.connect(this.master);
-      o.start(st); o.stop(st+0.13);
+      tone(a, this.master, {type:'triangle', f0:1800+Math.random()*1200, t:st,
+        dur:0.13, fadeAt:st+0.12, peak:0.09*vol, frequencyValue:true});
     }
   },
 
@@ -246,11 +216,8 @@ export const voices = {
   blip(up){
     if (!this.ok) return;
     const a=this.ctx, t=a.currentTime;
-    const o=a.createOscillator(); o.type='sine'; o.frequency.value = up?520:390;
-    const g=a.createGain(); g.gain.value=0.0001;
-    g.gain.exponentialRampToValueAtTime(0.05, t+0.02);
-    g.gain.exponentialRampToValueAtTime(0.0001, t+0.22);
-    o.connect(g); g.connect(this.master);
-    o.start(t); o.stop(t+0.25);
+    tone(a, this.master, {type:'sine', f0:up?520:390, t, dur:0.25, peak:0.05,
+      initial:0.0001, attackAt:t+0.02, fadeAt:t+0.22,
+      frequencyValue:true, gainValue:true});
   },
 };
