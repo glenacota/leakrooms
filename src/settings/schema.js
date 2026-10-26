@@ -1,4 +1,5 @@
 import { DIFFICULTIES, WATER_TINTS } from '../config/presets.js';
+import { STICK } from '../config/constants.js';
 
 /* Every setting in one place: its default, its type, and its allowed range.
    The store checks values against this and does not trust whatever is in
@@ -39,6 +40,10 @@ export const SETTINGS_SPEC = {
   /* Short buzzes for the sounds that mean danger, on phones that can vibrate.
      It is separate from mute: a player can have the sound off and still feel it. */
   haptics:        { default:true, type:'bool' },
+  /* How far the stick is pushed before the plumber runs. It moves only the line
+     at which the stick reports sprint (STICK.SPRINT_PRESETS); how loud sprinting
+     is stays in the noise table. */
+  sprintPush:     { default:'normal', type:'enum', values:Object.keys(STICK.SPRINT_PRESETS) },
 };
 
 export const SETTINGS_DEFAULTS = Object.fromEntries(

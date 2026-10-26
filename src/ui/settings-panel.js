@@ -15,6 +15,7 @@ export const SEGMENTS = {
   touchHud:   () => [['auto','AUTO'],['always','ALWAYS'],['minimal','MINIMAL']],
   touchSide:  () => [['left','LEFT'],['right','RIGHT']],
   haptics:    () => [['true','ON'],['false','OFF']],
+  sprintPush: () => [['light','LIGHT'],['normal','NORMAL'],['firm','FIRM']],
 };
 
 /* Builds and wires the settings controls from the empty rows in index.html.

@@ -68,6 +68,24 @@ html[data-input=touch] #crt{ height:100dvh; }
 }
 #touch-ring.sprint #touch-knob{ background:var(--danger); }
 
+/* The sprint line: a dashed circle inside the ring, as far out as the thumb has
+   to go before the plumber runs. --sprint-at is the SPRINT PUSH preset's
+   threshold (0 to 1), set by src/ui/touch.js. It is drawn from the ring's own
+   box, so it scales with the stick radius. It goes solid while the latch is on. */
+#touch-ring::after{
+  content:"";
+  position:absolute;
+  left:50%; top:50%;
+  width:calc(var(--sprint-at, 0.88) * 100%);
+  height:calc(var(--sprint-at, 0.88) * 100%);
+  transform:translate(-50%,-50%);
+  border:1.5px dashed var(--yellow-dim);
+  border-radius:50%;
+  box-sizing:border-box;
+  pointer-events:none;
+}
+#touch-ring.sprinting::after{ border-style:solid; border-color:var(--danger); }
+
 /* ---------- The buttons ---------- */
 
 /* The default button look (yellow slab, wide padding) is for the menus, so this

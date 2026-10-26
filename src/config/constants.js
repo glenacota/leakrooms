@@ -31,8 +31,13 @@ export const SPRINT = 6.0;
 /* The on-screen stick (touch). First-guess numbers: tune them on a real device. */
 export const STICK = Object.freeze({
   DEAD: 0.2,          // fraction of the radius with no response at all
-  SPRINT_ON: 0.88,    // pushing past this fraction of the radius starts a sprint
-  SPRINT_OFF: 0.80,   // a sprint lasts until you come back below this
+  /* How far you push the stick (as a fraction of its radius) before the plumber
+     runs. The player picks one of these in the settings (SPRINT PUSH). They are
+     first guesses, to be tuned on a real device. They move only WHEN the stick
+     reports sprint, never how loud sprinting is: the noise table (NOISE) and the
+     speeds (WALK, SPRINT) are the same for every preset. */
+  SPRINT_PRESETS: Object.freeze({ light: 0.75, normal: 0.88, firm: 0.96 }),
+  SPRINT_HYST: 0.08,  // a sprint lasts until you come back this far below its preset
   RADIUS_VMIN: 0.11,  // stick radius as a share of the short screen side
   RADIUS_MIN: 44,     // CSS pixels: smallest the stick radius gets
   RADIUS_MAX: 80,     // CSS pixels: largest the stick radius gets

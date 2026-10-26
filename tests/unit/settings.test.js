@@ -341,6 +341,66 @@ test('[touch settings] every touch row is built, pressed correctly, and marked t
   A.resetSettings();
 });
 
+/* ============ SPRINT PUSH ==================================================
+   One more touch-only enum. Same four promises as the rest. */
+test('[sprintPush] valid for exactly the three names, default normal', () => {
+  assertEqual(A.SETTINGS_DEFAULTS.sprintPush, 'normal');
+  assertEqual(A.SETTINGS_SCHEMA.sprintPush.type, 'enum');
+  assertEqual(A.SETTINGS_SCHEMA.sprintPush.values.join(), 'light,normal,firm');
+  for (const v of ['light', 'normal', 'firm']) assertEqual(A.settingsValid('sprintPush', v), true, v);
+  for (const bad of ['', 'LIGHT', 'Normal', 'heavy', 'off', 0.88, 1, true, false, null, undefined, {}, []])
+    assertEqual(A.settingsValid('sprintPush', bad), false, String(bad));
+});
+
+test('[sprintPush] setOption round-trips and saves', () => {
+  for (const v of ['light', 'firm', 'normal']){
+    assertEqual(A.setOption('sprintPush', v), true);
+    assertEqual(A.SETTINGS.sprintPush, v);
+    assertEqual(JSON.parse(global.__store.get(A.SETTINGS_KEY)).sprintPush, v);
+  }
+  assertEqual(A.setOption('sprintPush', 'turbo'), false);
+  assertEqual(A.SETTINGS.sprintPush, 'normal');
+  A.resetSettings();
+});
+
+test('[sprintPush] an old save without the key loads normal; a bad value falls back alone', () => {
+  global.__store.set(A.SETTINGS_KEY, JSON.stringify({ difficulty: 'hard', master: 0.3 }));
+  A.loadSettings();
+  assertEqual(A.SETTINGS.sprintPush, 'normal');
+  assertEqual(A.SETTINGS.difficulty, 'hard');
+  global.__store.set(A.SETTINGS_KEY, JSON.stringify({ sprintPush: 'turbo', master: 0.4 }));
+  A.loadSettings();
+  assertEqual(A.SETTINGS.sprintPush, 'normal');
+  assertEqual(A.SETTINGS.master, 0.4);
+  global.__store.set(A.SETTINGS_KEY, JSON.stringify({ sprintPush: 'firm' }));
+  A.loadSettings();
+  assertEqual(A.SETTINGS.sprintPush, 'firm');
+  A.resetSettings();
+});
+
+test('[sprintPush] RESET SETTINGS restores normal, from the store and the button', () => {
+  A.setOption('sprintPush', 'light');
+  A.resetSettings({ keepTerms: true });
+  assertEqual(A.SETTINGS.sprintPush, 'normal');
+  A.setOption('sprintPush', 'firm');
+  document.getElementById('btn-settings-reset').click();
+  assertEqual(A.SETTINGS.sprintPush, 'normal');
+});
+
+test('[sprintPush] the row is built, labelled, touch-only, and has one TOUCH header', () => {
+  const row = document.querySelectorAll('.seg[data-opt]').find(r => r.dataset.opt === 'sprintPush');
+  assertEqual(!!row, true, 'no row for sprintPush');
+  assertEqual(row.querySelectorAll('button').map(b => b.dataset.value).join(), 'light,normal,firm');
+  assertEqual(row.querySelectorAll('button').map(b => b.textContent).join(), 'LIGHT,NORMAL,FIRM');
+  const html = readHtml();
+  const m = html.match(/<div class="setrow([^"]*)">\s*<span class="lbl">SPRINT PUSH<\/span>\s*<div[^>]*data-opt="sprintPush"[^>]*aria-label="SPRINT PUSH"[^>]*>/);
+  assertEqual(!!m && /touch-only/.test(m[1]), true, 'row missing or not touch-only');
+  assertEqual(html.includes('How far you push the stick before you run. Running is loud.'), true);
+  assertEqual((html.match(/<span>TOUCH<\/span>/g) || []).length, 1, 'a second TOUCH header');
+  // It sits after the existing touch rows.
+  assertEqual(html.indexOf('data-opt="sprintPush"') > html.indexOf('data-opt="haptics"'), true);
+});
+
 function assertEqual(a, b, msg){
   if (a !== b) throw new Error(`${msg || 'mismatch'}: got ${JSON.stringify(a)}, want ${JSON.stringify(b)}`);
 }
