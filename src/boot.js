@@ -9,7 +9,9 @@
 import { resize } from './render/canvas.js';
 import { buildPatterns } from './render/textures.js';
 import { buildGlowSprite } from './render/render.js';
-import { applySettings, tickLoudFlash, bindDom } from './ui/bind.js';
+import { applySettings, bindDom } from './ui/bind.js';
+import { bindCards } from './ui/cards.js';
+import { bindHints, tickLoudFlash } from './ui/hints.js';
 import { buildSettingsUI, syncSettingsUI } from './ui/settings-panel.js';
 import { Audio_ } from './audio/index.js';
 import { syncAmbience } from './ui/splash.js';
@@ -26,11 +28,9 @@ import { mobileVerdict, showMobileNotice } from './ui/mobile.js';
 import { setFatalHook, setFrameHooks } from './game/loop.js';
 import { adaptResolution } from './render/adaptive.js';
 import { render, setSimAlpha } from './render/render.js';
-import { updateHUD, setPrompt, hudFlag } from './ui/hud.js';
-import { buildHudSnap, hudVisibility } from './ui/touch-hud-rules.js';
-import { loadSettings, SETTINGS } from './settings/store.js';
-import { G } from './sim/state.js';
-import { RUN_SEED, lives } from './game/run.js';
+import { updateHUD, setPrompt, tickTouchHud } from './ui/hud.js';
+import { loadSettings } from './settings/store.js';
+import { RUN_SEED } from './game/run.js';
 import { frame } from './game/loop.js';
 
 /**
@@ -48,22 +48,6 @@ function showFatal(err){
   if (err) console.error(err);
   const el = document.getElementById('fatal');
   if (el) el.classList.remove('hidden');
-}
-
-/* The HUD panel fades in touch mode when nothing needs reading (the rule is
-   ui/touch-hud-rules.js). One class on the panel, flipped only when the answer
-   changes. In keyboard mode the class is always off. */
-let hudPanel = null;
-let hudPrev = null;
-function applyTouchHud(){
-  if (!hudPanel) hudPanel = document.querySelector('.crt-tl');
-  const touch = document.documentElement && document.documentElement.dataset.input === 'touch';
-  if (!touch || !G){ hudFlag(hudPanel, 'touchQuiet', 'hud-quiet', false); return; }
-  const now = performance.now();
-  const snap = buildHudSnap(G, lives, now);
-  const r = hudVisibility(snap, hudPrev, now, SETTINGS.touchHud);
-  hudPrev = { lives: snap.lives, lastTriggerMs: r.lastTriggerMs };
-  hudFlag(hudPanel, 'touchQuiet', 'hud-quiet', !r.visible);
 }
 
 /**
@@ -96,6 +80,8 @@ export function boot(){
        7. initFullscreen  fullscreen on the first tap, and the home-screen tip */
   bindRun();
   bindDom();
+  bindCards();
+  bindHints();
   bindInput();
   bindButtons();
   initTouch();
@@ -143,7 +129,7 @@ export function boot(){
      whether the machine is keeping up, and `afterUpdate` refreshes the HUD and
      the prompt line after each simulation step. */
   setFrameHooks({ render, simAlpha: setSimAlpha, adaptive: adaptResolution,
-                  afterUpdate: ()=>{ updateHUD(); setPrompt(); tickLoudFlash(); applyTouchHud(); } });
+                  afterUpdate: ()=>{ updateHUD(); setPrompt(); tickLoudFlash(); tickTouchHud(); } });
 
   requestAnimationFrame(frame);
 }

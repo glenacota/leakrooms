@@ -1,8 +1,10 @@
-import { dismissClear, retryFloor, runAgain, startRun, STATE } from '../game/run.js';
+import { dismissClear, retryFloor, runAgain, startRun, STATE, armReset, resetArmed, resetRun } from '../game/run.js';
 import { advanceSplash } from './splash.js';
-import { togglePause } from './pause.js';
+import { togglePause, setPausePage } from './pause.js';
 import { setTermsOpen, termsOpen } from './terms.js';
 import { toggleFullscreen, dismissHint } from './fullscreen.js';
+import { resetSettings } from '../settings/store.js';
+import { syncSettingsUI } from './settings-panel.js';
 
 /* Attaches the buttons and screen clicks to the run functions that do the
    work. This function is the only place where that wiring happens. Adding the
@@ -37,4 +39,15 @@ export function bindButtons(){
       if (STATE==='splash') advanceSplash();
     });
   }
+  const resetSettingsBtn = document.getElementById('btn-settings-reset');
+  if (resetSettingsBtn) resetSettingsBtn.onclick = ()=>{ resetSettings({keepTerms:true}); syncSettingsUI(); };
+  for (const tab of document.querySelectorAll('[data-pause-tab]'))
+    tab.onclick = ()=> setPausePage(tab.dataset.pauseTab);
+  const change = document.getElementById('btn-terms-change');
+  if (change) change.onclick = ()=> setTermsOpen(!termsOpen);
+  const resetRunBtn = document.getElementById('btn-reset-run');
+  if (resetRunBtn) resetRunBtn.onclick = ()=>{
+    if (!resetArmed){ armReset(); return; }
+    resetRun();
+  };
 }

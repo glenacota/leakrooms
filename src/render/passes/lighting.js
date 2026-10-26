@@ -2,6 +2,7 @@ import { FLICKER_DEPTH, MAP_H, MAP_W, TILE } from '../../config/constants.js';
 import { G } from '../../sim/state.js';
 import { fixtureVis } from '../../sim/vision.js';
 import { cvs, ctx, SCALE } from '../canvas.js';
+import { radialSprite } from '../sprites.js';
 
 /* ---------- The ceiling-light glow sprite ----------
    Each lit fixture draws a pre-made sprite instead of a per-frame gradient,
@@ -10,14 +11,10 @@ import { cvs, ctx, SCALE } from '../canvas.js';
 let glowSprite = null;
 export function buildGlowSprite(){
   const S = 128;
-  glowSprite = document.createElement('canvas');
-  glowSprite.width = S; glowSprite.height = S;
-  const g = glowSprite.getContext('2d');
-  const gr = g.createRadialGradient(S/2, S/2, 0, S/2, S/2, S/2);
-  gr.addColorStop(0,   'rgba(228,230,168,1)');
-  gr.addColorStop(0.5, 'rgba(225,226,187,0.4)');
-  gr.addColorStop(1,   'rgba(198,197,139,0)');
-  g.fillStyle = gr; g.fillRect(0,0,S,S);
+  glowSprite = radialSprite(S,S,{
+    cx:S/2, cy:S/2, r0:0, r1:S/2,
+    stops:[[0,'rgba(228,230,168,1)'],[0.5,'rgba(225,226,187,0.4)'],[1,'rgba(198,197,139,0)']]
+  });
 }
 
 export function lighting(rc){
