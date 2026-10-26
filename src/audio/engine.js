@@ -1,5 +1,16 @@
 import { SETTINGS } from '../settings/store.js';
 
+function noiseBed(a, buffer, gain, bus, {type, frequency, q, rate}){
+  const filter=a.createBiquadFilter();
+  filter.type=type; filter.frequency.value=frequency; filter.Q.value=q;
+  filter.connect(gain);
+  if (bus) gain.connect(bus);
+  const source=a.createBufferSource(); source.buffer=buffer; source.loop=true;
+  source.playbackRate.value=rate;
+  source.connect(filter); source.start();
+  return filter;
+}
+
 export const engine = {
   ctx:null, ok:false,
   droneGain:null, droneFilter:null,
@@ -68,14 +79,8 @@ export const engine = {
        burst does not click. */
     this.floorGain = a.createGain();
     this.floorGain.gain.value = 0;
-    this.floorFilter = a.createBiquadFilter();
-    this.floorFilter.type='lowpass';
-    this.floorFilter.frequency.value=200; this.floorFilter.Q.value=0.7;
-    this.floorFilter.connect(this.floorGain);
-    this.floorGain.connect(this.beds);
-    const fn=a.createBufferSource(); fn.buffer=buf; fn.loop=true;
-    fn.playbackRate.value=0.5;
-    fn.connect(this.floorFilter); fn.start();
+    this.floorFilter = noiseBed(a, buf, this.floorGain, this.beds,
+      {type:'lowpass', frequency:200, q:0.7, rate:0.5});
     // A slow LFO on the gain, so the bed pulses like footsteps
     const slfo=a.createOscillator(); slfo.frequency.value=2.2;
     const slg=a.createGain(); slg.gain.value=0.03;
@@ -92,20 +97,11 @@ export const engine = {
        your ears. */
     this.leakGain = a.createGain();
     this.leakGain.gain.value = 0;
-    this.leakFilter = a.createBiquadFilter();
-    this.leakFilter.type='bandpass';
-    this.leakFilter.frequency.value=1400; this.leakFilter.Q.value=0.6;
-    this.leakFilter.connect(this.leakGain);
-    this.leakGain.connect(this.beds);
-    const ln=a.createBufferSource(); ln.buffer=buf; ln.loop=true;
-    ln.playbackRate.value=1.25;
-    ln.connect(this.leakFilter); ln.start();
+    this.leakFilter = noiseBed(a, buf, this.leakGain, this.beds,
+      {type:'bandpass', frequency:1400, q:0.6, rate:1.25});
     // gurgle: the same noise, lowpassed and breathing slowly
-    const lg=a.createBiquadFilter(); lg.type='lowpass'; lg.frequency.value=260; lg.Q.value=2;
-    lg.connect(this.leakGain);
-    const ln2=a.createBufferSource(); ln2.buffer=buf; ln2.loop=true;
-    ln2.playbackRate.value=0.55;
-    ln2.connect(lg); ln2.start();
+    const lg=noiseBed(a, buf, this.leakGain, null,
+      {type:'lowpass', frequency:260, q:2, rate:0.55});
     const llfo=a.createOscillator(); llfo.frequency.value=0.7;
     const llg=a.createGain(); llg.gain.value=140;
     llfo.connect(llg); llg.connect(lg.frequency); llfo.start();
