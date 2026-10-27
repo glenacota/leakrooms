@@ -59,7 +59,12 @@
   letter-spacing:.14em; background:transparent; color:var(--yellow-dim);
   border:1px solid rgba(228,230,168,.28); cursor:pointer;
 }
-.seg button:hover{ background:rgba(228,230,168,.10); color:var(--yellow); }
+@media (hover:hover){
+  .seg button:hover{ background:rgba(228,230,168,.10); color:var(--yellow); }
+}
+@media (hover:none){
+  .seg button:active{ background:rgba(228,230,168,.10); color:var(--yellow); }
+}
 .seg button[aria-pressed="true"]{
   background:var(--yellow); color:#1a1810; border-color:var(--yellow);
 }
@@ -93,10 +98,20 @@ button.ghost{
   background:transparent; color:var(--yellow-dim);
   border:1px solid rgba(228,230,168,.35);
 }
-button.ghost:hover{ background:rgba(228,230,168,.10); color:var(--yellow); }
+@media (hover:hover){
+  button.ghost:hover{ background:rgba(228,230,168,.10); color:var(--yellow); }
+}
+@media (hover:none){
+  button.ghost:active{ background:rgba(228,230,168,.10); color:var(--yellow); }
+}
 
 /* The restart-game button is the only control on the ticket that ends a
    run, so it wears the danger red. That red appears nowhere else on the
    ticket except spent lives. */
 button.danger{ color:var(--danger); border-color:rgba(216,80,48,.45); }
-button.danger:hover{ background:var(--danger); color:var(--ink); border-color:var(--danger); }
+@media (hover:hover){
+  button.danger:hover{ background:var(--danger); color:var(--ink); border-color:var(--danger); }
+}
+@media (hover:none){
+  button.danger:active{ background:var(--danger); color:var(--ink); border-color:var(--danger); }
+}

@@ -7,6 +7,14 @@
    and keeps its one panel, and the touch controls need to catch fingers.
    ============================================================ */
 
+/* ---------- Page, on a handheld ---------- */
+
+/* A tap must not flash grey, and nothing in touch mode is selected or
+   called out by a long press. Range sliders still work: user-select does
+   not stop a thumb from dragging a track. */
+html{ -webkit-tap-highlight-color:transparent; }
+[data-input=touch]{ -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
+
 /* ---------- The layer ---------- */
 
 /* Off by default. It takes pointers only in touch mode, so on a desktop it can
@@ -107,7 +115,9 @@ html[data-input=touch] #crt{ height:100dvh; }
   box-shadow:none;
   transition:opacity .08s;
 }
-#touch button:hover{ background:rgba(10,9,5,.18); box-shadow:none; }
+@media (hover:hover){
+  #touch button:hover{ background:rgba(10,9,5,.18); box-shadow:none; }
+}
 #touch button:active{ transform:none; }
 #touch button.down{ opacity:1; background:rgba(228,230,168,.22); }
 

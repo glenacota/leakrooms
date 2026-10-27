@@ -18,7 +18,12 @@
   background:transparent; color:var(--yellow-deep);
   border:1px solid rgba(228,230,168,.28); cursor:pointer;
 }
-.pause-tabs button:hover{ background:rgba(228,230,168,.10); color:var(--yellow); }
+@media (hover:hover){
+  .pause-tabs button:hover{ background:rgba(228,230,168,.10); color:var(--yellow); }
+}
+@media (hover:none){
+  .pause-tabs button:active{ background:rgba(228,230,168,.10); color:var(--yellow); }
+}
 .pause-tabs button[aria-selected="true"]{
   background:var(--yellow); color:var(--ink); border-color:var(--yellow);
 }
@@ -42,7 +47,12 @@
   background:none; color:var(--yellow-deep);
   cursor:pointer;
 }
-.stamp-terms .chg:hover{ color:var(--yellow); }
+@media (hover:hover){
+  .stamp-terms .chg:hover{ color:var(--yellow); }
+}
+@media (hover:none){
+  .stamp-terms .chg:active{ color:var(--yellow); }
+}
 .terms-fold{ overflow:hidden; max-height:0; transition:max-height .3s ease; }
 .terms-fold.open{ max-height:240px; }
 .terms{
@@ -325,9 +335,17 @@ button{
   cursor:pointer;
   transition:background .15s, box-shadow .15s, transform .1s;
 }
-button:hover{
-  background:#eef0c4;
-  box-shadow:0 0 26px rgba(228,230,168,.5);
+@media (hover:hover){
+  button:hover{
+    background:#eef0c4;
+    box-shadow:0 0 26px rgba(228,230,168,.5);
+  }
+}
+@media (hover:none){
+  button:active{
+    background:#eef0c4;
+    box-shadow:0 0 26px rgba(228,230,168,.5);
+  }
 }
 button:active{ transform:translateY(1px); }
 
@@ -383,8 +401,15 @@ button:active{ transform:translateY(1px); }
   transition:color .15s;
 }
 
-.footer-link:hover{
-  color:var(--yellow);
+@media (hover:hover){
+  .footer-link:hover{
+    color:var(--yellow);
+  }
+}
+@media (hover:none){
+  .footer-link:active{
+    color:var(--yellow);
+  }
 }
 
 .footer-icon{
