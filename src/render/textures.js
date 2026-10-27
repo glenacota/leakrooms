@@ -60,6 +60,9 @@ export function buildPatterns(){
    sized. */
 export function buildGrainFull(){
   if (!grainFull) grainFull = document.createElement('canvas');
+  /* Zero the old backing store before resizing, so iOS frees it instead of
+     holding both the old and the new screen-sized buffer. */
+  grainFull.width = 0; grainFull.height = 0;
   grainFull.width = cvs.width; grainFull.height = cvs.height;
   const g = grainFull.getContext('2d');
   const im = g.createImageData(cvs.width, cvs.height);

@@ -42,6 +42,21 @@ html{ -webkit-tap-highlight-color:transparent; }
 /* A swipe at the edge must not pull the page or reload it. */
 html[data-input=touch], html[data-input=touch] body{ overscroll-behavior:none; }
 
+/* The frame-time overlay (?perf=1): fixed inside the safe area, above the HUD,
+   no pointer so it never steals a tap or a stick drag. Hidden until ?perf=1. */
+#perf{
+  position:fixed;
+  left:var(--safe-l); bottom:var(--safe-b);
+  z-index:6;            /* above the HUD (z-index 5) */
+  pointer-events:none;
+  font:11px/1.2 var(--mono);
+  color:var(--yellow);
+  background:rgba(0,0,0,.6);
+  padding:4px 6px;
+  border-radius:4px;
+  white-space:nowrap;
+}
+
 /* 100% is the tall layout height on a phone, with the address bar covering the
    bottom of it. dvh follows what is actually visible. */
 html[data-input=touch] body,

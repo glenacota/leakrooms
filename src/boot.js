@@ -6,7 +6,7 @@
 
    Rule: nothing else in src/ may import this file. The order of the steps
    inside boot() matters, so changing it can change how the game behaves. */
-import { resize } from './render/canvas.js';
+import { resize, setRenderScaleIdx } from './render/canvas.js';
 import { buildPatterns } from './render/textures.js';
 import { buildGlowSprite } from './render/render.js';
 import { applySettings, bindDom } from './ui/bind.js';
@@ -23,8 +23,9 @@ import { bindButtons } from './ui/buttons.js';
 import { initTouch } from './ui/touch.js';
 import { initHaptics } from './ui/haptics.js';
 import { initFullscreen } from './ui/fullscreen.js';
+import { initPerf } from './ui/perf.js';
 import { emit } from './util/events.js';
-import { mobileVerdict, showMobileNotice } from './ui/mobile.js';
+import { mobileVerdict, showMobileNotice, looksHandheld } from './ui/mobile.js';
 import { setFatalHook, setFrameHooks } from './game/loop.js';
 import { adaptResolution } from './render/adaptive.js';
 import { render, setSimAlpha } from './render/render.js';
@@ -32,6 +33,7 @@ import { updateHUD, setPrompt, tickTouchHud } from './ui/hud.js';
 import { loadSettings } from './settings/store.js';
 import { RUN_SEED } from './game/run.js';
 import { frame } from './game/loop.js';
+import { RENDER_START_IDX_HANDHELD } from './config/constants.js';
 
 /**
  * Shows the "SYSTEM FAULT" card when the game hits an error it cannot recover
@@ -63,6 +65,12 @@ export function boot(){
   window.addEventListener('unhandledrejection', e => showFatal(e.reason || e));
   document.getElementById('btn-reload').onclick = ()=>globalThis.location?.reload();
 
+  /* A handheld may start at a lower render scale so it stays under its limit.
+     RENDER_START_IDX_HANDHELD is 0 here (full resolution); real device data
+     may raise it later. looksHandheld() is read before the first resize() so
+     the initial scale is already the right one. */
+  if (looksHandheld()) setRenderScaleIdx(RENDER_START_IDX_HANDHELD);
+
   /* Size the canvas and build the drawing resources. No listeners are
      connected yet, so this first resize() does not trigger any redraw work. */
   resize();
@@ -87,6 +95,7 @@ export function boot(){
   initTouch();
   initHaptics();
   initFullscreen();
+  initPerf();
 
   /* A handheld plays with the touch layer. One that cannot run it gets the
      notice instead of a title nobody can start; the key handler checks

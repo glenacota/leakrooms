@@ -48,11 +48,17 @@ export function post(rc){
   /* ---------- 7. Danger and awareness ----------
      Both overlays are stored images (buildVignette and buildDangerWash). The
      lazy checks below rebuild them only when the canvas size changes. */
-  if (!vigCv || vigCv.width!==cvs.width || vigCv.height!==cvs.height) buildVignette();
+  if (!vigCv || vigCv.width!==cvs.width || vigCv.height!==cvs.height){
+    if (vigCv){ vigCv.width = 0; vigCv.height = 0; }   // free the backing store before dropping
+    buildVignette();
+  }
   /* The danger wash is half resolution, so the check compares against the size it
      WOULD be built at and not against cvs.width itself. */
   const dw = Math.max(1, cvs.width>>1), dh = Math.max(1, cvs.height>>1);
-  if (!dangerCv || dangerCv.width!==dw || dangerCv.height!==dh) buildDangerWash();
+  if (!dangerCv || dangerCv.width!==dw || dangerCv.height!==dh){
+    if (dangerCv){ dangerCv.width = 0; dangerCv.height = 0; }
+    buildDangerWash();
+  }
 
   const seen = Math.min(1,G.seenBy);
   if (seen>0.01){
@@ -81,6 +87,7 @@ export function post(rc){
   const pw = Math.max(1, Math.round(cvs.width * POST_S));
   const ph = Math.max(1, Math.round(cvs.height * POST_S));
   if (!postCv || postCv.width!==pw || postCv.height!==ph){
+    if (postCv){ postCv.width = 0; postCv.height = 0; }
     postCv = document.createElement('canvas');
     postCv.width = pw; postCv.height = ph;
   }

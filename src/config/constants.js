@@ -241,10 +241,18 @@ export const SHEEN_STEPS = 4;
    The "drop" and "recover" thresholds are far apart on purpose, so a
    machine near the boundary does not keep switching back and forth. */
 export const RENDER_SCALES = [1, 0.8, 0.65, 0.5];
-export const SCALE_DROP_MS  = 20;      // average frame time that lowers the resolution
-export const SCALE_RECOVER_MS= 12;     // average frame time that allows raising it again
+/* The drop/recover thresholds are fractions of the estimated refresh interval,
+   not fixed milliseconds: a 30 fps capped display is throttled, not slow, so
+   quality must not be lowered for it. At 16.7 ms (60 Hz, and 120 Hz counts as
+   16.7 because the floor is 16.7) these equal the old 20 ms and 12 ms. */
+export const SCALE_DROP_RATIO = 1.2;
+export const SCALE_RECOVER_RATIO = 0.72;
 export const SCALE_BAD_FRAMES = 45;    // slow frames needed before lowering
 export const SCALE_GOOD_FRAMES = 180;  // fast frames needed before raising
+
+/* The first render scale index used on a handheld. It is 0 (full resolution)
+   here; real device data may raise it later so a phone starts below its limit. */
+export const RENDER_START_IDX_HANDHELD = 0;
 
 /* A wet tile stops being drawn below WET_DRAW. WET_EDGE, the point where the
    simulation stops updating it, must be lower, or a tile would freeze just above

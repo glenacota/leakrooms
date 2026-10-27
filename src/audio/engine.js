@@ -27,6 +27,12 @@ export const engine = {
     this.ctx = new AC();
     const a = this.ctx;
 
+    /* On supporting Safari versions this lets Web Audio play with the ringer
+       switch off. Missing on other browsers, and harmless if assignment throws. */
+    try {
+      if (navigator.audioSession) navigator.audioSession.type = 'playback';
+    } catch (_) { /* not supported here */ }
+
     // One 2 second white-noise buffer, reused by the footsteps, the hiss, the sting and the beds
     const len = a.sampleRate * 2;
     const buf = a.createBuffer(1, len, a.sampleRate);

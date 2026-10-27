@@ -41,8 +41,13 @@ export function setRenderScaleIdx(v){ renderScaleIdx = v; }
  * separately below.
  */
 export function resize(){
-  DPR = Math.min(window.devicePixelRatio || 1, 2) * RENDER_SCALES[renderScaleIdx];
-  VW = cvs.clientWidth; VH = cvs.clientHeight;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2) * RENDER_SCALES[renderScaleIdx];
+  const w = cvs.clientWidth, h = cvs.clientHeight;
+  /* Return early when nothing changed: no reallocation, no 'resize' announce.
+     This keeps a drag, a stale iOS size report or a synthetic event from
+     rebuilding screen-sized bitmaps for the same picture. */
+  if (w === VW && h === VH && dpr === DPR) return;
+  VW = w; VH = h; DPR = dpr;
   cvs.width = Math.floor(VW * DPR);
   cvs.height = Math.floor(VH * DPR);
   SCALE = viewScale(VW, VH) * DPR;
@@ -55,14 +60,27 @@ export function resize(){
    would reallocate the canvas and rebuild the screen-sized grain, so one drag
    would generate fifty large noise buffers in a second. So the listener waits
    for 80 ms of quiet and then resizes once. 80 ms is short enough that the
-   canvas is never visibly the wrong shape. */
+   canvas is never visibly the wrong shape.
+
+   iOS can report a stale canvas size right after a rotation, so after the last
+   'resize' or 'orientationchange' event one trailing re-measure runs about 300
+   ms later. It is a single resize() call: if the size is unchanged it returns
+   early and reallocates nothing. */
 const RESIZE_DEBOUNCE_MS = 80;
+const TRAILING_RESIZE_MS = 300;
 let resizeTimer = null;
+let trailingTimer = null;
+function scheduleTrailing(){
+  if (trailingTimer) clearTimeout(trailingTimer);
+  trailingTimer = setTimeout(()=>{ trailingTimer = null; resize(); }, TRAILING_RESIZE_MS);
+}
 function onWindowResize(){
   if (resizeTimer) clearTimeout(resizeTimer);
   resizeTimer = setTimeout(()=>{ resizeTimer = null; resize(); }, RESIZE_DEBOUNCE_MS);
+  scheduleTrailing();
 }
 window.addEventListener('resize', onWindowResize);
+window.addEventListener('orientationchange', onWindowResize);
 
 /* ---------- Lost canvas context ----------
    The machine can take the canvas context away (a graphics driver reset, a
