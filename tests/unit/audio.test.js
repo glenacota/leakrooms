@@ -298,3 +298,49 @@ console.log('[42] leaving play closes the mix, and pausing stops the context');
 }
   t.done();
 });
+
+test('[AUDIO] audioSession type playback on iOS Safari, harmless when absent or throwing', () => {
+  const t = softAssert();
+console.log('[AUDIO] audioSession type playback on iOS Safari, harmless when absent or throwing');
+{
+  const ctx = fakeAudioContext();
+  global.window.AudioContext = function(){ return ctx; };
+  const realNav = globalThis.navigator;
+  const realAudioSession = realNav && realNav.audioSession;
+
+  try {
+    /* present: audioSession exists and its type is set to playback */
+    let sessionType = null;
+    const session = { get type(){ return sessionType; }, set type(v){ sessionType = v; } };
+    Object.defineProperty(realNav, 'audioSession', { get(){ return session; }, configurable: true });
+    A.Audio_.ctx = null; A.Audio_.ok = false;
+    A.Audio_.init();
+    t.assert(sessionType === 'playback', `audioSession.type is '${sessionType}', want 'playback'`);
+
+    /* absent: harmless, audio still comes up */
+    Object.defineProperty(realNav, 'audioSession', { value: undefined, configurable: true, writable: true });
+    A.Audio_.ctx = null; A.Audio_.ok = false;
+    A.Audio_.init();
+    t.assert(A.Audio_.ok === true, 'audio did not come up without audioSession');
+
+    /* assignment throws: harmless, audio still comes up */
+    const throwing = { set type(_){ throw new Error('audioSession not assignable'); } };
+    Object.defineProperty(realNav, 'audioSession', { get(){ return throwing; }, configurable: true });
+    A.Audio_.ctx = null; A.Audio_.ok = false;
+    let threw = '';
+    try { A.Audio_.init(); } catch(e){ threw = String(e && e.message); }
+    t.assert(!threw, `audioSession assignment throw was not caught: ${threw}`);
+    t.assert(A.Audio_.ok === true, 'audio did not come up when audioSession assignment throws');
+  } finally {
+    if (realAudioSession === undefined){
+      try { delete realNav.audioSession; } catch(_) {}
+    } else {
+      Object.defineProperty(realNav, 'audioSession', { value: realAudioSession, configurable: true, writable: true });
+    }
+    global.window.AudioContext = undefined;
+    A.Audio_.ctx = null; A.Audio_.ok = false;
+  }
+  console.log('  audioSession set to playback when present, harmless when absent or throwing');
+}
+  t.done();
+});

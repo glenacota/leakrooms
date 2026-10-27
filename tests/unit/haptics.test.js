@@ -80,3 +80,24 @@ test('[HAPTICS] unsubscribing stops the buzzing', () => {
   assert.deepEqual(log, []);
   restore();
 });
+
+test('[HAPTICS] the heard event buzzes for HUNT and SEARCH only, 25 ms', () => {
+  withVibrate(log => {
+    emit('heard', { from: 'DORMANT', to: 'RISING', dist: 10 });
+    emit('heard', { from: 'RISING', to: 'SEARCH', dist: 5 });
+    emit('heard', { from: 'SEARCH', to: 'HUNT', dist: 2 });
+    emit('heard', { from: 'HUNT', to: 'WALK', dist: 20 });
+    assert.deepEqual(log, [25, 25], 'only HUNT and SEARCH buzz on heard');
+  });
+});
+
+test('[HAPTICS] the heard buzz is silenced by the haptics setting', () => {
+  withVibrate(log => {
+    setOption('haptics', false);
+    emit('heard', { from: 'RISING', to: 'HUNT', dist: 2 });
+    assert.deepEqual(log, [], 'haptics off silences the heard buzz');
+    setOption('haptics', true);
+    emit('heard', { from: 'RISING', to: 'SEARCH', dist: 5 });
+    assert.deepEqual(log, [25], 'haptics on re-enables the heard buzz');
+  });
+});

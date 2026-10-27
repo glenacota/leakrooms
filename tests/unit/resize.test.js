@@ -40,6 +40,9 @@ test('a window drag is one resize, and a lost context is rebuilt', async () => {
   const resize = global.window._h.resize;
   assert.equal(typeof resize, 'function', 'no resize listener was registered');
 
+  const cvs = A.internals.cvs;
+  cvs.clientWidth = 1281;   // the size really changes, so resize() has work to do
+
   const spy = spyOnScreenCanvases();
   /* The event itself is the sharper count: every allocation downstream hangs off
      it, and one drag should produce exactly one of them. */
@@ -59,7 +62,6 @@ test('a window drag is one resize, and a lost context is rebuilt', async () => {
 
   /* ...and it really did resize: the backing store is the window times the ratio
      the harness reports, which is 1 with devicePixelRatio 1 and scale 0. */
-  const cvs = A.internals.cvs;
   assert.equal(cvs.width, Math.floor(cvs.clientWidth * Math.min(global.window.devicePixelRatio || 1, 2)),
     `the debounced resize left the backing store at ${cvs.width}px for a ${cvs.clientWidth}px window`);
 
@@ -101,4 +103,38 @@ test('resize() uses viewScale: width-limited on 16:9, row-limited on a short scr
   setSize(1280, 720);
   resize();
   assert.equal(A.SCALE, 1280 / (VIEW_T * TILE));
+});
+
+test('an unchanged size announces nothing and reallocates nothing', () => {
+  const cvs = A.internals.cvs;
+  let announced = 0;
+  const count = () => announced++;
+  on('resize', count);
+  /* Sync to the current size first (it may announce once), then repeat with the
+     same size: nothing changed, so nothing is announced or reallocated. */
+  resize();
+  const synced = announced;
+  resize();
+  assert.equal(announced, synced, 'an unchanged size announced something');
+});
+
+test('an orientationchange schedules one trailing re-measure', async () => {
+  const orientationchange = global.window._h.orientationchange;
+  assert.equal(typeof orientationchange, 'function', 'no orientationchange listener was registered');
+
+  const cvs = A.internals.cvs;
+  let announced = 0;
+  const count = () => announced++;
+  on('resize', count);
+
+  /* A real size change, then a settled drag-like burst: one announcement. */
+  cvs.clientWidth = 1282;
+  orientationchange();
+  await settle(150);
+  assert.equal(announced, 1, `orientationchange announced ${announced}`);
+
+  /* The trailing re-measure fires once about 300 ms after the last event and,
+     because the size is unchanged, announces nothing. */
+  await settle(200);
+  assert.equal(announced, 1, 'the trailing re-measure announced something on an unchanged size');
 });

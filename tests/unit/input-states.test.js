@@ -177,10 +177,14 @@ console.log('[UI] pageshow restores the canvas size without resuming the run');
   t.assert(typeof pageshow === 'function', 'no pageshow handler was registered');
 
   /* resize() announces itself on the 'resize' bus, so subscribing there tells
-     us whether pageshow actually resized. */
+     us whether pageshow actually resized. resize() is a no-op when the size is
+     already right, so the test changes the canvas size first to make it stale. */
   const { on, off } = await import('../../src/util/events.js');
   let resizeEmitted = 0;
   const offResize = on('resize', () => { resizeEmitted++; });
+
+  const cvs = A.internals.cvs;
+  cvs.clientWidth = 1281;   // stale size: resize() has real work to do
 
   /* persisted = true (restored from the back/forward cache): resizes, and the
      run stays paused. */
