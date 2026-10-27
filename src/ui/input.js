@@ -4,6 +4,7 @@ import { keys, clearInput } from '../sim/keys.js';
 import { emit } from '../util/events.js';
 import { G } from '../sim/state.js';
 import { STATE, dismissClear, retryFloor, runAgain } from '../game/run.js';
+import { resize } from '../render/canvas.js';
 import { flash } from './hud.js';
 import { setPausePage, togglePause, pausePage } from './pause.js';
 import { advanceSplash, backSplash } from './splash.js';
@@ -238,6 +239,14 @@ export function bindInput(){
     if (STATE==='play') togglePause();
   };
   window.addEventListener('blur', lostFocus);
+  window.addEventListener('pagehide', lostFocus);
+
+  /* Restored from the back/forward cache: the canvas size can be stale, so
+     resize it. The run stays paused and audio is not resumed here — a gesture
+     is required, and the next tap already calls unlock(). */
+  window.addEventListener('pageshow', e => {
+    if (e.persisted) resize();
+  });
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) lostFocus();
   });

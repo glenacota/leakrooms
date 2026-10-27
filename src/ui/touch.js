@@ -215,6 +215,12 @@ export function initTouch(){
     else if (e.pointerType === 'mouse') setMode('kbm');
   }, true);
 
+  /* Pinch-zoom on the play view does nothing in touch mode: a two-finger
+     pinch must not scale the page under the game. Not active in kbm mode. */
+  document.addEventListener('gesturestart', e => {
+    if (mode === 'touch' && e.preventDefault) e.preventDefault();
+  });
+
   on('state', refresh);
   on('input:mode', setMode);
   on('input:lost', releaseAll);
