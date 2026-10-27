@@ -23,6 +23,7 @@ import { ground } from './passes/ground.js';
 import { leaks } from './passes/leaks.js';
 import { lighting } from './passes/lighting.js';
 import { markers } from './passes/markers.js';
+import { particles } from './passes/particles.js';
 import { post } from './passes/post.js';
 import { syncImages } from './pack.js';
 
@@ -120,6 +121,7 @@ export function render(t){
   ground(rc);
   markers(rc);
   actors(rc);
+  particles(rc);
   ctx.restore();
 
   lighting(rc);

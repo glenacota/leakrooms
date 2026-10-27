@@ -114,6 +114,8 @@ export function tickLeakNoise(leakState, dt){
         // At least 0.28 s between drips. A faster rhythm sounds like a machine gun and not a pipe.
         p.dripT = Math.max(0.28, 0.28 + Math.min(1, ld/14)*1.5);
         emit('sfx', 'drip', 1 - Math.min(1, ld/14));
+        // A droplet falls from the burst pipe on the wall, pure visual.
+        emit('particle', 'drip', near.sx+0.5, near.sy+0.5);
       }
     }
   } else {
