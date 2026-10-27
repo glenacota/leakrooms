@@ -136,3 +136,70 @@ console.log('[UI] a shortcut the browser owns is not also a game key');
 }
   t.done();
 });
+
+test('[UI] pagehide pauses a running game once and zeroes keys and pad', () => {
+  const t = softAssert();
+console.log('[UI] pagehide pauses a running game once and zeroes keys and pad');
+{
+  A.buildFloor(0, 4242);
+  A.hideAll(); A.STATE = 'play';
+  pressCode('w', 'KeyW');
+  t.assert(!!A.keys['w'], 'W could not be held at all — this file cannot test anything else');
+
+  pad.x = 1; pad.y = -1; pad.sprint = true;
+  const pagehide = global.window._h.pagehide;
+  t.assert(typeof pagehide === 'function', 'no pagehide handler was registered');
+  pagehide();
+  t.assert(!A.keys['w'],
+    'W is still held after pagehide — a hidden run must not keep the player moving');
+  t.assert(pad.x === 0 && pad.y === 0 && pad.sprint === false,
+    'the stick is still held after pagehide');
+  t.assert(A.STATE === 'pause',
+    `pagehide during play left STATE '${A.STATE}', want 'pause' — a run nobody is watching keeps burning the clock`);
+
+  /* ...and the pause is not a second toggle: a pagehide while already paused
+     must not resume the run. */
+  pagehide();
+  t.assert(A.STATE === 'pause', `a second pagehide left STATE '${A.STATE}', want 'pause'`);
+  console.log('  pagehide: keys released, pad zeroed, run paused once, a second pagehide changes nothing');
+}
+  t.done();
+});
+
+test('[UI] pageshow restores the canvas size without resuming the run', async () => {
+  const t = softAssert();
+console.log('[UI] pageshow restores the canvas size without resuming the run');
+{
+  A.buildFloor(0, 4242);
+  A.hideAll(); A.STATE = 'pause';
+
+  const pageshow = global.window._h.pageshow;
+  t.assert(typeof pageshow === 'function', 'no pageshow handler was registered');
+
+  /* resize() announces itself on the 'resize' bus, so subscribing there tells
+     us whether pageshow actually resized. */
+  const { on, off } = await import('../../src/util/events.js');
+  let resizeEmitted = 0;
+  const offResize = on('resize', () => { resizeEmitted++; });
+
+  /* persisted = true (restored from the back/forward cache): resizes, and the
+     run stays paused. */
+  pageshow({ persisted: true });
+  t.assert(resizeEmitted === 1, `pageshow(persisted) did not resize (${resizeEmitted})`);
+  t.assert(A.STATE === 'pause',
+    `pageshow(persisted) left STATE '${A.STATE}', want 'pause'`);
+  offResize();
+
+  /* persisted = false: does nothing. */
+  let calls2 = 0;
+  const offResize2 = on('resize', () => { calls2++; });
+  pageshow({ persisted: false });
+  t.assert(calls2 === 0, `pageshow(!persisted) resized (${calls2})`);
+  t.assert(A.STATE === 'pause',
+    `pageshow(!persisted) left STATE '${A.STATE}', want 'pause'`);
+  offResize2();
+
+  console.log('  pageshow: persisted resizes and leaves the run paused; non-persisted does nothing');
+}
+  t.done();
+});

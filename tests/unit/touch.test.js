@@ -5,7 +5,7 @@ import { pad, keys } from '../../src/sim/keys.js';
 import { transition } from '../../src/game/run.js';
 import { WALK, SPRINT, NOISE } from '../../src/config/constants.js';
 import { emit, on } from '../../src/util/events.js';
-import { bindRotate } from '../../src/ui/touch.js';
+import { bindRotate, initTouch } from '../../src/ui/touch.js';
 import { readCss, readHtml } from '../helpers/src-text.js';
 import fs from 'node:fs';
 
@@ -212,6 +212,35 @@ test('[TOUCH] a mouse press on the layer flips the mode to keyboard', () => {
   assert.equal(mode(), 'kbm');
   assert.equal(layer.hidden, true);
   assert.ok(zero());
+});
+
+test('[TOUCH] gesturestart is prevented in touch mode and not in kbm mode', () => {
+  /* The harness's document.addEventListener is a noop, so re-wire the layer
+     with a recording stub to capture the gesturestart handler. The layer's own
+     listeners are ignored during this call so re-running initTouch does not
+     double-register them (which would break the fullscreen click test below). */
+  let captured = null;
+  const realDocAdd = document.addEventListener;
+  document.addEventListener = (type, fn) => {
+    if (type === 'gesturestart') captured = fn;
+  };
+  const layer = document.getElementById('touch');
+  const realLayerAdd = layer.addEventListener;
+  layer.addEventListener = () => {};
+  initTouch();
+  layer.addEventListener = realLayerAdd;
+  document.addEventListener = realDocAdd;
+  assert.ok(typeof captured === 'function', 'no gesturestart handler was registered');
+
+  const trigger = (next) => {
+    let prevented = false;
+    emit('input:mode', next);
+    captured({ preventDefault(){ prevented = true; } });
+    return prevented;
+  };
+
+  assert.equal(trigger('touch'), true, 'gesturestart was not prevented in touch mode');
+  assert.equal(trigger('kbm'), false, 'gesturestart was prevented in kbm mode');
 });
 
 test('[TOUCH] the long-press menu is blocked on the layer', () => {

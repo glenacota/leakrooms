@@ -122,3 +122,43 @@ test('[FIT] the compact pause pages scroll inside the ticket and pin their tab a
   assert.ok(/\.pause-tabs\s*\{[^}]*position\s*:\s*sticky/.test(b));
   assert.ok(/\.setrow\.buttons\s*\{[^}]*position\s*:\s*sticky/.test(b));
 });
+
+/* Strip every @media (hover:hover){...} block (braces balanced), then assert no
+   :hover selector is left anywhere. That proves every :hover lives inside such a
+   block. */
+function allHoverWrapped(css){
+  const s = strip(css);
+  let out = '';
+  let i = 0;
+  while (i < s.length){
+    const m = s.slice(i).match(/@media\s*\(hover:hover\)[^{]*\{/);
+    if (!m){ out += s.slice(i); break; }
+    out += s.slice(i, i + m.index);
+    let j = s.indexOf('{', i + m.index) + 1;
+    let depth = 1;
+    while (j < s.length && depth > 0){
+      if (s[j] === '{') depth++;
+      else if (s[j] === '}') depth--;
+      j++;
+    }
+    i = j;
+  }
+  return !/:hover/.test(out);
+}
+
+test('[FIT] every :hover in screens.css and settings.css sits inside @media (hover:hover)', () => {
+  assert.ok(allHoverWrapped(sheet.screens), 'screens.css has a :hover outside @media (hover:hover)');
+  assert.ok(allHoverWrapped(sheet.settings), 'settings.css has a :hover outside @media (hover:hover)');
+});
+
+test('[FIT] global tap-highlight and touch-mode user-select rules exist', () => {
+  const t = strip(sheet.touch);
+  assert.ok(/html\s*\{\s*-webkit-tap-highlight-color\s*:\s*transparent/.test(t),
+    'no html -webkit-tap-highlight-color:transparent rule');
+  const blocks = [...t.matchAll(/\[data-input=touch\]\s*\{([^}]*)\}/g)].map(m => m[1]);
+  assert.ok(blocks.some(b =>
+    /-webkit-user-select\s*:\s*none/.test(b) &&
+    /user-select\s*:\s*none/.test(b) &&
+    /-webkit-touch-callout\s*:\s*none/.test(b)),
+    'no [data-input=touch] user-select/touch-callout rules');
+});
