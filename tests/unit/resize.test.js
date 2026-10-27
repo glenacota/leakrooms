@@ -9,6 +9,10 @@ import { on } from '../../src/util/events.js';
 
 const { A, G, els } = await loadGame();
 
+/* canvas.js touches `document` at module load, which loadGame() has stubbed, so
+   this dynamic import is safe here. */
+const { viewScale, resize } = await import('../../src/render/canvas.js');
+
 /* Counts the screen-sized canvases a burst of resize events builds. The grain
    is the only one sized to the canvas, so this spies on allocation through
    createElement rather than on a function the suite would have to be told. */
@@ -78,4 +82,23 @@ test('a window drag is one resize, and a lost context is rebuilt', async () => {
   assert.equal(G.dirty.mask, true, 'the visibility mask was not marked stale after a rebuild');
 
   console.log(`  50 events -> ${built} screen-sized canvas(es); light bake and tiles rebuilt on restore`);
+});
+
+test('resize() uses viewScale: width-limited on 16:9, row-limited on a short screen', () => {
+  const cvs = A.internals.cvs;
+  const VIEW_T = 27, TILE = 40, VIEW_ROWS_MIN = 12;
+  const setSize = (w, h) => { cvs.clientWidth = w; cvs.clientHeight = h; };
+
+  setSize(1280, 720);
+  resize();
+  assert.equal(A.SCALE, 1280 / (VIEW_T * TILE), '16:9 keeps the old width-limited SCALE');
+
+  setSize(1624, 670);
+  resize();
+  assert.equal(A.SCALE, 670 / (VIEW_ROWS_MIN * TILE), 'a short screen is row-limited');
+
+  /* ...and restoring the size restores the old SCALE. */
+  setSize(1280, 720);
+  resize();
+  assert.equal(A.SCALE, 1280 / (VIEW_T * TILE));
 });

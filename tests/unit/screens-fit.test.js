@@ -123,6 +123,25 @@ test('[FIT] the compact pause pages scroll inside the ticket and pin their tab a
   assert.ok(/\.setrow\.buttons\s*\{[^}]*position\s*:\s*sticky/.test(b));
 });
 
+test('[FIT] compact tier pins the HUD to the <=680px values at every width', () => {
+  const compact = mediaBlock(sheet.base, '(max-height:520px)');
+  assert.ok(compact, 'no compact tier in base.css');
+  assert.ok(/\.crt-clock\s*,\s*#val-clock\s*\{\s*font-size\s*:\s*21px/.test(compact), 'compact clock 21px');
+  assert.ok(/\.crt-row\s*\{[^}]*font-size\s*:\s*10px[^}]*gap\s*:\s*5px/.test(compact), 'compact row 10px gap 5px');
+  assert.ok(/\.crt-lbl\s*\{[^}]*font-size\s*:\s*10px/.test(compact), 'compact labels 10px, never below the 10px floor');
+  assert.ok(/\.bar\s*\{[^}]*width\s*:\s*70px[^}]*height\s*:\s*7px/.test(compact), 'compact bars 70x7px');
+  assert.ok(/\.crt\s*\{[^}]*padding\s*:\s*6px\s+8px\s+7px/.test(compact), 'compact padding 6px 8px 7px');
+
+  /* The same values already exist in the <=680px block: the compact tier
+     reuses them, it does not re-tune them. */
+  const narrow = mediaBlock(sheet.base, '(max-width:680px)');
+  assert.ok(narrow, 'no 680px tier in base.css');
+  assert.ok(/\.crt-clock\s*,\s*#val-clock\s*\{\s*font-size\s*:\s*21px/.test(narrow), '680px clock 21px');
+  assert.ok(/\.crt-row\s*\{[^}]*font-size\s*:\s*10px[^}]*gap\s*:\s*5px/.test(narrow), '680px row 10px gap 5px');
+  assert.ok(/\.bar\s*\{[^}]*width\s*:\s*70px[^}]*height\s*:\s*7px/.test(narrow), '680px bars 70x7px');
+  assert.ok(/\.crt\s*\{[^}]*padding\s*:\s*6px\s+8px\s+7px/.test(narrow), '680px padding 6px 8px 7px');
+});
+
 /* Strip every @media (hover:hover){...} block (braces balanced), then assert no
    :hover selector is left anywhere. That proves every :hover lives inside such a
    block. */
