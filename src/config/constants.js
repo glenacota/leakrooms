@@ -14,6 +14,14 @@ export const MAP_W  = 76;
 export const MAP_H  = 76;
 export const VIEW_T = 27;                // tiles across the viewport
 
+/* The fewest tile rows the viewport must show, as a floor on the vertical
+   scale. viewScale() caps SCALE by h / (VIEW_ROWS_MIN*TILE), so a very wide,
+   short screen (wider than 27:12) never shows fewer than 12 rows. On a normal
+   16:9 screen the width cap wins and this is never reached: at 1280x720 the
+   width gives 1280/1080 = 1.19 while the rows give 720/480 = 1.50, so width
+   limits and 16:9 is unchanged. Only ratios wider than 27:12 hit the row floor. */
+export const VIEW_ROWS_MIN = 12;
+
 /* The lit face of a wall: how tall the wallpaper band is, as a fraction of a
    tile. It is drawn into the carpet tile BELOW each wall (see bakeTiles in
    render/bake.js) and it is the surface the door is painted on. */

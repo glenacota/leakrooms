@@ -1,6 +1,20 @@
 import { emit } from '../util/events.js';
 import { view } from '../util/view.js';
-import { RENDER_SCALES, VIEW_T, TILE } from '../config/constants.js';
+import { RENDER_SCALES, VIEW_T, TILE, VIEW_ROWS_MIN } from '../config/constants.js';
+
+/**
+ * The CSS pixels per world pixel that fit the viewport: wide enough to show
+ * VIEW_T tiles across, and tall enough to show VIEW_ROWS_MIN rows. The width
+ * cap wins on a normal 16:9 screen; only a screen wider than 27:12 is limited
+ * by the row floor instead. Pure: no DOM, no state, just the two numbers.
+ *
+ * @param {number} w - the canvas box width in CSS pixels
+ * @param {number} h - the canvas box height in CSS pixels
+ * @returns {number} CSS pixels per world pixel
+ */
+export function viewScale(w, h){
+  return Math.min(w / (VIEW_T * TILE), h / (VIEW_ROWS_MIN * TILE));
+}
 
 /* ---------- The main canvas ---------- */
 export let cvs = document.getElementById('game');
@@ -31,7 +45,7 @@ export function resize(){
   VW = cvs.clientWidth; VH = cvs.clientHeight;
   cvs.width = Math.floor(VW * DPR);
   cvs.height = Math.floor(VH * DPR);
-  SCALE = cvs.width / (VIEW_T * TILE);
+  SCALE = viewScale(VW, VH) * DPR;
   view.w = cvs.width; view.h = cvs.height; view.scale = SCALE;
   if (cvs.width > 0 && cvs.height > 0) emit('resize');
 }
