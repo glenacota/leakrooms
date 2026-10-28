@@ -1,4 +1,4 @@
-import { TAU, blob, rim, arm, feet, legs, stride } from './primitives.js';
+import { TAU, blob, rim, arm, feet, legs, limb, stride } from './primitives.js';
 
 /* THE AVATAR: the Plumber, in a yellow hazmat suit. Hooded head with a visor,
    two reflective bands that slide fore and aft on the stride, taped gloves, and
@@ -26,13 +26,33 @@ export function drawPlumber(g, S) {
   g.fillRect(-T * 0.15, T * 0.10 + hip - off, T * 0.30, T * 0.022);
 
   // arms, and a wrench hanging off the belt that swings with the walk
-  for (const s of [-1, 1]) arm(g, T, s, T * 0.035 + hip, -st.s * 0.05 * s, SUIT, GLOVE);
+  const cy = T * 0.035 + hip, wk = S.wave || 0;
+  arm(g, T, -1, cy, st.s * 0.05, SUIT, GLOVE);
+  // right arm: hanging normally, or raised and waving the wrench while repairing (wk 0 to 1)
   g.save();
+  g.globalAlpha = 1 - wk;
+  arm(g, T, 1, cy, -st.s * 0.05, SUIT, GLOVE);
+  g.globalAlpha = 1;
   g.translate(T * 0.14, T * 0.10 + hip); g.rotate(-0.4 + st.s * 0.5);
   g.fillStyle = '#7d8288';
   g.fillRect(-T * 0.015, 0, T * 0.03, T * 0.11);
   g.beginPath(); g.arc(0, T * 0.11, T * 0.028, 0, TAU); g.fill();
   g.restore();
+  if (wk > 0) {
+    const sway = Math.sin(S.t * 0.014);
+    const hx = T * (0.28 + 0.035 * sway), hy = cy - T * 0.24;
+    g.save();
+    g.globalAlpha = wk;
+    limb(g, T * 0.155, cy + T * 0.05, T * 0.22, cy - T * 0.05, T * 0.066, SUIT);
+    limb(g, T * 0.22, cy - T * 0.05, hx, hy, T * 0.056, SUIT);
+    blob(g, hx, hy, T * 0.038, T * 0.042, GLOVE);
+    // the wrench held up, swaying side to side
+    g.translate(hx, hy); g.rotate(sway * 0.5);
+    g.fillStyle = '#7d8288';
+    g.fillRect(-T * 0.015, -T * 0.11, T * 0.03, T * 0.11);
+    g.beginPath(); g.arc(0, -T * 0.11, T * 0.028, 0, TAU); g.fill();
+    g.restore();
+  }
 
   // hood with a visor on the leading side
   blob(g, 0, T * 0.055 + hip, T * 0.10, T * 0.10, SUIT);
