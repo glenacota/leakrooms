@@ -2,6 +2,6 @@ node_modules/
 package-lock.json
 test/shots/
 tests/.trace-actual.json
-.*
-!.github/
-!.github/**
+.vscode
+.env
+**/.DS_Store
