@@ -301,40 +301,36 @@ console.log('[AUDIO] audioSession type playback on iOS Safari, harmless when abs
   const ctx = fakeAudioContext();
   global.window.AudioContext = function(){ return ctx; };
   const realNav = globalThis.navigator;
-  const realAudioSession = realNav && realNav.audioSession;
-
-  // Guard: if navigator is not a valid object, skip the audioSession manipulation
-  // and just test that audio comes up without it. This can happen in some CI/node
-  // environments where navigator may not support defineProperty or may be non-configurable.
   const navIsObject = typeof realNav === 'object' && realNav !== null;
+  const nav = navIsObject ? realNav : {};
+  const navDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+  const realAudioSession = nav.audioSession;
 
   try {
+    if (!navIsObject) {
+      A.Audio_.ctx = null; A.Audio_.ok = false;
+      A.Audio_.init();
+      t.assert(A.Audio_.ok === true, 'audio did not come up without navigator');
+      Object.defineProperty(globalThis, 'navigator', { value: nav, configurable: true, writable: true });
+    }
+
     /* present: audioSession exists and its type is set to playback */
     let sessionType = null;
     const session = { get type(){ return sessionType; }, set type(v){ sessionType = v; } };
-    if (navIsObject) {
-      Object.defineProperty(realNav, 'audioSession', { get(){ return session; }, configurable: true });
-    }
+    Object.defineProperty(nav, 'audioSession', { get(){ return session; }, configurable: true });
     A.Audio_.ctx = null; A.Audio_.ok = false;
     A.Audio_.init();
-
-    if (navIsObject) {
-      t.assert(sessionType === 'playback', `audioSession.type is '${sessionType}', want 'playback'`);
-    } else {
-      // When navigator.audioSession is not configurable (or navigator is not an object),
-      // audio still initializes fine without it
-      t.assert(A.Audio_.ok === true, 'Audio initialized without navigator.audioSession');
-    }
+    t.assert(sessionType === 'playback', `audioSession.type is '${sessionType}', want 'playback'`);
     
     /* absent: harmless, audio still comes up */
-    Object.defineProperty(realNav, 'audioSession', { value: undefined, configurable: true, writable: true });
+    Object.defineProperty(nav, 'audioSession', { value: undefined, configurable: true, writable: true });
     A.Audio_.ctx = null; A.Audio_.ok = false;
     A.Audio_.init();
     t.assert(A.Audio_.ok === true, 'audio did not come up without audioSession');
 
     /* assignment throws: harmless, audio still comes up */
     const throwing = { set type(_){ throw new Error('audioSession not assignable'); } };
-    Object.defineProperty(realNav, 'audioSession', { get(){ return throwing; }, configurable: true });
+    Object.defineProperty(nav, 'audioSession', { get(){ return throwing; }, configurable: true });
     A.Audio_.ctx = null; A.Audio_.ok = false;
     let threw = '';
     try { A.Audio_.init(); } catch(e){ threw = String(e && e.message); }
@@ -342,9 +338,13 @@ console.log('[AUDIO] audioSession type playback on iOS Safari, harmless when abs
     t.assert(A.Audio_.ok === true, 'audio did not come up when audioSession assignment throws');
   } finally {
     if (realAudioSession === undefined){
-      try { delete realNav.audioSession; } catch(_) {}
+      try { delete nav.audioSession; } catch(_) {}
     } else {
-      Object.defineProperty(realNav, 'audioSession', { value: realAudioSession, configurable: true, writable: true });
+      Object.defineProperty(nav, 'audioSession', { value: realAudioSession, configurable: true, writable: true });
+    }
+    if (!navIsObject) {
+      if (navDescriptor) Object.defineProperty(globalThis, 'navigator', navDescriptor);
+      else delete globalThis.navigator;
     }
     global.window.AudioContext = undefined;
     A.Audio_.ctx = null; A.Audio_.ok = false;
