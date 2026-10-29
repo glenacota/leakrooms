@@ -43,6 +43,18 @@ Run the headless test suite:
 node test.js      # exit 0 = pass
 ```
 
+### Render-trace golden file
+
+`tests/integration/render-trace.test.js` snapshots the canvas draw calls produced by `boot()` → 30 fixed-step updates → 3 renders, hashes the call log into `tests/fixtures/render-trace.json` (`{sha1, length}`), and fails on any mismatch. Because the trace is sensitive to every sprite-drawing change (including the plumber's arm borders), regenerate the golden whenever render output intentionally changes:
+
+```
+UPDATE_GOLDEN=1 node --test tests/integration/render-trace.test.js
+```
+
+This overwrites `tests/fixtures/render-trace.json` with the current trace and prints the new `{sha1, length}`. Then re-run the full suite with `node --test` to confirm everything passes. Commit both the source change and the updated golden fixture together.
+
+> Per `AGENTS.md`, the golden file is regenerated only when explicitly instructed — never as a side effect of an unrelated change.
+
 ## 🚀 Running
 
 `src/main.js` is an ES module (`<script type="module">`), so opening `index.html` via `file://` no longer works — browsers block module scripts on that origin. Serve the repo instead:
