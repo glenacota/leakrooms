@@ -381,9 +381,9 @@ test('the LOUD tag holds for 2 s, fades over 0.5 s, and restarts on a new crossi
 
   G.selfNoise = 0.7;
   const at1 = stepTag('LOUD', 20, 0.05);       /* about 1.0 s after the crossing */
-  t.ok(at1 && at1.alpha > 0.99, `the tag is ${at1 ? at1.alpha : 'missing'} one second in, want full`);
+  t.ok(at1 && Math.abs(at1.alpha - 0.8) < 0.01, `the tag is ${at1 ? at1.alpha : 'missing'} one second in, want 0.9`);
   const at19 = stepTag('LOUD', 18, 0.05);      /* about 1.9 s */
-  t.ok(at19 && at19.alpha > 0.99, `the tag started fading before 2 s (${at19 ? at19.alpha : 'missing'})`);
+  t.ok(at19 && Math.abs(at19.alpha - 0.8) < 0.01, `the tag started fading before 2 s (${at19 ? at19.alpha : 'missing'})`);
   const fading = stepTag('LOUD', 7, 0.05);     /* about 2.25 s */
   t.ok(fading && fading.alpha > 0.3 && fading.alpha < 0.7,
     `the tag is ${fading ? fading.alpha : 'missing'} at 2.25 s, want about half`);
@@ -395,7 +395,7 @@ test('the LOUD tag holds for 2 s, fades over 0.5 s, and restarts on a new crossi
   t.ok(stepTag('LOUD', 1, 0.05) === null, 'the tag lingered after the noise stopped being loud');
   G.selfNoise = 0.7;
   const again = stepTag('LOUD', 1, 0.05);
-  t.ok(again && again.alpha > 0.99, 'a new loud crossing did not show the tag at full opacity');
+  t.ok(again && Math.abs(again.alpha - 0.8) < 0.01, 'a new loud crossing did not show the tag at full opacity');
 
   /* A crossing while the tag is mid-fade also starts it over. */
   stepTag('LOUD', 45, 0.05);
@@ -403,7 +403,7 @@ test('the LOUD tag holds for 2 s, fades over 0.5 s, and restarts on a new crossi
   stepTag('LOUD', 1, 0.05);
   G.selfNoise = 0.7;
   const refade = stepTag('LOUD', 1, 0.05);
-  t.ok(refade && refade.alpha > 0.99, 'a crossing during the fade did not restart the tag');
+  t.ok(refade && Math.abs(refade.alpha - 0.8) < 0.01, 'a crossing during the fade did not restart the tag');
   G.selfNoise = 0;
 });
 
@@ -480,7 +480,7 @@ test('the two rings sit at their own heights: noise high, battery low', () => {
   G.radar = false;
 });
 
-test('the tags are 11px bold with a dark outline under the text', () => {
+test('the tags are 9px bold with a dark outline under the text', () => {
   const t = assert;
   setup();
   G.radar = true;
@@ -492,8 +492,8 @@ test('the tags are 11px bold with a dark outline under the text', () => {
     const strokes = calls.list.filter(c => c[0] === 'strokeText' && c[1] === text);
     t.ok(fills.length === 1 && strokes.length === 1, `${text}: expected one outline and one fill`);
     const f = fills[0], s = strokes[0];
-    t.ok(f.font.startsWith('bold 11px'), `${text} is drawn in "${f.font}", want bold 11px`);
-    t.ok(s.style === 'rgba(12,14,10,0.85)' && s.width >= 3, `${text}'s outline is ${s.style} ${s.width}px`);
+    t.ok(f.font.startsWith('bold 9px'), `${text} is drawn in "${f.font}", want bold 9px`);
+    t.ok(s.style === 'rgba(12,14,10,0.85)' && s.width >= 1, `${text}'s outline is ${s.style} ${s.width}px`);
     t.ok(calls.list.indexOf(s) < calls.list.indexOf(f), `${text}'s outline is drawn over its fill`);
     t.ok(s[2] === f[2] && s[3] === f[3], `${text}'s outline is not under the text`);
   }

@@ -70,6 +70,9 @@ const TRACK  = 'rgba(20,24,18,0.6)';
 const DISC   = 'rgba(12,14,10,0.7)';
 const GLYPH_IDLE = 'rgba(228,230,168,0.7)';
 const SCOPE_FACE = 'rgba(143,208,122,0.35)';
+/* The diegetic HUD (rings, discs, sweeps, glyphs, scope, tags) runs at 90%
+   opacity so it reads without fighting the floor brightness behind it. */
+const HUD_OPACITY = 0.8;
 
 /* Seconds since the noise last crossed into loud, and whether it was loud on
    the last frame. Module-level because the render pass owns this visual
@@ -317,13 +320,13 @@ export function diegetic(rc){
   ctx.translate(rc.tx, rc.ty);
   ctx.globalCompositeOperation = 'source-over';
   if (noiseAlpha > 0){
-    ctx.globalAlpha = noiseAlpha;
+    ctx.globalAlpha = noiseAlpha * HUD_OPACITY;
     const progress = Math.min(1, selfNoise/NOISE_FS);
     noiseRing(rc, nx, ny, progress, loud);
     tag('LOUD', DANGER, loudTagAlpha(loud), nx, ny);
   }
   if (battAlpha > 0){
-    ctx.globalAlpha = battAlpha;
+    ctx.globalAlpha = battAlpha * HUD_OPACITY;
     const progress = Math.min(1, Math.max(0, batt/BATT_MAX));
     const color = batt < BATT_LOW ? DANGER : GREEN;
     batteryRing(bx, by, progress, color, radar);
