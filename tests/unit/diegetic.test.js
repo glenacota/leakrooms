@@ -8,7 +8,8 @@ const render = A.render;
 
 /* Diegetic ring layout constants, mirrored from src/render/passes/diegetic.js. */
 const TILE   = 40;
-const BODY_Y = 0.1;
+const NOISE_Y = 0.3;        /* how far above the plumber's centre each ring sits, in tiles */
+const BATT_Y  = -0.3;
 const SIDE   = 0.8;         /* distance of each ring from the plumber, in tiles */
 const RING_R   = 0.30;      /* ring radius, in tiles */
 const RING_RADIUS = RING_R * TILE; /* 12 px */
@@ -33,7 +34,15 @@ function draw(){
 function noiseRingCentre(x, y){
   return {
     cx: (x - SIDE) * TILE,
-    cy: (y - BODY_Y) * TILE,
+    cy: (y - NOISE_Y) * TILE,
+  };
+}
+
+// Centre of the battery ring (right of the plumber, lower than the noise ring).
+function battRingCentre(x, y){
+  return {
+    bx: (x + SIDE) * TILE,
+    by: (y - BATT_Y) * TILE,
   };
 }
 
@@ -77,8 +86,8 @@ test('diegetic noise ring: LOUD label shown when loud, absent when quiet', () =>
   t.ok(loudText, 'LOUD tag drawn when selfNoise >= LOUD');
 
   /* Tag sits above the ring: cx horizontally centred, cy - radius - offset. */
-  const expectedY = cy - RING_RADIUS - 6;
-  t.ok(Math.abs(loudText[3] - expectedY) < 4,
+  const expectedY = cy - RING_RADIUS - 7;
+  t.ok(Math.abs(loudText[3] - expectedY) < 0.5,
     `LOUD tag y=${loudText[3]}, expected near ${expectedY}`);
 });
 
@@ -143,7 +152,7 @@ test('diegetic battery ring draws when radar is on', () => {
   const t = assert;
   setup();
   const {cx: nx, cy} = noiseRingCentre(10, 10);
-  const bx = (10 + SIDE) * TILE; /* battery ring is right of the plumber */
+  const {bx, by} = battRingCentre(10, 10); /* battery ring is right of the plumber */
 
   G.batt = 60;
   G.radar = true;
@@ -154,7 +163,7 @@ test('diegetic battery ring draws when radar is on', () => {
   /* Battery ring: track + sweep = 2 arcs at the battery position. */
   const battArcs = calls.list.filter(c =>
     c[0] === 'arc' &&
-    Math.hypot(c[1] - bx, c[2] - cy) < 4 &&
+    Math.hypot(c[1] - bx, c[2] - by) < 4 &&
     Math.abs(c[3] - RING_RADIUS) < 1
   );
   t.ok(battArcs.length === 2,
@@ -168,7 +177,7 @@ test('diegetic rings sit on a dark disc', () => {
   const t = assert;
   setup();
   const {cx, cy} = noiseRingCentre(10, 10);
-  const bx = (10 + SIDE) * TILE;
+  const {bx, by} = battRingCentre(10, 10);
   G.batt = 60;
   G.radar = true;
   G.selfNoise = 0.3;
@@ -178,7 +187,7 @@ test('diegetic rings sit on a dark disc', () => {
   const discs = calls.list.filter(c =>
     c[0] === 'arc' && Math.abs(c[3] - (RING_RADIUS + 2)) < 0.01);
   t.ok(discs.some(d => Math.hypot(d[1] - cx, d[2] - cy) < 1), 'no dark disc behind the noise ring');
-  t.ok(discs.some(d => Math.hypot(d[1] - bx, d[2] - cy) < 1), 'no dark disc behind the battery ring');
+  t.ok(discs.some(d => Math.hypot(d[1] - bx, d[2] - by) < 1), 'no dark disc behind the battery ring');
 });
 
 /* The wave inside the noise ring is a polyline: one moveTo and a run of lineTo
@@ -298,8 +307,7 @@ function trailArcs(bx, cy){
 test('the radar scope turns clockwise while the radar is on', () => {
   const t = assert;
   setup();
-  const {cy} = noiseRingCentre(10, 10);
-  const bx = (10 + SIDE) * TILE;
+  const {bx, by: cy} = battRingCentre(10, 10);
   G.radar = true;
   G.batt = 80;
   draw();
@@ -325,8 +333,7 @@ test('the radar scope turns clockwise while the radar is on', () => {
 test('the radar scope leaves a fading trail', () => {
   const t = assert;
   setup();
-  const {cy} = noiseRingCentre(10, 10);
-  const bx = (10 + SIDE) * TILE;
+  const {bx, by: cy} = battRingCentre(10, 10);
   G.radar = true;
   G.batt = 80;
   draw();
@@ -337,8 +344,7 @@ test('the radar scope leaves a fading trail', () => {
 test('the radar scope is still when the radar is off', () => {
   const t = assert;
   setup();
-  const {cy} = noiseRingCentre(10, 10);
-  const bx = (10 + SIDE) * TILE;
+  const {bx, by: cy} = battRingCentre(10, 10);
   /* A battery pickup lights the ring for a second with the radar off. */
   G.radar = false;
   G.battPulseT = 1;
@@ -404,8 +410,7 @@ test('the LOUD tag holds for 2 s, fades over 0.5 s, and restarts on a new crossi
 test('the battery tag shows the charge in whole percent, in the ring colour', () => {
   const t = assert;
   setup();
-  const bx = (10 + SIDE) * TILE;
-  const {cy} = noiseRingCentre(10, 10);
+  const {bx, by} = battRingCentre(10, 10);
   G.radar = true;
   const GREEN = '#8fd07a', DANGER = '#d8503c';
 
@@ -413,7 +418,7 @@ test('the battery tag shows the charge in whole percent, in the ring colour', ()
   draw();
   const high = tagOf('83%');
   t.ok(high, `no battery tag; wanted 83%`);
-  t.ok(high && Math.abs(high.x - bx) < 0.5 && Math.abs(high.y - (cy - RING_RADIUS - 6)) < 4,
+  t.ok(high && Math.abs(high.x - bx) < 0.5 && Math.abs(high.y - (by - RING_RADIUS - 7)) < 0.5,
     'the battery tag is not centred above the battery ring');
   t.ok(high && high.style === GREEN, `a charged battery's tag is ${high && high.style}, want green`);
 
@@ -450,11 +455,48 @@ test('diegetic HUD draws nothing when the plumber is silent', () => {
 
   t.ok(ringArcs(cx, cy).length === 0,
     `no noise ring arcs when silent, got ${ringArcs(cx, cy).length}`);
-  const bx = (10 + SIDE) * TILE;
+  const {bx, by} = battRingCentre(10, 10);
   const battArcs = calls.list.filter(c =>
     c[0] === 'arc' &&
-    Math.hypot(c[1] - bx, c[2] - cy) < 4 &&
+    Math.hypot(c[1] - bx, c[2] - by) < 4 &&
     Math.abs(c[3] - RING_RADIUS) < 1
   );
   t.ok(battArcs.length === 0, 'no battery ring arcs when radar off and no pulse');
+});
+
+test('the two rings sit at their own heights: noise high, battery low', () => {
+  const t = assert;
+  setup();
+  const {cx, cy} = noiseRingCentre(10, 10);
+  const {bx, by} = battRingCentre(10, 10);
+  G.radar = true;
+  G.batt = 60;
+  G.selfNoise = 0.3;
+  draw();
+  t.ok(ringArcs(cx, cy).length >= 3, 'the noise ring is not 0.3 tile above the plumber');
+  t.ok(calls.list.some(c => c[0] === 'arc' && Math.hypot(c[1] - bx, c[2] - by) < 1 && Math.abs(c[3] - RING_RADIUS) < 1),
+    'the battery ring is not 0.3 tile below the plumber');
+  t.ok(by - cy === 0.6 * TILE, `the rings are ${by - cy}px apart vertically, want ${0.6 * TILE}`);
+  G.radar = false;
+});
+
+test('the tags are 11px bold with a dark outline under the text', () => {
+  const t = assert;
+  setup();
+  G.radar = true;
+  G.batt = 60;
+  G.selfNoise = 0.7;
+  draw();
+  for (const text of ['LOUD', '60%']){
+    const fills = calls.list.filter(c => c[0] === 'fillText' && c[1] === text);
+    const strokes = calls.list.filter(c => c[0] === 'strokeText' && c[1] === text);
+    t.ok(fills.length === 1 && strokes.length === 1, `${text}: expected one outline and one fill`);
+    const f = fills[0], s = strokes[0];
+    t.ok(f.font.startsWith('bold 11px'), `${text} is drawn in "${f.font}", want bold 11px`);
+    t.ok(s.style === 'rgba(12,14,10,0.85)' && s.width >= 3, `${text}'s outline is ${s.style} ${s.width}px`);
+    t.ok(calls.list.indexOf(s) < calls.list.indexOf(f), `${text}'s outline is drawn over its fill`);
+    t.ok(s[2] === f[2] && s[3] === f[3], `${text}'s outline is not under the text`);
+  }
+  G.radar = false;
+  G.selfNoise = 0;
 });

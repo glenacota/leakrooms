@@ -30,8 +30,10 @@ import { ctx, SCALE } from '../canvas.js';
 import { TAU } from '../../cast/primitives.js';
 import { NOISE_FS, LOUD, TILE, BATT_MAX, BATT_LOW } from '../../config/constants.js';
 
-/* How far above the plumber's centre the rings sit, in tiles. */
-const BODY_Y = 0.1;
+/* How far above the plumber's centre each ring sits, in tiles. The two are
+   staggered: the noise ring rides high, the battery ring low. */
+const NOISE_Y = 0.3;
+const BATT_Y = -0.3;
 /* How far each ring sits to the side of the plumber's centre, in tiles. The
    plumber's collision radius is 0.33, so the ring edge (0.8 - 0.30) clears the
    body. */
@@ -234,17 +236,26 @@ function noiseRing(rc, cx, cy, progress, loud){
   ctx.stroke();
 }
 
-/* A micro label above a ring, in the HUD's one tag style: bold 9px monospace,
-   centred, 6px over the ring's edge. `alpha` multiplies the ring's own fade. */
+/* A label above a ring, in the HUD's one tag style: bold 11px monospace,
+   centred, TAG_GAP px over the ring's edge. A dark outline under the text keeps
+   it readable on any floor, like the dark disc behind the rings. `alpha`
+   multiplies the ring's own fade. */
+const TAG_GAP = 7;
+const TAG_OUTLINE = 'rgba(12,14,10,0.85)';
 function tag(text, color, alpha, cx, cy){
   if (alpha <= 0) return;
+  const y = cy - RING_R*TILE - TAG_GAP;
   ctx.save();
   ctx.globalAlpha *= alpha;
-  ctx.fillStyle = color;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'bottom';
   ctx.font = 'bold 9px "Courier New", Courier, monospace';
-  ctx.fillText(text, cx, cy - RING_R*TILE - 6);
+  ctx.lineJoin = 'round';
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = TAG_OUTLINE;
+  ctx.strokeText(text, cx, y);
+  ctx.fillStyle = color;
+  ctx.fillText(text, cx, y);
   ctx.restore();
 }
 
@@ -292,8 +303,10 @@ export function diegetic(rc){
   const px = p.px + (p.x - p.px)*al;
   const py = p.py + (p.y - p.py)*al;
 
-  /* Either side of the body: noise on the left, battery on the right. */
-  const cy = (py - BODY_Y)*TILE;
+  /* Either side of the body: noise on the left, battery on the right, at their
+     own heights. */
+  const ny = (py - NOISE_Y)*TILE;
+  const by = (py - BATT_Y)*TILE;
   const nx = (px - SIDE)*TILE;
   const bx = (px + SIDE)*TILE;
 
@@ -306,16 +319,16 @@ export function diegetic(rc){
   if (noiseAlpha > 0){
     ctx.globalAlpha = noiseAlpha;
     const progress = Math.min(1, selfNoise/NOISE_FS);
-    noiseRing(rc, nx, cy, progress, loud);
-    tag('LOUD', DANGER, loudTagAlpha(loud), nx, cy);
+    noiseRing(rc, nx, ny, progress, loud);
+    tag('LOUD', DANGER, loudTagAlpha(loud), nx, ny);
   }
   if (battAlpha > 0){
     ctx.globalAlpha = battAlpha;
     const progress = Math.min(1, Math.max(0, batt/BATT_MAX));
     const color = batt < BATT_LOW ? DANGER : GREEN;
-    batteryRing(bx, cy, progress, color, radar);
+    batteryRing(bx, by, progress, color, radar);
     // Rounded up, so only a truly empty battery reads 0%.
-    tag(`${Math.ceil(progress*100)}%`, color, 1, bx, cy);
+    tag(`${Math.ceil(progress*100)}%`, color, 1, bx, by);
   }
   ctx.restore();
 }

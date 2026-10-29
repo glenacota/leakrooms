@@ -39,9 +39,15 @@ export function fakeCtx(){
     stroke(...a){ calls.list.push(['stroke',...a]); },
     fillText(...a){
       const e = ['fillText',...a];
-      /* The alpha and colour in force are kept on the call, so a test can read a
-         label's fade and tint. */
-      e.alpha = self.globalAlpha; e.style = self.fillStyle;
+      /* The alpha, colour and font in force are kept on the call, so a test can
+         read a label's fade, tint and size. */
+      e.alpha = self.globalAlpha; e.style = self.fillStyle; e.font = self.font;
+      calls.list.push(e);
+    },
+    /* strokeText is recorded so a test can see a label's outline. */
+    strokeText(...a){
+      const e = ['strokeText',...a];
+      e.style = self.strokeStyle; e.width = self.lineWidth;
       calls.list.push(e);
     },
     /* moveTo and lineTo are recorded so a test can read a drawn waveform. */
