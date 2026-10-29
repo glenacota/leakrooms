@@ -35,7 +35,6 @@ import { syncImages } from './pack.js';
 export const cam = {x:0, y:0, jx:0, jy:0};
 
 export { setSimAlpha } from './passes/actors.js';
-export { buildGlowSprite } from './passes/lighting.js';
 
 /**
  * Draws one frame.
