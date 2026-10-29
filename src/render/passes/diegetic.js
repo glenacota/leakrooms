@@ -31,7 +31,7 @@ import { TAU } from '../../cast/primitives.js';
 import { NOISE_FS, LOUD, TILE, BATT_MAX, BATT_LOW } from '../../config/constants.js';
 
 /* How far above the plumber's centre the rings sit, in tiles. */
-const BODY_Y = 0.3;
+const BODY_Y = 0.1;
 /* How far each ring sits to the side of the plumber's centre, in tiles. The
    plumber's collision radius is 0.33, so the ring edge (0.8 - 0.30) clears the
    body. */
@@ -52,8 +52,12 @@ const FADE_OUT = 0.4;
 
 /* Fraction of the ring at which the LOUD threshold sits (LOUD / NOISE_FS). */
 const LOUD_POS = LOUD / NOISE_FS;
-/* How long the micro LOUD tag stays visible after crossing into loud. */
-const LOUD_TAG_FOR = 1.0;
+/* The micro LOUD tag: held fully visible for LOUD_TAG_HOLD seconds from the
+   moment the noise goes loud, then faded out over LOUD_TAG_FADE, even if the
+   noise stays loud. It is only shown while loud, and each new crossing into
+   loud starts it again. */
+const LOUD_TAG_HOLD = 2.0;
+const LOUD_TAG_FADE = 0.5;
 /* Extra line-width swing while loud, as a fraction of SWEEP_LW. */
 const PULSE_DEPTH = 0.35;
 
@@ -65,9 +69,11 @@ const DISC   = 'rgba(12,14,10,0.7)';
 const GLYPH_IDLE = 'rgba(228,230,168,0.7)';
 const SCOPE_FACE = 'rgba(143,208,122,0.35)';
 
-/* Seconds remaining that the micro LOUD tag is shown. Module-level because
-   the render pass owns this visual effect; nothing in the sim reads it. */
+/* Seconds since the noise last crossed into loud, and whether it was loud on
+   the last frame. Module-level because the render pass owns this visual
+   effect; nothing in the sim reads it. */
 let loudTagT = 0;
+let wasLoud = false;
 /* How visible each ring is, 0 to 1. Render-only, like loudTagT. */
 let noiseAlpha = 0;
 let battAlpha = 0;
@@ -228,19 +234,24 @@ function noiseRing(rc, cx, cy, progress, loud){
   ctx.stroke();
 }
 
-/* Micro "LOUD" label above the noise ring (option D): shown while loud and
-   for up to LOUD_TAG_FOR seconds after crossing back below it. */
-function loudTag(rc, cx, cy){
-  if (loudTagT <= 0) return;
-  const alpha = Math.min(1, loudTagT/LOUD_TAG_FOR);
+/* A micro label above a ring, in the HUD's one tag style: bold 9px monospace,
+   centred, 6px over the ring's edge. `alpha` multiplies the ring's own fade. */
+function tag(text, color, alpha, cx, cy){
+  if (alpha <= 0) return;
   ctx.save();
   ctx.globalAlpha *= alpha;
-  ctx.fillStyle = DANGER;
+  ctx.fillStyle = color;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'bottom';
   ctx.font = 'bold 9px "Courier New", Courier, monospace';
-  ctx.fillText('LOUD', cx, cy - RING_R*TILE - 6);
+  ctx.fillText(text, cx, cy - RING_R*TILE - 6);
   ctx.restore();
+}
+
+// How visible the LOUD tag is: full, then fading, and never once the noise is not loud.
+function loudTagAlpha(loud){
+  if (!loud) return 0;
+  return Math.min(1, Math.max(0, 1 - (loudTagT - LOUD_TAG_HOLD)/LOUD_TAG_FADE));
 }
 
 /**
@@ -259,8 +270,8 @@ export function diegetic(rc){
   const pulse = (G.battPulseT || 0) > 0;
 
   const loud = selfNoise >= LOUD;
-  if (loud) loudTagT = LOUD_TAG_FOR;
-  loudTagT = Math.max(0, loudTagT - rc.dt);
+  loudTagT = loud && !wasLoud ? 0 : loudTagT + rc.dt;
+  wasLoud = loud;
 
   // Eased before the early return, so the wave settles while the ring is hidden too.
   const k = 1 - Math.exp(-rc.dt/WAVE_EASE);
@@ -296,12 +307,15 @@ export function diegetic(rc){
     ctx.globalAlpha = noiseAlpha;
     const progress = Math.min(1, selfNoise/NOISE_FS);
     noiseRing(rc, nx, cy, progress, loud);
-    loudTag(rc, nx, cy);
+    tag('LOUD', DANGER, loudTagAlpha(loud), nx, cy);
   }
   if (battAlpha > 0){
     ctx.globalAlpha = battAlpha;
     const progress = Math.min(1, Math.max(0, batt/BATT_MAX));
-    batteryRing(bx, cy, progress, batt < BATT_LOW ? DANGER : GREEN, radar);
+    const color = batt < BATT_LOW ? DANGER : GREEN;
+    batteryRing(bx, cy, progress, color, radar);
+    // Rounded up, so only a truly empty battery reads 0%.
+    tag(`${Math.ceil(progress*100)}%`, color, 1, bx, cy);
   }
   ctx.restore();
 }

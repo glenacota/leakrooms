@@ -37,7 +37,13 @@ export function fakeCtx(){
        where a figure was actually placed. */
     ellipse(...a){ calls.list.push(['ellipse',...a]); },
     stroke(...a){ calls.list.push(['stroke',...a]); },
-    fillText(...a){ calls.list.push(['fillText',...a]); },
+    fillText(...a){
+      const e = ['fillText',...a];
+      /* The alpha and colour in force are kept on the call, so a test can read a
+         label's fade and tint. */
+      e.alpha = self.globalAlpha; e.style = self.fillStyle;
+      calls.list.push(e);
+    },
     /* moveTo and lineTo are recorded so a test can read a drawn waveform. */
     moveTo(...a){ calls.list.push(['moveTo',...a]); },
     lineTo(...a){ calls.list.push(['lineTo',...a]); },

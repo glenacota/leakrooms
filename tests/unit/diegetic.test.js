@@ -351,6 +351,94 @@ test('the radar scope is still when the radar is off', () => {
   G.battPulseT = 0;
 });
 
+/* A tag's text, alpha and colour from the last frame drawn, or null. */
+function tagOf(text){
+  const c = calls.list.filter(x => x[0] === 'fillText' && x[1] === text).pop();
+  return c ? { alpha: c.alpha, style: c.style, x: c[2], y: c[3] } : null;
+}
+
+/* Draws n frames of dt seconds and returns the tag after the last one. */
+function stepTag(text, n, dt){
+  for (let i = 0; i < n; i++){
+    calls.list.length = 0;
+    clock += dt*1000;
+    render(clock);
+  }
+  return tagOf(text);
+}
+
+test('the LOUD tag holds for 2 s, fades over 0.5 s, and restarts on a new crossing', () => {
+  const t = assert;
+  setup();
+  G.selfNoise = 0;
+  draw();                         /* quiet: no tag, and the last crossing is over */
+
+  G.selfNoise = 0.7;
+  const at1 = stepTag('LOUD', 20, 0.05);       /* about 1.0 s after the crossing */
+  t.ok(at1 && at1.alpha > 0.99, `the tag is ${at1 ? at1.alpha : 'missing'} one second in, want full`);
+  const at19 = stepTag('LOUD', 18, 0.05);      /* about 1.9 s */
+  t.ok(at19 && at19.alpha > 0.99, `the tag started fading before 2 s (${at19 ? at19.alpha : 'missing'})`);
+  const fading = stepTag('LOUD', 7, 0.05);     /* about 2.25 s */
+  t.ok(fading && fading.alpha > 0.3 && fading.alpha < 0.7,
+    `the tag is ${fading ? fading.alpha : 'missing'} at 2.25 s, want about half`);
+  t.ok(stepTag('LOUD', 12, 0.05) === null, 'the tag is still drawn 3 s after the noise went loud');
+
+  /* Still loud, still gone. Dropping below loud and crossing again starts it over. */
+  t.ok(stepTag('LOUD', 5, 0.05) === null, 'the tag came back with no new crossing');
+  G.selfNoise = 0.3;
+  t.ok(stepTag('LOUD', 1, 0.05) === null, 'the tag lingered after the noise stopped being loud');
+  G.selfNoise = 0.7;
+  const again = stepTag('LOUD', 1, 0.05);
+  t.ok(again && again.alpha > 0.99, 'a new loud crossing did not show the tag at full opacity');
+
+  /* A crossing while the tag is mid-fade also starts it over. */
+  stepTag('LOUD', 45, 0.05);
+  G.selfNoise = 0.3;
+  stepTag('LOUD', 1, 0.05);
+  G.selfNoise = 0.7;
+  const refade = stepTag('LOUD', 1, 0.05);
+  t.ok(refade && refade.alpha > 0.99, 'a crossing during the fade did not restart the tag');
+  G.selfNoise = 0;
+});
+
+test('the battery tag shows the charge in whole percent, in the ring colour', () => {
+  const t = assert;
+  setup();
+  const bx = (10 + SIDE) * TILE;
+  const {cy} = noiseRingCentre(10, 10);
+  G.radar = true;
+  const GREEN = '#8fd07a', DANGER = '#d8503c';
+
+  G.batt = 82.3;
+  draw();
+  const high = tagOf('83%');
+  t.ok(high, `no battery tag; wanted 83%`);
+  t.ok(high && Math.abs(high.x - bx) < 0.5 && Math.abs(high.y - (cy - RING_RADIUS - 6)) < 4,
+    'the battery tag is not centred above the battery ring');
+  t.ok(high && high.style === GREEN, `a charged battery's tag is ${high && high.style}, want green`);
+
+  G.batt = 20;
+  draw();
+  const low = tagOf('20%');
+  t.ok(low && low.style === DANGER, `a low battery's tag is ${low && low.style}, want red`);
+
+  G.batt = 0.2;
+  draw();
+  t.ok(tagOf('1%'), 'a battery with any charge left did not read 1%');
+  G.batt = 0;
+  draw();
+  t.ok(tagOf('0%'), 'an empty battery did not read 0%');
+
+  /* The tag is part of the ring: it goes when the ring does, and does not time out. */
+  G.batt = 60;
+  draw();
+  t.ok(stepTag('60%', 60, 0.05), 'the battery tag timed out while the ring was lit');
+  G.radar = false;
+  draw();
+  t.ok(tagOf('60%') === null, 'the battery tag stayed after the ring faded');
+  G.batt = 100;
+});
+
 test('diegetic HUD draws nothing when the plumber is silent', () => {
   const t = assert;
   setup();
