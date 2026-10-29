@@ -144,7 +144,9 @@ test('the leak is drawn where it is, not just where it is computed', () => {
     return [Math.round(cx+(tx-G.plumber.x)*T), Math.round(cy+(ty-G.plumber.y)*T)];
   };
   for (let i=0;i<90;i++) render(1000+i*16.7);
-  const [lx,ly] = tileScreen(L.x, L.y);
+  // The pipe is on the south-face band: the wallpaper strip at the TOP of the
+  // floor tile directly below the wall tile.  ox = w2sx(L.x), oy = w2sy(L.y+1).
+  const [lx,ly] = tileScreen(L.x, L.y+1);
   const onCanvas = lx>=0 && ly>=0 && lx<A.cvs.width && ly<A.cvs.height;
   t.assert(onCanvas,
     `the pipe projects to (${lx},${ly}), outside a ${A.cvs.width}x${A.cvs.height} canvas`);

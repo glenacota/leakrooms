@@ -22,9 +22,7 @@ export function genLevel(rng, floorNum=0){
   const inB = (x,y)=> x>=0 && y>=0 && x<MAP_W && y<MAP_H;
 
   const INTERIOR = (x,y)=> x>0 && y>0 && x<MAP_W-1 && y<MAP_H-1;
-  const touchesFloor = (tx,ty)=>
-    (inB(tx+1,ty)&&at(tx+1,ty)===FLOOR)||(inB(tx-1,ty)&&at(tx-1,ty)===FLOOR)||
-    (inB(tx,ty+1)&&at(tx,ty+1)===FLOOR)||(inB(tx,ty-1)&&at(tx,ty-1)===FLOOR);
+
 
   /* ---------- The door ----------
      One door, found from the spawn room. It is known from the first frame
@@ -107,8 +105,9 @@ export function genLevel(rng, floorNum=0){
 
   /* ---------- The pipes ----------
      Each pipe is a single wall tile, as far from the spawn as the map allows. It
-     must be a WALL that touches walkable floor: you cannot wrench a pipe that
-     opens onto solid rock. If the farthest tile is unusable the search steps
+     must be a WALL with walkable floor directly SOUTH of it (southFacing): the
+     pipe is painted on that wall's face, and the bake only paints the south face,
+     so a pipe anywhere else would hang on a dark ceiling top. If the farthest tile is unusable the search steps
      back toward the spawn, because an unreachable pipe makes the level
      unwinnable and every repair is required.
 
@@ -117,8 +116,7 @@ export function genLevel(rng, floorNum=0){
      are four corners of the building and not four faces of one wall. */
   const faceTiles = [];
   for (let y=1;y<MAP_H-1;y++) for (let x=1;x<MAP_W-1;x++){
-    if (at(x,y)!==WALL) continue;
-    if (!touchesFloor(x,y)) continue;
+    if (!southFacing(x,y)) continue;
     faceTiles.push({x, y, d: Math.hypot(x+0.5-spawn.x, y+0.5-spawn.y)});
   }
   faceTiles.sort((a,b)=> b.d - a.d);
@@ -133,7 +131,7 @@ export function genLevel(rng, floorNum=0){
 
        It checks the local grid and not blocked(), because G does not exist yet
        while the level is being built. */
-    for (const [nx,ny] of [[c.x+1,c.y],[c.x-1,c.y],[c.x,c.y+1],[c.x,c.y-1]]){
+    for (const [nx,ny] of [[c.x,c.y+1]]){      // the pipe is on the south face, so the spot is the tile below
       if (!inB(nx,ny) || at(nx,ny)!==FLOOR) continue;
       const px = nx + 0.5, py = ny + 0.5;
       let inside = false;
