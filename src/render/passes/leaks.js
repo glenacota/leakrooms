@@ -3,6 +3,39 @@ import { REPAIR_TIME } from '../../config/tuning.js';
 import { G } from '../../sim/state.js';
 import { ctx, SCALE } from '../canvas.js';
 
+/* Frame for the pipe: centred on the wall tile, x along the wall, and -y pointing
+   from the wall out to the standing spot (the floor). The wall is found from the
+   pipe's own standing spot, which is always one tile away from the wall tile. */
+function pipeFrame(L, fx, fy, fn){
+  const nx = L.sx - L.x, ny = L.sy - L.y;          // wall -> floor
+  ctx.save();
+  ctx.translate(fx, fy);
+  ctx.rotate(Math.atan2(nx, -ny));                 // local +x runs along the wall
+  fn();
+  ctx.restore();
+}
+
+/* The pipe: a run along the wall with a flange at each end, centred on the origin
+   of the pipe frame, in device pixels like everything in this pass. */
+function pipeRun(U){
+  ctx.fillStyle='#8b8f7a'; ctx.fillRect(-U*0.5, -U*0.12, U, U*0.2);
+  ctx.fillStyle='rgba(255,255,230,0.28)'; ctx.fillRect(-U*0.5, -U*0.10, U, U*0.04);
+  ctx.fillStyle='#6f7362';
+  ctx.fillRect(-U*0.34, -U*0.16, U*0.07, U*0.28); ctx.fillRect(U*0.27, -U*0.16, U*0.07, U*0.28);
+}
+
+/* A hazard-striped clamp over the split, in the pipe frame. */
+function clamp(U, col){
+  const w = U*0.26, h = U*0.30, x = -w/2, y = -U*0.17;
+  ctx.save();
+  ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
+  ctx.fillStyle = col; ctx.fillRect(x, y, w, h);
+  ctx.strokeStyle = '#1c1a14'; ctx.lineWidth = Math.max(2, U*0.05);
+  for (let i=-2; i<=3; i++){ ctx.beginPath(); ctx.moveTo(x+i*w*0.4-w*0.25, y); ctx.lineTo(x+i*w*0.4+w*0.25, y+h); ctx.stroke(); }
+  ctx.restore();
+  ctx.strokeStyle='rgba(24,26,16,0.6)'; ctx.lineWidth=1; ctx.strokeRect(x, y, w, h);
+}
+
 export function leaks(rc){
   const {t, w2sx, w2sy} = rc;
   /* ---------- 6b. The pipes ----------
@@ -45,13 +78,20 @@ export function leaks(rc){
       g2.addColorStop(1,  'rgba(70,104,108,0)');
       ctx.fillStyle = g2;
       ctx.fillRect(fx-U, fy-U*0.5, U*2, U*2);
-      // The jet: a thin bright line that pulses
-      const pulse = 0.5 + 0.5*Math.sin(t*0.006);
-      ctx.fillStyle = `rgba(168,214,222,${0.30+0.30*pulse})`;
-      ctx.fillRect(fx-U*0.06, fy-U*0.38, U*0.12, U*0.66);
+      pipeFrame(L, fx, fy, () => {
+        pipeRun(U);
+        clamp(U, '#e8c11f');
+        // Drops creep out of the clamp and fall away from the wall, toward the floor (-y in the pipe frame)
+        for (let i=0; i<4; i++){
+          const u = (t*0.0007 + i/4) % 1, r = U*(0.018+0.03*u);
+          ctx.fillStyle = `rgba(190,230,238,${1-u*0.6})`;
+          ctx.beginPath(); ctx.ellipse(-U*0.09+i*U*0.06, -(U*0.07+u*U*0.34), r, r*(1+u*0.5), 0, 0, 6.283); ctx.fill();
+        }
+      });
     } else {
       /* Sealed: a collar and a dry face, with no halo and no jet. The missing
          water is the feedback: you can tell from across the room that it is done. */
+      pipeFrame(L, fx, fy, () => pipeRun(U));
       ctx.fillStyle='rgba(120,132,74,0.92)';
       ctx.fillRect(fx-U*0.28, fy-U*0.16, U*0.56, U*0.24);
       ctx.fillStyle='rgba(228,230,168,0.55)';

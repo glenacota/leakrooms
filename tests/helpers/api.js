@@ -53,7 +53,7 @@ import { applySettings, bindDom } from '../../src/ui/bind.js';
 import { attachFloorImages } from '../../src/render/bake.js';
 import { packMask, packWet, setPixels } from '../../src/render/pack.js';
 import { paintSplashPlan } from '../../src/render/splash-plan.js';
-import { buildGlowSprite, render, setSimAlpha } from '../../src/render/render.js';
+import { render, setSimAlpha } from '../../src/render/render.js';
 import { SETTINGS, loadSettings, saveSettings, resetSettings, setOption } from '../../src/settings/store.js';
 import { on, emit } from '../../src/util/events.js';
 import * as _C from '../../src/config/constants.js';

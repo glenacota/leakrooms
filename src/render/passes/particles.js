@@ -19,37 +19,23 @@ import { TILE } from '../../config/constants.js';
 const pool = [];
 const MAX_PARTICLES = 200; // hard cap: visuals never cost more than a few hundred dots
 
-/* Spawn a drip falling from a burst pipe, or a splash from a wading step. */
-on('particle', (kind, x, y)=>{
-  if (kind === 'drip'){
+/* Spawn a splash from a wading step. */
+on('particle', (x, y)=>{
+  const count = 5 + Math.floor(Math.random()*5);
+  for (let i = 0; i < count; i++){
+    const ang = Math.random()*6.2831;
+    const sp  = 1.0 + Math.random()*2.0;
     pool.push({
-      x: x + (Math.random()-0.5)*0.10,
-      y: y,
-      vx: (Math.random()-0.5)*0.5,
-      vy: 0.8 + Math.random()*1.0,     // tiles/s, +y is down on screen
-      gravity: 5,                       // tiles/s^2
-      life: 0.35 + Math.random()*0.30,
+      x: x + (Math.random()-0.5)*0.20,
+      y: y + (Math.random()-0.5)*0.20,
+      vx: Math.cos(ang)*sp,
+      vy: Math.sin(ang)*sp - 1.0,
+      gravity: 6,
+      life: 0.30 + Math.random()*0.50,
       maxLife: 1,
-      size: 1 + Math.random(),          // device px
-      color: 'rgba(170,216,224,',
+      size: 1 + Math.random()*1.5,
+      color: 'rgba(210,235,245,',
     });
-  } else if (kind === 'splash'){
-    const count = 5 + Math.floor(Math.random()*5);
-    for (let i = 0; i < count; i++){
-      const ang = Math.random()*6.2831;
-      const sp  = 1.0 + Math.random()*2.0;
-      pool.push({
-        x: x + (Math.random()-0.5)*0.20,
-        y: y + (Math.random()-0.5)*0.20,
-        vx: Math.cos(ang)*sp,
-        vy: Math.sin(ang)*sp - 1.0,
-        gravity: 6,
-        life: 0.30 + Math.random()*0.50,
-        maxLife: 1,
-        size: 1 + Math.random()*1.5,
-        color: 'rgba(210,235,245,',
-      });
-    }
   }
   while (pool.length > MAX_PARTICLES) pool.shift();
 });

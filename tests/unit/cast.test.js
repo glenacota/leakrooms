@@ -38,7 +38,6 @@ console.log('[8] avatar fits inside the collision disc');
     ['wrench',     0.140,  0.155,   0.043, 0.028],
     ['hat dome',   0,     0.055,   0.100, 0.100],
     ['hat brim',   0,     0.105,   0.115, 0.050],
-    ['radar glow',  0,    -0.135,   0.082, 0.082],
   ];
   let worst=0, worstPart='';
   for (const [name,ox,oy,rx,ry] of parts){
@@ -57,8 +56,6 @@ console.log('[8] avatar fits inside the collision disc');
      constant under two names in two functions. */
   t.assert(A.HAND_OFF > 0.05 && A.HAND_OFF < R,
     `HAND_OFF=${A.HAND_OFF} is not a plausible forward offset`);
-  const src = A.drawPlumber.toString();
-  t.assert(src.includes('HAND_OFF*TILE'), 'plumber no longer draws the radar at the hand offset');
   const vsrc = A.traceViewCone.toString();
   t.assert(vsrc.includes('HAND_OFF'),
     'the vision cone no longer originates at the hand offset');

@@ -1,8 +1,9 @@
 import { drawPlumber as drawPlumberSprite } from '../cast/plumber.js';
 import { drawLifeform as drawLifeformSprite } from '../cast/lifeform.js';
 import { TAU } from '../cast/primitives.js';
-import { DOOR_HOLD, FLOOR, HAND_OFF, MAP_H, MAP_W, TILE, WALL_FACE } from '../config/constants.js';
+import { DOOR_HOLD, FLOOR, MAP_H, MAP_W, TILE, WALL_FACE } from '../config/constants.js';
 import { G } from '../sim/state.js';
+import { leakAt } from '../sim/leaks.js';
 import { ctx } from './canvas.js';
 import { radialSprite as buildRadialSprite } from './sprites.js';
 
@@ -181,8 +182,14 @@ export function drawDoor(e, t){
  *   smoothing still draws it in the right place.
  * @param {number} [wy]
  */
+let waveK = 0;                                        // eased 0..1, so the wrench rises and falls rather than snapping
+
 export function drawPlumber(p, t, wx, wy){
   const x=(wx===undefined?p.x:wx)*TILE, y=(wy===undefined?p.y:wy)*TILE;
+
+  // Waving the wrench while the repair bar is filling: standing still at an open pipe
+  const working = !p.moving && !!leakAt(G.leaks, p.x, p.y)?.repair;
+  waveK += ((working ? 1 : 0) - waveK) * 0.2;
 
   // A tight contact shadow, kept small so it never spills onto a wall
   ctx.fillStyle='rgba(8,6,3,0.34)';
@@ -198,14 +205,7 @@ export function drawPlumber(p, t, wx, wy){
   ctx.translate(x,y);
   ctx.rotate(p.face + Math.PI/2);
 
-  drawPlumberSprite(ctx, { T:TILE, phase, gait: p.moving ? 1 : 0, t });
-
-  // The radar, held out in front at the same offset the vision cone starts from
-  const rg = G.radar ? 1 : 0.35;
-  ctx.fillStyle=`rgba(255,250,222,${0.5*rg})`;
-  ctx.beginPath(); ctx.arc(0, -HAND_OFF*TILE, TILE*0.044, 0, 6.283); ctx.fill();
-  ctx.fillStyle=`rgba(255,244,196,${0.20*rg})`;
-  ctx.beginPath(); ctx.arc(0, -HAND_OFF*TILE, TILE*0.082, 0, 6.283); ctx.fill();
+  drawPlumberSprite(ctx, { T:TILE, phase, gait: p.moving ? 1 : 0, t, wave: waveK });
 
   ctx.restore();
 }

@@ -80,17 +80,6 @@
 @keyframes rise{ from{transform:scaleY(.30)} to{transform:scaleY(1)} }
 @keyframes drift{ to{transform:translateX(36px)} }
 
-/* Three vertical drip lines that fall and repeat. */
-.splash-drip{
-  position:absolute; inset:0; pointer-events:none;
-  background:
-    linear-gradient(#8fc4cc,#8fc4cc) 12% 8%  /2px 26px no-repeat,
-    linear-gradient(#8fc4cc,#8fc4cc) 78% 16% /2px 18px no-repeat,
-    linear-gradient(#8fc4cc,#8fc4cc) 46% 4%  /2px 32px no-repeat;
-  animation:drip 2.1s linear infinite;
-}
-@keyframes drip{ from{transform:translateY(-30px)} to{transform:translateY(30px)} }
-
 /* ---------- Title text ---------- */
 
 .splash-plate{ position:relative; z-index:2; text-align:center; padding:0 24px; }
