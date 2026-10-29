@@ -24,6 +24,7 @@ import { leaks } from './passes/leaks.js';
 import { lighting } from './passes/lighting.js';
 import { markers } from './passes/markers.js';
 import { particles } from './passes/particles.js';
+import { diegetic } from './passes/diegetic.js';
 import { post } from './passes/post.js';
 import { syncImages } from './pack.js';
 
@@ -35,7 +36,6 @@ import { syncImages } from './pack.js';
 export const cam = {x:0, y:0, jx:0, jy:0};
 
 export { setSimAlpha } from './passes/actors.js';
-export { buildGlowSprite } from './passes/lighting.js';
 
 /**
  * Draws one frame.
@@ -127,4 +127,9 @@ export function render(t){
   lighting(rc);
   leaks(rc);
   post(rc);
+
+  /* The rings are drawn last, after the post-processing, so the light, the radar
+     tint and the CRT passes never touch them: they must stay readable in the
+     dark and while the radar is on. */
+  diegetic(rc);
 }

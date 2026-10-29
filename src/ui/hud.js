@@ -1,8 +1,11 @@
 /* The HUD writes values into the instrument panel defined in index.html.
    This file owns the element table and the two update functions. clockText
-   formats run state, so the run owns it and the HUD re-exports it. */
+   formats run state, so the run owns it and the HUD re-exports it.
 
-import { BATT_CELLS, BATT_LOW, BATT_MAX, LOUD, NOISE_FS } from '../config/constants.js';
+   The corner panel now carries the clock, the lives and the pipe marks only:
+   the noise and radar readings moved to diegetic rings above the plumber
+   (see render/passes/diegetic.js). */
+
 import { REPAIR_TIME } from '../config/tuning.js';
 import { G } from '../sim/state.js';
 import { SETTINGS } from '../settings/store.js';
@@ -12,15 +15,6 @@ import { buildHudSnap, hudVisibility } from './touch-hud-rules.js';
 
 // Every HUD element the code writes to, looked up once.
 export const HUD = {
-  batt: document.getElementById('bar-batt'),
-  noise: document.getElementById('bar-noise'),
-  noiseWrap: document.querySelector('.bar.noise'),
-  noisePeak: document.getElementById('bar-noise-peak'),
-  noiseLeak: document.getElementById('bar-noise-leak'),
-  noiseLoud: document.querySelector('.bar.noise u.loud'),
-  noiseLoudTag: document.getElementById('tag-loud'),
-  vBatt: document.getElementById('val-batt'),
-  vNoise: document.getElementById('val-noise'),
   vClock: document.getElementById('val-clock'),
   clockWrap: document.getElementById('clock'),
   vPipes: document.getElementById('val-pipes'),
@@ -91,35 +85,6 @@ export function hudFlag(el, key, cls, on){
    frame while playing. */
 export function updateHUD(){
   if (!G) return;
-  /* ---------- Radar power ---------- */
-  hudSet(HUD.batt, 'batt', 'html', battHTML());
-  hudSet(HUD.vBatt, 'vBatt', 'text', `${Math.ceil(G.batt)}%`);
-  /* Low charge is a warning, so the lit cells turn red. It is the same red
-     the noise bar uses for the one thing that is about to cost you. */
-  hudFlag(HUD.batt, 'battHot', 'hot', G.batt < BATT_LOW);
-
-  /* ---------- Noise bar ----------
-     The bar is scaled to NOISE_FS (the wrench, the loudest sustained noise),
-     not to the battery maximum. It shows three things:
-       yellow fill   the noise YOU are making (G.selfNoise)
-       blue fill     the noise the open pipes make everywhere on the floor
-       orange tick   the recent peak, because a sprint is so short that the
-                     fill alone would not show it happened
-     The number above the bar is the loudest of the two, since that is what
-     the room actually sounds like. */
-  const nz = Math.max(0, Math.min(1, G.noise/NOISE_FS))*100;
-  hudSet(HUD.vNoise, 'vNoise', 'text', String(Math.round(nz)).padStart(2,'0'));
-  hudSet(HUD.noise, 'noise', 'width', Math.max(0, Math.min(1, G.selfNoise/NOISE_FS))*100+'%');
-  /* The bar turns red at LOUD, tested on your own noise. Pipes never reach
-     LOUD by design, so red always means "this is about you". */
-  hudFlag(HUD.noiseWrap, 'noiseHot', 'hot', G.selfNoise>=LOUD);
-  hudSet(HUD.noisePeak, 'noisePeakL', 'left', Math.max(0, Math.min(100, G.noisePeak/NOISE_FS*100))+'%');
-  hudSet(HUD.noiseLeak, 'noiseLeak', 'width', (Math.max(0, Math.min(1, G.leakTotal/NOISE_FS))*100)+'%');
-  // The LOUD hairline is placed from the constant, so it always marks the real threshold.
-  hudSet(HUD.noiseLoud, 'noiseLoud', 'left', (LOUD/NOISE_FS*100)+'%');
-  // The LOUD tag names that same line, so it always sits on the hairline too.
-  hudSet(HUD.noiseLoudTag, 'noiseLoudTag', 'left', (LOUD/NOISE_FS*100)+'%');
-
   /* ---------- Pipes ----------
      One mark per pipe on the floor. The exact count is on the prompt line. */
   hudSet(HUD.vPipes, 'vPipes', 'html', pipesHTML());
@@ -184,16 +149,6 @@ export function pipesHTML(){
     .map(L => `<span class="${L.fixed ? 'done' : 'open'}"></span>`).join('');
 }
 
-// The battery cells as HTML: one per step of the charge, lit from the left.
-// There is always at least one lit cell while there is any charge at all, so
-// a nearly dead battery never reads as an empty shell.
-export function battHTML(){
-  if (!G) return '';
-  const q = Math.max(0, Math.min(1, G.batt/BATT_MAX));
-  const lit = Math.ceil(q*BATT_CELLS);
-  return Array.from({length:BATT_CELLS},
-    (_,i)=> `<span class="${i<lit?'lit':''}"></span>`).join('');
-}
 export function renderLives(){
   // Goes through the same cache as updateHUD, so the two can never disagree about what is on screen.
   hudSet(document.getElementById('val-lives'), 'vLives', 'html', livesHTML());

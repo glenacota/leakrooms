@@ -8,7 +8,6 @@
    inside boot() matters, so changing it can change how the game behaves. */
 import { resize, setRenderScaleIdx } from './render/canvas.js';
 import { buildPatterns } from './render/textures.js';
-import { buildGlowSprite } from './render/render.js';
 import { applySettings, bindDom } from './ui/bind.js';
 import { bindCards } from './ui/cards.js';
 import { bindHints, tickLoudFlash } from './ui/hints.js';
@@ -75,7 +74,6 @@ export function boot(){
      connected yet, so this first resize() does not trigger any redraw work. */
   resize();
   buildPatterns();
-  buildGlowSprite();
 
   /* Connect the modules to each other through the event bus and the DOM.
      The order is:

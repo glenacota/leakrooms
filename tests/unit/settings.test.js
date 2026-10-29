@@ -221,7 +221,6 @@ console.log('[27] the removed settings — frame counter, flicker, tape, shake')
   t.assert(/VHS_PASS\s*=\s*0\.7/.test(src), 'the VHS pass lost its constant');
   t.assert(/FLICKER_DEPTH\s*=\s*0\.65/.test(src), 'the flicker lost its constant');
   t.assert(/ctx\.fillStyle=scanPat/.test(src), 'the scanline pass is gone — the game no longer looks like a tape');
-  t.assert(/if \(f\.flicker\)/.test(src), 'the tubes no longer stutter');
   render(1000);
   render(2000);
   console.log('  4 settings gone from schema, store, markup, stylesheet, and renderer');

@@ -84,7 +84,7 @@ test('[24] the HUD — one glass panel in the corner, and it reserves nothing', 
 
   /* --- the readouts, and only the readouts ---------------------------
      The panel can only carry so much. So the set of labels is the contract:
-     lives, leaks, noise and radar power. Anything else has to be argued
+     lives and leaks. Anything else has to be argued
      for.
 
      A label can be more than one word, so the parser takes a run of
@@ -92,8 +92,8 @@ test('[24] the HUD — one glass panel in the corner, and it reserves nothing', 
      space and then fails on the tag, which reads as a missing label
      rather than as a label with a space in it. */
   const labels = (hudHtml.match(/class="crt-lbl[^"]*">([A-Z][A-Z ]*)</g)||[]).map(s => s.replace(/.*>/,'').replace(/<.*/,''));
-  t.assert(JSON.stringify(labels)===JSON.stringify(['NOISE','RADAR','LIVES','LEAKS']),
-    `the HUD shows ${JSON.stringify(labels)}, expected NOISE/RADAR/LIVES/LEAKS`);
+  t.assert(JSON.stringify(labels)===JSON.stringify(['LIVES','LEAKS']),
+    `the HUD shows ${JSON.stringify(labels)}, expected LIVES/LEAKS`);
 
   for (const gone of ['val-flood','bar-flood','val-leak']){
     t.assert(!hudHtml.includes(gone), `the HUD still carries #${gone}`);
@@ -109,38 +109,12 @@ test('[24] the HUD — one glass panel in the corner, and it reserves nothing', 
   t.assert(/clockText\(G\.clock\)/.test(src),
     "the clock is not written from the run's own clockText");
 
-  /* --- bars on the continuous readings, and ONLY those --------------
-     Over-collecting is a real failure here, not pedantry: a bar under a count
-     is actively misleading, because a half-full gradient next to "2/4" invites
-     you to read the gradient as the number. */
+  /* No continuous bars live in the corner panel any more: noise and radar are
+     diegetic rings above the plumber (see render/passes/diegetic.js). */
   const barRows = hudHtml.split('<div class="crt-row"').slice(1).filter(s => s.includes('class="bar'));
-  const barLabels = barRows.map(s => (s.match(/class="crt-lbl[^"]*">([A-Z][A-Z ]*)</)||[])[1]).sort();
-  /* The labels are a set, so the expectation is sorted too and the assertion
-     does not depend on which of them happens to come first alphabetically. */
-  t.assert(JSON.stringify(barLabels)===JSON.stringify(['NOISE','RADAR'].sort()),
-    `bars are on ${JSON.stringify(barLabels)}, expected NOISE/RADAR only`);
-  t.assert((hudHtml.match(/class="bar/g)||[]).length===2,
-    'there are more bars than the two continuous readings');
-
-  /* --- the battery --------------------------------------------------- */
-  t.assert(/class="bar batt"[^>]*id="bar-batt"/.test(hudHtml),
-    'the radar power gauge is not a .batt battery');
-  const shell = css.match(/\.bar\.batt\s*\{([^}]*)\}/);
-  t.assert(shell, 'no .bar.batt rule — the gauge has no battery shell');
-  t.assert(/border\s*:/.test(shell[1]), 'the battery has no shell outline');
-  t.assert(/border-radius\s*:/.test(shell[1]), 'the battery shell has square corners');
-  t.assert(/overflow\s*:\s*visible/.test(shell[1]),
-    'the battery shell clips the terminal that sticks out of it');
-  const terminal = css.match(/\.bar\.batt::after\s*\{([^}]*)\}/);
-  t.assert(terminal, 'the battery has no terminal — a battery without a terminal is a box');
-  t.assert(/right\s*:/.test(terminal[1]), 'the terminal is not on the right end');
-  t.assert(/\.bar\.batt span\s*\{/.test(css), 'the battery has no cells');
-  t.assert(/\.bar\.batt span\.lit\s*\{/.test(css), 'the battery has no lit cell');
-  /* Low charge is a warning, and the warning colour in this HUD is red. */
-  const lowBatt = css.match(/\.bar\.batt\.hot span\.lit\s*\{([^}]*)\}/);
-  t.assert(lowBatt && /--danger|#d8503c|#ff8f6b/i.test(lowBatt[1]),
-    'the battery does not turn red when it is low');
-  t.assert(/BATT_LOW/.test(src), 'the battery has no low-charge threshold');
+  t.assert(barRows.length===0, `the corner panel still carries ${barRows.length} bar(s)`);
+  t.assert((hudHtml.match(/class="bar/g)||[]).length===0,
+    'there are no bars left in the corner panel');
 
   /* --- the pipe marks ----------------------------------------------
      One mark per pipe, in the order the floor put them, so a mark never
@@ -240,20 +214,6 @@ test('[24] the HUD — one glass panel in the corner, and it reserves nothing', 
   t.assert(above && /z-index\s*:\s*1/.test(above[1]),
     'the content is not lifted above the scanlines — the type would be striped');
 
-  /* --- one meaning per colour ----------------------------------------
-     The LOUD hairline is the one mark on the bar that is red: it is the line
-     the player is trying to stay under, and nothing else on the bar is a
-     limit. Past it, only YOUR fill turns red, so red always means "this is
-     about you". */
-  const loud = css.match(/\.bar\.noise u\.loud\s*\{([^}]*)\}/);
-  t.assert(loud && /--danger|#d8503c/i.test(loud[1]),
-    'the LOUD hairline is not red — it is the one mark on the bar that is a limit');
-  const hot = css.match(/\.bar\.noise\.hot i:not\(\.leak\)\s*\{([^}]*)\}/);
-  t.assert(hot && /--danger|#d8503c/i.test(hot[1]),
-    'the noise bar does not turn red past LOUD');
-  const leak = css.match(/\.bar\.noise i\.leak\s*\{([^}]*)\}/);
-  t.assert(leak && /#3c5a60|#8fc4cc/i.test(leak[1]),
-    "the pipe-noise fill is not blue — blue is the water's colour, full stop");
 
   /* --- the clock changes colour, never size -------------------------- */
   const clockRule = css.match(/#val-clock\s*\{([^}]*)\}/);
@@ -272,7 +232,7 @@ test('[24] the HUD — one glass panel in the corner, and it reserves nothing', 
     'the panel does not respond to narrow windows — it would grow off the screen');
 
   console.log(`  ${panels} glass panel, labels ${JSON.stringify(labels)}, `+
-    `bars on ${barLabels.length} readouts; `+
+    `no corner bars; `+
     `labels ${px('.crt-lbl')}px, values ${px('.crt-val')}px, clock ${px('#val-clock')}px, over a full-window canvas`);
 }
   t.done();
