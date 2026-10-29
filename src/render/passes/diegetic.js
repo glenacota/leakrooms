@@ -31,7 +31,7 @@ import { TAU } from '../../cast/primitives.js';
 import { NOISE_FS, LOUD, TILE, BATT_MAX, BATT_LOW } from '../../config/constants.js';
 
 /* How far above the plumber's centre the rings sit, in tiles. */
-const BODY_Y = 0.1;
+const BODY_Y = 0.3;
 /* How far each ring sits to the side of the plumber's centre, in tiles. The
    plumber's collision radius is 0.33, so the ring edge (0.8 - 0.30) clears the
    body. */
