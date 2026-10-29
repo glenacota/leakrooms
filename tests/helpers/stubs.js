@@ -37,6 +37,7 @@ export function fakeCtx(){
        where a figure was actually placed. */
     ellipse(...a){ calls.list.push(['ellipse',...a]); },
     stroke(...a){ calls.list.push(['stroke',...a]); },
+    fillText(...a){ calls.list.push(['fillText',...a]); },
     measureText: ()=>({width:10}),
     globalAlpha:1, globalCompositeOperation:'', fillStyle:'', strokeStyle:'',
     lineWidth:1, font:'', textAlign:'', imageSmoothingEnabled:true,
