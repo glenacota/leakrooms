@@ -118,7 +118,7 @@ export function tickMovement(plumber, grid, floodState, dt){
       if (inWater){
         emit('sfx', 'splash', sprinting?1.4:0.5, stepPow);
         // A splash where the boot hits the water, pure visual.
-        emit('particle', 'splash', plumber.x, plumber.y);
+        emit('particle', plumber.x, plumber.y);
       } else       emit('sfx', 'step', sprinting?1.4:0.5, stepPow);
     }
     // Wading pushes a ripple ahead of you, a trace of where you have been on top of the noise you already made.

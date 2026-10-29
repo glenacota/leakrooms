@@ -1,7 +1,7 @@
 import { drawPlumber as drawPlumberSprite } from '../cast/plumber.js';
 import { drawLifeform as drawLifeformSprite } from '../cast/lifeform.js';
 import { TAU } from '../cast/primitives.js';
-import { DOOR_HOLD, FLOOR, HAND_OFF, MAP_H, MAP_W, TILE, WALL_FACE } from '../config/constants.js';
+import { DOOR_HOLD, FLOOR, MAP_H, MAP_W, TILE, WALL_FACE } from '../config/constants.js';
 import { G } from '../sim/state.js';
 import { leakAt } from '../sim/leaks.js';
 import { ctx } from './canvas.js';
@@ -206,13 +206,6 @@ export function drawPlumber(p, t, wx, wy){
   ctx.rotate(p.face + Math.PI/2);
 
   drawPlumberSprite(ctx, { T:TILE, phase, gait: p.moving ? 1 : 0, t, wave: waveK });
-
-  // The radar, held out in front at the same offset the vision cone starts from
-  const rg = G.radar ? 1 : 0.35;
-  ctx.fillStyle=`rgba(255,250,222,${0.5*rg})`;
-  ctx.beginPath(); ctx.arc(0, -HAND_OFF*TILE, TILE*0.044, 0, 6.283); ctx.fill();
-  ctx.fillStyle=`rgba(255,244,196,${0.20*rg})`;
-  ctx.beginPath(); ctx.arc(0, -HAND_OFF*TILE, TILE*0.082, 0, 6.283); ctx.fill();
 
   ctx.restore();
 }
