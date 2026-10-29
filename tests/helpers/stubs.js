@@ -38,6 +38,9 @@ export function fakeCtx(){
     ellipse(...a){ calls.list.push(['ellipse',...a]); },
     stroke(...a){ calls.list.push(['stroke',...a]); },
     fillText(...a){ calls.list.push(['fillText',...a]); },
+    /* moveTo and lineTo are recorded so a test can read a drawn waveform. */
+    moveTo(...a){ calls.list.push(['moveTo',...a]); },
+    lineTo(...a){ calls.list.push(['lineTo',...a]); },
     measureText: ()=>({width:10}),
     globalAlpha:1, globalCompositeOperation:'', fillStyle:'', strokeStyle:'',
     lineWidth:1, font:'', textAlign:'', imageSmoothingEnabled:true,

@@ -4,7 +4,7 @@
    corner gauges. They fade in when they have something to say and fade out
    when they do not:
 
-     noise   — left, speaker glyph. Shows while the plumber is making noise
+     noise   — left, a live sound wave. Shows while the plumber is making noise
                (walking, wading, sprinting, repairing, the radar's ping).
                Amber sweep split at LOUD into red, with a threshold tick at
                LOUD and a pulse while loud. A micro "LOUD" tag hovers above
@@ -71,6 +71,25 @@ let loudTagT = 0;
 let noiseAlpha = 0;
 let battAlpha = 0;
 
+/* The sound wave inside the noise ring. Its height is the sweep's volume
+   (selfNoise / NOISE_FS), eased over WAVE_EASE seconds so the 60 Hz sim values
+   do not make it flicker. The wave runs at WAVE_CALM cycles across the ring,
+   and at WAVE_LOUD once the noise is loud, so a loud sound looks frantic. */
+const WAVE_EASE = 0.1;
+const WAVE_CALM = 1.5;
+const WAVE_LOUD = 2.5;
+/* Share of the inner radius the wave spans sideways, and the share its peak
+   reaches at full volume. Both stay clear of the track. */
+const WAVE_SPAN = 0.9;
+const WAVE_HEIGHT = 0.75;
+/* The flat line a silent wave shrinks to, in pixels. */
+const WAVE_MIN = 0.6;
+/* Scroll speed, in radians per millisecond, and the points the path is cut into. */
+const WAVE_SPEED = 0.012;
+const WAVE_STEPS = 28;
+let waveAmp = 0;
+let waveCyc = WAVE_CALM;
+
 // Moves a fade value toward its target at the fade-in or fade-out speed.
 function fade(a, on, dt){
   return on ? Math.min(1, a + dt/FADE_IN) : Math.max(0, a - dt/FADE_OUT);
@@ -109,7 +128,7 @@ function batteryRing(cx, cy, progress, color){
 
 /* The noise ring: two-tone sweep split at LOUD (amber up to LOUD, red past
    it), a short threshold tick at LOUD, and a pulsed line width while loud.
-   A speaker glyph in the middle says what the ring measures. */
+   A live sound wave in the middle says what the ring measures. */
 function noiseRing(rc, cx, cy, progress, loud){
   const r = RING_R*TILE;
   const loudEnd = -Math.PI/2 + LOUD_POS*TAU;
@@ -142,22 +161,27 @@ function noiseRing(rc, cx, cy, progress, loud){
     ctx.stroke();
   }
 
-  // Glyph: a speaker cone with two sound waves.
+  /* Glyph: a live sound wave across the middle of the ring. Its height follows
+     the same volume the sweep shows, and it gets busier once the noise is loud.
+     The window tapers it to nothing at both ends, which keeps it inside the
+     disc without a clip. Never lower than a flat line, so the ring still reads
+     as a wave while it fades out. */
+  const inner = r - TRACK_LW/2;
+  const half = inner*WAVE_SPAN;
   const gc = loud ? DANGER : GLYPH_IDLE;
-  ctx.fillStyle = gc;
-  ctx.beginPath();
-  ctx.moveTo(cx - 5, cy - 2);
-  ctx.lineTo(cx - 2.5, cy - 2);
-  ctx.lineTo(cx + 0.5, cy - 5);
-  ctx.lineTo(cx + 0.5, cy + 5);
-  ctx.lineTo(cx - 2.5, cy + 2);
-  ctx.lineTo(cx - 5, cy + 2);
-  ctx.closePath();
-  ctx.fill();
+  const phase = rc.t*WAVE_SPEED;
+  const amp = Math.max(WAVE_MIN, waveAmp*inner*WAVE_HEIGHT);
   ctx.strokeStyle = gc;
-  ctx.lineWidth = 1.2;
-  ctx.beginPath(); ctx.arc(cx + 0.5, cy, 3.5, -0.9, 0.9); ctx.stroke();
-  ctx.beginPath(); ctx.arc(cx + 0.5, cy, 6.5, -0.9, 0.9); ctx.stroke();
+  ctx.lineWidth = 1.4;
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  for (let i = 0; i <= WAVE_STEPS; i++){
+    const u = i/WAVE_STEPS;
+    const x = cx + (u*2 - 1)*half;
+    const y = cy + amp*Math.sin(Math.PI*u)*Math.sin(TAU*waveCyc*u - phase);
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
 }
 
 /* Micro "LOUD" label above the noise ring (option D): shown while loud and
@@ -166,7 +190,7 @@ function loudTag(rc, cx, cy){
   if (loudTagT <= 0) return;
   const alpha = Math.min(1, loudTagT/LOUD_TAG_FOR);
   ctx.save();
-  ctx.globalAlpha = alpha;
+  ctx.globalAlpha *= alpha;
   ctx.fillStyle = DANGER;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'bottom';
@@ -193,6 +217,11 @@ export function diegetic(rc){
   const loud = selfNoise >= LOUD;
   if (loud) loudTagT = LOUD_TAG_FOR;
   loudTagT = Math.max(0, loudTagT - rc.dt);
+
+  // Eased before the early return, so the wave settles while the ring is hidden too.
+  const k = 1 - Math.exp(-rc.dt/WAVE_EASE);
+  waveAmp += (Math.min(1, selfNoise/NOISE_FS) - waveAmp)*k;
+  waveCyc += ((loud ? WAVE_LOUD : WAVE_CALM) - waveCyc)*k;
 
   noiseAlpha = fade(noiseAlpha, selfNoise > NOISE_FLOOR, rc.dt);
   battAlpha = fade(battAlpha, radar || pulse, rc.dt);

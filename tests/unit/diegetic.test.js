@@ -164,7 +164,7 @@ test('diegetic battery ring draws when radar is on', () => {
   t.ok(ringArcs(nx, cy).length === 0, `no noise ring arcs when silent, got ${ringArcs(nx, cy).length}`);
 });
 
-test('diegetic rings sit on a dark disc and carry a glyph', () => {
+test('diegetic rings sit on a dark disc', () => {
   const t = assert;
   setup();
   const {cx, cy} = noiseRingCentre(10, 10);
@@ -179,11 +179,61 @@ test('diegetic rings sit on a dark disc and carry a glyph', () => {
     c[0] === 'arc' && Math.abs(c[3] - (RING_RADIUS + 2)) < 0.01);
   t.ok(discs.some(d => Math.hypot(d[1] - cx, d[2] - cy) < 1), 'no dark disc behind the noise ring');
   t.ok(discs.some(d => Math.hypot(d[1] - bx, d[2] - cy) < 1), 'no dark disc behind the battery ring');
+});
 
-  /* The speaker glyph is two small arcs about the noise ring's centre. */
-  const waves = calls.list.filter(c =>
-    c[0] === 'arc' && Math.hypot(c[1] - cx, c[2] - cy) < 2 && c[3] < RING_RADIUS - 2);
-  t.ok(waves.length === 2, `speaker glyph: expected 2 wave arcs, got ${waves.length}`);
+/* The wave inside the noise ring is a polyline: one moveTo and a run of lineTo
+   calls across the ring's centre. Its tallest point is its amplitude. */
+function waveHeight(cx, cy){
+  const pts = calls.list.filter(c =>
+    (c[0] === 'moveTo' || c[0] === 'lineTo') && Math.abs(c[1] - cx) <= RING_RADIUS);
+  return { n: pts.length, h: Math.max(0, ...pts.map(c => Math.abs(c[2] - cy))),
+           w: Math.max(...pts.map(c => c[1])) - Math.min(...pts.map(c => c[1])) };
+}
+
+test('the sound wave grows with the volume and stays inside the ring', () => {
+  const t = assert;
+  setup();
+  const {cx, cy} = noiseRingCentre(10, 10);
+  const inner = RING_RADIUS - 1.5;
+
+  G.selfNoise = 0.1;
+  draw();
+  const quiet = waveHeight(cx, cy);
+  G.selfNoise = 0.3;
+  draw();
+  const walk = waveHeight(cx, cy);
+  G.selfNoise = 0.85;
+  draw();
+  const full = waveHeight(cx, cy);
+
+  t.ok(quiet.n > 10, `the wave is not drawn as a path (${quiet.n} points)`);
+  t.ok(quiet.h < walk.h && walk.h < full.h,
+    `the wave does not grow with the volume: ${quiet.h.toFixed(2)}, ${walk.h.toFixed(2)}, ${full.h.toFixed(2)}`);
+  t.ok(full.h <= inner, `the loudest wave (${full.h.toFixed(2)}px) leaves the ring's inner ${inner}px`);
+  t.ok(full.w <= inner*2, `the wave is wider (${full.w.toFixed(2)}px) than the ring's inside`);
+
+  /* Past full scale (the door is 1.8) the wave stays the size of full scale. */
+  G.selfNoise = 1.8;
+  draw();
+  const door = waveHeight(cx, cy);
+  t.ok(door.h <= inner, `an over-scale noise drew a wave of ${door.h.toFixed(2)}px`);
+});
+
+test('the sound wave is a flat line when the volume is gone', () => {
+  const t = assert;
+  setup();
+  const {cx, cy} = noiseRingCentre(10, 10);
+  G.selfNoise = 0.5;
+  draw();
+  G.selfNoise = 0;
+  /* One frame after the noise stops the ring is still fading, and its wave has
+     fallen but is still a wave and not a hole. */
+  calls.list.length = 0;
+  clock += 100;
+  render(clock);
+  const fading = waveHeight(cx, cy);
+  t.ok(fading.n > 10, 'the wave vanished the frame the noise stopped');
+  t.ok(fading.h < 4, `the wave is still ${fading.h.toFixed(2)}px tall after the noise stopped`);
 });
 
 test('diegetic rings fade in and out instead of switching', () => {
