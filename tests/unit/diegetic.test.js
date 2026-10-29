@@ -279,6 +279,78 @@ test('diegetic rings are drawn after the post-processing pass', () => {
   G.radar = false;
 });
 
+/* The radar scope: the last lineTo near the battery ring is the scope's turning
+   line (the crosshair is drawn before it). Returns its angle and length. */
+function scopeLine(bx, cy){
+  const ends = calls.list.filter(c =>
+    c[0] === 'lineTo' && Math.hypot(c[1] - bx, c[2] - cy) < RING_RADIUS);
+  const e = ends[ends.length - 1];
+  return e ? { angle: Math.atan2(e[2] - cy, e[1] - bx), len: Math.hypot(e[1] - bx, e[2] - cy) } : null;
+}
+
+/* The trail wedges are arcs at the scope's reach about the battery ring's centre. */
+const SCOPE_REACH_PX = (RING_RADIUS - 1.5) * 0.9;
+function trailArcs(bx, cy){
+  return calls.list.filter(c =>
+    c[0] === 'arc' && Math.hypot(c[1] - bx, c[2] - cy) < 1 && Math.abs(c[3] - SCOPE_REACH_PX) < 0.05);
+}
+
+test('the radar scope turns clockwise while the radar is on', () => {
+  const t = assert;
+  setup();
+  const {cy} = noiseRingCentre(10, 10);
+  const bx = (10 + SIDE) * TILE;
+  G.radar = true;
+  G.batt = 80;
+  draw();
+
+  const angles = [];
+  for (let i = 0; i < 6; i++){
+    calls.list.length = 0;
+    clock += 33;
+    render(clock);
+    angles.push(scopeLine(bx, cy));
+  }
+  t.ok(angles.every(Boolean), 'no scope line drawn while the radar is on');
+  const step = (a, b) => ((b - a) % (2*Math.PI) + 2*Math.PI) % (2*Math.PI);
+  for (let i = 1; i < angles.length; i++){
+    const s = step(angles[i-1].angle, angles[i].angle);
+    t.ok(s > 0.05 && s < 0.4, `the line moved ${s.toFixed(3)} rad in a frame, want about 0.15 clockwise`);
+  }
+  t.ok(Math.abs(angles[0].len - SCOPE_REACH_PX) < 0.05,
+    `the scope line is ${angles[0].len.toFixed(2)}px long, want ${SCOPE_REACH_PX.toFixed(2)}`);
+  G.radar = false;
+});
+
+test('the radar scope leaves a fading trail', () => {
+  const t = assert;
+  setup();
+  const {cy} = noiseRingCentre(10, 10);
+  const bx = (10 + SIDE) * TILE;
+  G.radar = true;
+  G.batt = 80;
+  draw();
+  t.ok(trailArcs(bx, cy).length === 10, `expected 10 trail bands, got ${trailArcs(bx, cy).length}`);
+  G.radar = false;
+});
+
+test('the radar scope is still when the radar is off', () => {
+  const t = assert;
+  setup();
+  const {cy} = noiseRingCentre(10, 10);
+  const bx = (10 + SIDE) * TILE;
+  /* A battery pickup lights the ring for a second with the radar off. */
+  G.radar = false;
+  G.battPulseT = 1;
+  G.batt = 80;
+  draw();
+  t.ok(trailArcs(bx, cy).length === 0, 'the scope drew a trail with the radar off');
+  const face = calls.list.filter(c =>
+    c[0] === 'arc' && Math.hypot(c[1] - bx, c[2] - cy) < 1 && Math.abs(c[3] - SCOPE_REACH_PX/2) < 0.05);
+  t.ok(face.length === 1, `expected the scope face's range ring, got ${face.length}`);
+  G.battPulseT = 0;
+});
+
 test('diegetic HUD draws nothing when the plumber is silent', () => {
   const t = assert;
   setup();
