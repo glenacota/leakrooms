@@ -211,6 +211,24 @@ test('diegetic rings fade in and out instead of switching', () => {
   t.ok(ringArcs(cx, cy).length > 0, 'noise ring vanished the frame the noise stopped');
 });
 
+test('diegetic rings are drawn after the post-processing pass', () => {
+  const t = assert;
+  setup();
+  const {cx, cy} = noiseRingCentre(10, 10);
+  G.selfNoise = 0.3;
+  G.radar = true;
+
+  draw();
+
+  const lastImage = calls.list.map(c => c[0]).lastIndexOf('drawImage');
+  const track = calls.list.findIndex(c =>
+    c[0] === 'arc' && Math.hypot(c[1] - cx, c[2] - cy) < 4 && Math.abs(c[3] - RING_RADIUS) < 1);
+  t.ok(lastImage >= 0 && track >= 0, 'expected post-processing draws and a ring track');
+  t.ok(track > lastImage,
+    `the ring track is call ${track} but the last post-pass drawImage is call ${lastImage}: the CRT would touch the ring`);
+  G.radar = false;
+});
+
 test('diegetic HUD draws nothing when the plumber is silent', () => {
   const t = assert;
   setup();

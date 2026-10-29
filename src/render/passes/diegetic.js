@@ -12,19 +12,21 @@
      battery — right, battery glyph. Shows while the radar is on, or right
                after a battery pickup. Green, red when low.
 
-   Each ring sits on a dark disc so it stays readable over the lit floor the
-   radar reveals. The glyph says what the ring is, so nobody has to learn the
-   colours. Both are drawn with canvas paths (the game has no image assets).
+   Each ring sits on a dark disc so it stays readable over a bright floor. The
+   glyph says what the ring is, so nobody has to learn the colours. Both are
+   drawn with canvas paths (the game has no image assets).
 
-   Drawn inside the world transform, so they travel with the camera
-   and stay pinned to the player. They use the same arc idiom as the
-   pipe-repair ring (render/passes/leaks.js) and the door crank
+   Drawn LAST, after the post-processing pass (see render.js), inside the world
+   transform. Nothing darkens or tints them: not the light bake, not the radar's
+   green, not the CRT effects, the vignette or the danger wash. They still
+   travel with the camera and stay pinned to the player. They use the same arc
+   idiom as the pipe-repair ring (render/passes/leaks.js) and the door crank
    (render/entities.js).
    ============================================================ */
 
 import { G } from '../../sim/state.js';
 import { simAlpha } from './actors.js';
-import { ctx } from '../canvas.js';
+import { ctx, SCALE } from '../canvas.js';
 import { TAU } from '../../cast/primitives.js';
 import { NOISE_FS, LOUD, TILE, BATT_MAX, BATT_LOW } from '../../config/constants.js';
 
@@ -208,6 +210,11 @@ export function diegetic(rc){
   const bx = (px + SIDE)*TILE;
 
   ctx.save();
+  /* The pass runs after post(), which leaves the context in device space, so
+     the world transform is set up here, and only when something is drawn. */
+  ctx.setTransform(SCALE,0,0,SCALE,0,0);
+  ctx.translate(rc.tx, rc.ty);
+  ctx.globalCompositeOperation = 'source-over';
   if (noiseAlpha > 0){
     ctx.globalAlpha = noiseAlpha;
     const progress = Math.min(1, selfNoise/NOISE_FS);

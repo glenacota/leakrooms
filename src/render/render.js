@@ -122,10 +122,14 @@ export function render(t){
   markers(rc);
   actors(rc);
   particles(rc);
-  diegetic(rc);
   ctx.restore();
 
   lighting(rc);
   leaks(rc);
   post(rc);
+
+  /* The rings are drawn last, after the post-processing, so the light, the radar
+     tint and the CRT passes never touch them: they must stay readable in the
+     dark and while the radar is on. */
+  diegetic(rc);
 }
