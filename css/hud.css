@@ -76,8 +76,6 @@
   font-variant-numeric:tabular-nums;  /* digits keep the same width, so numbers do not jitter */
   letter-spacing:.02em;
 }
-/* The number is a reading out of full scale, so it carries its unit. */
-#val-noise::after{ content:'%'; }
 
 /* The second label in a row, set apart from the pair before it. */
 .crt-lbl.sep{ margin-left:10px; }
@@ -105,123 +103,6 @@
 .crt-pipes span.done{
   background:transparent;
   border:1px solid rgba(228,230,168,.55);
-}
-
-/* ---------- The battery ---------- */
-.bar.batt{
-  display:inline-flex;
-  align-items:stretch;
-  gap:3px;
-  width:105px;
-  height:12px;
-  padding:2px;
-  border:1px solid rgba(228,230,168,.55);
-  border-radius:3px;
-  background:rgba(8,7,3,.78);
-  overflow:visible;          /* the terminal sticks out past the shell */
-}
-/* The terminal on the right end. */
-.bar.batt::after{
-  content:'';
-  position:absolute;
-  right:-5px;
-  top:50%;
-  margin-top:-3px;
-  width:5px;
-  height:4px;
-  border:1px solid rgba(228,230,168,.55);
-  border-left:0;
-  border-radius:0 2px 2px 0;
-  background:rgba(228,230,168,.18);
-}
-/* One cell per step of the charge. */
-.bar.batt span{
-  flex:1 1 0;
-  border-radius:1px;
-  background:rgba(228,230,168,.12);
-}
-.bar.batt span.lit{
-  background:linear-gradient(180deg,var(--yellow),var(--yellow-deep));
-  box-shadow:0 0 6px rgba(228,230,168,.45);
-}
-/* Low charge is a warning, so the lit cells turn red — the same red the
-   noise bar uses for the one thing that is about to cost you. */
-.bar.batt.hot span.lit{
-  background:linear-gradient(180deg,#ff8f6b,var(--danger));
-  box-shadow:0 0 7px rgba(216,80,60,.55);
-}
-
-/* ---------- Bars (battery and noise only) ---------- */
-
-/* A bar suits a continuous reading and not a count: you cannot tell which
-   pipe is sealed from a gradient, so counts do not get one. */
-.bar{
-  position:relative;
-  display:inline-block;
-  flex:0 0 auto;
-  width:120px;
-  height:9px;
-  background:rgba(8,7,3,.78);
-  border:1px solid rgba(228,230,168,.5);
-  overflow:hidden;
-  margin-bottom:2px;
-}
-.bar i{
-  position:absolute;
-  inset:1px auto 1px 1px;
-  width:100%;
-  background:linear-gradient(90deg,var(--yellow-deep),var(--yellow));
-  transition:width .12s linear;
-}
-
-/* The noise bar has two fills and two marks:
-   - yellow fill: the noise you are making
-   - blue fill (.leak): the noise the open pipes make, shown under the yellow
-   - orange tick (.peak): where your last loud moment peaked
-   - red hairline (.loud): the LOUD threshold that monsters react to
-   Both fills are set from JS; the LOUD hairline is placed from the game
-   constant at runtime. */
-.bar.noise i{ background:linear-gradient(90deg,var(--yellow-dim),#e4e6a8); }
-
-/* Past LOUD, only YOUR fill turns red. The pipe fill stays blue, so red
-   always means "this is about you". */
-.bar.noise.hot i:not(.leak){ background:linear-gradient(90deg,var(--danger),#ff8f6b); }
-
-.bar.noise u{
-  position:absolute; top:0; bottom:0; width:2px;
-  text-decoration:none; transition:left .12s linear;
-}
-/* The threshold is the one mark on the bar that is red: it is the line the
-   player is trying to stay under, and nothing else on the bar is a limit. */
-.bar.noise u.loud{ left:59%; width:2px; background:var(--danger); }
-/* Let the LOUD tag poke above the shell instead of being clipped by it. */
-.bar.noise{ overflow:visible;}
-/* The peak decays slowly so a quarter-second sprint stays on screen long
-   enough to read. */
-.bar.noise u.peak{ background:#ff8f6b; opacity:0; }
-/* Open pipes are water, so their fill is water blue. It is a fill and not a
-   tick because a pipe is a standing noise source with a level. */
-.bar.noise i.leak{
-  background:linear-gradient(90deg,#3c5a60,#8fc4cc);
-  opacity:.9;
-}
-/* The LOUD tag names the red hairline: it is the one line on the bar that is
-   a limit, not a reading, and it sits centred on the hairline above the shell. */
-.bar.noise .loud-tag{
-  position:absolute;
-  left:59%;
-  bottom:100%;
-  margin-bottom:0px;
-  transform:translateX(-50%);
-  font-size:10px;
-  color:rgb(216, 135, 123);
-  text-shadow: 0 0 14px black;
-  font-weight: 900;
-  letter-spacing:.25em;
-  white-space:nowrap;
-}
-@media (prefers-reduced-motion: reduce){
-  .bar.noise u{ transition:none; }
 }
 
 /* ---------- Lives ---------- */

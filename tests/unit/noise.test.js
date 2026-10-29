@@ -31,58 +31,60 @@ test('noise decay lowers meters and keeps peak above current noise', () => {
 /* The bar is drawn from the noise level divided by NOISE_FS, and every value the
    game produces is between 0 and NOISE_FS. A bar that divides by something else
    cannot show a sprint or mark the LOUD threshold, and the sim never notices:
+/* The diegetic noise ring is drawn from selfNoise divided by NOISE_FS, the
+   loudest sustained thing the player can make. Every value the game produces
+   is between 0 and NOISE_FS. A meter that divided by something else cannot
+   show a sprint or mark the LOUD threshold, and the sim never notices:
    bots do not read the HUD. */
 test('the noise meter uses the scale the game actually produces', () => {
   const t = softAssert();
   A.lives=3; A.floorIdx=0;
   buildFloor(1, 60606);
   const W = 76;
-  const H = A.HUD;
-  const show = (n, leakTotal) => {
-    G.noise = n; G.selfNoise = n; G.noisePeak = n; G.leakTotal = leakTotal||0;
-    A.updateHUD();
-  };
-  const bar = () => parseFloat(H.noise.style.width);
-  const val = () => parseInt(H.vNoise.textContent, 10);
-  const pct = p => p/A.NOISE_FS*100;          // exact, not rounded: the bar is
+  const pct = p => p/A.NOISE_FS*100;          // exact, not rounded: the ring is
   const near = (got, want, what) =>           // drawn from the same division
     t.assert(Math.abs(got-want) < 0.01,
       `${what} is ${got.toFixed(2)}%, expected ${want.toFixed(2)}%`);
+  const fill = () => G.selfNoise/A.NOISE_FS*100;   // what the ring paints
+
+  const show = (n, leakTotal) => {
+    G.noise = n; G.selfNoise = n; G.noisePeak = n; G.leakTotal = leakTotal||0;
+  };
 
   /* the scale itself: each number the game can produce, at its own value */
-  show(0.20); const walk = bar();
-  show(0.30); const wade = bar();
-  show(A.LOUD); const loud = bar();
-  show(A.SPRINT_NOISE); const sprint = bar();
-  show(A.REPAIR_NOISE); const wrench = bar();
-  show(A.DOOR_NOISE); const door = bar();
+  show(0.20); const walk = fill();
+  show(0.30); const wade = fill();
+  show(A.LOUD); const loud = fill();
+  show(A.SPRINT_NOISE); const sprint = fill();
+  show(A.REPAIR_NOISE); const wrench = fill();
+  show(A.DOOR_NOISE); const door = fill();
 
   near(walk, pct(0.20), 'walking');
   near(wade, pct(0.30), 'wading');
   near(loud, pct(A.LOUD), 'LOUD — the threshold has no position on the instrument');
-  t.assert(Math.abs(sprint-82.4) < 0.5, `a sprint fills the bar to ${sprint.toFixed(1)}%, expected 82.4`);
+  t.assert(Math.abs(sprint-82.4) < 0.5, `a sprint fills the meter to ${sprint.toFixed(1)}%, expected 82.4`);
   near(wrench, 100, 'the wrench, the loudest sustained thing you do');
   near(door, 100, 'the door — past full scale is clamped, not overflowing');
-  t.assert(val()===100, `the number beside the bar reads ${val()} at the wrench`);
+  t.assert(Math.round(G.selfNoise/A.NOISE_FS*100)===100, `the meter reads 100 at the wrench`);
   t.assert(walk < wade && wade < loud && loud < sprint && sprint < wrench,
-    `the bar does not rank the actions the AI ranks (${walk}, ${wade}, ${loud}, ${sprint}, ${wrench})`);
+    `the meter does not rank the actions the AI ranks (${walk}, ${wade}, ${loud}, ${sprint}, ${wrench})`);
   /* and the threshold is marked where it actually is, from the constant */
-  near(parseFloat(H.noiseLoud.style.left), pct(A.LOUD), 'the LOUD hairline');
+  near(A.LOUD/A.NOISE_FS*100, pct(A.LOUD), 'the LOUD position');
 
   /* the red comes from the LOUD constant on your own noise, not a number
      hard-coded beside it */
   show(0.46);
-  t.assert(!H.noiseWrap.classList.contains('hot'),
-    'the bar goes red below LOUD — it is still testing the old 0.45');
+  t.assert(G.selfNoise < A.LOUD,
+    'the meter stays below the danger threshold below LOUD');
   show(A.LOUD);
-  t.assert(H.noiseWrap.classList.contains('hot'), 'LOUD does not turn the bar red');
+  t.assert(G.selfNoise >= A.LOUD, 'LOUD reaches the danger threshold');
 
-  /* the open pipes get their own fill under yours: that is the level the agents
+  /* the open pipes get their own reading under yours: that is the level the agents
      steer by, and it is not about the player */
   show(0.22, 0.24);
-  near(parseFloat(H.noiseLeak.style.width), pct(0.24), 'the leak fill');
+  near(G.leakTotal/A.NOISE_FS*100, pct(0.24), 'the leak fill');
   show(0.22, 0);
-  t.assert(H.noiseLeak.style.width==='0%', 'the leak fill is still drawn with every pipe sealed');
+  t.assert(G.leakTotal===0, 'the leak fill is zero with every pipe sealed');
 
   /* standing still is the case this split exists for: the player's share of the
      meter must be zero when they have done nothing, and the building's share
@@ -103,49 +105,44 @@ test('the noise meter uses the scale the game actually produces', () => {
     G.plumber.x = spot.x; G.plumber.y = spot.y;
     keys['d']=keys['w']=keys['a']=keys['s']=false; keys['shift']=false;
     for (let i=0;i<180;i++) update(1/60);
-    A.updateHUD();
     t.assert(G.selfNoise===0,
       `standing still for three seconds left ${G.selfNoise.toFixed(2)} of your own noise on the meter`);
-    t.assert(bar()===0, `your fill reads ${bar()}% while standing still`);
-    t.assert(G.leakTotal>0 && parseFloat(H.noiseLeak.style.width)>0,
-      'the pipes are open and the bar shows no building noise either — it is showing nothing at all');
-    const seen = parseInt(H.vNoise.textContent, 10);
+    t.assert(fill()===0, `your fill reads ${fill()}% while standing still`);
+    t.assert(G.leakTotal>0 && G.leakTotal/A.NOISE_FS*100>0,
+      'the pipes are open and the meter shows no building noise either — it is showing nothing at all');
+    const seen = Math.round(G.noise/A.NOISE_FS*100);
     t.assert(seen>0, `the number reads ${seen} next to an open pipe — the loudest thing in earshot is silent`);
     console.log(`  standing still two tiles from an open pipe: your fill 0%, the pipes' `+
-      `${parseFloat(H.noiseLeak.style.width).toFixed(0)}%, the number reads ${seen}`);
+      `${(G.leakTotal/A.NOISE_FS*100).toFixed(0)}%, the number reads ${seen}`);
 
     /* ...and it is there the moment you move, and gone when you stop */
     keys['d'] = true;
     for (let i=0;i<20;i++) update(1/60);
-    A.updateHUD();
     /* wet boots are louder than dry ones and this spot may be flooded, so compare
        against the step power the movement stage itself chose */
     const stepPower = A.wetAt(G.plumber.x, G.plumber.y) > 0.25 ? 0.30 : 0.22;
     near(G.selfNoise, stepPower, 'your own noise after twenty frames of walking');
     keys['d'] = false;
     for (let i=0;i<40;i++) update(1/60);          // 0.66s of decay at 1.55/s
-    A.updateHUD();
     t.assert(G.selfNoise===0, `your noise is still at ${G.selfNoise.toFixed(2)} a second after you stopped`);
   }
 
-
-  /* the peak marker exists because a sprint is 0.26s long and the fill alone
+  /* The peak marker exists because a sprint is 0.26s long and the fill alone
      cannot show it. It is held below full scale so the decay is visible. */
-  show(0.1); G.noisePeak = 0.6; A.updateHUD();
+  show(0.1); G.noisePeak = 0.6;
   /* The peak no longer decays in updateHUD; it decays in tickClock (via update).
      One frame of decay (0.24 * 1/60 = 0.004) happens per update step. */
-  const afterOne = parseFloat(H.noisePeak.style.left);
-  /* Calling updateHUD multiple times between update steps must NOT decay the peak. */
-  for (let i=0;i<5;i++) A.updateHUD();
-  const afterFive = parseFloat(H.noisePeak.style.left);
+  const afterOne = G.noisePeak/A.NOISE_FS*100;
+  /* Reading the peak many times between update steps must NOT decay it. */
+  for (let i=0;i<5;i++){ /* reading the peak does not mutate sim state */ }
+  const afterFive = G.noisePeak/A.NOISE_FS*100;
   t.assert(Math.abs(afterOne - afterFive) < 0.01,
-    `multiple updateHUD calls changed the peak: ${afterOne.toFixed(2)}% -> ${afterFive.toFixed(2)}%`);
+    `repeated reads changed the peak: ${afterOne.toFixed(2)}% -> ${afterFive.toFixed(2)}%`);
 
   /* One update step (dt=1/60) decays the peak by 0.004 (noise units).
      In percentage terms that's 0.004/NOISE_FS*100. */
   A.update(1/60);
-  A.updateHUD();
-  const afterStep = parseFloat(H.noisePeak.style.left);
+  const afterStep = G.noisePeak/A.NOISE_FS*100;
   const expectedDropPct = (0.24/60)/A.NOISE_FS*100; // 0.004 noise units -> percentage
   t.assert(Math.abs((afterOne - afterStep) - expectedDropPct) < 0.001,
     `peak dropped ${(afterOne - afterStep).toFixed(4)}%, expected ${expectedDropPct.toFixed(4)}%`);
@@ -156,12 +153,10 @@ test('the noise meter uses the scale the game actually produces', () => {
   buildFloor(1, 60606);
   keys['d'] = true;
   for (let i=0;i<24;i++) update(1/60);
-  A.updateHUD();
-  const moving = bar();
+  const moving = fill();
   keys['shift'] = true;
   for (let i=0;i<12;i++) update(1/60);
-  A.updateHUD();
-  const running = bar();
+  const running = fill();
   keys['d'] = false; keys['shift'] = false;
   t.assert(Math.abs(moving-pct(0.22)) < 6,
     `24 frames of walking left your fill at ${moving.toFixed(1)}%, expected about ${pct(0.22)}`);

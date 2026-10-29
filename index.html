@@ -56,23 +56,10 @@
        The values are written by src/ui/hud.js. -->
   <div id="hud">
 
-    <!-- The clock, the lives, the pipe marks and the two gauges. -->
+    <!-- The clock, the lives and the pipe marks. The noise and radar
+         readings moved to diegetic rings above the plumber. -->
     <div class="crt crt-tl">
       <div class="crt-clock" id="clock"><span id="val-clock">3:00</span></div>
-      <div class="crt-row">
-        <span class="crt-lbl">NOISE</span>
-        <!-- One bar with two fills and two marks:
-             blue fill    noise from the open pipes (what monsters steer by)
-             yellow fill  noise you are making
-             red hairline the LOUD threshold, positioned from the game constant -->
-        <span class="bar noise"><i class="leak" id="bar-noise-leak"></i><i id="bar-noise"></i><u class="peak" id="bar-noise-peak"></u><u class="loud"></u><span id="tag-loud" class="loud-tag">LOUD</span></span>
-        <span class="crt-val" id="val-noise">00</span>
-      </div>
-      <div class="crt-row">
-        <span class="crt-lbl">RADAR</span>
-        <span class="bar batt" id="bar-batt"></span>
-        <span class="crt-val" id="val-batt">100%</span>
-      </div>
       <div class="crt-row">
         <span class="crt-lbl">LIVES</span>
         <span class="crt-val lives" id="val-lives">&#9679;&#9679;&#9679;</span>

@@ -30,7 +30,7 @@ const OWNER = {
   leaks: 'leak', leaksOpen: 'leak', pipes: 'leak',
 
   /* PlumberState */
-  plumber: 'plumber', batt: 'plumber', radar: 'plumber', radarRattleT: 'plumber',
+  plumber: 'plumber', batt: 'plumber', radar: 'plumber', radarRattleT: 'plumber', battPulseT: 'plumber',
 
   /* LifeformState */
   lifeforms: 'lifeform', seenBy: 'lifeform', nearest: 'lifeform', arng: 'lifeform',
@@ -69,7 +69,7 @@ const KEY_ORDER = [
   'regionAdj', 'regionCount', 'visRegion', 'visStep', 'visFadeT', 'coneX', 'coneY', 'coneFace',
   'coneRadar', 'scopeDirty', 'wetArr', 'waterDist', 'wetByDist', 'wetFront', 'wetMaxDist',
   'wetSum', 'wetEdgeD', 'wetIndexAtDist', 'wetCv', 'wetCtx', 'wetImg', 'ended', 'arng',
-  'dirty', 'lifeforms', 'plumber', 'batt', 'radar', 'radarRattleT', 'noise', 'noisePeak',
+  'dirty', 'lifeforms', 'plumber', 'batt', 'radar', 'radarRattleT', 'battPulseT', 'noise', 'noisePeak',
   'selfNoise', 'ambientNoise', 'descend', 'clock', 'time', 'seenBy', 'nearest', 'stat',
   'wetFloor', 'wet', 'floodCover', 'atLeak', 'leakPower', 'leakTotal', 'leakDist', 'gfx',
 ];

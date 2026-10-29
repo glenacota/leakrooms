@@ -5,6 +5,10 @@ import { seedSplash, wetAt } from './flood.js';
 import { sustainedNoise } from './noise.js';
 import { keys, pad } from './keys.js';
 
+/* How many seconds the battery ring flashes after a pickup. A sim-level number
+   because the ring is driven from sim state; the render pass only reads it. */
+const PULSE_FOR = 1;
+
 /**
  * Plumber state bundle passed by reference.
  * @typedef {{
@@ -33,8 +37,11 @@ import { keys, pad } from './keys.js';
 
 /* ---------- Battery ----------
    The radar drains the battery while it is on, and switches itself off at zero.
-   Walking over a battery pickup adds 50. */
+   Walking over a battery pickup adds 50. A pickup flashes the battery ring for
+   a moment, so the player sees the refill where it happened — on the plumber,
+   not in a corner. */
 export function tickBattery(plumberMeta, plumber, batteries, dt){
+  plumberMeta.battPulseT = Math.max(0, plumberMeta.battPulseT - dt);
   if (plumberMeta.radar){
     plumberMeta.batt -= RADAR_DRAIN*dt;
     if (plumberMeta.batt<=0){ plumberMeta.batt=0; plumberMeta.radar=false; emit('flash', 'NO POWER — THE RADAR IS DEAD'); }
@@ -45,7 +52,7 @@ export function tickBattery(plumberMeta, plumber, batteries, dt){
   }
   for (const b of batteries){
     if (b.taken) continue;
-    if (Math.hypot(b.x-plumber.x,b.y-plumber.y)<0.85){ b.taken=true; plumberMeta.batt=Math.min(BATT_MAX,plumberMeta.batt+50); emit('flash', '+50 BATTERY'); }
+    if (Math.hypot(b.x-plumber.x,b.y-plumber.y)<0.85){ b.taken=true; plumberMeta.batt=Math.min(BATT_MAX,plumberMeta.batt+50); emit('flash', '+50 BATTERY'); plumberMeta.battPulseT = PULSE_FOR; }
   }
 }
 

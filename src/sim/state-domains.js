@@ -74,6 +74,7 @@ export function createPlumberState(level) {
     batt: BATT_MAX,
     radar: false,
     radarRattleT: 0,
+    battPulseT: 0,
   };
 }
 

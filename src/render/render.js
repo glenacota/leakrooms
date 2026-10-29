@@ -24,6 +24,7 @@ import { leaks } from './passes/leaks.js';
 import { lighting } from './passes/lighting.js';
 import { markers } from './passes/markers.js';
 import { particles } from './passes/particles.js';
+import { diegetic } from './passes/diegetic.js';
 import { post } from './passes/post.js';
 import { syncImages } from './pack.js';
 
@@ -121,6 +122,7 @@ export function render(t){
   markers(rc);
   actors(rc);
   particles(rc);
+  diegetic(rc);
   ctx.restore();
 
   lighting(rc);

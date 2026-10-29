@@ -21,17 +21,11 @@ const byId = id => getElementById(id);
 
 test('[37] the DOM stub resolves the markup it claims to', () => {
   /* Ids: every one the markup declares, and no element for an id it does not. */
-  for (const id of ['game', 'hud', 'val-clock', 'bar-batt', 'bar-noise', 'screen-order',
+  for (const id of ['game', 'hud', 'val-clock', 'screen-order',
                     'btn-start', 'btn-retry', 'terms-fold', 'set-master']){
     assert.ok(byId(id), `index.html declares #${id} and the stub has no element for it`);
   }
 
-  /* The two HUD nodes the element table reaches for by shape, including the
-     descendant one. */
-  assert.ok(querySelector('.bar.noise'), '.bar.noise did not resolve');
-  const loud = querySelector('.bar.noise u.loud');
-  assert.ok(loud, '.bar.noise u.loud did not resolve');
-  assert.equal(loud.classList.contains('loud'), true, 'the resolved node is not the loud mark');
 
   /* The five collection shapes, against the counts the markup declares:
      eight segmented rows, four range inputs, two pause tabs, two pause pages. */
