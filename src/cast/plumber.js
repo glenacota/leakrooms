@@ -4,7 +4,7 @@ import { TAU, blob, rim, arm, feet, legs, limb, stride } from './primitives.js';
    two reflective bands that slide fore and aft on the stride, taped gloves, and
    a wrench that swings with the walk. Local -y is forward: the boots and the
    visor lead. */
-const SUIT = '#e8c11f', SUIT_TRIM = '#b88e12', GLOVE = '#666', VISOR = '#000', WRENCH = '#7d8288';
+const SUIT = '#e8c11f', SUIT_TRIM = '#b88e12', GLOVE = '#666', VISOR = '#000', WRENCH = '#7d8288', ARM_BORDER = 'rgba(24,26,16,0.55)';
 export function drawPlumber(g, S) {
   const T = S.T, st = stride(S);
   const hip = st.bob * T;
@@ -22,10 +22,16 @@ export function drawPlumber(g, S) {
 
   // arms, and a wrench hanging off the belt that swings with the walk
   const cy = T * 0.035 + hip, wk = S.wave || 0;
+  // left arm: grey border underneath the suit limb
+  limb(g, -T * 0.155, cy + T * 0.05, -T * 0.19, cy + T * 0.01 + st.s * 0.05 * T * 0.5, T * 0.086, ARM_BORDER);
+  limb(g, -T * 0.19, cy + T * 0.01 + st.s * 0.05 * T * 0.5, -T * 0.14, cy - T * 0.055 + st.s * 0.05 * T, T * 0.073, ARM_BORDER);
   arm(g, T, -1, cy, st.s * 0.05, SUIT, GLOVE);
   // right arm: hanging normally, or raised and waving the wrench while repairing (wk 0 to 1)
   g.save();
   g.globalAlpha = 1 - wk;
+  // right arm: grey border underneath the suit limb
+  limb(g, T * 0.155, cy + T * 0.05, T * 0.19, cy + T * 0.01 - st.s * 0.05 * T * 0.5, T * 0.086, ARM_BORDER);
+  limb(g, T * 0.19, cy + T * 0.01 - st.s * 0.05 * T * 0.5, T * 0.14, cy - T * 0.055 - st.s * 0.05 * T, T * 0.073, ARM_BORDER);
   arm(g, T, 1, cy, -st.s * 0.05, SUIT, GLOVE);
   g.globalAlpha = 1;
   g.translate(T * 0.14, T * 0.10 + hip); g.rotate(-0.4 + st.s * 0.5);
@@ -38,6 +44,8 @@ export function drawPlumber(g, S) {
     const hx = T * (0.28 + 0.035 * sway), hy = cy - T * 0.24;
     g.save();
     g.globalAlpha = wk;
+    limb(g, T * 0.155, cy + T * 0.05, T * 0.22, cy - T * 0.05, T * 0.086, ARM_BORDER);
+    limb(g, T * 0.22, cy - T * 0.05, hx, hy, T * 0.073, ARM_BORDER);
     limb(g, T * 0.155, cy + T * 0.05, T * 0.22, cy - T * 0.05, T * 0.066, SUIT);
     limb(g, T * 0.22, cy - T * 0.05, hx, hy, T * 0.056, SUIT);
     blob(g, hx, hy, T * 0.038, T * 0.042, GLOVE);
