@@ -151,7 +151,7 @@ html, body{ overscroll-behavior:none; }
 /* Everything here is decoration, so it is safe to switch off. The title
    screen still looks like standing water without the movement. */
 @media (prefers-reduced-motion:reduce){
-  .splash-water,.splash-water::before,.splash-drip,.splash-plate .go{ animation:none; }
+  .splash-water,.splash-water::before,.splash-plate .go{ animation:none; }
   /* Hold the water at a fixed height. The rise is a transform, so the
      height is set with scaleY: 0.65 of the 40% band is 26% of the frame. */
   .splash-water{ transform:scaleY(.65); }
