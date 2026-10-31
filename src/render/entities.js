@@ -138,21 +138,6 @@ export function drawDoor(e, t){
   ctx.fillStyle = '#6f6c47';
   ctx.fillRect(-hw-3.5, -hh+3, 2.5, 4.5); ctx.fillRect(-hw-3.5, hh-7.5, 2.5, 4.5);
 
-  /* The crank. It is drawn only while the door is cycling, and it is the
-     feedback for the 1.5 s hold: before it existed, the whole descent was only
-     the prompt text and nothing in the world. */
-  if (cycling){
-    const cx = -hw-2, cy = 0, r = 8, p = G.descend/DOOR_HOLD;
-    ctx.strokeStyle = 'rgba(28,26,20,0.4)'; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.arc(cx, cy, r, Math.PI*0.5, Math.PI*1.5); ctx.stroke();
-    ctx.strokeStyle = '#8fd07a';
-    ctx.beginPath(); ctx.arc(cx, cy, r, Math.PI*0.5, Math.PI*0.5+Math.PI*p); ctx.stroke();
-    ctx.strokeStyle = '#7d8288'; ctx.lineWidth = 1.6;   // the handle, turning
-    ctx.beginPath(); ctx.moveTo(cx, cy);
-    ctx.lineTo(cx+Math.cos(2.2+t*0.006)*r, cy+Math.sin(2.2+t*0.006)*r);
-    ctx.stroke();
-  }
-
   // The lamp: green when the level can end, red when it cannot
   const lx = hw + 5, ly = -hh + 1;
   const lit = armed ? (0.6 + 0.4*Math.sin(t*0.010)) : 0.5;
@@ -167,6 +152,30 @@ export function drawDoor(e, t){
 
   ctx.restore();          // undo the rotation, keep the translation to the door
 
+  ctx.restore();
+}
+
+/* The crank feedback for the door hold: the outer track plus the green fill
+   that grows with the hold, and a turning handle. Drawn after post() so the
+   radar's green wash and the VHS pass cannot touch it. The caller owns the
+   world transform (scale + camera translate); this only translates to the door
+   and strokes the arcs, so it lands on the same pixel it did inside drawDoor. */
+export function doorCrank(e, t){
+  const cycling = G.descend>0.02 && G.descend<DOOR_HOLD;
+  if (!cycling) return;
+  const OW = TILE*0.40, OH = WALL_FACE*0.60;
+  const hw = OW/2;
+  const cx = -hw-2, cy = 0, r = 8, p = G.descend/DOOR_HOLD;
+  ctx.save();
+  ctx.translate((e.x+0.5)*TILE, (e.y+1)*TILE + WALL_FACE/2);
+  ctx.strokeStyle = 'rgba(28,26,20,0.4)'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(cx, cy, r, Math.PI*0.5, Math.PI*1.5); ctx.stroke();
+  ctx.strokeStyle = '#8fd07a';
+  ctx.beginPath(); ctx.arc(cx, cy, r, Math.PI*0.5, Math.PI*0.5+Math.PI*p); ctx.stroke();
+  ctx.strokeStyle = '#7d8288'; ctx.lineWidth = 1.6;   // the handle, turning
+  ctx.beginPath(); ctx.moveTo(cx, cy);
+  ctx.lineTo(cx+Math.cos(2.2+t*0.006)*r, cy+Math.sin(2.2+t*0.006)*r);
+  ctx.stroke();
   ctx.restore();
 }
 

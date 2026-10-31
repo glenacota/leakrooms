@@ -163,11 +163,18 @@ export function leaks(rc){
       drawClamp(P, ox, oy, U);
     }
     ctx.restore();
+  }
+}
 
-    /* The wrench ring is drawn WITHOUT the mask, but only while the player is at
-       the pipe. That is a fact about where they stand and not an act of revealing.
-       Losing it to a nearby partition would look like the repair stalling for no
-       reason, and the ring is the only moment-to-moment feedback the repair gives. */
+/* The wrench ring is drawn WITHOUT the mask, but only while the player is at
+   the pipe. That is a fact about where they stand and not an act of revealing.
+   Losing it to a nearby partition would look like the repair stalling for no
+   reason, and the ring is the only moment-to-moment feedback the repair gives.
+   Drawn after post() so the radar's green wash and the VHS pass cannot touch it. */
+export function repairRing(rc){
+  const {w2sx, w2sy} = rc;
+  const U = TILE*SCALE;
+  for (const L of G.leaks){
     if (L.repair > 0 && !L.fixed){
       const rx = w2sx(L.sx+0.5), ry = w2sy(L.sy+0.5), rr = U*0.62;
       const prog = L.repair/REPAIR_TIME;

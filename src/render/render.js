@@ -20,12 +20,13 @@ import { G } from '../sim/state.js';
 import { cvs, ctx, SCALE } from './canvas.js';
 import { actors } from './passes/actors.js';
 import { ground } from './passes/ground.js';
-import { leaks } from './passes/leaks.js';
+import { leaks, repairRing } from './passes/leaks.js';
 import { lighting } from './passes/lighting.js';
 import { markers } from './passes/markers.js';
 import { particles } from './passes/particles.js';
 import { diegetic } from './passes/diegetic.js';
 import { post } from './passes/post.js';
+import { doorCrank } from './entities.js';
 import { syncImages } from './pack.js';
 
 /* ---------- Camera ----------
@@ -128,8 +129,14 @@ export function render(t){
   leaks(rc);
   post(rc);
 
-  /* The rings are drawn last, after the post-processing, so the light, the radar
-     tint and the CRT passes never touch them: they must stay readable in the
-     dark and while the radar is on. */
+  /* The world rings (repair, door crank) and the diegetic rings are drawn after
+     post() so the light bake, the radar's green tint and the VHS pass never
+     touch them: they stay readable in the dark and while the radar is on. */
+  repairRing(rc);
+  ctx.save();
+  ctx.setTransform(SCALE,0,0,SCALE,0,0);
+  ctx.translate(rc.tx, rc.ty);
+  for (const e of G.exitTiles) doorCrank(e, t);
+  ctx.restore();
   diegetic(rc);
 }
