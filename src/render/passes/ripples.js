@@ -1,13 +1,18 @@
 /* ============================================================
-   FLOOR RIPPLES
-   The noise indicator. While the plumber is making noise, a ring spreads out
-   from their feet every 0.26 to 0.5 s. A ring stays where it was made, so the
-   trail of them shows where the plumber has been loud. Size and speed follow
-   the noise level, so a wade, a walk and a sprint look different with no words.
+   FLOOR RIPPLES AND GLOW
+   The noise indicator. It has two parts, both centred on the plumber's feet
+   and both travelling with them, so nothing is left behind on the floor.
 
-   The reference circle at LOUD tells you where the threshold is. A ring that
-   grows past it turns red, because it has crossed into the range that wakes
-   sleepers and starts hunts.
+   The glow is a soft ring of light around the body. It grows and brightens with
+   the noise level, flashes a little as each ripple leaves, and shifts from
+   yellow to red as the noise passes LOUD. Its middle is clear, so it never
+   washes out the plumber's suit.
+
+   The ripples are rings that spread out from the glow every 0.26 to 0.5 s. Size
+   and speed follow the noise level, so a wade, a walk and a sprint look
+   different with no words. A ring that grows past 1.5 tiles turns red, because
+   that is the range that wakes sleepers and starts hunts. Nothing marks that
+   radius on screen: the colour change is the signal.
 
    Render-only. It reads G.selfNoise and the plumber's drawn position and writes
    nothing back to the simulation. It is drawn after post() (see render.js), so
@@ -54,15 +59,35 @@ export const MAX_RINGS = 24;
 const AMBER = '#e4e6a8';
 const DANGER = '#d8503c';
 const OUTLINE = '#0c0e0a';
-const REF = '#2a2810';
 const HUD_OPACITY = 0.8;
-const REF_ALPHA = 0.4;     // the LOUD circle sits at this share of the HUD opacity
-/* Seconds for the reference circle to fade in and out, matching the old ring. */
+/* Seconds for the glow to fade in and out. Quick in, so it is there when the
+   sound is; slower out, so it does not flicker between footsteps. */
 const FADE_IN = 0.15;
 const FADE_OUT = 0.4;
-/* How many dashes make up the dotted reference circle. Canvas setLineDash is
-   not used, so the test stub can record every dash as a plain arc. */
-const DASHES = 36;
+
+/* The glow's size in tiles: a base that is always there plus a gain at full
+   noise. Small on purpose, so the rings carry the size and the glow carries the
+   level. */
+const GLOW_R_BASE = 0.42;
+const GLOW_R_GAIN = 0.5;
+/* Inside this radius, in tiles, the glow is clear. The plumber's suit and hood
+   reach about 0.2 tiles from the centre, and a bright wash over a yellow suit
+   hides the thing the player is watching. */
+export const GLOW_HOLE = 0.22;
+/* The glow goes from pale yellow to the danger red over this noise range, which
+   straddles LOUD (0.5) so the change is under way as the noise crosses it. */
+const GLOW_YELLOW = [255, 245, 160];
+const GLOW_RED = [216, 80, 60];
+const GLOW_RED_FROM = 0.44;
+const GLOW_RED_TO = 0.54;
+/* Seconds the glow takes to flash after a ripple spawns, and how far the flash
+   swings either side of the steady brightness (a 0.8 to 1.2 multiplier). */
+const KICK_TIME = 0.25;
+const KICK_LOW = 0.8;
+const KICK_SPAN = 0.4;
+/* The glow follows the noise level through this ease, in seconds, so the 60 Hz
+   simulation values do not make it flicker. */
+const LEVEL_EASE = 0.1;
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
@@ -102,6 +127,44 @@ export function isRedRing(radiusTiles){
   return radiusTiles >= RADIUS_AT_LOUD;
 }
 
+const smooth = (a, b, v) => {
+  const t = clamp((v - a)/(b - a), 0, 1);
+  return t*t*(3 - 2*t);
+};
+
+/* The glow's outer radius in tiles at this level (noise / NOISE_FS, 0 to 1). */
+export function glowRadius(level){
+  return GLOW_R_BASE + GLOW_R_GAIN*clamp(level, 0, 1);
+}
+
+/* The glow's colour as [r, g, b] at this noise: yellow while quiet, red once
+   the noise is past LOUD, a blend in between. */
+export function glowRgb(noise){
+  const k = smooth(GLOW_RED_FROM, GLOW_RED_TO, noise);
+  return GLOW_YELLOW.map((y, i) => Math.round(y + (GLOW_RED[i] - y)*k));
+}
+
+/* The glow's opacity before the HUD's own 80%. It scales with the level, so a
+   quiet step is a faint glow. `kick` is 1 as a ripple spawns and falls to 0, so
+   the glow pulses once per ring. */
+export function glowAlpha(level, kick){
+  return clamp(clamp(level, 0, 1)*(KICK_LOW + KICK_SPAN*clamp(kick, 0, 1)), 0, 1);
+}
+
+/* How strong the flash is `sinceSpawn` seconds after a ring left: 1, then 0. */
+export function glowKick(sinceSpawn){
+  return clamp(1 - sinceSpawn/KICK_TIME, 0, 1);
+}
+
+/* The glow's colour stops as [offset, alpha] pairs from the centre to the edge
+   of a glow `radiusTiles` wide. Clear up to GLOW_HOLE, then a bright rim that
+   fades out. */
+export function glowStops(radiusTiles){
+  const hole = clamp(GLOW_HOLE/radiusTiles, 0, 0.95);
+  const span = 1 - hole;
+  return [[0, 0], [hole, 0], [hole + span*0.25, 0.95], [hole + span*0.6, 0.45], [1, 0]];
+}
+
 /* Moves the presence value toward its target at the fade speed. */
 function fade(a, on, dt){
   return on ? Math.min(1, a + dt/FADE_IN) : Math.max(0, a - dt/FADE_OUT);
@@ -111,6 +174,7 @@ function fade(a, on, dt){
 let rings = [];
 let gapT = 0;
 let presence = 0;
+let level = 0;       // the eased noise level, 0 to 1
 
 /* How many rings are alive. The tests read this; nothing in the game does. */
 export function liveRingCount(){
@@ -123,40 +187,39 @@ export function resetRipples(){
   rings = [];
   gapT = 0;
   presence = 0;
+  level = 0;
 }
 on('floorBuilt', resetRipples);
 
-/* Draws the dotted LOUD circle around the plumber. */
-function loudCircle(x, y){
-  const R = RADIUS_AT_LOUD*TILE;
-  const a = presence*HUD_OPACITY*REF_ALPHA;
-  ctx.strokeStyle = REF;
-  ctx.lineWidth = 1.2;
-  ctx.globalAlpha = a;
-  const seg = TAU/DASHES;
-  for (let i = 0; i < DASHES; i += 2){
-    const a0 = i*seg;
-    ctx.beginPath(); ctx.arc(x, y, R, a0, a0 + seg*0.6); ctx.stroke();
-  }
+/* Draws the glow around the plumber at (x, y), in world pixels. */
+function glow(x, y){
+  const R = glowRadius(level)*TILE;
+  const [r, g, b] = glowRgb(level*NOISE_FS);
+  const grad = ctx.createRadialGradient(x, y, 0, x, y, R);
+  for (const [at, a] of glowStops(glowRadius(level))) grad.addColorStop(at, `rgba(${r},${g},${b},${a})`);
+  const kick = glowKick(gapT);
+  ctx.globalAlpha = Math.min(1, presence*HUD_OPACITY*glowAlpha(level, kick));
+  ctx.fillStyle = grad;
+  ctx.beginPath(); ctx.arc(x, y, R, 0, TAU); ctx.fill();
 }
 
-/* Draws one ring: a dark outline under a coloured stroke, so it reads on
-   carpet and on the dark. */
-function drawRing(r){
+/* Draws one ring around the plumber at (x, y): a dark outline under a coloured
+   stroke, so it reads on carpet and on the dark. The ring is centred on the
+   plumber as they are now, not where the ring was made. */
+function drawRing(r, x, y){
   const a = ringAlpha(r.n, r.age)*HUD_OPACITY;
   if (a < 0.004) return;
   const rad = ringRadius(r.n, r.age);
   const k = clamp(r.age/ringLife(r.n), 0, 1);
   const w = 2.4*(1 - 0.5*k);
-  const x = r.x*TILE, y = r.y*TILE;
   ctx.beginPath(); ctx.arc(x, y, rad*TILE, 0, TAU);
   ctx.globalAlpha = a*0.55; ctx.strokeStyle = OUTLINE; ctx.lineWidth = w + 2; ctx.stroke();
   ctx.globalAlpha = a; ctx.strokeStyle = isRedRing(rad) ? DANGER : AMBER; ctx.lineWidth = w; ctx.stroke();
 }
 
 /**
- * Spawns, ages and draws the floor ripples. Called once per frame from render(),
- * inside the frame, after post() and before the battery ring.
+ * Spawns, ages and draws the glow and the floor ripples. Called once per frame
+ * from render(), inside the frame, after post() and before the battery ring.
  *
  * @param {object} rc - the render frame context.
  */
@@ -167,9 +230,10 @@ export function ripples(rc){
   const noise = G.selfNoise || 0;
   const dt = rc.dt;
   presence = fade(presence, noise > NOISE_FLOOR, dt);
+  level += (clamp(noise/NOISE_FS, 0, 1) - level)*(1 - Math.exp(-dt/LEVEL_EASE));
 
-  /* The same smoothed position the battery ring uses, so rings start under the
-     figure you see and not one tick behind it. */
+  /* The same smoothed position the battery ring uses, so the glow and rings sit
+     under the figure you see and not one tick behind it. */
   const px = p.px + (p.x - p.px)*simAlpha;
   const py = p.py + (p.y - p.py)*simAlpha;
 
@@ -177,7 +241,7 @@ export function ripples(rc){
     gapT += dt;
     if (gapT >= spawnGap(noise)){
       gapT = 0;
-      rings.push({x: px, y: py, n: noise, age: 0});
+      rings.push({n: noise, age: 0});
       if (rings.length > MAX_RINGS) rings.shift();
     }
   } else {
@@ -199,7 +263,7 @@ export function ripples(rc){
   ctx.translate(rc.tx, rc.ty);
   ctx.globalCompositeOperation = 'source-over';
   ctx.lineCap = 'round';
-  if (presence > 0) loudCircle(px*TILE, py*TILE);
-  for (const r of rings) drawRing(r);
+  if (presence > 0) glow(px*TILE, py*TILE);
+  for (const r of rings) drawRing(r, px*TILE, py*TILE);
   ctx.restore();
 }

@@ -56,8 +56,8 @@ footer code{color:var(--yellow-dim)}
 </head>
 <body>
 <header>
-  <h1>NOISE HUD: SIX DIEGETIC CONCEPTS</h1>
-  <p>Every panel shows the same plumber, the same noise and the same movement, so only the HUD differs. The radar ring on the right is the unchanged game one. The dashed panel is today's noise ring, for comparison.</p>
+  <h1>NOISE HUD: SIX DIEGETIC CONCEPTS + A HYBRID</h1>
+  <p>Every panel shows the same plumber, the same noise and the same movement, so only the HUD differs. Panel 7 combines the floor aura (6) with the floor ripples (3). The radar ring on the right is the unchanged game one. The dashed panel is today's noise ring, for comparison.</p>
 </header>
 
 <section class="bar" aria-label="Shared controls">
@@ -499,6 +499,41 @@ CONCEPTS.push({
   }
 });
 
+/* 7. Aura + ripples: the floor aura's pool with ripples that expand from it, all centred under the feet. */
+CONCEPTS.push({
+  title:'AURA + RIPPLES',
+  reads:'A small pool of light under the feet shows the level by its brightness and colour. Rings spread out of it: louder means bigger, faster rings, and a ring that crosses the dotted LOUD circle turns red.',
+  moving:'Pool and rings both travel with the plumber and stay centred on the feet. Nothing is left behind, so the picture does not pile up when you run.',
+  floor(c,X,Y){
+    if (S.pres <= 0.003 && !S.ripples.length) return;
+    c.save();
+    if (S.pres > 0.003){
+      // The pool: kept small so the rings carry the size, and it flashes a little as each ring leaves.
+      const lv = S.lvE, n = lv*FS, redK = smooth(0.44,0.54,n);
+      const kick = S.self > NOISE_FLOOR ? Math.max(0, 1 - S.ripT/0.25) : 0;
+      const R = T*(0.42 + 0.5*lv)*(1 + 0.06*kick);
+      const col = [255 + (216-255)*redK, 245 + (80-245)*redK, 160 + (60-160)*redK].map(Math.round), rgb = col.join(',');
+      const g = c.createRadialGradient(X,Y,0,X,Y,R);
+      g.addColorStop(0,'rgba('+rgb+',0.95)'); g.addColorStop(0.55,'rgba('+rgb+',0.45)'); g.addColorStop(1,'rgba('+rgb+',0)');
+      c.globalAlpha = Math.min(1, S.A*(0.8 + 0.4*kick)); c.fillStyle = g;
+      c.beginPath(); c.arc(X,Y,R,0,TAU); c.fill();
+      // The LOUD circle, fixed around the feet.
+      c.globalAlpha = S.ref*0.8; c.strokeStyle = '#2a2810'; c.lineWidth = 1.2*K; c.setLineDash([3*K,5*K]);
+      c.beginPath(); c.arc(X,Y,RL,0,TAU); c.stroke(); c.setLineDash([]);
+    }
+    for (const r of S.ripples){
+      const lv = clamp(r.n/FS,0,1), dur = 1.1 - 0.5*lv, k = clamp(r.age/dur,0,1);
+      const Rmax = RL*r.n/LOUD, r0 = 0.15*T;
+      const rad = r0 + (Rmax-r0)*(1-Math.pow(1-k,2.2));
+      const a = Math.pow(1-k,1.3) * HUD_OPACITY * (OPT.prop ? lv : 1);
+      if (a < 0.004) continue;
+      c.beginPath(); c.arc(X, Y, rad, 0, TAU);   // centred on the plumber now, not where the step was
+      strokeOut(c, 2.4*K*(1-0.5*k), rad >= RL ? DANGER : AMBER, a);
+    }
+    c.restore();
+  }
+});
+
 /* Reference: today's noise ring, ported from diegetic.js. Always full opacity, as in the game. */
 function waveHash(i,t){
   let h = (i*2654435761 + Math.floor(t))|0;
@@ -570,7 +605,7 @@ function radarRing(c,cx,cy){
 /* ---------- Panels ---------- */
 const VW = 420, VH = 300;
 const grid = document.getElementById('grid');
-const ORDER = [0,1,2,3,4,5,6];
+const ORDER = CONCEPTS.map((_,i) => i);
 ORDER.forEach((ci,idx) => {
   const cp = CONCEPTS[ci];
   const card = document.createElement('article'); card.className = 'card' + (cp.ref ? ' ref' : '');
