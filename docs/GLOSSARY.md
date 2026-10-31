@@ -178,9 +178,13 @@ Code: `data-input` on `<html>`, `input:mode` event.
 On touch, the stick walks. Pushing it past a threshold sprints. The threshold is a setting (LIGHT, NORMAL, FIRM). It changes only when the stick sprints, not how loud sprinting is.
 Code: `pad`, `STICK.SPRINT_PRESETS`.
 
-**Diegetic rings**
-The two rings drawn around the plumber: the noise ring on the left and the battery ring on the right. They replace corner gauges.
+**Diegetic ring**
+The ring drawn around the plumber: the battery ring on the right.
 Code: `render/passes/diegetic.js`.
+
+**Noise indicators**
+A visual noise indicator using a responsive glow and spreading ripples to represent noise intensity and detection range.
+Code: `render/passes/ripples.js`.
 
 **HUD panel**
 The small corner panel showing the clock, lives and leak marks.
