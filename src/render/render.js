@@ -25,6 +25,7 @@ import { lighting } from './passes/lighting.js';
 import { markers } from './passes/markers.js';
 import { particles } from './passes/particles.js';
 import { diegetic } from './passes/diegetic.js';
+import { ripples } from './passes/ripples.js';
 import { post } from './passes/post.js';
 import { doorCrank } from './entities.js';
 import { syncImages } from './pack.js';
@@ -129,14 +130,16 @@ export function render(t){
   leaks(rc);
   post(rc);
 
-  /* The world rings (repair, door crank) and the diegetic rings are drawn after
-     post() so the light bake, the radar's green tint and the VHS pass never
-     touch them: they stay readable in the dark and while the radar is on. */
+  /* The world rings (repair, door crank), the floor ripples and the battery
+     ring are drawn after post() so the light bake, the radar's green tint and
+     the VHS pass never touch them: they stay readable in the dark and while the
+     radar is on. */
   repairRing(rc);
   ctx.save();
   ctx.setTransform(SCALE,0,0,SCALE,0,0);
   ctx.translate(rc.tx, rc.ty);
   for (const e of G.exitTiles) doorCrank(e, t);
   ctx.restore();
+  ripples(rc);
   diegetic(rc);
 }

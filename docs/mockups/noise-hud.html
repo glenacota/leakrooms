@@ -1,0 +1,674 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LEAKROOMS noise HUD mockups</title>
+<style>
+/* Standalone mockup page. No game code is imported, so it opens from file://.
+   Numbers come from src/config/constants.js and src/render/passes/diegetic.js. */
+:root{
+  --yellow:#e4e6a8; --yellow-dim:#c3cb6e; --yellow-deep:#8f9445; --ink:#1c1a14;
+  --danger:#d8503c; --bg:#14130e; --panel:#1d1c14; --line:#37351f;
+  --mono:"Courier New",Courier,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{color-scheme:dark}
+body{background:var(--bg);color:var(--yellow);font:14px/1.45 var(--mono);padding:0 16px 48px}
+header{max-width:1320px;margin:0 auto;padding:22px 0 12px}
+h1{font-size:20px;letter-spacing:.08em;font-weight:700}
+header p{color:var(--yellow-dim);max-width:900px;margin-top:6px}
+.bar{position:sticky;top:0;z-index:5;max-width:1320px;margin:0 auto;background:#1a1910;border:1px solid var(--line);
+  padding:10px 14px;display:flex;flex-wrap:wrap;gap:12px 22px;align-items:center;box-shadow:0 6px 18px rgba(0,0,0,.45)}
+.grp{display:flex;align-items:center;gap:10px}
+.grow{flex:1 1 380px;min-width:280px}
+.lbl{color:var(--yellow-deep);font-size:11px;letter-spacing:.1em}
+.seg{display:flex;border:1px solid var(--yellow-deep)}
+.seg button{background:none;border:0;color:var(--yellow);font:inherit;font-size:12px;padding:5px 12px;cursor:pointer;letter-spacing:.08em}
+.seg button[aria-pressed=true]{background:var(--yellow);color:var(--ink);font-weight:700}
+.slwrap{position:relative;flex:1;padding-bottom:16px}
+input[type=range]{width:100%;accent-color:var(--yellow);height:22px;display:block}
+input[type=range]:disabled{opacity:.75}
+.ticks{position:absolute;left:0;right:0;bottom:0;height:14px;font-size:9px;color:var(--yellow-deep)}
+.ticks span{position:absolute;transform:translateX(-50%);white-space:nowrap}
+.ticks span.loud{color:var(--danger)}
+.read{min-width:190px;font-size:12px;white-space:nowrap}
+.read b{font-weight:700}
+.read .hot{color:var(--danger)}
+label.chk{display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;user-select:none}
+label.chk input{accent-color:var(--yellow);width:15px;height:15px}
+.hint{max-width:1320px;margin:8px auto 0;color:var(--yellow-deep);font-size:12px}
+.hint kbd{border:1px solid var(--yellow-deep);padding:0 5px;color:var(--yellow);font:inherit;font-size:11px}
+main{max-width:1320px;margin:16px auto 0;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,420px),1fr));gap:16px}
+.card{background:var(--panel);border:1px solid var(--line);padding:12px 12px 14px;display:flex;flex-direction:column;gap:8px}
+.card.ref{border-style:dashed;border-color:var(--yellow-deep)}
+.card h2{font-size:13px;letter-spacing:.1em;display:flex;gap:8px;align-items:baseline}
+.card h2 .n{color:var(--ink);background:var(--yellow);padding:0 6px;font-weight:700}
+.card.ref h2 .n{background:var(--yellow-deep)}
+.cv{width:100%;max-width:420px;aspect-ratio:7/5;display:block;background:#000;margin:0 auto;border:1px solid #000}
+.notes{font-size:12px;color:var(--yellow-dim)}
+.notes p{margin-top:5px}
+.notes b{color:var(--yellow);font-weight:700}
+footer{max-width:1320px;margin:22px auto 0;color:var(--yellow-deep);font-size:12px}
+footer p{margin-top:6px}
+footer code{color:var(--yellow-dim)}
+</style>
+</head>
+<body>
+<header>
+  <h1>NOISE HUD: SIX DIEGETIC CONCEPTS</h1>
+  <p>Every panel shows the same plumber, the same noise and the same movement, so only the HUD differs. The radar ring on the right is the unchanged game one. The dashed panel is today's noise ring, for comparison.</p>
+</header>
+
+<section class="bar" aria-label="Shared controls">
+  <div class="grp">
+    <span class="lbl">NOISE FROM</span>
+    <div class="seg" role="group" aria-label="Noise source">
+      <button id="mAuto" aria-pressed="true">ACTIONS</button>
+      <button id="mSlider" aria-pressed="false">SLIDER</button>
+    </div>
+  </div>
+  <div class="grp grow">
+    <div class="slwrap">
+      <input id="sl" type="range" min="0" max="0.85" step="0.01" value="0.2" disabled aria-label="Plumber noise level">
+      <div class="ticks" id="ticks"></div>
+    </div>
+    <div class="read" id="read"></div>
+  </div>
+  <div class="grp">
+    <label class="chk"><input type="checkbox" id="oWalk" checked>walks by itself</label>
+    <label class="chk"><input type="checkbox" id="oRadar" checked>radar ring</label>
+    <label class="chk"><input type="checkbox" id="oProp" checked>opacity follows noise</label>
+    <label class="chk"><input type="checkbox" id="oLoupe">2.5x loupe</label>
+    <label class="chk"><input type="checkbox" id="oSlow">slow motion</label>
+  </div>
+</section>
+<p class="hint"><kbd>W A S D</kbd> or arrows move &middot; <kbd>SHIFT</kbd> sprint &middot; hold <kbd>E</kbd> for the wrench (the plumber stands still, as when repairing). With no key for 2.5 s a demo plays: walk, sprint, stop, wade through water, wrench. In SLIDER mode the slider sets the noise and the plumber just walks.</p>
+
+<main id="grid"></main>
+
+<footer>
+  <p><b>What is exact.</b> Noise levels (walk 0.20, wade 0.30, LOUD 0.50, sprint 0.70, wrench 0.85), the ring's full scale (0.85), the 1.55 per second decay, the walk and sprint speeds (3.3 and 6.0 tiles/s, wading at 80%), the 0.15 s fade in and 0.4 s fade out above 0.02, the 80% HUD opacity, the camera lag, and the radar ring and today's noise ring (ported from <code>diegetic.js</code>, same offsets and sizes). One tile is 48 px here, which is the game at 1280x720.</p>
+  <p><b>What is simplified.</b> The plumber sprite, the walls and carpet, no lighting, and water that is on or off per tile rather than a gradient.</p>
+  <p><b>Opacity.</b> With "opacity follows noise" on, the level indicator's opacity is noise / 0.85, so a dry walk (0.20) is about 24% of the normal 80%. Reference marks (tracks, LOUD notches, guide lines, housings) sit at half of the plain 80%, so you can still find them.</p>
+</footer>
+
+<script>
+'use strict';
+/* ---------- Numbers from the game ---------- */
+const T = 48, K = T/40;                 // px per tile here; px scale versus the game's 40 px tile
+const FS = 0.85, LOUD = 0.5, LOUD_POS = LOUD/FS;
+const N_WALK = 0.20, N_WADE = 0.30, N_SPRINT = 0.70, N_WRENCH = 0.85;
+const DECAY = 1.55, WALK = 3.3, SPRINT = 6.0, PL_R = 0.33;
+const NOISE_FLOOR = 0.02, FADE_IN = 0.15, FADE_OUT = 0.4, HUD_OPACITY = 0.8;
+const TAU = Math.PI*2;
+const PAL = {carpet:'#c3cb6e', wallTop:'#c6c58b', pale:'#e1e2bb', bright:'#e4e6a8'};
+const AMBER = '#e4e6a8', DANGER = '#d8503c', GREEN = '#8fd07a';
+const SUIT = '#e8c11f', SUIT_TRIM = '#b88e12', GLOVE = '#666', WRENCH = '#7d8288';
+const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+const smooth = (a,b,v) => { const t = clamp((v-a)/(b-a),0,1); return t*t*(3-2*t); };
+
+/* ---------- Options ---------- */
+const OPT = {mode:'auto', slider:0.2, walk:true, radar:true, prop:true, loupe:false, slow:false};
+
+/* ---------- The map: a loop around a block, with wet patches ---------- */
+const MW = 40, MH = 26;
+const G = Array.from({length:MH}, () => new Uint8Array(MW));
+const WET = new Uint8Array(MW*MH);
+function rect(x0,y0,x1,y1){ for (let y=y0;y<=y1;y++) for (let x=x0;x<=x1;x++) G[y][x] = 1; }
+function wetRect(x0,y0,x1,y1){ for (let y=y0;y<=y1;y++) for (let x=x0;x<=x1;x++) if(!G[y][x]) WET[y*MW+x] = 1; }
+rect(0,0,MW-1,0); rect(0,MH-1,MW-1,MH-1); rect(0,0,0,MH-1); rect(MW-1,0,MW-1,MH-1);
+rect(12,9,27,16); rect(5,3,5,9); rect(34,14,34,22); rect(10,21,17,21); rect(22,21,22,24);
+wetRect(16,4,21,7); wetRect(29,12,33,14); wetRect(10,18,14,20);
+const wetAt = (x,y) => WET[Math.floor(y)*MW + Math.floor(x)] || 0;
+const WP = [[8.5,5.5],[31.5,5.5],[31.5,19.5],[8.5,19.5]];
+
+function hits(x,y,r){
+  for (let ty=Math.floor(y-r); ty<=Math.floor(y+r); ty++)
+    for (let tx=Math.floor(x-r); tx<=Math.floor(x+r); tx++){
+      if (ty<0||tx<0||ty>=MH||tx>=MW||G[ty][tx]){
+        const nx = clamp(x,tx,tx+1), ny = clamp(y,ty,ty+1);
+        if ((x-nx)**2 + (y-ny)**2 < r*r) return true;
+      }
+    }
+  return false;
+}
+function moveEnt(p,dx,dy){
+  let moved = false;
+  if (dx && !hits(p.x+dx,p.y,PL_R)){ p.x += dx; moved = true; }
+  if (dy && !hits(p.x,p.y+dy,PL_R)){ p.y += dy; moved = true; }
+  return moved;
+}
+function hash(x,y){ let h=(x*374761393+y*668265263)|0; h=Math.imul(h^(h>>>13),1274126177); return ((h^(h>>>16))>>>0)/4294967296; }
+
+/* ---------- Shared simulation ---------- */
+const P = {x:8.5,y:5.5,face:0,tf:0,phase:0,wk:0,speed:0,moving:false,sprint:false,wrench:false};
+const S = {t:0,self:0,lvE:0,nA:0,waveCyc:1.5,scope:0,A:0,pres:0,ref:0,
+  cam:{x:P.x,y:P.y},ripples:[],ripT:0.5,hist:[],lastH:{x:P.x,y:P.y},
+  lastInput:-10,demoT:0,wp:1,demoLabel:'',acc:0};
+const keys = {};
+
+const DEMO = [['WALK',5,'walk'],['SPRINT',2.5,'sprint'],['WALK',3,'walk'],['STOP',2.5,'idle'],['WALK',4,'walk'],
+              ['WRENCH',2.5,'wrench'],['STOP',1.5,'idle'],['SPRINT',1.5,'sprint'],['STOP',2,'idle'],['WALK',4,'walk']];
+const DEMO_LEN = DEMO.reduce((a,d)=>a+d[1],0);
+function demoPhase(t){ let u = t % DEMO_LEN; for (const d of DEMO){ if (u < d[1]) return d; u -= d[1]; } return DEMO[0]; }
+
+function step(dt){
+  S.t += dt;
+  const k = keys;
+  let ix = (k.d||k.arrowright?1:0) - (k.a||k.arrowleft?1:0);
+  let iy = (k.s||k.arrowdown?1:0) - (k.w||k.arrowup?1:0);
+  const anyKey = !!(ix || iy || k.e);
+  if (anyKey) S.lastInput = S.t;
+  let sprint = !!k.shift, wrench = !!k.e;
+  S.demoLabel = '';
+  if (OPT.walk && !anyKey && S.t - S.lastInput > 2.5){
+    S.demoT += dt;
+    const ph = demoPhase(S.demoT);
+    const kind = OPT.mode === 'slider' ? 'walk' : ph[2];
+    S.demoLabel = OPT.mode === 'slider' ? 'WALK' : ph[0];
+    if (kind === 'walk' || kind === 'sprint'){
+      let tg = WP[S.wp];
+      if (Math.hypot(tg[0]-P.x, tg[1]-P.y) < 0.4){ S.wp = (S.wp+1) % WP.length; tg = WP[S.wp]; }
+      ix = tg[0]-P.x; iy = tg[1]-P.y; sprint = kind === 'sprint';
+    } else if (kind === 'wrench') wrench = true;
+  }
+  if (wrench){ ix = 0; iy = 0; }
+  S.self = Math.max(0, S.self - dt*DECAY);
+  const preWet = wetAt(P.x,P.y);
+  const len = Math.hypot(ix,iy);
+  let moving = false;
+  P.speed = 0;
+  if (len > 0){
+    ix /= len; iy /= len;
+    const spd = (sprint ? SPRINT : WALK) * (preWet ? 0.8 : 1);
+    moving = moveEnt(P, ix*spd*dt, iy*spd*dt);
+    P.tf = Math.atan2(iy,ix);
+    if (moving) P.speed = spd;
+  }
+  P.moving = moving; P.sprint = sprint && moving; P.wrench = wrench && !moving;
+  let da = P.tf - P.face; da = Math.atan2(Math.sin(da), Math.cos(da));
+  P.face += da*(1-Math.exp(-dt*14));
+  P.phase += P.speed*2.05*dt;
+  if (moving) S.self = Math.max(S.self, P.sprint ? N_SPRINT : (preWet ? N_WADE : N_WALK));
+  else if (P.wrench) S.self = Math.max(S.self, N_WRENCH);
+  P.wk += ((P.wrench?1:0) - P.wk)*(1-Math.exp(-dt*10));
+  if (OPT.mode === 'slider') S.self = OPT.slider;
+
+  // Render-side smoothing, as in diegetic.js
+  const k1 = 1 - Math.exp(-dt/0.1);
+  S.lvE += (clamp(S.self/FS,0,1) - S.lvE)*k1;
+  const loud = S.self >= LOUD;
+  S.waveCyc += ((loud ? 2.5 : 1.5) - S.waveCyc)*k1;
+  S.nA = S.self > NOISE_FLOOR ? Math.min(1, S.nA + dt/FADE_IN) : Math.max(0, S.nA - dt/FADE_OUT);
+  S.pres = S.nA*HUD_OPACITY;
+  S.A = S.pres * (OPT.prop ? S.lvE : 1);
+  S.ref = OPT.prop ? S.pres*0.5 : S.pres;
+  S.scope = (S.scope + dt*TAU/1.4) % TAU;
+
+  const kc = 1 - Math.exp(-dt/0.09);
+  S.cam.x += (P.x - S.cam.x)*kc; S.cam.y += (P.y - S.cam.y)*kc;
+
+  // Ripples: one ring per step, a little faster when louder.
+  S.ripT += dt;
+  const interval = 0.5 - 0.24*clamp((S.self-0.2)/0.5,0,1);
+  if (S.self > NOISE_FLOOR){
+    if (S.ripT >= interval){ S.ripT = 0; S.ripples.push({x:P.x,y:P.y,n:S.self,age:0}); }
+  } else S.ripT = interval;
+  for (const r of S.ripples) r.age += dt;
+  S.ripples = S.ripples.filter(r => r.age < 1.2);
+
+  // Path history for the wake trail
+  if (Math.hypot(P.x-S.lastH.x, P.y-S.lastH.y) >= 0.06){
+    S.hist.push({x:P.x,y:P.y,n:S.self,t:S.t}); S.lastH = {x:P.x,y:P.y};
+  }
+  while (S.hist.length && S.t - S.hist[0].t > 0.9) S.hist.shift();
+}
+
+/* ---------- Drawing helpers ---------- */
+function strokeOut(c,w,col,alpha){
+  c.globalAlpha = alpha*0.55; c.strokeStyle = '#0c0e0a'; c.lineWidth = w + 2*K; c.stroke();
+  c.globalAlpha = alpha; c.strokeStyle = col; c.lineWidth = w; c.stroke();
+}
+function ell(c,x,y,rx,ry,fill,rim){
+  c.beginPath(); c.ellipse(x,y,rx,ry,0,0,TAU); c.fillStyle = fill; c.fill();
+  if (rim){ c.strokeStyle = 'rgba(24,26,16,0.5)'; c.lineWidth = 1; c.stroke(); }
+}
+function limb(c,x0,y0,x1,y1,w,col){
+  c.strokeStyle = col; c.lineWidth = w; c.lineCap = 'round';
+  c.beginPath(); c.moveTo(x0,y0); c.lineTo(x1,y1); c.stroke(); c.lineCap = 'butt';
+}
+
+function drawScene(c,v){
+  const tx0 = clamp(Math.floor(v.x0/T),0,MW-1), tx1 = clamp(Math.floor(v.x1/T),0,MW-1);
+  const ty0 = clamp(Math.floor(v.y0/T),0,MH-1), ty1 = clamp(Math.floor(v.y1/T),0,MH-1);
+  const band = 0.46*T;
+  for (let ty=ty0; ty<=ty1; ty++) for (let tx=tx0; tx<=tx1; tx++){
+    const x = tx*T, y = ty*T;
+    if (G[ty][tx]){
+      c.fillStyle = PAL.wallTop; c.fillRect(x,y,T,T);
+      c.fillStyle = 'rgba(0,0,0,0.07)'; c.fillRect(x,y,T,2); c.fillRect(x,y,2,T);
+      continue;
+    }
+    const h = hash(tx,ty);
+    c.fillStyle = PAL.carpet; c.fillRect(x,y,T,T);
+    c.fillStyle = h > 0.5 ? 'rgba(255,255,190,'+(0.06*h)+')' : 'rgba(40,50,0,'+(0.07*(1-h))+')'; c.fillRect(x,y,T,T);
+    c.fillStyle = 'rgba(60,70,10,0.2)';
+    for (let i=0;i<4;i++){ c.fillRect(x + hash(tx*7+i,ty)*T, y + hash(tx,ty*7+i)*T, 2, 2); }
+    c.fillStyle = 'rgba(0,0,0,0.045)'; c.fillRect(x,y,T,1); c.fillRect(x,y,1,T);
+    if (WET[ty*MW+tx]){ c.fillStyle = 'rgba(79,129,176,0.26)'; c.fillRect(x,y,T,T); }
+    if (ty>0 && G[ty-1][tx]){
+      c.fillStyle = PAL.pale; c.fillRect(x,y,T,band);
+      c.fillStyle = 'rgba(143,148,69,0.22)';
+      for (let sx=0; sx<T; sx+=8) c.fillRect(x+sx,y,2,band);
+      c.fillStyle = 'rgba(0,0,0,0.2)'; c.fillRect(x,y+band,T,3);
+    }
+  }
+}
+
+/* ---------- The plumber (simplified sprite) ---------- */
+function drawPlumber(c,X,Y,hk){
+  const st = Math.sin(P.phase);
+  const hip = P.speed > 0 ? -Math.abs(Math.cos(P.phase))*0.014*T : 0;
+  c.save(); c.translate(X,Y);
+  ell(c,0,T*0.03,T*0.2,T*0.16,'rgba(20,22,6,0.22)');
+  c.rotate(P.face + Math.PI/2);
+  for (const s of [-1,1]) ell(c, s*0.088*T, -0.085*T + s*st*0.09*T, 0.045*T, 0.07*T, '#4a3a22', true);
+  ell(c,0,0.025*T+hip,0.155*T,0.115*T,SUIT,true);
+  c.strokeStyle = SUIT_TRIM; c.lineWidth = 1; c.beginPath(); c.moveTo(0,-0.07*T+hip); c.lineTo(0,0.12*T+hip); c.stroke();
+  if (hk && hk.afterSuit) hk.afterSuit(c,hip);
+  const cy = 0.035*T + hip, wk = P.wk;
+  // left arm
+  limb(c,-0.155*T,cy+0.05*T,-0.19*T,cy-st*0.05*T,0.086*T,'rgba(24,26,16,0.55)');
+  limb(c,-0.155*T,cy+0.05*T,-0.19*T,cy-st*0.05*T,0.066*T,SUIT);
+  ell(c,-0.19*T,cy-st*0.05*T,0.035*T,0.035*T,GLOVE);
+  // right arm hanging
+  c.save(); c.globalAlpha = 1 - wk;
+  limb(c,0.155*T,cy+0.05*T,0.19*T,cy+st*0.05*T,0.086*T,'rgba(24,26,16,0.55)');
+  limb(c,0.155*T,cy+0.05*T,0.19*T,cy+st*0.05*T,0.066*T,SUIT);
+  ell(c,0.19*T,cy+st*0.05*T,0.035*T,0.035*T,GLOVE);
+  c.restore();
+  // wrench on the belt
+  if (wk < 0.99){
+    c.save(); c.globalAlpha = 1 - wk;
+    c.translate(0.14*T, 0.10*T+hip); c.rotate(-0.4 + st*0.5);
+    drawTool(c, hk && hk.meter, false);
+    c.restore();
+  }
+  // right arm raised with the wrench
+  if (wk > 0.01){
+    const sway = Math.sin(S.t*14), hx = T*(0.28+0.035*sway), hy = cy - 0.24*T;
+    c.save(); c.globalAlpha = wk;
+    limb(c,0.155*T,cy+0.05*T,0.22*T,cy-0.05*T,0.086*T,'rgba(24,26,16,0.55)');
+    limb(c,0.22*T,cy-0.05*T,hx,hy,0.073*T,'rgba(24,26,16,0.55)');
+    limb(c,0.155*T,cy+0.05*T,0.22*T,cy-0.05*T,0.066*T,SUIT);
+    limb(c,0.22*T,cy-0.05*T,hx,hy,0.056*T,SUIT);
+    ell(c,hx,hy,0.04*T,0.042*T,GLOVE);
+    c.translate(hx,hy); c.rotate(sway*0.5); c.scale(1,-1);
+    drawTool(c, hk && hk.meter, true);
+    c.restore();
+  }
+  // hood and visor, leading
+  ell(c,0,-0.01*T+hip,0.105*T,0.105*T,SUIT,true);
+  ell(c,0,-0.078*T+hip,0.07*T,0.03*T,'#000');
+  c.restore();
+}
+/* The wrench, drawn along +y from its pivot. With `meter` it is a longer tool with a segmented spine. */
+function drawTool(c,meter,raised){
+  if (!meter){
+    c.fillStyle = WRENCH; c.fillRect(-0.015*T,0,0.03*T,0.11*T);
+    c.beginPath(); c.arc(0,0.11*T,0.028*T,0,TAU); c.fill();
+    return;
+  }
+  const L = 0.38*T, W = 0.085*T, n = 9;
+  c.fillStyle = '#22201a'; c.strokeStyle = '#8b9096'; c.lineWidth = 1;
+  c.beginPath(); c.rect(-W/2,0,W,L); c.fill(); c.stroke();
+  c.fillStyle = WRENCH; c.beginPath(); c.arc(0,L+0.01*T,0.034*T,0,TAU); c.fill();
+  const pitch = (L-0.04*T)/n, cw = W*0.55;
+  for (let i=0;i<n;i++){
+    const red = i >= Math.round(LOUD_POS*n);
+    const lit = clamp(S.lvE*n - i, 0, 1);
+    // `base` carries the belt/overhead cross-fade; the cells add the HUD's own opacity.
+    const base = c.globalAlpha;
+    c.globalAlpha = base*S.ref;
+    c.fillStyle = red ? 'rgba(216,80,60,0.45)' : 'rgba(228,230,168,0.35)';
+    c.fillRect(-cw/2, 0.02*T + i*pitch, cw, pitch-0.7);
+    if (lit > 0.02){
+      c.globalAlpha = base*S.A*lit;
+      c.shadowColor = red ? DANGER : AMBER; c.shadowBlur = 4;
+      c.fillStyle = red ? DANGER : AMBER;
+      c.fillRect(-cw/2, 0.02*T + i*pitch, cw, pitch-0.7);
+      c.shadowBlur = 0;
+    }
+    c.globalAlpha = base;
+  }
+}
+
+/* ---------- The six concepts ---------- */
+const CONCEPTS = [];
+
+/* 1. Shoulder LED bar: a strip across the shoulders, lit left to right. */
+CONCEPTS.push({
+  title:'SHOULDER LED BAR',
+  reads:'A row of LEDs across the suit\'s shoulders, at the back, lights from left to right as you get louder. Cells past the notch are red.',
+  moving:'Rides on the back of the suit: turns with the plumber and bobs with the stride. Tiny at game scale, so try the loupe.',
+  hooks:{ afterSuit(c,hip){
+    if (S.pres <= 0.003) return;
+    const w = 0.56*T, h = 0.07*T, x0 = -w/2, y0 = 0.12*T + hip, n = 9, pitch = (w-2)/n;
+    c.save();
+    c.globalAlpha = S.pres;
+    c.fillStyle = '#22201a'; c.fillRect(x0-1,y0-1,w+2,h+2);
+    for (let i=0;i<n;i++){
+      const red = i >= Math.round(LOUD_POS*n), lit = clamp(S.lvE*n - i,0,1);
+      c.globalAlpha = S.ref; c.fillStyle = red ? 'rgba(216,80,60,0.4)' : 'rgba(228,230,168,0.3)';
+      c.fillRect(x0 + 1 + i*pitch, y0, pitch-0.8, h);
+      if (lit > 0.02){
+        c.globalAlpha = S.A*lit; c.shadowColor = red ? DANGER : AMBER; c.shadowBlur = 5;
+        c.fillStyle = red ? DANGER : AMBER; c.fillRect(x0 + 1 + i*pitch, y0, pitch-0.8, h); c.shadowBlur = 0;
+      }
+    }
+    // LOUD notch just behind the bar
+    const nx = x0 + 1 + LOUD_POS*(w-2);
+    c.globalAlpha = S.ref + 0.0; c.fillStyle = '#f4f1c0';
+    c.beginPath(); c.moveTo(nx,y0+h+0.005*T); c.lineTo(nx-0.022*T,y0+h+0.05*T); c.lineTo(nx+0.022*T,y0+h+0.05*T); c.fill();
+    c.restore();
+  }}
+});
+
+/* 2. Body halo: an arc hugging the body, filling clockwise from the top. */
+CONCEPTS.push({
+  title:'BODY HALO',
+  reads:'A thin arc hugging the body fills clockwise from the top. The notch marks LOUD. Past it the whole arc turns red and pulses.',
+  moving:'Stays centred on the plumber and fixed to the screen, so it does not spin when you turn.',
+  overlay(c,X,Y){
+    if (S.pres <= 0.003) return;
+    const R = 0.37*T, loud = S.self >= LOUD, a0 = -Math.PI/2;
+    c.save(); c.lineCap = 'butt';
+    c.globalAlpha = S.ref; c.strokeStyle = 'rgba(28,26,12,0.7)'; c.lineWidth = 2.4*K;
+    c.beginPath(); c.arc(X,Y,R,0,TAU); c.stroke();
+    if (S.lvE > 0.01){
+      const pw = loud ? 1 + 0.35*Math.sin(S.t*6) : 1;
+      c.beginPath(); c.arc(X,Y,R,a0,a0+S.lvE*TAU);
+      strokeOut(c, 2.6*K*pw, loud ? DANGER : AMBER, S.A);
+    }
+    const ang = a0 + LOUD_POS*TAU, ca = Math.cos(ang), sa = Math.sin(ang);
+    c.beginPath(); c.moveTo(X+ca*(R-4*K),Y+sa*(R-4*K)); c.lineTo(X+ca*(R+6*K),Y+sa*(R+6*K));
+    strokeOut(c, 2*K, loud ? DANGER : '#f4f1c0', S.ref);
+    c.restore();
+  }
+});
+
+/* 3. Floor ripples: a ring per step, left where it was made. */
+const RL = 1.5*T;      // the LOUD radius: a ring that gets past it turns red
+CONCEPTS.push({
+  title:'FLOOR RIPPLES',
+  reads:'Each step sends out a ring. Louder steps make bigger, faster rings. The dotted circle is LOUD: a ring that crosses it turns red.',
+  moving:'Rings stay where they were made, so you leave footprints of sound behind you. Stand still and they stop.',
+  floor(c,X,Y){
+    c.save();
+    if (S.pres > 0.003){
+      c.globalAlpha = S.ref*0.8; c.strokeStyle = '#2a2810'; c.lineWidth = 1.2*K; c.setLineDash([3*K,5*K]);
+      c.beginPath(); c.arc(X,Y,RL,0,TAU); c.stroke(); c.setLineDash([]);
+    }
+    for (const r of S.ripples){
+      const lv = clamp(r.n/FS,0,1), dur = 1.1 - 0.5*lv, k = clamp(r.age/dur,0,1);
+      const Rmax = RL*r.n/LOUD, r0 = 0.15*T;
+      const rad = r0 + (Rmax-r0)*(1-Math.pow(1-k,2.2));
+      const a = Math.pow(1-k,1.3) * HUD_OPACITY * (OPT.prop ? lv : 1);
+      if (a < 0.004) continue;
+      c.beginPath(); c.arc(r.x*T, r.y*T, rad, 0, TAU);
+      strokeOut(c, 2.4*K*(1-0.5*k), rad >= RL ? DANGER : AMBER, a);
+    }
+    c.restore();
+  }
+});
+
+/* 4. Wake trail: a waveform ribbon streaming out behind the plumber. */
+const TR_L = 2.4*T, TR_AMP = 0.42*T;
+function trailPoints(X,Y){
+  const out = [{x:X,y:Y,n:S.self,s:0}];
+  let s = 0, prev = out[0];
+  for (let i=S.hist.length-1; i>=0; i--){
+    const h = S.hist[i], hx = h.x*T, hy = h.y*T, d = Math.hypot(hx-prev.x, hy-prev.y);
+    if (d < 1e-3) continue;
+    s += d; if (s > TR_L) break;
+    prev = {x:hx,y:hy,n:h.n,s}; out.push(prev);
+  }
+  const bx = -Math.cos(P.face), by = -Math.sin(P.face); let last = out[out.length-1], ls = last.s;
+  while (ls < TR_L){
+    const nl = Math.min(TR_L, ls + 0.08*T);
+    out.push({x:last.x + bx*(nl-last.s), y:last.y + by*(nl-last.s), n:S.self, s:nl}); ls = nl;
+  }
+  return out;
+}
+const trEnv = s => Math.min(1, s/(0.4*T)) * Math.pow(Math.max(0,1 - s/TR_L), 0.5);
+CONCEPTS.push({
+  title:'WAKE TRAIL',
+  reads:'A waveform ribbon streams out behind you. A taller wave is louder. The dotted guide lines mark the LOUD height, and wave above it is red.',
+  moving:'Follows your real path and bends round corners. Standing still it streams straight back from you.',
+  floor(c,X,Y){
+    const pts = trailPoints(X,Y); if (pts.length < 3) return;
+    const kw = TAU/(0.55*T), om = 14;
+    const nrm = pts.map((p,i) => {
+      const a = pts[Math.max(0,i-1)], b = pts[Math.min(pts.length-1,i+1)];
+      let tx = b.x-a.x, ty = b.y-a.y; const l = Math.hypot(tx,ty) || 1; return {x:-ty/l, y:tx/l};
+    });
+    c.save(); c.lineCap = 'round'; c.lineJoin = 'round';
+    if (S.pres > 0.003){
+      const aL = LOUD/FS*TR_AMP;
+      for (const sg of [-1,1]){
+        c.beginPath();
+        pts.forEach((p,i) => { const o = sg*aL*trEnv(p.s), x = p.x+nrm[i].x*o, y = p.y+nrm[i].y*o; i ? c.lineTo(x,y) : c.moveTo(x,y); });
+        c.globalAlpha = S.ref*0.8; c.strokeStyle = '#2a2810'; c.lineWidth = 1.1*K; c.setLineDash([2*K,5*K]); c.stroke(); c.setLineDash([]);
+      }
+    }
+    const off = pts.map((p,i) => { const o = (p.n/FS)*TR_AMP*trEnv(p.s)*Math.sin(kw*p.s - om*S.t); return {x:p.x+nrm[i].x*o, y:p.y+nrm[i].y*o}; });
+    for (let i=0;i<pts.length-1;i++){
+      const n = pts[i].n, lv = clamp(n/FS,0,1);
+      const a = HUD_OPACITY * (OPT.prop ? lv : clamp(n/0.08,0,1)) * Math.pow(Math.max(0,1 - pts[i].s/TR_L),0.8);
+      if (a < 0.004) continue;
+      c.beginPath(); c.moveTo(off[i].x,off[i].y); c.lineTo(off[i+1].x,off[i+1].y);
+      strokeOut(c, 2.2*K, n >= LOUD ? DANGER : AMBER, a);
+    }
+    c.restore();
+  }
+});
+
+/* 5. Wrench VU: a segmented meter on the wrench itself. */
+CONCEPTS.push({
+  title:'WRENCH VU',
+  reads:'A segmented meter on the wrench. The red cells are the LOUD zone. The wrench is the loudest thing you do, so it lights up.',
+  moving:'Swings on the belt with the stride, and is held overhead when you use it (hold E).',
+  hooks:{meter:true}
+});
+
+/* 6. Floor aura: a soft pool of light under the plumber. */
+CONCEPTS.push({
+  title:'FLOOR AURA',
+  reads:'A pool of light under the plumber. It grows and pulses faster as you get louder, and shifts from yellow to red past LOUD. No shapes, no glyphs.',
+  moving:'Glides with the plumber, centred under the feet. Big pools slide across the walls.',
+  floor(c,X,Y){
+    if (S.pres <= 0.003) return;
+    const lv = S.lvE, n = lv*FS, redK = smooth(0.44,0.54,n);
+    const pul = 1 + 0.07*Math.sin(S.t*TAU*(1.0 + 2.4*lv))*(0.4 + lv);
+    const R = T*(0.5 + 1.6*lv)*pul;
+    const col = [255 + (216-255)*redK, 245 + (80-245)*redK, 160 + (60-160)*redK].map(Math.round);
+    const g = c.createRadialGradient(X,Y,0,X,Y,R), rgb = col.join(',');
+    g.addColorStop(0,'rgba('+rgb+',0.95)'); g.addColorStop(0.5,'rgba('+rgb+',0.5)'); g.addColorStop(1,'rgba('+rgb+',0)');
+    c.save(); c.globalAlpha = S.A; c.fillStyle = g; c.beginPath(); c.arc(X,Y,R,0,TAU); c.fill(); c.restore();
+  }
+});
+
+/* Reference: today's noise ring, ported from diegetic.js. Always full opacity, as in the game. */
+function waveHash(i,t){
+  let h = (i*2654435761 + Math.floor(t))|0;
+  h ^= h>>>16; h = Math.imul(h,0x85ebca6b); h ^= h>>>13; h = Math.imul(h,0xc2b2ae35); h ^= h>>>16;
+  return (h>>>0)/0x100000000;
+}
+function ringBase(c,cx,cy){
+  const r = 0.3*T;
+  c.fillStyle = 'rgba(12,14,10,0.7)'; c.beginPath(); c.arc(cx,cy,r+2*K,0,TAU); c.fill();
+  c.strokeStyle = 'rgba(20,24,18,0.6)'; c.lineWidth = 3*K; c.beginPath(); c.arc(cx,cy,r,0,TAU); c.stroke();
+}
+function currentNoiseRing(c,cx,cy){
+  const A = S.nA*HUD_OPACITY; if (A <= 0.002) return;
+  const loud = S.self >= LOUD, r = 0.3*T, ms = S.t*1000;
+  c.save(); c.globalAlpha = A;
+  ringBase(c,cx,cy);
+  const progress = S.lvE, loudEnd = -Math.PI/2 + LOUD_POS*TAU;
+  if (progress > 0.01){
+    const pw = loud ? 1 + 0.35*Math.sin(ms*0.006) : 1;
+    c.strokeStyle = loud ? DANGER : AMBER; c.lineWidth = 2.5*K*pw;
+    c.beginPath(); c.arc(cx,cy,r,-Math.PI/2,-Math.PI/2+progress*TAU); c.stroke();
+    c.strokeStyle = loud ? DANGER : 'rgba(228,230,168,0.55)'; c.lineWidth = 2.5*K + K;
+    c.beginPath(); c.arc(cx,cy,r,loudEnd-0.10,loudEnd+0.10); c.stroke();
+  }
+  const inner = r - 1.5*K, half = inner*0.9;
+  const amp = Math.max(0.6*K, S.lvE*inner*0.75), phase = ms*0.012;
+  c.strokeStyle = loud ? DANGER : 'rgba(228,230,168,0.7)'; c.lineWidth = 1.4*K; c.lineJoin = 'round';
+  c.beginPath();
+  for (let i=0;i<=28;i++){
+    const u = i/28, x = cx + (u*2-1)*half;
+    const y = cy + amp*Math.sin(Math.PI*u)*Math.sin(TAU*S.waveCyc*u - phase) + (loud ? (waveHash(i,ms)*2-1)*0.14*inner : 0);
+    i ? c.lineTo(x,y) : c.moveTo(x,y);
+  }
+  c.stroke();
+  c.restore();
+}
+CONCEPTS.push({
+  ref:true,
+  title:'CURRENT',
+  reads:'Today\'s ring: a dark disc to the left of the plumber with a sweep, a LOUD tick and a live wave.',
+  moving:'Always full opacity, so the "opacity follows noise" option does not touch it. It shows on every dry step.',
+  overlay(c,X,Y){ currentNoiseRing(c, X-0.8*T, Y-0.3*T); }
+});
+
+/* The radar ring, unchanged: a green sweep, a scope and a percent tag. */
+function radarRing(c,cx,cy){
+  const r = 0.3*T, reach = (r-1.5*K)*0.9, progress = 0.62;
+  c.save(); c.globalAlpha = HUD_OPACITY;
+  ringBase(c,cx,cy);
+  c.strokeStyle = GREEN; c.lineWidth = 2.5*K; c.beginPath(); c.arc(cx,cy,r,-Math.PI/2,-Math.PI/2+progress*TAU); c.stroke();
+  c.strokeStyle = 'rgba(143,208,122,0.35)'; c.lineWidth = 0.8*K;
+  c.beginPath(); c.arc(cx,cy,reach/2,0,TAU); c.stroke();
+  c.beginPath(); c.moveTo(cx-reach,cy); c.lineTo(cx+reach,cy); c.moveTo(cx,cy-reach); c.lineTo(cx,cy+reach); c.stroke();
+  const base = c.globalAlpha, band = 1.2/10;
+  c.fillStyle = GREEN;
+  for (let i=0;i<10;i++){
+    const a1 = S.scope - i*band, a0 = a1 - band;
+    c.globalAlpha = base*0.5*(1-i/10);
+    c.beginPath(); c.moveTo(cx,cy); c.arc(cx,cy,reach,a0,a1); c.closePath(); c.fill();
+  }
+  c.globalAlpha = base; c.strokeStyle = GREEN; c.lineWidth = 1.4*K; c.lineCap = 'round';
+  c.beginPath(); c.moveTo(cx,cy); c.lineTo(cx+Math.cos(S.scope)*reach, cy+Math.sin(S.scope)*reach); c.stroke(); c.lineCap = 'butt';
+  c.font = 'bold '+(9*K)+'px "Courier New",Courier,monospace'; c.textAlign = 'center'; c.textBaseline = 'bottom';
+  c.lineJoin = 'round'; c.lineWidth = K; c.strokeStyle = 'rgba(12,14,10,0.85)';
+  const ty = cy - r - 7*K; c.strokeText('62%',cx,ty); c.fillStyle = GREEN; c.fillText('62%',cx,ty);
+  c.restore();
+}
+
+/* ---------- Panels ---------- */
+const VW = 420, VH = 300;
+const grid = document.getElementById('grid');
+const ORDER = [0,1,2,3,4,5,6];
+ORDER.forEach((ci,idx) => {
+  const cp = CONCEPTS[ci];
+  const card = document.createElement('article'); card.className = 'card' + (cp.ref ? ' ref' : '');
+  card.innerHTML = '<h2><span class="n">'+(cp.ref ? 'REF' : (idx+1))+'</span>'+cp.title+'</h2>'
+    + '<canvas class="cv" width="'+VW+'" height="'+VH+'" aria-label="'+cp.title+' mockup"></canvas>'
+    + '<div class="notes"><p><b>Reads as:</b> '+cp.reads+'</p><p><b>While moving:</b> '+cp.moving+'</p></div>';
+  grid.appendChild(card);
+  cp.cv = card.querySelector('canvas'); cp.c = cp.cv.getContext('2d');
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  cp.cv.width = VW*dpr; cp.cv.height = VH*dpr; cp.dpr = dpr;
+});
+
+function renderLayers(c,cp,vis,withRadar){
+  drawScene(c,vis);
+  const X = P.x*T, Y = P.y*T;
+  if (cp.floor) cp.floor(c,X,Y);
+  drawPlumber(c,X,Y,cp.hooks);
+  if (cp.overlay) cp.overlay(c,X,Y);
+  if (withRadar && OPT.radar) radarRing(c, X+0.8*T, Y+0.3*T);
+}
+function drawPanel(cp){
+  const c = cp.c;
+  c.setTransform(cp.dpr,0,0,cp.dpr,0,0);
+  c.fillStyle = '#000'; c.fillRect(0,0,VW,VH);
+  c.save();
+  c.translate(VW/2 - S.cam.x*T, VH/2 - S.cam.y*T);
+  renderLayers(c,cp,{x0:S.cam.x*T-VW/2, y0:S.cam.y*T-VH/2, x1:S.cam.x*T+VW/2, y1:S.cam.y*T+VH/2},true);
+  c.restore();
+  if (OPT.loupe){
+    const Z = 2.5, r = 78, lx = VW-r-8, ly = VH-r-8, X = P.x*T, Y = P.y*T;
+    c.save(); c.beginPath(); c.arc(lx,ly,r,0,TAU); c.clip();
+    c.fillStyle = '#1c1a14'; c.fillRect(lx-r,ly-r,2*r,2*r);
+    c.translate(lx,ly); c.scale(Z,Z); c.translate(-X,-Y);
+    renderLayers(c,cp,{x0:X-r/Z,y0:Y-r/Z,x1:X+r/Z,y1:Y+r/Z},false);
+    c.restore();
+    c.strokeStyle = AMBER; c.lineWidth = 2; c.beginPath(); c.arc(lx,ly,r,0,TAU); c.stroke();
+    c.font = 'bold 11px "Courier New",monospace'; c.fillStyle = AMBER; c.textAlign = 'center'; c.fillText('2.5x',lx,ly-r-4);
+  }
+}
+
+/* ---------- Controls ---------- */
+const $ = id => document.getElementById(id);
+const sl = $('sl'), readEl = $('read');
+[['WALK',N_WALK],['WADE',N_WADE],['LOUD',LOUD],['SPRINT',N_SPRINT],['WRENCH',N_WRENCH]].forEach(([n,v]) => {
+  const s = document.createElement('span'); s.textContent = n; if (n === 'LOUD') s.className = 'loud';
+  s.style.left = 'calc(8px + (100% - 16px) * ' + (v/FS) + ')'; $('ticks').appendChild(s);
+});
+function setMode(m){
+  OPT.mode = m; sl.disabled = m !== 'slider';
+  $('mAuto').setAttribute('aria-pressed', m === 'auto'); $('mSlider').setAttribute('aria-pressed', m === 'slider');
+  if (m === 'slider'){ OPT.slider = S.self || N_WALK; sl.value = OPT.slider; }
+}
+$('mAuto').onclick = () => setMode('auto');
+$('mSlider').onclick = () => setMode('slider');
+sl.addEventListener('input', () => { OPT.slider = +sl.value; });
+sl.addEventListener('change', () => sl.blur());
+$('oWalk').onchange = e => { OPT.walk = e.target.checked; };
+$('oRadar').onchange = e => { OPT.radar = e.target.checked; };
+$('oProp').onchange = e => { OPT.prop = e.target.checked; };
+$('oLoupe').onchange = e => { OPT.loupe = e.target.checked; };
+$('oSlow').onchange = e => { OPT.slow = e.target.checked; };
+const MOVE_KEYS = new Set(['w','a','s','d','e','shift','arrowup','arrowdown','arrowleft','arrowright']);
+addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  if (!MOVE_KEYS.has(k)) return;
+  if (e.target === sl && k.startsWith('arrow')) return;
+  keys[k] = true; if (k.startsWith('arrow')) e.preventDefault();
+});
+addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+
+function updateReadout(){
+  if (OPT.mode === 'auto') sl.value = Math.min(FS, S.self).toFixed(2);
+  const loud = S.self >= LOUD;
+  let src = '';
+  if (S.demoLabel) src = ' &middot; demo ' + S.demoLabel.toLowerCase();
+  else if (P.wrench) src = ' &middot; wrench';
+  else if (P.sprint) src = ' &middot; sprint';
+  else if (P.moving) src = wetAt(P.x,P.y) ? ' &middot; wading' : ' &middot; walk';
+  readEl.innerHTML = '<b>' + S.self.toFixed(2) + '</b> ' + (loud ? '<b class="hot">LOUD</b>' : 'quiet') + src;
+}
+
+/* ---------- Main loop ---------- */
+let last = performance.now();
+function frame(now){
+  let dt = Math.min(0.05, (now-last)/1000); last = now;
+  if (OPT.slow) dt *= 0.35;
+  S.acc += dt;
+  let n = 0;
+  while (S.acc >= 1/60 && n++ < 6){ step(1/60); S.acc -= 1/60; }
+  for (const cp of CONCEPTS) drawPanel(cp);
+  updateReadout();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+// Test hook: lets a script set the state and advance time without waiting.
+window.__noiseHud = {S,P,OPT,keys,setMode,advance(sec){ let t=0; while(t<sec){ step(1/60); t+=1/60; } for (const cp of CONCEPTS) drawPanel(cp); updateReadout(); }};
+</script>
+</body>
+</html>
