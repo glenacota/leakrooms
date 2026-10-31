@@ -4,7 +4,8 @@
   "type": "module",
   "engines": { "node": ">=20" },
   "scripts": {
-    "test": "node --test",
+    "test": "node --test --test-reporter=dot",
+    "test:quick": "node --test --test-reporter=dot tests/unit/*",
     "serve": "node tools/serve.mjs"
   }
 }
