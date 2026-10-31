@@ -309,9 +309,9 @@ test('walls muffle a sound, and a sprint still crosses one', () => {
     const a = put(one.ear, 'DORMANT');
     A.sustainedNoise(A.SPRINT_NOISE, one.src.x, one.src.y);
     t.assert(a.state!=='DORMANT',
-      `a sprint one wall and five tiles away did not wake a sleeping coil — WALL_COST of 3.0 has taken the sprint's reach with it`);
+      `a sprint one wall and five tiles away did not wake a dormant lifeform — WALL_COST of 3.0 has taken the sprint's reach with it`);
     t.assert(a.state==='RISING' || a.state==='HUNT',
-      `a sprint woke the coil into '${a.state}', want it rising or hunting`);
+      `a sprint woke the lifeform into '${a.state}', want it rising or hunting`);
   }
 
   /* the noise powers are unchanged: this is the shape of the room, not the
@@ -628,7 +628,7 @@ test('pipe loudness independent of open pipe count', () => {
 
 /* The 'heard' event fires once per state change. A quiet sound near a WALK
    lifeform emits WALK -> SEARCH once; a second identical sound while it is
-   still SEARCH emits nothing. A loud sound (wrench) wakes a DORMANT coil
+   still SEARCH emits nothing. A loud sound (wrench) wakes a DORMANT lifeform
    and emits DORMANT -> RISING. */
 test('heard event emits on state change only', () => {
   const t = softAssert();
@@ -671,7 +671,7 @@ test('heard event emits on state change only', () => {
     t.assert(walker.state === 'SEARCH', 'walker stays SEARCH');
     t.assert(heard.length === 1, 'no second heard event for same state');
 
-    /* Loud sound (REPAIR) near a DORMANT coil -> DORMANT -> RISING. */
+    /* Loud sound (REPAIR) near a DORMANT lifeform -> DORMANT -> RISING. */
     A.buildFloor(0, 4242);
     const dormant = {
       x: spot.x, y: spot.y, state: 'DORMANT', t: 0, rise: 0,
@@ -684,7 +684,7 @@ test('heard event emits on state change only', () => {
     const unsub2 = on('heard', (e) => heard2.push(e));
 
     A.emitNoise(A.NOISE.REPAIR, G.plumber.x, G.plumber.y, true);
-    t.assert(dormant.state === 'RISING', 'dormant coil rises');
+    t.assert(dormant.state === 'RISING', 'dormant lifeform rises');
     t.assert(heard2.length === 1, 'one heard event for DORMANT -> RISING');
     t.assert(heard2[0].from === 'DORMANT' && heard2[0].to === 'RISING',
       `heard event: from=${heard2[0].from} to=${heard2[0].to}`);
@@ -734,38 +734,38 @@ test('wake rattle volume scales with distance to player', () => {
     const sfx = [];
     const unsub = on('sfx', (name, vol) => { if (name==='rattle') sfx.push(vol); });
 
-    /* Near wake: dormant coil at ~2 tiles from player. */
+    /* Near wake: dormant lifeform at ~2 tiles from player. */
     const near = { x: nearSpot.x, y: nearSpot.y, state: 'DORMANT', t: 0, rise: 0, target: null, face: 0, wakeCd: 0, stepT: 0, born: 0 };
     G.lifeforms = [near];
     G.plumber.x = nearSpot.x + 2; G.plumber.y = nearSpot.y;
     A.emitNoise(A.NOISE.REPAIR, G.plumber.x, G.plumber.y, true);
-    t.assert(near.state === 'RISING', 'near coil rises');
+    t.assert(near.state === 'RISING', 'near lifeform rises');
     t.assert(sfx.length === 1, 'near wake emits rattle');
     const volNear = sfx[0];
     t.assert(volNear > 0.4 && volNear <= 0.55, `near volume ${volNear.toFixed(3)} in expected range`);
 
     sfx.length = 0;
 
-    /* Far wake: dormant coil at ~8-12 tiles from player, within hearing range. */
+    /* Far wake: dormant lifeform at ~8-12 tiles from player, within hearing range. */
     const far = { x: farSpot.x, y: farSpot.y, state: 'DORMANT', t: 0, rise: 0, target: null, face: 0, wakeCd: 0, stepT: 0, born: 0 };
     G.lifeforms = [far];
     G.plumber.x = 10.5; G.plumber.y = 10.5;
     A.emitNoise(A.NOISE.REPAIR, G.plumber.x, G.plumber.y, true);
-    t.assert(far.state === 'RISING', 'far coil rises');
+    t.assert(far.state === 'RISING', 'far lifeform rises');
     t.assert(sfx.length === 1, 'far wake emits rattle');
     const volFar = sfx[0];
     t.assert(volFar >= 0.15*0.55 && volFar < volNear, `far volume ${volFar.toFixed(3)} quieter than near ${volNear.toFixed(3)} but above floor`);
 
-    /* Born coil (first wake) uses baseVol=1 instead of 0.55. */
+    /* Born lifeform (first wake) uses baseVol=1 instead of 0.55. */
     sfx.length = 0;
     const born = { x: nearSpot.x, y: nearSpot.y, state: 'DORMANT', t: 0, rise: 0, target: null, face: 0, wakeCd: 0, stepT: 0, born: 1 };
     G.lifeforms = [born];
     G.plumber.x = nearSpot.x + 2; G.plumber.y = nearSpot.y;
     A.emitNoise(A.NOISE.REPAIR, G.plumber.x, G.plumber.y, true);
-    t.assert(born.state === 'RISING', 'born coil rises');
+    t.assert(born.state === 'RISING', 'born lifeform rises');
     t.assert(sfx.length === 1, 'born wake emits rattle');
     const volBorn = sfx[0];
-    t.assert(volBorn > volNear, `born coil volume ${volBorn.toFixed(3)} > normal coil ${volNear.toFixed(3)}`);
+    t.assert(volBorn > volNear, `born lifeform volume ${volBorn.toFixed(3)} > normal lifeform ${volNear.toFixed(3)}`);
 
     off('sfx', unsub);
 

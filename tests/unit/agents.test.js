@@ -14,7 +14,7 @@ A.setHeadless(false, false);
    AI has stopped responding to sound. */
 test('agents stay out of geometry and react to noise', () => {
   const t = softAssert();
-  /* Level 5, deliberately: it is the level with both a dormant coil and a
+  /* Level 5, deliberately: it is the level with both a dormant and a
      woken lifeform in it, and level 1 has exactly one thing in the building. */
   buildFloor(A.LEVELS_N-1, 999);
   let bad=0, hunted=0, dormant=0;

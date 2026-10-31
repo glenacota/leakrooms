@@ -20,9 +20,8 @@ export function spawnLifeforms(level, rng){
     if (d>fd){ fd=d; far=r; }
   }
   /* The first lifeform is a WALKER, placed as far from the door as the map
-     allows. The rest are DORMANT coils spread across other rooms, never the
-     spawn room (a coil in the doorway would be an ambush with no warning, not
-     difficulty). */
+     allows. The rest are DORMANT spread across other rooms, never the
+     spawn room. */
   const lifeforms = [];
   const lifeformRooms = new Set();
   if (spec.lifeforms > 0 && far){
@@ -41,9 +40,7 @@ export function spawnLifeforms(level, rng){
   for (let attempts=0; coilRooms.length && lifeforms.length<spec.lifeforms && attempts<coilRooms.length*4; attempts++){
     const r = coilRooms[(rng()*coilRooms.length)|0];
     const cx = r.rx+r.rw/2, cy = r.ry+r.rh/2;
-    /* Not in the spawn room, and not on top of a pipe: a coil sharing a tile with
-       the only place to stand and repair would make that pipe unsurvivable by
-       accident and not by choice. */
+    /* Not in the spawn room, and not on top of a pipe. */
     if (Math.hypot(cx-spawn.x, cy-spawn.y) < 9) continue;
     if (level.leaks.some(L=>Math.hypot(cx-(L.sx+0.5), cy-(L.sy+0.5)) < 4)) continue;
     lifeforms.push({

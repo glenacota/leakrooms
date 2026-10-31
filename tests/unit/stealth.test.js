@@ -27,14 +27,14 @@ test('stealth: first wake per state flashes once, repeats are silent', () => {
   buildFloor(0, 4242);
   const flash = () => els['flashnote'].textContent;
 
-  /* A loud noise next to a dormant coil: DORMANT -> RISING. */
+  /* A loud noise next to a dormant lifeform: DORMANT -> RISING. */
   G.lifeforms = [lifeform(...atOffset(), 'DORMANT')];
   emitNoise(A.NOISE.REPAIR, ...atOffset(), true);
   update(1/60);
   t.assert(flash().includes('SOMETHING WOKE UP'),
     'the first DORMANT->RISING wake did not flash');
 
-  /* A second dormant coil in the same run: same `to` state, so no new flash. */
+  /* A second dormant lifeform in the same run: same `to` state, so no new flash. */
   G.lifeforms = [lifeform(...atOffset(), 'DORMANT')];
   const before = flash();
   emitNoise(A.NOISE.REPAIR, ...atOffset(), true);

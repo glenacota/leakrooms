@@ -28,7 +28,7 @@ test('alert receives sound source and context objects', () => {
 });
 
 /* A rising lifeform ignores further sound until it is up.
-   Real wrench path: build level 5, find a coil within 4-12 tiles that hears
+   Real wrench path: build level 5, find a lifeform within 4-12 tiles that hears
    the wrench, stand the player at the pipe's standing spot, step frames. */
 test('a rising lifeform ignores further sound until it is up (real wrench path)', () => {
   const t = softAssert();
@@ -62,8 +62,8 @@ test('a rising lifeform ignores further sound until it is up (real wrench path)'
     if (chosen) break;
   }
 
-  t.assert(chosen, `no DORMANT coil within 4-12 tiles of a pipe that hears the wrench on any of ${seedsToTry.length} seeds`);
-  console.log(`  seed ${chosenSeed}: chosen coil at dist ${chosen.dist.toFixed(2)} tiles, baseR=${chosen.baseR.toFixed(2)}, eff=${chosen.eff.toFixed(2)}`);
+  t.assert(chosen, `no DORMANT lifeform within 4-12 tiles of a pipe that hears the wrench on any of ${seedsToTry.length} seeds`);
+  console.log(`  seed ${chosenSeed}: chosen lifeform at dist ${chosen.dist.toFixed(2)} tiles, baseR=${chosen.baseR.toFixed(2)}, eff=${chosen.eff.toFixed(2)}`);
 
   /* Rebuild the chosen floor so G is set up correctly. */
   buildFloor(4, chosenSeed);

@@ -115,7 +115,7 @@ console.log('[16] the repair — five seconds, standing still');
     console.log('  a full bar is lost in under two seconds away from the pipe');
   }
 
-  /* --- the wrench is LOUD, and loud enough to wake a sleeping coil --- */
+  /* --- the wrench is LOUD, and loud enough to wake a dormant lifeform --- */
   {
     /* Level 5, because that is the level with four things in it — the assertion
        below needs a dormant one, and level 1 has a single walker. */

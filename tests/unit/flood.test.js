@@ -363,7 +363,7 @@ test('leaks are placed on walls, stay reachable, and flood downhill', () => {
       `sprinting at ${A.SPRINT_NOISE} is louder than the wrench at ${A.REPAIR_NOISE} — `+
       'the repair is not the loud decision');
     t.assert(A.SPRINT_NOISE >= A.LOUD,
-      `sprinting at ${A.SPRINT_NOISE} is under LOUD — running past a sleeping coil has to wake it`);
+      `sprinting at ${A.SPRINT_NOISE} is under LOUD — running past a dormant lifeform has to wake it`);
     t.assert(A.SPRINT_NOISE > 0.30,
       `sprinting at ${A.SPRINT_NOISE} is quieter than wading — the sprint stops being a decision`);
     t.assert(A.NOISE_FS === A.REPAIR_NOISE,
