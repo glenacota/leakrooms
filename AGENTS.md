@@ -7,7 +7,7 @@ LEAKROOMS is a 2D top-down stealth and puzzle game. A plumber repairs burst pipe
 ## Read order
 
 1. This file.
-2. The core terms below. For any other term, read `docs/GLOSSARY.md`.
+2. The core terms below. For any other term, read `docs/GLOSSARY.md`. For why the stack is the way it is, read the matching file in `docs/adr/` before changing it.
 3. The files you are about to change. Use grep for symbols and read line ranges. Do not read whole large files unless you are editing them.
 
 ## Commands
