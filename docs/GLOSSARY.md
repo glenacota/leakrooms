@@ -12,7 +12,7 @@ Code: `plumber` (on `G`), `PLUMBER.RADIUS`.
 Avoid: "player" in code. Use "you" in player copy.
 
 **Lifeform**
-The hostile creature that hunts by sound. It has four legs, a glossy body, and a hit zone of radius `CATCH_R`. Touching one is fatal.
+The hostile creature that hunts by sound at range and by sight up close. It has four legs, a glossy body, and a hit zone of radius `CATCH_R`. Touching one is fatal.
 Code: `lifeforms`, `lf`.
 Avoid: "agent" (collides with AI agents), "monster", "enemy".
 
@@ -76,6 +76,12 @@ Code: `hearRadius`, `wallSteps`.
 
 **Lure**
 An open leak is a constant noise source. A SEARCHing lifeform walks to the nearest open leak within `LEAK_LURE`. The leak can keep a lifeform busy, but it cannot wake a sleeping one, because the building's noise stays below LOUD.
+
+## Detection
+
+A lifeform detects you two ways. **Sound** is long range: any sound at or above `LOUD` wakes a dormant lifeform and starts a hunt; quieter sounds turn a wandering lifeform curious (SEARCH) and pull it toward where it heard something. **Sight** is the close-range backstop: an awake lifeform within `SIGHT` tiles (8) that faces you, has nothing between you (`los()`), and you stand in light brighter than `SIGHT_AMBIENT` (0.30) goes straight to `HUNT` and chases you. Standing still keeps your noise down, but it does not make you invisible — if you're lit and in view, an awake lifeform will spot you. The red `seenBy` warning bar rises whenever a lifeform sights you.
+
+Code: `tickLifeforms`, `seenBy`, `los`, `SIGHT`, `SIGHT_DOT`, `SIGHT_AMBIENT`.
 
 ## Sight and light
 

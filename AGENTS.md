@@ -2,7 +2,7 @@
 
 ## What this is
 
-LEAKROOMS is a 2D top-down stealth and puzzle game. A plumber repairs burst pipes across five Backrooms floors while avoiding lifeforms that hunt by sound. It is vanilla JavaScript (ES modules), Canvas 2D and Web Audio. There are no dependencies, no build step and no external assets.
+LEAKROOMS is a 2D top-down stealth and puzzle game. A plumber repairs burst pipes across five Backrooms floors while avoiding lifeforms that hunt by sound at range — and by sight up close. It is vanilla JavaScript (ES modules), Canvas 2D and Web Audio. There are no dependencies, no build step and no external assets.
 
 ## Read order
 
@@ -66,7 +66,7 @@ Do not change these without asking first.
 Full definitions and the words to avoid are in `docs/GLOSSARY.md`.
 
 - **Plumber**: the player's character. Say "plumber" in code and docs. Player-facing copy says "you".
-- **Lifeform**: the hostile creature. States: DORMANT, RISING, WALK, SEARCH, HUNT. Do not call them "agents", because in this repo "agent" means an AI agent. Do not call them "monsters".
+- **Lifeform**: the hostile creature. States: DORMANT, RISING, WALK, SEARCH, HUNT. Do not call them "agents", because in this repo "agent" means an AI agent. Do not call them "monsters". It hunts by sound at range and by sight up close.
 - **Leak**: a burst pipe in a wall (`leaks`, `L` in code). Player copy says "leak".
 - **Standing spot**: the floor tile beside a leak where the plumber repairs (`sx`, `sy`).
 - **Repair and seal**: holding still at a standing spot fills `repair`. A full bar seals the leak (`fixed`). Do not say "fix" for this.
