@@ -53,7 +53,7 @@ console.log('[17] the water as a cue — legible, free, and it actually leads');
   A.setHeadless(false, true);
 
   /* --- following the trail is FREE next to sweeping ---
-     The radar is 5.6/s of battery for 18 seconds of total knowledge. Following
+     The radar is 10/s of battery for 10 seconds of total knowledge. Following
      water costs no battery at all and makes only walk-level noise. If the
      water were expensive this test would force the question of why the mechanic
      exists; it is free, and this pins that so a future tuning pass cannot

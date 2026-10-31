@@ -5,3 +5,4 @@ tests/.trace-actual.json
 .vscode
 .env
 **/.DS_Store
+docs/reviews/

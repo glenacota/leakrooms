@@ -52,7 +52,7 @@ export function tickBattery(plumberMeta, plumber, batteries, dt){
   }
   for (const b of batteries){
     if (b.taken) continue;
-    if (Math.hypot(b.x-plumber.x,b.y-plumber.y)<0.85){ b.taken=true; plumberMeta.batt=Math.min(BATT_MAX,plumberMeta.batt+50); emit('flash', '+50 BATTERY'); plumberMeta.battPulseT = PULSE_FOR; }
+    if (Math.hypot(b.x-plumber.x,b.y-plumber.y)<0.85){ b.taken=true; plumberMeta.batt=Math.min(BATT_MAX,plumberMeta.batt+20); emit('flash', '+20% BATTERY'); plumberMeta.battPulseT = PULSE_FOR; }
   }
 }
 

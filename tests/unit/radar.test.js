@@ -35,7 +35,7 @@ console.log('[14] the radar — off by default, total while on, expensive');
   /* --- drain, and it switches itself off at zero rather than going negative */
   {
     G.radar = true; G.batt = 6;
-    // 6 units at 5.6/s is 1.07s, so run 2s of frames
+    // 6 units at 10/s is 0.6s, so run 2s of frames
     for (let i=0;i<120;i++) update(1/60);
     t.assert(G.radar===false, 'the radar stayed on after the battery ran out');
     t.assert(G.batt===0, `battery went to ${G.batt}, want exactly 0`);
@@ -49,6 +49,18 @@ console.log('[14] the radar — off by default, total while on, expensive');
     t.assert(Math.abs(used - A.RADAR_DRAIN) < 0.05,
       `1 second of sweep cost ${used.toFixed(2)}, want ${A.RADAR_DRAIN}`);
     t.assert(G.radar===true, 'the radar switched itself off with a full battery');
+    G.radar = false; G.batt = 100;
+  }
+
+  /* --- a full battery is exactly 10 seconds of sweep (Numbers Policy: B) ---
+     Pass/fail: 100 units drain at RADAR_DRAIN/s in 10s. If the number feels
+     too stingy in play, move RADAR_DRAIN down; if too generous, move it up. */
+  {
+    G.batt = 100; G.radar = true;
+    const frames = 10 * 60; // 10 seconds at 60 Hz
+    for (let i=0;i<frames;i++) update(1/60);
+    t.assert(G.radar===false, 'the radar stayed on past a full 10s battery');
+    t.assert(G.batt===0, `battery after 10s of sweep is ${G.batt}, want exactly 0`);
     G.radar = false; G.batt = 100;
   }
 

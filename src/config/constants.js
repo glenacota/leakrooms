@@ -78,9 +78,9 @@ export const HAND_OFF = 0.135;
 
 /* ---------- Battery and radar ---------- */
 export const BATT_MAX   = 100;
-/* The radar is the only tool and it is expensive: a full battery gives under
-   18 seconds of sweeping. It has to be switched off and thought about. */
-export const RADAR_DRAIN = 5.6;          // per second while sweeping
+/* The radar is the only tool and it is expensive: a full battery gives exactly
+   10 seconds of sweeping. It has to be switched off and thought about. */
+export const RADAR_DRAIN = BATT_MAX / 10; // per second while sweeping
 
 /* The radar gauge is drawn as a battery: a shell with a terminal on the right
    and a row of cells inside it that empty from the right as the charge goes.
