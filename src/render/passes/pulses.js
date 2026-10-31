@@ -1,8 +1,8 @@
 /* ============================================================
    SOUND PULSES
    The noise readout. Each sound the plumber makes leaves a ring on the carpet
-   where it was made. The ring grows out, stops at walls (see sim/pulse-reach.js)
-   and fades. Walking leaves a trail of rings behind you, so the sound you have
+   where it was made. The ring grows out to the sound's hearing reach, as a full
+   circle, and fades. Walking leaves a trail of rings behind you, so the sound you have
    made is visible where it happened, not pinned to your body.
 
    Ring colour: amber for a quiet sound, red for one at or above LOUD. Loud
@@ -12,8 +12,8 @@
    distance a LOUD sound carries. It shows while you are making noise.
 
    The sim only emits 'pulse' events (x, y, power). This pass keeps its own list
-   of live rings and reads the wall grid to trace them. Pure visuals, so it may
-   use Math.random if it needs to, though it does not.
+   of live rings. Pure visuals, so it may use Math.random if it needs to, though
+   it does not.
 
    Drawn after post-processing, inside the world transform, like the battery
    ring. Nothing darkens it, so it stays readable in the dark.
@@ -23,7 +23,6 @@ import { on } from '../../util/events.js';
 import { G } from '../../sim/state.js';
 import { simAlpha } from './actors.js';
 import { ctx, SCALE } from '../canvas.js';
-import { pulseReach, PULSE_RAYS } from '../../sim/pulse-reach.js';
 import { hearRadius } from '../../sim/noise.js';
 import { TILE, LOUD } from '../../config/constants.js';
 
@@ -54,16 +53,15 @@ const REACH_FLOOR = 0.02;
 const FADE_IN = 0.15;
 const FADE_OUT = 0.4;
 
-/* Live rings, oldest first. Each holds its own traced reach, so the wall check
-   runs once when the sound is made, not every frame. */
+/* Live rings, oldest first. Each keeps the hearing radius it was given when the
+   sound was made. */
 const pool = [];
 /* How visible the reach circle is, 0 to 1. Render-only. */
 let reachAlpha = 0;
 
-/* A new sound starts a ring. The reach is traced now, against the wall grid as
-   it is when the sound happens. */
+/* A new sound starts a ring at its hearing reach. */
 on('pulse', (x, y, power) => {
-  pool.push({ x, y, power, reach: pulseReach(G.grid, x, y, power), age: 0 });
+  pool.push({ x, y, power, radius: hearRadius(power), age: 0 });
   if (pool.length > MAX_PULSES) pool.shift();
 });
 
@@ -72,22 +70,16 @@ function fade(a, on, dt){
   return on ? Math.min(1, a + dt/FADE_IN) : Math.max(0, a - dt/FADE_OUT);
 }
 
-/* One ring: its rays scaled by how far it has grown, filled faintly and
-   stroked. `ageAlpha` is how much of its life is left, 0 to 1. */
+/* One ring: a full circle at the sound's hearing radius, grown by how far it has
+   got through its expansion, filled faintly and stroked. `ageAlpha` is how much
+   of its life is left, 0 to 1. */
 function drawRing(p, ageAlpha){
   const grow = Math.min(1, p.age/EXPAND);
   // Ease out: fast at first, then settling, like a wave front slowing down.
   const k = 1 - (1 - grow)*(1 - grow);
-  const cx = p.x*TILE, cy = p.y*TILE;
-  ctx.beginPath();
-  for (let i = 0; i < PULSE_RAYS; i++){
-    const a = (i/PULSE_RAYS)*Math.PI*2;
-    const d = p.reach[i]*k*TILE;
-    const x = cx + Math.cos(a)*d, y = cy + Math.sin(a)*d;
-    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-  }
-  ctx.closePath();
   const col = p.power >= LOUD ? DANGER : AMBER;
+  ctx.beginPath();
+  ctx.arc(p.x*TILE, p.y*TILE, p.radius*k*TILE, 0, Math.PI*2);
   ctx.fillStyle = col;
   ctx.globalAlpha = ageAlpha*FILL_ALPHA*PULSE_OPACITY;
   ctx.fill();

@@ -1,7 +1,7 @@
 import { emit } from '../util/events.js';
 import { onScreen } from './vision.js';
 import { sustainedNoise } from './noise.js';
-import { pulseDue } from './pulse-reach.js';
+import { pulseDue } from './pulse-timing.js';
 import { NOISE } from '../config/constants.js';
 
 /**

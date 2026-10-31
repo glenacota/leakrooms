@@ -2,7 +2,7 @@ import { LEAK_NOISE_BASE, LEAK_NOISE_GAIN, LOUD, REPAIR_DECAY, REPAIR_NOISE, REP
 import { REPAIR_TIME } from '../config/tuning.js';
 import { emit } from '../util/events.js';
 import { sustainedNoise } from './noise.js';
-import { pulseDue } from './pulse-reach.js';
+import { pulseDue } from './pulse-timing.js';
 import { repaintDirty } from '../util/repaint.js';
 
 /**
