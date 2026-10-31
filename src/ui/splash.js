@@ -1,5 +1,5 @@
 import { Audio_ } from '../audio/index.js';
-import { RUN_SEED, setState, startRun, STATE } from '../game/run.js';
+import { setState, startRun, STATE } from '../game/run.js';
 import { setTermsOpen } from './terms.js';
 import { show } from './dom.js';
 
@@ -19,10 +19,6 @@ export function syncAmbience(){
 export function advanceSplash(){
   if (STATE==='splash'){
     setState('order');
-    /* Show the run seed on the ticket's stub. It is the same number that
-       builds the floor when the player clocks in. */
-    const seedEl = document.getElementById('order-seed');
-    if (seedEl) seedEl.textContent = '#88D-' + (RUN_SEED>>>0).toString(16).toUpperCase().slice(-4);
     show('order');
   } else if (STATE==='order'){
     // Close the difficulty chooser on the way in, so the next time this ticket is seen it shows the chosen terms and not an open fold.
