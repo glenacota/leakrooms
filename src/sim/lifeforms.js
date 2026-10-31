@@ -135,19 +135,19 @@ export function updateLifeform(lifeformState, lf, dt, p){
   if (lf.state==='SEARCH'){
     lf.t -= dt;
 
-    /* THE LURE. An open pipe is a standing noise source, and a searching
+    /* THE LURE. An open leak is a standing noise source, and a searching
        lifeform will walk to it. That is why a leak is a shield as well as a
-       hazard: while a pipe is open, anything curious in the building is pulled
-       toward a pipe and not toward you, so the repair is done with a hunter
+       hazard: while a leak is open, anything curious in the building is pulled
+       toward a leak and not toward you, so the repair is done with a hunter
        coming from a known place.
 
-       With several pipes open, the nearest one takes the lifeform. A lifeform
-       standing at a pipe you have not reached yet is a shield you do not have
-       yet, and it should not cross the building to a far pipe.
+       With several leaks open, the nearest one takes the lifeform. A lifeform
+       standing at a leak you have not reached yet is a shield you do not have
+       yet, and it should not cross the building to a far leak.
 
        This applies to SEARCH only. A HUNT lifeform retargets only to LOUD
        sounds or the plumber's own noises (mine) — see noise.js alert().
-       Quiet ambient sounds (pipes) do not pull a hunter off its chase; this
+       Quiet ambient sounds (leaks) do not pull a hunter off its chase; this
        preserves the sprint decision and the 8 s give-up timer. */
     for (const L of lifeformState.leaks){
       if (L.fixed) continue;
@@ -219,7 +219,7 @@ function steerToward(lifeformState, lf, tgt, spd, dt, { sidestep } = {}){
 /* A random walkable spot near (x, y). It uses the floor's OWN generator
    (arng) and never Math.random(). A wandering lifeform keeps drawing random
    numbers long after the level is built, so using Math.random() would make two
-   runs on the same seed drift apart within seconds, even with identical pipes,
+   runs on the same seed drift apart within seconds, even with identical leaks,
    rooms and door. */
 export function randomFloorNear(lifeformState, x,y,rad, blocked){
   for (let i=0;i<60;i++){

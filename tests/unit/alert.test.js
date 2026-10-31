@@ -29,7 +29,7 @@ test('alert receives sound source and context objects', () => {
 
 /* A rising lifeform ignores further sound until it is up.
    Real wrench path: build level 5, find a lifeform within 4-12 tiles that hears
-   the wrench, stand the player at the pipe's standing spot, step frames. */
+   the wrench, stand the player at the leak's standing spot, step frames. */
 test('a rising lifeform ignores further sound until it is up (real wrench path)', () => {
   const t = softAssert();
   const W = 76;
@@ -62,13 +62,13 @@ test('a rising lifeform ignores further sound until it is up (real wrench path)'
     if (chosen) break;
   }
 
-  t.assert(chosen, `no DORMANT lifeform within 4-12 tiles of a pipe that hears the wrench on any of ${seedsToTry.length} seeds`);
+  t.assert(chosen, `no DORMANT lifeform within 4-12 tiles of a leak that hears the wrench on any of ${seedsToTry.length} seeds`);
   console.log(`  seed ${chosenSeed}: chosen lifeform at dist ${chosen.dist.toFixed(2)} tiles, baseR=${chosen.baseR.toFixed(2)}, eff=${chosen.eff.toFixed(2)}`);
 
   /* Rebuild the chosen floor so G is set up correctly. */
   buildFloor(4, chosenSeed);
 
-  /* Re-find the agent: look for a DORMANT agent at the right distance from the pipe. */
+  /* Re-find the agent: look for a DORMANT agent at the right distance from the leak. */
   const { L } = chosen;
   const standX = L.sx + 0.5;
   const standY = L.sy + 0.5;
@@ -81,9 +81,9 @@ test('a rising lifeform ignores further sound until it is up (real wrench path)'
       break;
     }
   }
-  t.assert(agent, 'agent not found at expected distance from pipe after rebuild');
+  t.assert(agent, 'agent not found at expected distance from leak after rebuild');
 
-  /* Stand the player at the pipe's standing spot. */
+  /* Stand the player at the leak's standing spot. */
   G.plumber.x = standX;
   G.plumber.y = standY;
   G.plumber.px = standX;

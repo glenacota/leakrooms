@@ -21,7 +21,7 @@ import { walkLine } from '../util/line.js';
  *   stat: {noises:number, deaths:number, sealed:number},
  *   lifeforms: Array<{x:number,y:number,state:string,born:number}>,
  *   leaks: Array<{x:number,y:number,sx:number,sy:number,fixed:boolean}>,
- *   leaksOpen: number,
+ *   openLeaks: number,
  *   grid: Uint8Array,
  *   floodCover: number,
  *   leakTotal: number,
@@ -80,7 +80,7 @@ export function wallSteps(grid, ax, ay, x, y){
      dormant   wakes up only if the sound is LOUD
      walking   turns to investigate (SEARCH), or hunts if the sound is LOUD
      hunting   retargets only if the sound is LOUD or the player's own noise (mine).
-               Quiet ambient sounds (pipes) do not pull a hunter off its chase;
+               Quiet ambient sounds (leaks) do not pull a hunter off its chase;
                this preserves the sprint decision and the 8 s give-up timer.
     Lifeforms still in their opening grace period (born > 0) ignore everything
     except waking from dormancy.
@@ -156,7 +156,7 @@ export function emitNoise(noiseState, power, x, y, mine){
   emit('stat', 'noises');
 }
 
-/* A noise that continues, such as walking or an open pipe. It is called every
+/* A noise that continues, such as walking or an open leak. It is called every
    frame, so it does not count toward the stats (that would inflate them) and
    it relies on the meter's own decay. */
 export function sustainedNoise(noiseState, power, x, y, mine){

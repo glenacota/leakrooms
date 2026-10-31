@@ -106,30 +106,30 @@ test('the camera centres the plumber and keeps the world upright', () => {
 
 /* A pass that throws is caught elsewhere. What this defends is a pass that
    computes the right numbers in the wrong coordinate space: run after the world
-   transform is restored, a world-space fill lands off the canvas and the pipe is
+   transform is restored, a world-space fill lands off the canvas and the leak is
    invisible while every assertion about it still passes. So check the pixels. */
 test('the leak is drawn where it is, not just where it is computed', () => {
   const t = softAssert();
   const W=76;
   buildFloor(2, 2468);
-  for (let i=0;i<60*10;i++) update(1/60);          // let the pipes actually stain
+  for (let i=0;i<60*10;i++) update(1/60);          // let the leaks actually stain
   const L=G.leaks.find(l=>!l.fixed) || G.leaks[0];
 
-  // stand on the repair spot facing the pipe, so it is on screen and lit
+  // stand on the repair spot facing the leak, so it is on screen and lit
   G.plumber.x=L.sx+0.5; G.plumber.y=L.sy+0.5;
   G.plumber.face=Math.atan2((L.y+0.5)-G.plumber.y,(L.x+0.5)-G.plumber.x);
   /* Let the room crossfade SETTLE before asserting anything about the mask.
      Teleporting the plumber starts a 0.3s scope transition, and snapMask()
      retraces the cone but does not finish the fade — so a mask read three
-     frames after arriving is a half-faded value and the pipe looks dim for
-     reasons that have nothing to do with the pipe. */
+     frames after arriving is a half-faded value and the leak looks dim for
+     reasons that have nothing to do with the leak. */
   for (let i=0;i<40;i++){ G.plumber.x=L.sx+0.5; G.plumber.y=L.sy+0.5; update(1/60); }
   A.snapMask();
 
   t.assert(A.onScreen(L.x+0.5, L.y+0.5),
-    'the pipe is not on screen while standing on it — the test cannot check what it cannot see');
+    'the leak is not on screen while standing on it — the test cannot check what it cannot see');
   t.assert(A.internals.maskArr[L.y*W+L.x] > 0.9,
-    `the pipe tile is masked to ${A.internals.maskArr[L.y*W+L.x]} while the player stands on it`);
+    `the leak tile is masked to ${A.internals.maskArr[L.y*W+L.x]} while the player stands on it`);
 
   /* the camera has to be ON the player before a pixel comparison means
      anything; render() smooths it, so settle it the way the game does */
@@ -137,26 +137,26 @@ test('the leak is drawn where it is, not just where it is computed', () => {
   void camx0;
   for (let i=0;i<90;i++) render(1000+i*16.7);
 
-  /* Where the pipe should land, in device pixels. The camera has to be settled
+  /* Where the leak should land, in device pixels. The camera has to be settled
      first or this measures the smoothing instead of the drawing. */
   const tileScreen = (tx,ty)=>{
     const T=A.TILE*A.SCALE, cx=A.cvs.width/2, cy=A.cvs.height/2;
     return [Math.round(cx+(tx-G.plumber.x)*T), Math.round(cy+(ty-G.plumber.y)*T)];
   };
   for (let i=0;i<90;i++) render(1000+i*16.7);
-  // The pipe is on the south-face band: the wallpaper strip at the TOP of the
+  // The leak is on the south-face band: the wallpaper strip at the TOP of the
   // floor tile directly below the wall tile.  ox = w2sx(L.x), oy = w2sy(L.y+1).
   const [lx,ly] = tileScreen(L.x, L.y+1);
   const onCanvas = lx>=0 && ly>=0 && lx<A.cvs.width && ly<A.cvs.height;
   t.assert(onCanvas,
-    `the pipe projects to (${lx},${ly}), outside a ${A.cvs.width}x${A.cvs.height} canvas`);
+    `the leak projects to (${lx},${ly}), outside a ${A.cvs.width}x${A.cvs.height} canvas`);
   if (onCanvas){
     /* The stub canvas does not rasterize, so this checks the DRAW CALL rather
-       than the pixels: something has to actually be painted at the pipe. The
+       than the pixels: something has to actually be painted at the leak. The
        regression this exists for filled at world coordinates and so painted
-       1360px to the right of where the pipe is — every one of these calls
+       1360px to the right of where the leak is — every one of these calls
        existed, all of them were the right size and the right colour, and not
-       one of them was anywhere near the pipe. */
+       one of them was anywhere near the leak. */
     calls.list.length = 0;
     render(1000+91*16.7);
     const near = calls.list.filter(c=>{
@@ -165,8 +165,8 @@ test('the leak is drawn where it is, not just where it is computed', () => {
       return Math.hypot(x-lx, y-ly) < A.TILE*A.SCALE*1.2;
     });
     t.assert(near.length>0,
-      `nothing is drawn within a tile of the pipe at (${lx},${ly}) — `+
-      `${calls.list.filter(c=>c[0]==='fillRect').length} fills happened, none of them at the pipe`);
+      `nothing is drawn within a tile of the leak at (${lx},${ly}) — `+
+      `${calls.list.filter(c=>c[0]==='fillRect').length} fills happened, none of them at the leak`);
   }
 
   /* and the progress ring: it must be painted while wrenching, which is the
@@ -178,7 +178,7 @@ test('the leak is drawn where it is, not just where it is computed', () => {
     /* The ring is drawn at the CENTRE of the repair tile, and it is drawn with an
        arc and a stroke — so it is asserted on those. Looking for the leak's
        gradients instead measured the stain on the wall one tile away, which is
-       a different object and, for a pipe north or south of the spot, exactly
+       a different object and, for a leak north or south of the spot, exactly
        the 1.5-tile tolerance boundary: a test that passes or fails on the seed. */
     const [rx,ry] = tileScreen(L.sx+0.5, L.sy+0.5);
     calls.list.length = 0;
@@ -194,7 +194,7 @@ test('the leak is drawn where it is, not just where it is computed', () => {
     t.assert(calls.list.some(c=>c[0]==='stroke'),
       'the ring was traced but never stroked — it is a circle nobody can see');
   }
-  console.log('  the pipe and the wrench ring land on screen, not off in device-pixel space');;
+  console.log('  the leak and the wrench ring land on screen, not off in device-pixel space');;
 });
 
 
@@ -288,7 +288,7 @@ console.log('[47] the water shine scales with the tiles it draws, not the bucket
     return { calls, deep: seen.size };
   };
 
-  /* A real flood: deep water sits around the open pipes, in tight pools. */
+  /* A real flood: deep water sits around the open leaks, in tight pools. */
   const flooded = frame();
   t.assert(flooded.calls <= 1.2*flooded.deep + 200,
     `a flooded view spent ${flooded.calls} sines on ${flooded.deep} deep visible tiles — `+
@@ -329,7 +329,7 @@ console.log('[48] the door draws its glow without dimming the rest of the frame'
   /* READY and LOCKED set different glow alphas (0.16 to 0.30 against 0.10), so
      both are worth walking. */
   for (const sealed of [true, false]){
-    G.leaksOpen = sealed ? 0 : 1;
+    G.openLeaks = sealed ? 0 : 1;
     const alphas = [];
     const realFillRect = c.fillRect, realFill = c.fill;
     c.fillRect = (...a)=>{ alphas.push(c.globalAlpha); return realFillRect.apply(c, a); };

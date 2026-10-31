@@ -1,5 +1,5 @@
 /* Verifies that every generated leak has its standing spot on the tile directly
-   south of the wall tile — i.e. the pipe is always on a south-facing wall face.
+   south of the wall tile — i.e. the leak is always on a south-facing wall face.
    Pure property check across 50 seeds × 5 floors. */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -25,9 +25,9 @@ test('every leak stands on the tile directly south of its wall tile', () => {
       // That tile must be FLOOR (not WALL or out-of-bounds).
       assert.equal(at(L.sx, L.sy), FLOOR,
         `seed ${s}: standing spot (${L.sx},${L.sy}) is not FLOOR (got ${at(L.sx,L.sy)})`);
-      // The pipe tile itself must be WALL.
+      // The leak tile itself must be WALL.
       assert.notEqual(at(L.x, L.y), FLOOR,
-        `seed ${s}: pipe tile (${L.x},${L.y}) should be WALL but is FLOOR`);
+        `seed ${s}: leak tile (${L.x},${L.y}) should be WALL but is FLOOR`);
       checked++;
     }
   }

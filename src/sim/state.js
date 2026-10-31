@@ -27,7 +27,7 @@ const OWNER = {
   regionOf: 'level', regionAdj: 'level', regionCount: 'level',
 
   /* LeakState */
-  leaks: 'leak', leaksOpen: 'leak', pipes: 'leak',
+  leaks: 'leak', openLeaks: 'leak', totalLeaks: 'leak',
 
   /* PlumberState */
   plumber: 'plumber', batt: 'plumber', radar: 'plumber', radarRattleT: 'plumber', battPulseT: 'plumber',
@@ -63,7 +63,7 @@ const OWNER = {
 /* The exact key order from the original flat object (pinned by tests/unit/state.test.js). */
 const KEY_ORDER = [
   'floor', 'seed', 'grid', 'at', 'inB', 'los', 'rooms', 'exitTiles', 'leaks', 'fixtures',
-  'batteries', 'graffiti', 'leaksOpen', 'pipes', 'lightArr', 'lightCv', 'lightCtx', 'lightImg',
+  'batteries', 'graffiti', 'openLeaks', 'totalLeaks', 'lightArr', 'lightCv', 'lightCtx', 'lightImg',
   'visArr', 'visFrom', 'visTgt', 'visScratch', 'maskArr', 'maskTgt', 'coneArr', 'maskCv',
   'maskCtx', 'maskImg', 'wallIdx', 'tilesCv', 'tilesCtx', 'wallsCv', 'wallsCtx', 'regionOf',
   'regionAdj', 'regionCount', 'visRegion', 'visStep', 'visFadeT', 'coneX', 'coneY', 'coneFace',

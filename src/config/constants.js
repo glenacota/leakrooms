@@ -29,7 +29,7 @@ export const WALL_FACE = TILE*0.46;
 
 /* ---------- The door ---------- */
 export const DOOR_HOLD = 1.5;      // seconds standing at the door to cycle it
-export const DOOR_AJAR = 0.34;     // how far the door rests open once every pipe is sealed
+export const DOOR_AJAR = 0.34;     // how far the door rests open once every leak is sealed
 export const DOOR_EASE = 6;        // how quickly the door leaf moves toward its target, per second
 
 /* ---------- Movement and bodies ---------- */
@@ -92,34 +92,31 @@ export const BATT_LOW  = 35;
 
 /* ---------- The leaks ----------
    The player is here because pipes burst, and the water shows where. The only
-   fix is to stand still next to a pipe while something in the building walks
+   fix is to stand still next to a leak while something in the building walks
    toward the noise.
 
    The water is the main clue. The radar only reveals space and knows nothing
    about plumbing. Water spreads from the leak and nowhere else, so following
    the wet floor leads to the source without using battery.
 
-   An open pipe is also a standing noise source. That pulls lifeforms toward
-   the pipe, which can act as a shield while you search, but the noise is kept
-   below LOUD on purpose. A leak above LOUD would wake the whole floor. The
-   wrench is the loud part. */
+   An open leak is also a standing noise source. */
 
-/* The minimum spacing between pipes, in tiles. Without it, the placement
-   loop (which prefers the farthest tile) would put every pipe in the same far
-   corner, and four pipes would become one pipe sealed four times. */
-export const PIPE_GAP = 12;
+/* The minimum spacing between leaks, in tiles. Without it, the placement
+   loop (which prefers the farthest tile) would put every leak in the same far
+   corner, and four leaks would become one leak sealed four times. */
+export const LEAK_GAP = 12;
 
 /* How fast the water front moves outward, in seconds per tile. At 3.2 the
    front advances about half a tile every two seconds: clearly alive, but still
    easy to hold in your head. */
 export const LEAK_SPREAD  = 3.2;
 
-/* How fast the water front moves back in once every pipe is sealed, in seconds
+/* How fast the water front moves back in once every leak is sealed, in seconds
    per tile. It is much faster than the arrival. The flood can reach the far
    side of the building (82 to 148 tiles away depending on the floor), so a
    recession at the arrival speed would take longer than the level clock and
    the player would walk home through wet floor for minutes. The recession
-   still moves from the edges inward, away from the pipes. */
+   still moves from the edges inward, away from the leaks. */
 export const LEAK_RETREAT = 0.5;
 
 /* How long a single tile takes to darken once the front reaches it
@@ -138,18 +135,18 @@ export const WET_FALL     = 5.0;    // seconds for an abandoned tile to go from 
 
 export const LEAK_NOISE_BASE = 0.16;   // a quiet drip, heard about 6 tiles away
 export const LEAK_NOISE_GAIN = 0.26;   // added as the floor floods; the total stays under LOUD
-export const LEAK_LURE    = 0.42;   // how close a searching lifeform drifts to a pipe
+export const LEAK_LURE    = 0.42;   // how close a searching lifeform drifts to a leak
 
-/* How far from the spawn a pipe may be, measured in a straight line. Indexed
-   by pipe count minus one; the last entry repeats for larger counts.
+/* How far from the spawn a leak may be, measured in a straight line. Indexed
+   by leak count minus one; the last entry repeats for larger counts.
 
    The cap is on straight-line distance because in a maze, a tile 70 tiles away
    can be 200 tiles of corridor to walk. Choosing the farthest tile overall made
    the repair a two-minute trek, which is a commute and not tension.
 
-   It is also a time budget. Three minutes covers the whole level (every pipe
-   plus the walk back), so every extra pipe pulls the reach in. */
-export const PIPE_FAR = [56, 48, 42, 38];
+   It is also a time budget. Three minutes covers the whole level (every leak
+   plus the walk back), so every extra leak pulls the reach in. */
+export const LEAK_FAR = [56, 48, 42, 38];
 
 /* The flood is pre-warmed this many seconds before the level starts. Without
    it the floor would start dry and the first half minute would have no clue at
@@ -160,7 +157,7 @@ export const LEAK_HEADSTART = 42;
 /* ---------- The repair ---------- */
 /* Five seconds of standing still is long enough to be a real commitment: you
    choose to be immobile and loud in a building with something in it. */
-export const REPAIR_REACH = 1.25;   // how close you must be to the pipe's standing spot
+export const REPAIR_REACH = 1.25;   // how close you must be to the leak's standing spot
 export const REPAIR_DECAY = 2.6;    // whole bars lost per second once you move
 /* The wrench's noise power is NOISE.REPAIR: above LOUD, and louder than a
    sprint on purpose. */

@@ -102,7 +102,7 @@ console.log('[14] the radar — off by default, total while on, expensive');
 
   /* --- the reveal: a scrawl is read when the sweep puts it on screen ---
      There is nothing left in the world that NEEDS finding — the door is where
-     you came in and the pipes announce themselves in water — so the radar is
+     you came in and the leaks announce themselves in water — so the radar is
      down to reading the carpet. That makes the on-screen rule the whole of
      what it does, and it is checked directly rather than left to the playthrough
      bot: a scrawl just off screen must NOT be read, and the frame it comes on

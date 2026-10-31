@@ -121,7 +121,7 @@ test('[HUD-RULES] buildHudSnap reads the floor state', () => {
   const G = { leaks: [{ fixed: false, repair: 0.4 }, { fixed: true, repair: 9 }, { fixed: false, repair: 0.1 }],
     selfNoise: LOUD + 0.1, batt: 20, radar: true, clock: 25, time: 10 };
   const s = buildHudSnap(G, 2, 50000);
-  assert.equal(s.repairProgress, 0.4);       // the sealed pipe does not count
+  assert.equal(s.repairProgress, 0.4);       // the sealed leak does not count
   assert.equal(s.loud, true);
   assert.equal(s.batteryLow, true);
   assert.equal(s.radarOn, true);

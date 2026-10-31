@@ -37,7 +37,7 @@ export function packWet(){
   const d = G.wetImg.data;
   /* Partial repack. takeWetBox() returns the rectangle of tiles that changed
      since the last pack, and only those rows are rewritten and uploaded. With a
-     pipe open the water moves every frame, but only in a thin band, so a full
+     leak open the water moves every frame, but only in a thin band, so a full
      5776-tile rewrite (and a full upload) was a lot of wasted work. A full box
      means "repack everything", which a new floor and a tint change ask for. The
      box is used up here, so the next change starts a fresh one. */

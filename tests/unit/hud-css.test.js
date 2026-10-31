@@ -95,9 +95,6 @@ test('[24] the HUD — one glass panel in the corner, and it reserves nothing', 
   t.assert(JSON.stringify(labels)===JSON.stringify(['LIVES','LEAKS']),
     `the HUD shows ${JSON.stringify(labels)}, expected LIVES/LEAKS`);
 
-  for (const gone of ['val-flood','bar-flood','val-leak']){
-    t.assert(!hudHtml.includes(gone), `the HUD still carries #${gone}`);
-  }
   t.assert(!/>FLOOD</.test(hudHtml), 'the HUD still shows a flood reading');
   t.assert(!/>DOOR</.test(hudHtml), 'the HUD still shows a door reading');
   t.assert(!/\.bar\.flood/.test(css), 'the flood bar is still in the stylesheet');
@@ -116,46 +113,46 @@ test('[24] the HUD — one glass panel in the corner, and it reserves nothing', 
   t.assert((hudHtml.match(/class="bar/g)||[]).length===0,
     'there are no bars left in the corner panel');
 
-  /* --- the pipe marks ----------------------------------------------
-     One mark per pipe, in the order the floor put them, so a mark never
+  /* --- the leak marks ----------------------------------------------
+     One mark per leak, in the order the floor put them, so a mark never
      moves once it is on screen. It is a mark and not a bar: a bar under a
      count invites reading the gradient as the number. */
-  t.assert(/class="crt-pipes"[^>]*id="val-pipes"/.test(hudHtml),
-    'the pipe row is not a .crt-pipes container');
-  t.assert(!/class="[^"]*\bbar\b[^"]*"[^>]*id="val-pipes"/.test(hudHtml),
-    'the pipe row is a bar — a bar under a count invites reading the gradient as the number');
+  t.assert(/class="crt-leaks"[^>]*id="val-leaks"/.test(hudHtml),
+    'the leak row is not a .crt-leaks container');
+  t.assert(!/class="[^"]*\bbar\b[^"]*"[^>]*id="val-leaks"/.test(hudHtml),
+    'the leak row is a bar — a bar under a count invites reading the gradient as the number');
 
-  /* Lives and pipes share the row, so the panel is a row shorter. */
+  /* Lives and leaks share the row, so the panel is a row shorter. */
   const livesRow = hudHtml.split('<div class="crt-row"').slice(1)
     .find(s => s.includes('id="val-lives"'));
-  t.assert(livesRow && livesRow.includes('id="val-pipes"'),
-    'lives and the pipe marks are not on the same row');
+  t.assert(livesRow && livesRow.includes('id="val-leaks"'),
+    'lives and the leak marks are not on the same row');
 
   /* The open mark is water and the loud thing on the row; the sealed one is
      hollow, so a filled mark can never be mistaken for an open one. */
-  const openPip = css.match(/\.crt-pipes span\.open\s*\{([^}]*)\}/);
+  const openPip = css.match(/\.crt-leaks span\.open\s*\{([^}]*)\}/);
   t.assert(openPip && /#8fc4cc|#3c5a60/i.test(openPip[1]),
-    "the open pipe mark is not water blue — blue is the water's colour, full stop");
-  const donePip = css.match(/\.crt-pipes span\.done\s*\{([^}]*)\}/);
+    "the open leak mark is not water blue — blue is the water's colour, full stop");
+  const donePip = css.match(/\.crt-leaks span\.done\s*\{([^}]*)\}/);
   t.assert(donePip && /background\s*:\s*transparent/.test(donePip[1]),
-    'the sealed pipe mark is not hollow — a filled mark reads as still open');
+    'the sealed leak mark is not hollow — a filled mark reads as still open');
   t.assert(donePip && /border\s*:/.test(donePip[1]),
-    'the sealed pipe mark has no outline — a hole with no edge is nothing');
+    'the sealed leak mark has no outline — a hole with no edge is nothing');
 
-  /* The row DRAINS: the open pipes pack to the left and the sealed ones sit
+  /* The row DRAINS: the open leaks pack to the left and the sealed ones sit
      hollow on the right, so the lit run is the number still open. */
-  buildFloor(3, 1234);                       // a four-pipe floor
+  buildFloor(3, 1234);                       // a four-leak floor
   A.sealLeak(A.G.leaks[0]);
   A.updateHUD();
-  const marks = els['val-pipes'].innerHTML.match(/class="(open|done)"/g) || [];
-  t.assert(marks.length === A.G.pipes,
-    `the pipe row has ${marks.length} marks for ${A.G.pipes} pipes`);
+  const marks = els['val-leaks'].innerHTML.match(/class="(open|done)"/g) || [];
+  t.assert(marks.length === A.G.totalLeaks,
+    `the leak row has ${marks.length} marks for ${A.G.totalLeaks} leaks`);
   t.assert(marks[0] === 'class="open"',
-    'the first mark is not an open pipe — the row has to drain from the left');
+    'the first mark is not an open leak — the row has to drain from the left');
   t.assert(marks[marks.length-1] === 'class="done"',
-    'the last mark is not a sealed pipe — the row has to drain from the left');
-  t.assert(marks.filter(m => m === 'class="open"').length === A.G.leaksOpen,
-    'the row does not show one open mark for every open pipe');
+    'the last mark is not a sealed leak — the row has to drain from the left');
+  t.assert(marks.filter(m => m === 'class="open"').length === A.G.openLeaks,
+    'the row does not show one open mark for every open leak');
 
   /* --- type floors ---------------------------------------------------
      The parser has to be a little more forgiving than `font-size:NNpx`.

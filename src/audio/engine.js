@@ -97,9 +97,9 @@ export const engine = {
     fr.connect(frg); frg.connect(this.floorGain); fr.start();
 
     /* --- THE LEAK BED.
-       What an open pipe sounds like: pressurised water, not a drip. One shared
-       voice, driven by the pipes' TOTAL noise and quieter with distance to the
-       nearest open pipe, so a burst pipe is something you can walk toward with
+       What an open leak sounds like: pressurised water, not a drip. One shared
+       voice, driven by the leaks' TOTAL noise and quieter with distance to the
+       nearest leak, so a burst pipe is something you can walk toward with
        your ears. */
     this.leakGain = a.createGain();
     this.leakGain.gain.value = 0;

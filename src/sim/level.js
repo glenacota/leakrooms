@@ -1,12 +1,12 @@
 import { genMaze } from './maze.js';
-import { MAP_W, MAP_H, WALL, FLOOR, PIPE_GAP, REPAIR_REACH, PIPE_FAR, PLUMBER } from '../config/constants.js';
+import { MAP_W, MAP_H, WALL, FLOOR, LEAK_GAP, REPAIR_REACH, LEAK_FAR, PLUMBER } from '../config/constants.js';
 import { LEVELS, LEVELS_N } from '../config/levels.js';
 import { NOTES } from '../config/notes.js';
 import { hash2 } from '../util/hash.js';
 
 /**
  * Generates a whole level from a seeded random function: the maze, the door,
- * the pipes, the ceiling lights, the batteries and the notes on the carpet. It
+ * the leaks, the ceiling lights, the batteries and the notes on the carpet. It
  * is a pure function of its inputs, so the same seed always gives the same
  * level. It needs no floor state (G), so the tests call it on its own.
  *
@@ -78,7 +78,7 @@ export function genLevel(rng, floorNum=0){
   const candidates = maze.rooms.filter(r=>r.rw>=6 && r.rh>=6);
   const pool = candidates.length>=6 ? candidates : maze.rooms;
   const entryRoom = pool[0];
-  // The spawn point. The pipes are placed relative to it, so it is worked out first.
+  // The spawn point. The leaks are placed relative to it, so it is worked out first.
   const spawn = { x: entryRoom.rx + entryRoom.rw/2, y: entryRoom.ry + entryRoom.rh/2 };
 
   const exitTiles = [];
@@ -103,16 +103,16 @@ export function genLevel(rng, floorNum=0){
     exitTiles.push({x:fb[0], y:fb[1], open:0, facing:'S'});
   }
 
-  /* ---------- The pipes ----------
-     Each pipe is a single wall tile, as far from the spawn as the map allows. It
+  /* ---------- The leaks ----------
+     Each leak is a single wall tile, as far from the spawn as the map allows. It
      must be a WALL with walkable floor directly SOUTH of it (southFacing): the
-     pipe is painted on that wall's face, and the bake only paints the south face,
-     so a pipe anywhere else would hang on a dark ceiling top. If the farthest tile is unusable the search steps
-     back toward the spawn, because an unreachable pipe makes the level
+     leak is painted on that wall's face, and the bake only paints the south face,
+     so a leak anywhere else would hang on a dark ceiling top. If the farthest tile is unusable the search steps
+     back toward the spawn, because an unreachable leak makes the level
      unwinnable and every repair is required.
 
      Farthest-first means the usual case is a real trek and the rare case is a
-     shorter one. With several pipes, picks must be PIPE_GAP apart, so four pipes
+     shorter one. With several leaks, picks must be LEAK_GAP apart, so four leaks
      are four corners of the building and not four faces of one wall. */
   const faceTiles = [];
   for (let y=1;y<MAP_H-1;y++) for (let x=1;x<MAP_W-1;x++){
@@ -122,7 +122,7 @@ export function genLevel(rng, floorNum=0){
   faceTiles.sort((a,b)=> b.d - a.d);
 
   const standSpot = (c) => {
-    /* Finds the standing spot: the floor tile beside the pipe where the player
+    /* Finds the standing spot: the floor tile beside the leak where the player
        can physically stand. The player stands on the CENTRE of that tile. (An
        earlier version nudged the spot flush against the wall, which is where the
        collision circle already stops the player, so every candidate counted as
@@ -131,7 +131,7 @@ export function genLevel(rng, floorNum=0){
 
        It checks the local grid and not blocked(), because G does not exist yet
        while the level is being built. */
-    for (const [nx,ny] of [[c.x,c.y+1]]){      // the pipe is on the south face, so the spot is the tile below
+    for (const [nx,ny] of [[c.x,c.y+1]]){      // the leak is on the south face, so the spot is the tile below
       if (!inB(nx,ny) || at(nx,ny)!==FLOOR) continue;
       const px = nx + 0.5, py = ny + 0.5;
       let inside = false;
@@ -147,25 +147,25 @@ export function genLevel(rng, floorNum=0){
     }
     return null;
   };
-  // The room a standing spot is in, for the battery guarantee below. A pipe is a wall tile and belongs to no room, but the floor beside it does.
+  // The room a standing spot is in, for the battery guarantee below. A leak is a wall tile and belongs to no room, but the floor beside it does.
   const roomAt = (tx,ty) =>
     maze.rooms.find(r=>tx>=r.rx&&tx<r.rx+r.rw&&ty>=r.ry&&ty<r.ry+r.rh) || null;
 
-  // How many pipes this level has is fixed by the level, not by difficulty (see LEVELS).
+  // How many leaks this level has is fixed by the level, not by difficulty (see LEVELS).
   const spec = LEVELS[Math.min(floorNum, LEVELS_N-1)];
   const want = spec.leaks;
   const leaks = [];
-  const reach = PIPE_FAR[Math.min(want, PIPE_FAR.length)-1];
+  const reach = LEAK_FAR[Math.min(want, LEAK_FAR.length)-1];
   const capped = faceTiles.filter(c=>c.d <= reach);
   const shortlist = (capped.length ? capped : faceTiles);
   /* Scan the shortlist (farthest first). The first pick that keeps the required
-     gap wins. If that does not find enough pipes, the gap is relaxed twice.
+     gap wins. If that does not find enough leaks, the gap is relaxed twice.
 
-     The gap is measured between STANDING SPOTS, not wall tiles. Two pipes three
+     The gap is measured between STANDING SPOTS, not wall tiles. Two leaks three
      wall tiles apart can have standing spots 1.0 apart, which is inside
-     REPAIR_REACH, and then one five-second hold would seal both pipes. Each pipe
+     REPAIR_REACH, and then one five-second hold would seal both leaks. Each leak
      must need its own repair. */
-  for (let gap of [PIPE_GAP, Math.max(4, PIPE_GAP>>1), 0]){
+  for (let gap of [LEAK_GAP, Math.max(4, LEAK_GAP>>1), 0]){
     for (const c of shortlist){
       if (leaks.length >= want) break;
       const spot = standSpot(c);
@@ -188,7 +188,7 @@ export function genLevel(rng, floorNum=0){
 
   /* Picks a floor tile inside a room. Rooms contain wall stubs, so a random pick
      can land inside a wall and is checked. `away` and `minD` keep a pickup away
-     from a point (the spawn, or a pipe), so a battery is never handed over for free. */
+     from a point (the spawn, or a leak), so a battery is never handed over for free. */
   const floorTileIn = (r, inset=1, away=null, minD=0) => {
     const w = r.rw-2*inset, h = r.rh-2*inset;
     if (w > 0 && h > 0){
@@ -236,21 +236,18 @@ export function genLevel(rng, floorNum=0){
   }
 
   /* ---------- Batteries ----------
-     Guaranteed: one in the door's room, and one in the room each pipe's standing
-     spot is in. The water leads you to the pipe, so the battery that powers the
-     radar is next to the work. With several pipes and three minutes you will
-     sweep more than once, and a budget that can run dry between pipes is one
-     you cannot plan around. */
+     Guaranteed: one in the door's room, and one in the room each leak's standing
+     spot is in. */
   const batteries = [];
   const litRooms = maze.rooms.filter(r=>fixtures.some(f=>f.x>=r.rx&&f.x<=r.rx+r.rw&&f.y>=r.ry&&f.y<=r.ry+r.rh));
   const battRooms = new Set();
   for (const b of [{room:entryRoom, away:spawn, d:3}, ...leaks.map(L=>({room:L.room, away:{x:L.sx+0.5,y:L.sy+0.5}, d:1.5}))]){
     const r = b.room;
     if (!r || r.rw<5 || r.rh<5) continue;
-    // One per room: two pipes can share a room, and two stacked batteries look like a bug.
+    // One per room: two leaks can share a room, and two stacked batteries look like a bug.
     if (battRooms.has(r)) continue;
     battRooms.add(r);
-    // Never within reach of the spawn or of the pipe's own standing spot: that would be battery you did not have to walk for.
+    // Never within reach of the spawn or of the leak's own standing spot: that would be battery you did not have to walk for.
     const sp = floorTileIn(r, 1, b.away, b.d);
     if (!sp) continue;
     batteries.push({ x: sp.x+0.5, y: sp.y+0.5, taken:false });

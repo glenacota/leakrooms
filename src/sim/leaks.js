@@ -8,7 +8,7 @@ import { repaintDirty } from '../util/repaint.js';
  * Leak state bundle passed by reference.
  * @typedef {{
  *   leaks: Array<{x:number,y:number,sx:number,sy:number,fixed:boolean,repair:number,fixedAt:number,wrenchT:number}>,
- *   leaksOpen: number,
+ *   openLeaks: number,
  *   plumber: {x:number,y:number},
  *   time: number,
  *   floodCover: number,
@@ -16,11 +16,11 @@ import { repaintDirty } from '../util/repaint.js';
  *   leakTotal: number,
  *   leakDist: number,
  *   stat: {noises:number, deaths:number, sealed:number},
- *   noiseState: {noise:number, noisePeak:number, selfNoise:number, ambientNoise:number, stat:{noises:number, deaths:number, sealed:number}, lifeforms:Array, leaks:Array, leaksOpen:number, grid:Uint8Array, floodCover:number, leakTotal:number, leakDist:number, leakPower:number, atLeak:boolean}
+ *   noiseState: {noise:number, noisePeak:number, selfNoise:number, ambientNoise:number, stat:{noises:number, deaths:number, sealed:number}, lifeforms:Array, leaks:Array, openLeaks:number, grid:Uint8Array, floodCover:number, leakTotal:number, leakDist:number, leakPower:number, atLeak:boolean}
  * }} LeakState
  */
 
-/* Returns the open pipe the player is close enough to work on, or null.
+/* Returns the open leaks the player is close enough to work on, or null.
    Distance is measured to the standing spot, since the interaction is "put
    your hands on the pipe". */
 export function leakAt(leaks, x, y){
@@ -35,11 +35,11 @@ export function leakReach(leaks, x, y){
 }
 
 /**
- * Seals one pipe permanently. It checks the fixed flag first, so it can never
+ * Seals one leak permanently. It checks the fixed flag first, so it can never
  * be applied twice.
  *
- * Sealing one pipe does not stop the flood: the water only starts to recede when
- * the LAST pipe is sealed. So sealing one pipe out of four is progress, not
+ * Sealing one leak does not stop the flood: the water only starts to recede when
+ * the LAST leak is sealed. So sealing one leak out of four is progress, not
  * relief.
  *
  * @param {object} L - an entry of leaks array.
@@ -51,11 +51,11 @@ export function sealLeak(L, leakState){
   L.fixedAt = leakState.time;
   // Clear the progress bar, so a number that means "work in progress" does not sit at 100% forever.
   L.repair = 0;
-  leakState.leaksOpen = Math.max(0, leakState.leaksOpen-1);
+  leakState.openLeaks = Math.max(0, leakState.openLeaks-1);
   emit('sfx', 'seal');
-  emit('flash', leakState.leaksOpen
-    ? `PIPE SEALED \u2014 ${leakState.leaksOpen} STILL OPEN`
-    : 'EVERY PIPE SEALED \u2014 GET BACK TO THE DOOR');
+  emit('flash', leakState.openLeaks
+    ? `LEAK SEALED \u2014 ${leakState.openLeaks} STILL OPEN`
+    : 'EVERY LEAK SEALED \u2014 GET BACK TO THE DOOR');
   leakState.stat.sealed++;
   emit('stat', 'sealed');
   /* The recession uses the existing distance field. Building a new field from
@@ -65,41 +65,41 @@ export function sealLeak(L, leakState){
   repaintDirty.water = true;
 }
 
-/* ---------- Noise from open pipes ----------
-   Every open pipe is a continuous noise source at its standing spot. This uses
+/* ---------- Noise from open leaks ----------
+   Every open leak is a continuous noise source at its standing spot. This uses
    sustainedNoise and not repeated one-off noises, because a standing sound is
    what a lifeform can walk toward. */
 export function tickLeakNoise(leakState, dt){
   const p = leakState.plumber;
   /* leakTotal is the building's standing noise: the sum of what the open
-     pipes make right now. The HUD draws it as the blue part of the noise bar and
+     leaks make right now. The HUD draws it as the blue part of the noise bar and
      the audio plays it, so the number the lifeform hears is the number the
      player can see. */
   leakState.leakTotal = 0;
   leakState.leakDist  = 99;
-  if (leakState.leaksOpen > 0){
-    /* Each pipe's loudness is independent of how many are open. The per-pipe
-       power rises with floodCover up to just below LOUD, so a pipe is never a
+  if (leakState.openLeaks > 0){
+    /* Each leak's loudness is independent of how many are open. The per-leak
+       power rises with floodCover up to just below LOUD, so a leak is never a
        hunt trigger on its own. The total shown on the HUD (leakTotal) is the
        sum, clamped to just below LOUD so the blue bar never passes the LOUD
        hairline. */
-    const perPipe = Math.min(LEAK_NOISE_BASE + LEAK_NOISE_GAIN*leakState.floodCover,
+    const perLeak = Math.min(LEAK_NOISE_BASE + LEAK_NOISE_GAIN*leakState.floodCover,
                              LOUD - 0.02);
-    leakState.leakPower = perPipe;
-    leakState.leakTotal = Math.min(perPipe * leakState.leaksOpen, LOUD - 0.02);
+    leakState.leakPower = perLeak;
+    leakState.leakTotal = Math.min(perLeak * leakState.openLeaks, LOUD - 0.02);
     for (const L of leakState.leaks){
       if (L.fixed) continue;
-      /* The noise comes from the standing spot (floor), not the wall the pipe is
+      /* The noise comes from the standing spot (floor), not the wall the leak is
          broken in. alert() gives this coordinate to a lifeform as its target, and
          a target inside a wall would leave it standing and bumping against
          brick. */
-      sustainedNoise(leakState, perPipe, L.sx+0.5, L.sy+0.5, false);
+      sustainedNoise(leakState, perLeak, L.sx+0.5, L.sy+0.5, false);
     }
 
     /* The drip sound. The water is the visual clue and the drip is the audio
        clue, so a player who has been squinting at wet carpet gets a second
        channel. It gets faster as you get closer, so "it is over there" and "it is
-       here" sound different. Only the nearest open pipe drips, because four at
+       here" sound different. Only the nearest open leak drips, because four at
        once would be a wall of sound with no direction in it. */
     let ld = Infinity, near = null;
     for (const L of leakState.leaks){
@@ -111,7 +111,7 @@ export function tickLeakNoise(leakState, dt){
       leakState.leakDist = Math.min(leakState.leakDist, ld);
       p.dripT = (p.dripT||0) - dt;
       if (p.dripT <= 0){
-        // At least 0.28 s between drips. A faster rhythm sounds like a machine gun and not a pipe.
+        // At least 0.28 s between drips. A faster rhythm sounds like a machine gun and not a leak.
         p.dripT = Math.max(0.28, 0.28 + Math.min(1, ld/14)*1.5);
         emit('sfx', 'drip', 1 - Math.min(1, ld/14));
       }
@@ -122,7 +122,7 @@ export function tickLeakNoise(leakState, dt){
 }
 
 /* ---------- The repair ----------
-   Stand still next to an open pipe for REPAIR_TIME seconds. Moving drains the
+   Stand still next to an open leak for REPAIR_TIME seconds. Moving drains the
    bar quickly instead of freezing it, so a panic step costs real progress. If
    a mistake cost nothing, the five seconds would be free and the mechanic
    would be a formality.
@@ -148,14 +148,14 @@ export function tickRepair(leakState, dt, moving, bumped){
       }
     } else {
       /* The bar drains at REPAIR_DECAY whole bars per second. At 2.6 a full bar
-         is gone in under half a second. Hesitating at the pipe is not a
+         is gone in under half a second. Hesitating at the leak is not a
          strategy, it is a mistake you pay for. */
       L.repair = Math.max(0, L.repair - dt*REPAIR_DECAY*REPAIR_TIME);
       if (L.repair > 0 && L.repair <= 0.001) L.repair = 0;
     }
     if (L.repair > 0) p.stepT = Math.min(p.stepT, dt);
   } else {
-    // Away from every pipe: any progress still on a pipe drains.
+    // Away from every leak: any progress still on a leak drains.
     for (const o of leakState.leaks){
       if (o.fixed || o.repair <= 0) continue;
       o.repair = Math.max(0, o.repair - dt*REPAIR_DECAY*REPAIR_TIME);

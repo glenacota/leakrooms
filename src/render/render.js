@@ -7,7 +7,7 @@
      markers   batteries and the door
      actors    the player and lifeforms, sorted by y, at their smoothed position
      lighting  the light bake, the visibility mask, the ceiling lights
-     leaks     the pipes (not hidden by the cone)
+     leaks     the burst pipes (not hidden by the cone)
      post      the danger wash, the vignette and the tape effects
 
    The first three draw INSIDE the world transform that render() opens and

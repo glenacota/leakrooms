@@ -30,7 +30,7 @@ export function markers(rc){
     ctx.beginPath(); ctx.arc(bx, by, 6.8, t*0.002, t*0.002+1.1); ctx.stroke();
   }
 
-  /* The pipes are not drawn here. They are drawn after the lighting multiply (see
+  /* The leaks are not drawn here. They are drawn after the lighting multiply (see
      passes/leaks.js), because they are the one object in the world that the cone
      of vision does not hide. */
 

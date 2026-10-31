@@ -4,7 +4,7 @@
    built from: the same G the player is seconds away from standing in, drawn
    from the same run seed. It is faded until it is barely readable on purpose. A
    legible map would be a tutorial, and would give away what the player earns:
-   finding the pipes by following the water downhill.
+   finding the leaks by following the water downhill.
    ------------------------------------------------------------ */
 
 import { FLOOR, MAP_H, MAP_W } from '../config/constants.js';
@@ -53,7 +53,7 @@ export function paintSplashPlan(){
       ctx.beginPath(); ctx.moveTo(ox, px(y)+0.5); ctx.lineTo(ox+W, px(y)+0.5); ctx.stroke();
     }
     /* The marks that are the run: the player's spawn (the door you came in by)
-       and every pipe. They are water blue, because water is the only colour in
+       and every leak. They are water blue, because water is the only colour in
        this place and both are water problems. */
     ctx.fillStyle = 'rgba(143,196,204,1)';
     const dz = Math.max(3, cell*0.34);

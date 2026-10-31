@@ -8,17 +8,17 @@ const buildFloor = A.buildFloor;
 const update = A.update;
 A.setHeadless(false, false);
 
-/* Three things break the repair mechanic quietly. An unreachable pipe makes the
+/* Three things break the repair mechanic quietly. An unreachable leak makes the
    floor unwinnable, and no other assertion here would notice because none of
    them needs the repair. Water on a wall draws under the walls, so a wet wall
-   tile either disappears or reads as a hole in the lighting. And a pipe that
+   tile either disappears or reads as a hole in the lighting. And a leak that
    reaches LOUD stops being a lure and becomes a level-wide hunt trigger. */
 test('leaks are placed on walls, stay reachable, and flood downhill', () => {
   const t = softAssert();
   const W=76;
 
   /* placement, across 30 floors and every riser on each one */
-  let unreachable=0, onWall=0, tooClose=0, noSpot=0, sealedAtStart=0, wrongCount=0, pipes=0;
+  let unreachable=0, onWall=0, tooClose=0, noSpot=0, sealedAtStart=0, wrongCount=0, leaks=0;
   for (let s=0; s<30; s++){
     buildFloor(s % A.LEVELS_N, s*7907+31);
     const spec = A.LEVELS[s % A.LEVELS_N];
@@ -27,12 +27,12 @@ test('leaks are placed on walls, stay reachable, and flood downhill', () => {
       continue;
     }
     for (const L of G.leaks){
-      pipes++;
+      leaks++;
       if (!L){ noSpot++; continue; }
       if (G.grid[L.y*W+L.x] !== 0) onWall++;
       if (L.fixed) sealedAtStart++;
 
-      /* The repair spot must be standable floor inside the map. A pipe the player
+      /* The repair spot must be standable floor inside the map. A leak the player
          cannot reach makes the level unwinnable, and with a clock running that
          is a lost life, not a puzzle. */
       if (L.sx<0||L.sy<0||L.sx>=W||L.sy>=W || G.grid[L.sy*W+L.sx]!==1) noSpot++;
@@ -43,12 +43,12 @@ test('leaks are placed on walls, stay reachable, and flood downhill', () => {
       if (d < 8) tooClose++;
     }
   }
-  t.assert(wrongCount===0, `${wrongCount}/30 levels built the wrong number of pipes`);
-  t.assert(noSpot===0, `${noSpot}/${pipes} pipes have no usable repair spot`);
-  t.assert(unreachable===0, `${unreachable}/${pipes} pipes have a repair spot inside geometry`);
-  t.assert(onWall===0, `${onWall}/${pipes} pipes are not on a wall tile`);
-  t.assert(sealedAtStart===0, `${sealedAtStart} pipes start already sealed`);
-  console.log(`  30 levels, ${pipes} pipes: every one on a wall, every repair spot standable`);
+  t.assert(wrongCount===0, `${wrongCount}/30 levels built the wrong number of leaks`);
+  t.assert(noSpot===0, `${noSpot}/${leaks} leaks have no usable repair spot`);
+  t.assert(unreachable===0, `${unreachable}/${leaks} leaks have a repair spot inside geometry`);
+  t.assert(onWall===0, `${onWall}/${leaks} leaks are not on a wall tile`);
+  t.assert(sealedAtStart===0, `${sealedAtStart} leaks start already sealed`);
+  console.log(`  30 levels, ${leaks} leaks: every one on a wall, every repair spot standable`);
 
   /* water can only exist on floor it can actually reach */
   buildFloor(2, 60606);
@@ -75,7 +75,7 @@ test('leaks are placed on walls, stay reachable, and flood downhill', () => {
       if (A.internals.waterDist[li]!==0) missing++;
     }
     t.assert(missing===0,
-      `${missing}/${G.leaks.length} pipes do not sit at distance 0 — the field is not seeded from all of them`);
+      `${missing}/${G.leaks.length} leaks do not sit at distance 0 — the field is not seeded from all of them`);
     /* no tile may be closer than a neighbour minus one: a BFS that skipped a
        tile would produce a front that jumps, and the visible symptom is water
        arriving in a distant room before a nearer one. */
@@ -89,7 +89,7 @@ test('leaks are placed on walls, stay reachable, and flood downhill', () => {
       }
     }
     t.assert(jumps===0, `${jumps} neighbour pairs violate |d(n)-d(i)|<=1 — the front can skip tiles`);
-    console.log(`  distance field seeded from all ${G.leaks.length} pipes and monotone across every floor edge`);
+    console.log(`  distance field seeded from all ${G.leaks.length} leaks and monotone across every floor edge`);
   }
 
   /* there is a trail from the first second
@@ -181,7 +181,7 @@ test('leaks are placed on walls, stay reachable, and flood downhill', () => {
       prev = Math.max(prev, mean);
     }
     t.assert(inverted===0, `${inverted} distance bands are wetter than the band before them`);
-    console.log('  the front is nearest the pipe and falls off with distance');
+    console.log('  the front is nearest the leak and falls off with distance');
   }
 
   /* --- THE WATER GOES AWAY ---
@@ -223,17 +223,17 @@ test('leaks are placed on walls, stay reachable, and flood downhill', () => {
       `the level never actually flooded (${wet0} tiles, ${px0} drawn) — there is nothing to recede`);
 
     for (const L of G.leaks) A.sealLeak(L);
-    t.assert(G.leaksOpen===0, 'the level still has open pipes — nothing to recede from');
+    t.assert(G.openLeaks===0, 'the level still has open leaks — nothing to recede from');
 
     /* 1. the waterline goes out faster than it came in, at the stated rate.
 
        The window has to be short enough that the front is STILL MOVING when
        the clock stops. A recession long enough to walk the front back past the
-       pipes clamps at zero, and a clamped measurement passes at any rate at
+       leaks clamps at zero, and a clamped measurement passes at any rate at
        all — it is a tautology, not a test.
 
        So the window is DERIVED from where the front actually is on this seed
-       rather than written down: 60% of the way back to the pipes. Long enough
+       rather than written down: 60% of the way back to the leaks. Long enough
        to measure a rate, never long enough to clamp, and correct for any value
        of LEAK_RETREAT.
 
@@ -242,7 +242,7 @@ test('leaks are placed on walls, stay reachable, and flood downhill', () => {
        was sound — at LEAK_RETREAT of 1.0, where 20 seconds is 20 tiles and the
        front is still 12 out afterwards. Dropping the constant to 0.5 asked the
        same 20 seconds for 40 tiles of recession from a front 32 tiles out, so
-       every run clamped at the pipes and the rate assertion below went on
+       every run clamped at the leaks and the rate assertion below went on
        reporting the clamp instead of the rate. The comment was right and the
        number went stale under it; deriving it is what keeps the claim honest
        the next time the drain is retuned. */
@@ -255,7 +255,7 @@ test('leaks are placed on walls, stay reachable, and flood downhill', () => {
     t.assert(Math.abs(rec - T/A.LEAK_RETREAT) < 0.5,
       `the flood receded ${rec.toFixed(2)} tiles in ${T}s, want ${(T/A.LEAK_RETREAT).toFixed(2)}`);
     t.assert(A.internals.wetFront > 0,
-      `the front reached the pipes after ${T}s — the window is too long to measure a rate`);
+      `the front reached the leaks after ${T}s — the window is too long to measure a rate`);
     t.assert(A.LEAK_RETREAT < A.LEAK_SPREAD,
       `the recession (${A.LEAK_RETREAT}s/tile) is not outrunning the arrival `+
       `(${A.LEAK_SPREAD}s/tile) — the drain is a mop-up again`);
@@ -266,7 +266,7 @@ test('leaks are placed on walls, stay reachable, and flood downhill', () => {
        the front abandons FIRST is the one the old bound dropped on the frame it
        was passed, and it is the single tile whose behaviour distinguishes
        "receding" from "the front moved". This has to run before the floor is
-       fully drained — once the front hits the pipes every tile is outside it and
+       fully drained — once the front hits the leaks every tile is outside it and
        there is no longer anything to compare.
 
        The tile is picked from the band the front crosses in THIS window —
@@ -303,7 +303,7 @@ test('leaks are placed on walls, stay reachable, and flood downhill', () => {
 
     /* 4. and it ends up dry */
     run(600);
-    t.assert(A.internals.wetFront===0, `the front stopped at ${A.internals.wetFront} instead of returning to the pipes`);
+    t.assert(A.internals.wetFront===0, `the front stopped at ${A.internals.wetFront} instead of returning to the leaks`);
     const wetEnd = wetCount(), pxEnd = drawnTiles();
     t.assert(wetEnd < Math.max(4, wet0*0.02),
       `${wetEnd} of ${wet0} tiles are still wet long after the water should be gone`);
@@ -323,14 +323,14 @@ test('leaks are placed on walls, stay reachable, and flood downhill', () => {
   }
 
   /* --- the leak NEVER gets loud. This is the design contract of the lure —
-         and with several pipes open at once it is a contract about the TOTAL,
+         and with several leaks open at once it is a contract about the TOTAL,
          not about each one. Four standing sources that are individually quiet
          are collectively the loudest thing in the building if each is allowed
          its own full share, which would turn every late level into a hunt with
          no off switch. --- */
   {
     /* Builds its own level, and level 5, because the claim is about several
-       pipes being open at once — and because a block that inherits whatever
+       leaks being open at once — and because a block that inherits whatever
        level the block above happened to leave behind is a block whose result
        depends on the order of the file. */
     buildFloor(A.LEVELS_N-1, 60606);
@@ -342,10 +342,10 @@ test('leaks are placed on walls, stay reachable, and flood downhill', () => {
       if (G.leakTotal > A.LOUD - 0.02) loud++;
     }
     t.assert(loud===0,
-      `the open pipes reached LOUD ${loud}/${samples} samples — a loud leak is a level-wide hunt trigger, not a lure`);
+      `the open leaks reached LOUD ${loud}/${samples} samples — a loud leak is a level-wide hunt trigger, not a lure`);
     t.assert(G.leakPower > 0,
-      'the open pipes went silent');
-    console.log(`  ${G.leaksOpen} open pipes at ${G.leakPower.toFixed(2)} each = `+
+      'the open leaks went silent');
+    console.log(`  ${G.openLeaks} open leaks at ${G.leakPower.toFixed(2)} each = `+
       `${G.leakTotal.toFixed(2)} total (clamped), against a LOUD of ${A.LOUD} — always a lure`);
   }
 

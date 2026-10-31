@@ -80,14 +80,13 @@
 /* The second label in a row, set apart from the pair before it. */
 .crt-lbl.sep{ margin-left:10px; }
 
-/* ---------- Pipes ----------
-   One mark per pipe on the floor. */
-.crt-pipes{
+/* ---------- Leaks ---------- */
+.crt-leaks{
   display:flex;
   align-items:center;
   gap:4px;
 }
-.crt-pipes span{
+.crt-leaks span{
   position:relative;
   width:7px;
   height:7px;
@@ -95,12 +94,12 @@
   box-shadow:0 0 0 1px rgba(16,15,7,.9);
 }
 /* Open: water, and the loud thing on the row. */
-.crt-pipes span.open{
+.crt-leaks span.open{
   background:linear-gradient(180deg,#8fc4cc,#3c5a60);
   box-shadow:0 0 0 1px rgba(16,15,7,.9), 0 0 9px rgba(143,196,204,.95);
 }
 /* Sealed: hollow, so a filled mark can never be mistaken for an open one. */
-.crt-pipes span.done{
+.crt-leaks span.done{
   background:transparent;
   border:1px solid rgba(228,230,168,.55);
 }

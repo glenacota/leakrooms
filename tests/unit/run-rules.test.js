@@ -34,7 +34,7 @@ test('the run is five levels, three minutes and one door', () => {
   /* The built levels have to match the table, on every level. */
   for (let f=0; f<A.LEVELS_N; f++){
     buildFloor(f, 90210+f*131);
-    t.assert(G.leaks.length===A.LEVELS[f].leaks, `built level ${f+1} has ${G.leaks.length} pipes`);
+    t.assert(G.leaks.length===A.LEVELS[f].leaks, `built level ${f+1} has ${G.leaks.length} leaks`);
     t.assert(G.lifeforms.length===A.LEVELS[f].lifeforms, `built level ${f+1} has ${G.lifeforms.length} lifeforms`);
     t.assert(G.exitTiles.length===1, `built level ${f+1} has ${G.exitTiles.length} doors`);
     t.assert(G.clock===180, `level ${f+1} opens with ${G.clock}s, want 180`);
@@ -116,7 +116,7 @@ test('the run is five levels, three minutes and one door', () => {
   /* A typical floor, not the worst one. A floor flooded to its far corner
      should still be draining when the clock goes, but a normal one must not be
      soaking on the walk home, so the bound is a mid-range floor plus the tail
-     after the front reaches the pipes. */
+     after the front reaches the leaks. */
   t.assert(110*A.LEAK_RETREAT + 25 < A.FLOOR_CLOCK,
     `a typical floor (110 tiles at ${A.LEAK_RETREAT}s plus the tail) does not drain inside the ${A.FLOOR_CLOCK}s clock`);
   /* The wet band between dry carpet and open flood, in tiles, on both sides.
@@ -167,7 +167,7 @@ test('the run is five levels, three minutes and one door', () => {
     for (let f=0; f<A.LEVELS_N; f++){
       if (f>0) A.nextFloor();   // walk through the door
       A.STATE = 'play';
-      t.assert(G.leaks.length > 0, `level ${f+1} opened with no pipes to seal`);
+      t.assert(G.leaks.length > 0, `level ${f+1} opened with no leaks to seal`);
       for (const L of G.leaks){ A.sealLeak(L); sealed++; }
       A.emitNoise(0.3, G.plumber.x, G.plumber.y);
       A.emitNoise(0.3, G.plumber.x, G.plumber.y);
@@ -191,12 +191,12 @@ test('the run is five levels, three minutes and one door', () => {
     t.assert(G.stat.sealed !== sealed,
       'this assertion needs G.stat to differ from the run total or it proves nothing');
     const card = els['win-stats'].innerHTML;
-    t.assert(card.includes(`<b>${sealed}</b> pipes`),
-      `the win card does not report ${sealed} sealed pipes (said: ${card.slice(0,90)}...)`);
+    t.assert(card.includes(`<b>${sealed}</b> leaks`),
+      `the win card does not report ${sealed} sealed leaks (said: ${card.slice(0,90)}...)`);
     t.assert(card.includes(`Deaths: <b>1</b>`), `the win card does not report 1 death (said: ${card.slice(0,90)}...)`);
     t.assert(card.includes(`Noise made: <b>${noises}</b>`),
       `the win card does not report ${noises} noises (said: ${card.slice(0,90)}...)`);
-    console.log(`  the win card counts the run: ${sealed} pipes sealed, 1 death, ${noises} noises`);
+    console.log(`  the win card counts the run: ${sealed} leaks sealed, 1 death, ${noises} noises`);
     /* leave the world where the next test expects to find it */
     A.STATE = 'splash';
     A.lives=3; A.floorIdx=0; A.runTime=0;

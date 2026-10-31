@@ -7,7 +7,7 @@ import { tickNoiseDecay } from './noise.js';
  *   time: number,
  *   clock: number,
  *   clockAnnounced: boolean,
- *   leaksOpen: number,
+ *   openLeaks: number,
  *   noise: number,
  *   selfNoise: number,
  *   ambientNoise: number,
@@ -17,7 +17,7 @@ import { tickNoiseDecay } from './noise.js';
 /**
  * The level clock. It runs first in every step, because it can end the frame.
  * It does not stop while you repair, it does not stop while something stands
- * over you, and it does not reset when you seal a pipe. Three minutes (on
+ * over you, and it does not reset when you seal a leak. Three minutes (on
  * NORMAL) cover finding the work, doing it, and walking back to the door, and
  * the walk back is where most of that time goes.
  *
@@ -39,7 +39,7 @@ export function tickClock(clockState, dt){
   if (clockState.clock <= 0){ emit('clock:out'); return false; }
   if (clockState.clock <= 30 && !clockState.clockAnnounced){
     clockState.clockAnnounced = true;
-    const msg = clockState.leaksOpen > 0
+    const msg = clockState.openLeaks > 0
       ? 'THIRTY SECONDS \u2014 SEAL THE LEAK, THEN THE DOOR'
       : 'THIRTY SECONDS \u2014 GET TO THE DOOR';
     emit('flash', msg);

@@ -168,9 +168,9 @@ export const voices = {
     this.floorFilter.frequency.setTargetAtTime(800 + l*1200, t, 0.1);
   },
 
-  /* The open pipes. `total` is their summed noise (the same number as the blue
+  /* The open leaks. `total` is their summed noise (the same number as the blue
      part of the bar) and `dist` is the distance to the nearest one. The
-     attenuation is squared so the pipe is a direction you can walk toward and not
+     attenuation is squared so the leak is a direction you can walk toward and not
      a level that is always on. */
   leakBed(total, dist){
     if (!this.ok) return;

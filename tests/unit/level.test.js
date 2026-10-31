@@ -50,28 +50,28 @@ test('every generated floor is connected, playable and lit', () => {
     t.assert(door.found===undefined && door.open===0,
       `seed ${s}: the door carries discovery state — there is nothing left to find`);
 
-    /* Exactly the pipes this level says it has, every one on a wall tile with a
+    /* Exactly the leaks this level says it has, every one on a wall tile with a
        standable spot beside it. */
     const spec = A.LEVELS[Math.min(s%A.LEVELS.length, A.LEVELS_N-1)];
     t.assert(G.leaks.length===spec.leaks,
-      `seed ${s}: level ${s%A.LEVELS.length} has ${G.leaks.length} pipes, want ${spec.leaks}`);
-    t.assert(G.leaksOpen===spec.leaks, `seed ${s}: leaksOpen is ${G.leaksOpen}, want ${spec.leaks}`);
-    t.assert(G.pipes===spec.leaks, `seed ${s}: pipes tally is ${G.pipes}, want ${spec.leaks}`);
+      `seed ${s}: level ${s%A.LEVELS.length} has ${G.leaks.length} leaks, want ${spec.leaks}`);
+    t.assert(G.openLeaks===spec.leaks, `seed ${s}: openLeaks is ${G.openLeaks}, want ${spec.leaks}`);
+    t.assert(G.totalLeaks===spec.leaks, `seed ${s}: leaks tally is ${G.totalLeaks}, want ${spec.leaks}`);
     for (const L of G.leaks){
       t.assert(g[L.y*W+L.x]===0, `seed ${s}: a riser is not on a wall tile`);
       t.assert(g[L.sy*W+L.sx]===1, `seed ${s}: a riser's repair spot is not floor`);
       t.assert(L.fixed===false && L.repair===0, `seed ${s}: a riser starts already worked`);
     }
-    /* The pipes must not be stacked on one wall: four bursts four tiles apart are
+    /* The leaks must not be stacked on one wall: four bursts four tiles apart are
        four repairs in the same breath, which is a counting exercise and not a
        level. Measured on the standing spots, since that is what decides
-       whether one five-second hold can reach two pipes. */
+       whether one five-second hold can reach two leaks. */
     for (let a=0;a<G.leaks.length;a++) for (let b=a+1;b<G.leaks.length;b++){
       const d = Math.hypot(G.leaks[a].sx-G.leaks[b].sx, G.leaks[a].sy-G.leaks[b].sy);
       t.assert(d > A.REPAIR_REACH,
-        `seed ${s}: two pipes can be sealed by one hold (spots ${d.toFixed(2)} apart)`);
+        `seed ${s}: two leaks can be sealed by one hold (spots ${d.toFixed(2)} apart)`);
       const dw = Math.hypot(G.leaks[a].x-G.leaks[b].x, G.leaks[a].y-G.leaks[b].y);
-      t.assert(dw>=3, `seed ${s}: two pipes are ${dw.toFixed(1)} tiles apart`);
+      t.assert(dw>=3, `seed ${s}: two leaks are ${dw.toFixed(1)} tiles apart`);
     }
 
     /* Exactly the lifeforms this level says it has, and never standing in the
@@ -187,7 +187,7 @@ test('rooms stay small and link to each other through 2-tile gates', () => {
   t.assert(isolated === 0, `${isolated} rooms are effectively sealed — they do not flow into each other`);;
 });
 
-/* genLevel is the pure stage that decides the whole geometry: door, pipes,
+/* genLevel is the pure stage that decides the whole geometry: door, leaks,
    fixtures, pickups, graffiti. It is checked here without building a floor,
    over twenty seeds, plus the determinism claim that one seed gives one level. */
 test('genLevel is pure and produces a well-formed level', () => {
@@ -233,7 +233,7 @@ test('genLevel is pure and produces a well-formed level', () => {
 
     // leaks: exactly spec.leaks, each a wall tile with a legal stand spot in a real room
     t.assert(level.leaks.length === level.spec.leaks,
-      `${tag}: ${level.leaks.length} pipes, want ${level.spec.leaks}`);
+      `${tag}: ${level.leaks.length} leaks, want ${level.spec.leaks}`);
     for (const L of level.leaks){
       t.assert(L.fixed===false && L.repair===0 && L.fixedAt===0, `${tag}: riser not pristine`);
       t.assert(g(L.x,L.y)===0, `${tag}: riser at ${L.x},${L.y} is not wall`);
@@ -263,7 +263,7 @@ test('genLevel is pure and produces a well-formed level', () => {
       `${tag}: genLevel is not deterministic`);
     t.assert(JSON.stringify(again.exit) === JSON.stringify(level.exit),
       `${tag}: the door moved between two identical seeds`);
-    /* ...and not only the door and the pipes. Checking the rest for shape (a
+    /* ...and not only the door and the leaks. Checking the rest for shape (a
        fixture on the map, a cell not already taken, a note with text in it)
        passes on every build and says nothing about whether two builds agree.
        Field by field is the claim that matters: the same seed has to be the
@@ -272,7 +272,7 @@ test('genLevel is pure and produces a well-formed level', () => {
       t.assert(JSON.stringify(again[part]) === JSON.stringify(level[part]),
         `${tag}: ${part} differ between two identical seeds — the level is not reproducible`);
   }
-  console.log('  20 seeds, no buildFloor: door, pipes, fixtures, pickups, graffiti all well-formed');
+  console.log('  20 seeds, no buildFloor: door, leaks, fixtures, pickups, graffiti all well-formed');
   console.log('  ...and every one of them byte-identical across two builds of the same seed');;
 });
 /* These assertions are on the door fields the renderer actually reads: the leaf
@@ -288,7 +288,7 @@ test('the door leaf follows the hold and the door faces south', () => {
   };
   const sealAll = () => {
     for (const L of G.leaks){ L.fixed = true; L.repair = 1; }
-    G.leaksOpen = 0;
+    G.openLeaks = 0;
   };
 
   for (const seed of [4242, 88, 9001]){
@@ -300,13 +300,13 @@ test('the door leaf follows the hold and the door faces south', () => {
     const e = G.exitTiles[0];
     const tag = `seed ${seed}`;
 
-    /* Shut. With a pipe still open the door cannot end the level, so the leaf
+    /* Shut. With a leak still open the door cannot end the level, so the leaf
        must sit at zero and stay there however long you stand on the
        threshold. */
     standAt(e, 0.9); settle(30);
-    t.assert(G.leaksOpen > 0, `${tag}: nothing is leaking, the shut state cannot be tested`);
-    t.assert(G.descend === 0, `${tag}: descended with ${G.leaksOpen} pipe(s) open`);
-    t.assert(e.open < 0.02, `${tag}: the leaf is ${e.open.toFixed(3)} open on a floor with pipes still leaking`);
+    t.assert(G.openLeaks > 0, `${tag}: nothing is leaking, the shut state cannot be tested`);
+    t.assert(G.descend === 0, `${tag}: descended with ${G.openLeaks} leak(s) open`);
+    t.assert(e.open < 0.02, `${tag}: the leaf is ${e.open.toFixed(3)} open on a floor with leaks still leaking`);
 
     /* Ajar. The last seal puts the door on the latch, not through it: enough
        swing to read as READY from across the room, nowhere near a floor
@@ -318,7 +318,7 @@ test('the door leaf follows the hold and the door faces south', () => {
 
     /* Cranking. On the threshold the swing follows G.descend, so the thing the
        player watches is the thing the sim is doing, and the descent is still
-       monotonic and still gated on the pipes. */
+       monotonic and still gated on the leaks. */
     standAt(e, 0.9); settle(30);
     t.assert(G.descend > 0.3, `${tag}: the hold is not accumulating (${G.descend.toFixed(2)}s)`);
     t.assert(e.open > 0.34, `${tag}: the leaf did not follow the hold (${e.open.toFixed(3)})`);
@@ -375,7 +375,7 @@ test('the canvases of a replaced floor are released, not dropped', () => {
    straight back from that seed, but the cast did not. "The seed decides the
    level" is a claim about the whole floor, so two builds of one seed have to
    agree ten seconds in, agents included. The agent stream is seeded separately
-   from the layout so that making the cast deterministic cannot shift a pipe. */
+   from the layout so that making the cast deterministic cannot shift a leak. */
 test('the same seed builds the same cast ten seconds in', () => {
   const t = softAssert();
   const run = () => {
@@ -402,7 +402,7 @@ test('the same seed builds the same cast ten seconds in', () => {
 /* A retry rebuilds the same building from the same seed, so the carpet, the
    walls, the light bake and the region map can come straight back instead of
    repainting 116k pixels to the same picture. The floor state must not come
-   back: a played floor has sealed pipes and taken batteries, and returning
+   back: a played floor has sealed leaks and taken batteries, and returning
    those would hand the player a floor they had already fixed. The cache holds
    the layout and the state holds the clones. */
 test('the static bake is cached and a played floor leaves no mark', () => {
@@ -410,9 +410,9 @@ test('the static bake is cached and a played floor leaves no mark', () => {
   buildFloor(1, 7);
   const tiles = G.tilesCv, walls = G.wallsCv, light = G.lightCv;
   const exits = G.exitTiles;
-  t.assert(G.leaks[0].fixed === false, 'the fresh floor starts with an open pipe, so the clone below means something');
+  t.assert(G.leaks[0].fixed === false, 'the fresh floor starts with an open leak, so the clone below means something');
 
-  /* Play it: seal the first pipe and take the first battery. */
+  /* Play it: seal the first leak and take the first battery. */
   G.leaks[0].fixed = true;
   G.batteries[0].taken = true;
   G.graffiti[0].seen = true;
@@ -421,7 +421,7 @@ test('the static bake is cached and a played floor leaves no mark', () => {
   buildFloor(1, 7);
 
   t.assert(G.leaks[0].fixed === false,
-    'a retry came back with the pipe still sealed — the cached level was handed out instead of a copy');
+    'a retry came back with the leak still sealed — the cached level was handed out instead of a copy');
   t.assert(G.batteries[0].taken === false,
     'a retry came back with the battery already taken');
   t.assert(G.graffiti[0].seen === false,

@@ -49,7 +49,7 @@ export function rollRunSeed(){
    FLOOR CLEAR CARD
    Between two levels the player sees a card with the clock they finished
    with and a briefing for the next floor. It exists so that a running clock
-   never silently restarts, and so the player knows what is coming (pipes
+   never silently restarts, and so the player knows what is coming (leaks
    and lifeforms) before they walk in.
 
    The next floor is already built while the card is up. 'clear' only holds
@@ -215,9 +215,9 @@ export function startRun(){
 export function retryFloor(){
   if (lives<=0){ startRun(); return; }
   /* Keep the leaks that were already sealed: snapshot their flags before the
-     floor is rebuilt (same seed, so the same pipes in the same order), then
+     floor is rebuilt (same seed, so the same leaks in the same order), then
      re-seal them on the fresh floor. The flood is rebuilt afterwards so it only
-     spreads from the pipes that are still open. */
+     spreads from the leaks that are still open. */
   const wasFixed = G.leaks.map(L => L.fixed);
   buildFloor(floorIdx, RUN_SEED);
   let fixedCount = 0;
@@ -228,13 +228,11 @@ export function retryFloor(){
     L.repair = 0;
     fixedCount++;
   });
-  G.leaksOpen = Math.max(0, G.leaks.length - fixedCount);
-  // Rebuild the flood now that the fixed flags are in place, so sealed pipes
+  G.openLeaks = Math.max(0, G.leaks.length - fixedCount);
+  // Rebuild the flood now that the fixed flags are in place, so sealed leaks
   // stop being water sources.
   initFlood(G, G.plumber);
-  /* Same seed, so the pipes are in the same places and only the flood restarts.
-     Dying costs a life and the repairs you made, but not what you learned about
-     where the pipes are. */
+  /* Same seed, so the leaks are in the same places and only the flood restarts */
   for (const lf of G.lifeforms){ lf.born=3.0; }
   transition('play');
 }

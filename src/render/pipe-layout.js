@@ -8,8 +8,7 @@
    is 0..FACE and the carpet below it is FACE..1.
 
    The shape is a riser that comes down out of the ceiling line and turns through
-   an elbow into a run along the wall. The unflipped drawing has the riser on the
-   right and the run to the left; flipLayout() mirrors it. */
+   an elbow into a run along the wall. */
 import { TILE, WALL_FACE } from '../config/constants.js';
 import { hash2 } from '../util/hash.js';
 

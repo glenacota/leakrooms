@@ -5,7 +5,7 @@
 
 Welcome to [the Backrooms](https://en.wikipedia.org/wiki/The_Backrooms) - now with water damage 🟨🌊🟨. 
 
-In this 2D web-based puzzle game, you play as an overworked plumber contracted by the Async Research Institute to fix pipe leaks within the Complex. Easier said than done when the rooms stretch on forever — and something is hunting you in the dark.
+In this 2D web-based puzzle game, you play as an overworked plumber contracted by the Async Research Institute to fix leaks within the Complex. Easier said than done when the rooms stretch on forever — and something is hunting you in the dark.
 
 > 🚨 ***DISCLAIMER**: Pure vibe coding. I wanted to play this, not showcase a well-designed web game.*
 
@@ -18,7 +18,7 @@ In this 2D web-based puzzle game, you play as an overworked plumber contracted b
 
 Faithful to the original 2019 creepypasta: six hundred million square miles of randomly segmented mono-yellow rooms, no level names, and an unnamed entity.
 
-You are a **plumber**. A pipe has burst and the floor is flooding. Water flows downhill away from the break, making the wet trail your primary cue to locate the rupture. To fix it, stand still in front of the pipe for five seconds. Doing so makes noise—and you don't want to be heard. Beware: wading through flooded carpet is both slower and louder than walking on dry floor.
+You are a **plumber**. A pipe has burst and the floor is flooding. Water flows downhill away from the break, making the wet trail your primary cue to locate the rupture. To fix it, stand still in front of the leak for five seconds. Doing so makes noise—and you don't want to be heard. Beware: wading through flooded carpet is both slower and louder than walking on dry floor.
 
 You view the space top-down with a 200° cone of vision. Anything outside your field of view or behind a wall is pitch black. Darkness isn't safety; unlit rooms still harbor whatever is hunting you. Activating the radar (`R`) overrides vision restrictions, instantly lighting the entire floor—including behind you—to reveal exits and warnings. However, the radar drains battery fast, so use it sparingly.
 
@@ -31,8 +31,9 @@ Tall figures of coiled black wire live in the Complex. Dormant, they rest as a f
 | `WASD` / `Arrows` | Move |
 | `Shift` | Sprint — fast, and very loud (hold or toggle, per settings) |
 | `R` | Radar — lights the entire floor, burns battery fast |
-| *(nothing)* | **The repair has no button. Stand at the pipe and do not press anything.** |
+| *(nothing)* | **The repair has no button. Stand at the leak and do not press anything.** |
 | `Enter` | Start / Confirm / Resume |
+| `F` | Toggle fullscreen |
 | `Esc` | Pause (display controls, depth, battery, and flood status) |
 
 ## 🧪 Tests

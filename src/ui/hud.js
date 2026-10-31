@@ -2,7 +2,7 @@
    This file owns the element table and the two update functions. clockText
    formats run state, so the run owns it and the HUD re-exports it.
 
-   The corner panel now carries the clock, the lives and the pipe marks only:
+   The corner panel now carries the clock, the lives and the leaks marks only:
    the noise and radar readings moved to diegetic rings above the plumber
    (see render/passes/diegetic.js). */
 
@@ -17,7 +17,7 @@ import { buildHudSnap, hudVisibility } from './touch-hud-rules.js';
 export const HUD = {
   vClock: document.getElementById('val-clock'),
   clockWrap: document.getElementById('clock'),
-  vPipes: document.getElementById('val-pipes'),
+  vLeaks: document.getElementById('val-leaks'),
   vLives: document.getElementById('val-lives'),
   prompt: document.getElementById('prompt'),
   hud: document.getElementById('hud')
@@ -85,9 +85,9 @@ export function hudFlag(el, key, cls, on){
    frame while playing. */
 export function updateHUD(){
   if (!G) return;
-  /* ---------- Pipes ----------
-     One mark per pipe on the floor. The exact count is on the prompt line. */
-  hudSet(HUD.vPipes, 'vPipes', 'html', pipesHTML());
+  /* ---------- Leaks ----------
+     One mark per leak on the floor. The exact count is on the prompt line. */
+  hudSet(HUD.vLeaks, 'vLeaks', 'html', leaksHTML());
 
   /* ---------- Clock ---------- */
   hudSet(HUD.vClock, 'vClock', 'text', clockText(G.clock));
@@ -111,11 +111,11 @@ export function setPrompt(){
   if (working)              msg = 'SEALING \u2014 DO NOT MOVE';
   else if (G.atLeak)        msg = `STAND STILL \u2014 ${REPAIR_TIME} SECONDS`;
   else if (G.descend>0.02)  msg = 'STAY AT THE DOOR';
-  /* At the door with pipes still open: the door will not cycle until every
+  /* At the door with leaks still open: the door will not cycle until every
      leak is sealed, so say so instead of sending the player back to the wet
      floor they are already standing on. */
-  else if (G.leaksOpen>0 && atDoor()) msg = `DOOR LOCKED \u2014 ${G.leaksOpen} LEAK${G.leaksOpen===1?'':'S'} OPEN`;
-  else if (G.leaksOpen>0)   msg = `${G.leaksOpen} LEAK${G.leaksOpen===1?'':'S'} LEFT \u2014 FOLLOW THE WET FLOOR`;
+  else if (G.openLeaks>0 && atDoor()) msg = `DOOR LOCKED \u2014 ${G.openLeaks} LEAK${G.openLeaks===1?'':'S'} OPEN`;
+  else if (G.openLeaks>0)   msg = `${G.openLeaks} LEAK${G.openLeaks===1?'':'S'} LEFT \u2014 FOLLOW THE WET FLOOR`;
   else                      msg = 'ALL SEALED \u2014 BACK TO THE DOOR';
   hudSet(el, 'prompt', 'text', msg);
   hudFlag(el, 'promptOn', 'on', true);
@@ -138,10 +138,10 @@ export function livesHTML(){
     (_,i)=> `<span class="${i<lives?'':'gone'}">&#9679;</span>`).join('');
 }
 
-// The pipe marks as HTML: one per pipe on the floor. The open ones are
+// The leaks marks as HTML: one per leak on the floor. The open ones are
 // packed to the left and the sealed ones sit hollow on the right, so the lit
 // run is the number still open and the row drains as the floor is fixed.
-export function pipesHTML(){
+export function leaksHTML(){
   if (!G || !G.leaks) return '';
   const open = G.leaks.filter(L => !L.fixed);
   const done = G.leaks.filter(L => L.fixed);

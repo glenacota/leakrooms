@@ -20,10 +20,10 @@ test('[41] a Lifeform on the threshold does not cycle the door', () => {
   A.lives = 3;
   A.STATE = 'play';
 
-  /* A floor that is finished: every pipe sealed, which is the only state the
+  /* A floor that is finished: every leak sealed, which is the only state the
      door will cycle from. */
   for (const L of G.leaks){ L.fixed = true; L.repair = 1; }
-  G.leaksOpen = 0;
+  G.openLeaks = 0;
 
   const e = G.exitTiles[0];
   G.plumber.x = e.x + 0.5;

@@ -16,7 +16,7 @@ export const NOTES = [
     // The rules of the shift
     'the wet floor runs downhill. it runs AWAY from the break.',
     'repairs takes some seconds. it is the loudest thing you will do here.',
-    'don\'t stand still anywhere except the pipe',
-    'seal every pipe. the door does not open for a wet floor.',
+    'don\'t stand still anywhere except the leak',
+    'seal every leak. the door does not open for a wet floor.',
     'the door is behind you. it will still be behind you.'
   ];

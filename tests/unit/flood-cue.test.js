@@ -64,7 +64,7 @@ console.log('[17] the water as a cue — legible, free, and it actually leads');
     console.log(`  trail costs no battery and ${A.LEAK_NOISE_BASE} noise vs ${A.RADAR_DRAIN}/s of sweep`);
   }
 
-  /* --- and the trail LEADS: wetness is strictly higher nearer the pipes --- */
+  /* --- and the trail LEADS: wetness is strictly higher nearer the leaks --- */
   {
     const d0 = A.internals.waterDist[G.leaks[0].sy*W+G.leaks[0].sx];
     let near=0, nearN=0, far=0, farN=0;
@@ -77,8 +77,8 @@ console.log('[17] the water as a cue — legible, free, and it actually leads');
     t.assert(nearN>0 && farN>0, 'not enough tiles near/far to compare the front');
     const nm=near/nearN, fm=far/farN;
     t.assert(nm > fm,
-      `the front does not lead: ${(nm*100).toFixed(0)}% wet near the pipe vs ${(fm*100).toFixed(0)}% far away`);
-    console.log(`  front leads: ${(nm*100).toFixed(0)}% wet within 3 tiles of the pipe, ${(fm*100).toFixed(0)}% at 16+`);
+      `the front does not lead: ${(nm*100).toFixed(0)}% wet near the leak vs ${(fm*100).toFixed(0)}% far away`);
+    console.log(`  front leads: ${(nm*100).toFixed(0)}% wet within 3 tiles of the leak, ${(fm*100).toFixed(0)}% at 16+`);
   }
 
   /* --- wading is slower and louder, but never LOUD --- */

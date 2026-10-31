@@ -105,7 +105,7 @@ console.log('[23] audio — the graph reaches the destination');
      fill to its top and the speakers would not move: a sprint (1.0) and a walk
      (0.22) were 2x and 1x of the same hand-picked number, while the HUD read a
      percentage of the BATTERY maximum. Three claims here — the bed's gain
-     rises with the level it is handed, the leak bed rises with the pipes and
+     rises with the level it is handed, the leak bed rises with the leaks and
      falls with distance, and a louder action is a louder voice. */
   {
     const gainOf = n => n.gain._scheduled;
@@ -121,7 +121,7 @@ console.log('[23] audio — the graph reaches the destination');
     A.Audio_.leakBed(0.5, 40);  const far  = gainOf(A.Audio_.leakGain);
     A.Audio_.leakBed(0, 0);     const none = gainOf(A.Audio_.leakGain);
     t.assert(near>midD && midD>far && far===0,
-      `the leak bed ignores distance (${near}, ${midD}, ${far}) — an open pipe has to be somewhere you can walk toward`);
+      `the leak bed ignores distance (${near}, ${midD}, ${far}) — an open leak has to be somewhere you can walk toward`);
     t.assert(none===0, 'a building with no water in it still has water noise in the mix');
 
     A.Audio_.silenceBeds();

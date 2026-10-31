@@ -107,7 +107,7 @@ test('a bot driving real key events can finish all five levels', () => {
       const open = G.leaks.filter(L=>!L.fixed);
       if (open.length){
         /* Nearest riser by walking distance, from one BFS out from the player's
-           tile. On a BSP floor the pipe nearest in a straight line is often the
+           tile. On a BSP floor the leak nearest in a straight line is often the
            furthest to reach on foot. One field per leg, rebuilt once the player
            has left the area it describes. */
         if (!fromHere || Math.hypot(px-fromX0, py-fromY0) > 4){
@@ -169,7 +169,7 @@ test('a bot driving real key events can finish all five levels', () => {
       if(!field) field=distField(goal.x,goal.y);
       if(!field){ why='no field'; break; }
 
-      /* No radar sweeps. The door is where you came in and the pipes show in
+      /* No radar sweeps. The door is where you came in and the leaks show in
          water, so a sweep is pure waste against a three-minute budget. The bot
          still has to survive that budget, so a dead radar must not soft-lock it,
          which the battery-margin assertion below covers. */

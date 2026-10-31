@@ -1,16 +1,16 @@
 /* ============================================================
    THE FLOOD
-   Water spreads from every open pipe along walkable floor at a fixed speed.
+   Water spreads from every open leak along walkable floor at a fixed speed.
    That is the whole physics: no pressure model, no pooling.
 
    How it works:
    - A breadth-first search (BFS) measures each tile's walking distance from the
-     NEAREST pipe (waterDist). It is computed once per floor.
+     NEAREST leak (waterDist). It is computed once per floor.
    - The "front" is how far out the water has reached, so a tile's target
      wetness is simply "distance <= front".
    - Because the front is derived from elapsed time and not advanced by frame
      counts, two machines at different frame rates flood identically.
-   - With several pipes, the search starts from all of them at once. Four pipes
+   - With several leaks, the search starts from all of them at once. Four leaks
      are one flood that started in four places, not four floods to reconcile.
    ============================================================ */
 
@@ -23,7 +23,7 @@ import { distanceField } from './path.js';
  * @typedef {{
  *   grid: Uint8Array,
  *   leaks: Array<{x:number,y:number,sx:number,sy:number,fixed:boolean}>,
- *   leaksOpen: number,
+ *   openLeaks: number,
  *   waterDist: Int32Array|null,
  *   wetByDist: number[],
  *   wetFront: number,
@@ -155,7 +155,7 @@ export function tickFlood(floodState, dt) {
   if (!floodState.leaks.length || !floodState.wetArr) return;
 
   const prev = floodState.wetFront;
-  const front = floodState.leaksOpen > 0
+  const front = floodState.openLeaks > 0
     ? Math.min(floodState.wetMaxDist, prev + dt / LEAK_SPREAD)
     : Math.max(0, prev - dt / LEAK_RETREAT);
   floodState.wetFront = front;
@@ -169,7 +169,7 @@ export function tickFlood(floodState, dt) {
   const boundD = Math.max(floodState.wetEdgeD, Math.ceil(Math.max(prev, front)));
   const hi = floodState.wetIndexAtDist[Math.min(boundD + 1, floodState.wetIndexAtDist.length - 1)] - 1;
   if (hi < 0) return;
-  const tau = floodState.leaksOpen > 0 ? WET_RISE : WET_FALL;
+  const tau = floodState.openLeaks > 0 ? WET_RISE : WET_FALL;
   const k = 1 - Math.exp(-dt / tau);
   /* With the front at zero there is no water at all, including on the pipe's
      own standing tile. "distance <= front" would say otherwise for distance 0. */

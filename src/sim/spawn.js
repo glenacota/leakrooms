@@ -40,7 +40,7 @@ export function spawnLifeforms(level, rng){
   for (let attempts=0; coilRooms.length && lifeforms.length<spec.lifeforms && attempts<coilRooms.length*4; attempts++){
     const r = coilRooms[(rng()*coilRooms.length)|0];
     const cx = r.rx+r.rw/2, cy = r.ry+r.rh/2;
-    /* Not in the spawn room, and not on top of a pipe. */
+    /* Not in the spawn room, and not on top of a leak. */
     if (Math.hypot(cx-spawn.x, cy-spawn.y) < 9) continue;
     if (level.leaks.some(L=>Math.hypot(cx-(L.sx+0.5), cy-(L.sy+0.5)) < 4)) continue;
     lifeforms.push({

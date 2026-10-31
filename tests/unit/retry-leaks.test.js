@@ -5,7 +5,7 @@ import { loadGame } from '../helpers/harness.js';
 
 const { A, G, els } = await loadGame();
 
-test('[retry-leaks] a life lost and a retry keeps the already-sealed pipes sealed', () => {
+test('[retry-leaks] a life lost and a retry keeps the already-sealed leaks sealed', () => {
   const t = softAssert();
   const seed = 4242;
   A.RUN_SEED = seed;
@@ -14,7 +14,7 @@ test('[retry-leaks] a life lost and a retry keeps the already-sealed pipes seale
   A.lives = 3;
   A.floorIdx = 0;
 
-  // Seal the first (and only) pipe on floor 0.
+  // Seal the first (and only) leak on floor 0.
   const before = G.leaks.map(l => ({ x: l.x, y: l.y, sx: l.sx, sy: l.sy, fixed: l.fixed }));
   const target = G.leaks[0];
   A.sealLeak(target);
@@ -33,27 +33,27 @@ test('[retry-leaks] a life lost and a retry keeps the already-sealed pipes seale
 
   const afterFixed = G.leaks.filter(l => l.fixed).length;
   t.assert(afterFixed === sealedCount,
-    `retry lost the sealed pipe: ${afterFixed} fixed, want ${sealedCount}`);
-  t.assert(G.leaksOpen === G.leaks.length - sealedCount,
-    `leaksOpen wrong after retry: ${G.leaksOpen}, want ${G.leaks.length - sealedCount}`);
+    `retry lost the sealed leak: ${afterFixed} fixed, want ${sealedCount}`);
+  t.assert(G.openLeaks === G.leaks.length - sealedCount,
+    `openLeaks wrong after retry: ${G.openLeaks}, want ${G.leaks.length - sealedCount}`);
 
   // Positions are stable across the rebuild.
   for (let i = 0; i < before.length; i++) {
     const a = before[i], b = G.leaks[i];
     t.assert(a.x === b.x && a.y === b.y && a.sx === b.sx && a.sy === b.sy,
-      `pipe ${i} moved across retry`);
+      `leak ${i} moved across retry`);
   }
 
-  // A sealed pipe is no longer a flood source.
-  const fixedPipe = G.leaks.find(l => l.fixed);
-  const idx = fixedPipe.sy * 76 + fixedPipe.sx;
+  // A sealed leak is no longer a flood source.
+  const fixedLeak = G.leaks.find(l => l.fixed);
+  const idx = fixedLeak.sy * 76 + fixedLeak.sx;
   t.assert(G.waterDist && G.waterDist[idx] === -1,
-    `sealed pipe still feeds the flood (waterDist=${G.waterDist ? G.waterDist[idx] : 'n/a'})`);
+    `sealed leak still feeds the flood (waterDist=${G.waterDist ? G.waterDist[idx] : 'n/a'})`);
 
   t.done();
 });
 
-test('[retry-leaks] sealing every pipe then dying keeps them all sealed on retry', () => {
+test('[retry-leaks] sealing every leak then dying keeps them all sealed on retry', () => {
   const t = softAssert();
   const seed = 7;
   A.RUN_SEED = seed;
@@ -63,7 +63,7 @@ test('[retry-leaks] sealing every pipe then dying keeps them all sealed on retry
   A.floorIdx = 0;
   for (const L of G.leaks) A.sealLeak(L);
   const total = G.leaks.length;
-  t.assert(G.leaksOpen === 0, `not all sealed before death (open=${G.leaksOpen})`);
+  t.assert(G.openLeaks === 0, `not all sealed before death (open=${G.openLeaks})`);
 
   G.clock = 0.5;
   A.updateReal(1);
@@ -71,8 +71,8 @@ test('[retry-leaks] sealing every pipe then dying keeps them all sealed on retry
   els['btn-retry'].click();
   t.assert(A.STATE === 'play', 'retry did not return to play');
   t.assert(G.leaks.filter(l => l.fixed).length === total,
-    `retry lost sealed pipes: ${G.leaks.filter(l => l.fixed).length}/${total}`);
-  t.assert(G.leaksOpen === 0, `leaksOpen not zero after retry (open=${G.leaksOpen})`);
+    `retry lost sealed leaks: ${G.leaks.filter(l => l.fixed).length}/${total}`);
+  t.assert(G.openLeaks === 0, `openLeaks not zero after retry (open=${G.openLeaks})`);
 
   t.done();
 });
@@ -93,7 +93,7 @@ test('[retry-leaks] a fresh floor after nextFloor carries nothing over', () => {
   // Dismiss the clear card to enter the next floor if needed.
   if (A.STATE === 'clear') A.dismissClear();
   t.assert(G.leaks.filter(l => l.fixed).length === 0,
-    `sealed pipes leaked onto the next floor: ${G.leaks.filter(l => l.fixed).length}`);
+    `sealed leaks leaked onto the next floor: ${G.leaks.filter(l => l.fixed).length}`);
 
   t.done();
 });

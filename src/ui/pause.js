@@ -48,11 +48,11 @@ export function togglePause(){
     /* The run's numbers on the ticket, so pausing does not cost the player
        their bearings. Every id below is in index.html — see test [45]. */
     const set = (id, html)=>{ const el = document.getElementById(id); if (el) el.innerHTML = html; };
-    const sealed = G.pipes - G.leaksOpen;
+    const sealed = G.totalLeaks - G.openLeaks;
 
     set('pause-level',   `${G.floor+1}/${FLOORS}`);
     set('pause-clock',   clockText(G.clock));
-    set('pause-pipes',  `${sealed}/${G.pipes}`);
+    set('pause-leaks',  `${sealed}/${G.totalLeaks}`);
     set('pause-lives', livesHTML());
     // The difficulty is shown as a fact. It cannot be changed from here.
     set('pause-terms',  currentTerms().label);

@@ -13,11 +13,11 @@ import { LEVELS_N } from './levels.js';
 
 export const FLOORS = LEVELS_N;
 
-/* How long you get on each level to seal every pipe and walk back to the door
+/* How long you get on each level to seal every leak and walk back to the door
    you came in through. This is the pressure of a floor: the water is the
    excuse, and the walk back is what actually spends the time. */
 export let FLOOR_CLOCK = 180;      // seconds
-export let REPAIR_TIME = 5.0;      // seconds of unbroken contact to seal a pipe
+export let REPAIR_TIME = 5.0;      // seconds of unbroken contact to seal a leak
 export let HUNT_BASE = 3.45;       // tiles per second for a hunting lifeform on level 1
 export let HUNT_STEP = 0.34;       // extra speed added per level
 

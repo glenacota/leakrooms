@@ -17,7 +17,7 @@ import { NOISE } from '../config/constants.js';
    something is revealed on the frame it appears.
 
    Nothing in the world needs finding any more (the door is where you came in,
-   and the pipes show themselves in water). So the radar's one remaining job is
+   and the leaks show themselves in water). So the radar's one remaining job is
    reading the notes on the carpet. They are free information about a building
    that lies to you, and worth a battery. */
 export function tickRadarReveal(radarState){

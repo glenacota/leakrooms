@@ -53,15 +53,15 @@ export function createLevelState(level, floorNum, seed) {
 }
 
 /**
- * LeakState — per-pipe mutable fields + leaksOpen/pipes.
+ * LeakState — per-pipe mutable fields.
  * The leaks array is cloned from the level so each floor owns its copy.
  */
 export function createLeakState(level) {
   const leaks = level.leaks.map(L => ({ ...L }));
   return {
     leaks,
-    leaksOpen: level.leaks.length,
-    pipes: level.leaks.length,
+    openLeaks: level.leaks.length,
+    totalLeaks: level.leaks.length,
   };
 }
 

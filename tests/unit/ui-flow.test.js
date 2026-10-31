@@ -312,7 +312,7 @@ test('the pause screen shows the work order with the run written on it', () => {
 
   /* The numbers are the run's. */
   buildFloor(2, 9090);
-  G.leaksOpen = G.pipes; G.floodCover = 0.31; G.batt = 42; G.stat.noises = 7;
+  G.openLeaks = G.totalLeaks; G.floodCover = 0.31; G.batt = 42; G.stat.noises = 7;
   A.STATE = 'play';
   A.togglePause();
   t.assert(A.STATE==='pause', 'ESC did not pause');
@@ -335,7 +335,7 @@ test('the pause screen shows the work order with the run written on it', () => {
   t.assert(A.STATE==='play', 'ESC on the settings page did not resume');
   const txt = id=> els[id] ? els[id].innerHTML : '';
   t.assert(txt('pause-level')==='3/5', `depth reads "${txt('pause-level')}" on level 3`);
-  t.assert(txt('pause-pipes').includes('0/'), `the riser tally reads "${txt('pause-pipes')}"`);
+  t.assert(txt('pause-leaks').includes('0/'), `the riser tally reads "${txt('pause-leaks')}"`);
   t.assert(txt('pause-clock')===A.clockText(G.clock), 'the clock on the ticket is not the clock in state');
   
   /* The life pips include the spent ones, matching the count the HUD shows. */
@@ -345,10 +345,10 @@ test('the pause screen shows the work order with the run written on it', () => {
   A.lives = A.runLives;
 
   /* Once every riser is sealed the tally says so instead of stalling. */
-  G.leaksOpen = 0;
+  G.openLeaks = 0;
   A.STATE='play'; A.togglePause();
-  t.assert(txt('pause-pipes')===`${G.pipes}/${G.pipes}`,
-    `with every riser sealed the tally reads "${txt('pause-pipes')}"`);
+  t.assert(txt('pause-leaks')===`${G.totalLeaks}/${G.totalLeaks}`,
+    `with every riser sealed the tally reads "${txt('pause-leaks')}"`);
 
   /* The strip under the ticket promises ENTER resumes as well as ESC, so the
      promise is asserted through the real key handler on the page a pause
@@ -420,7 +420,7 @@ test('the pause screen shows the work order with the run written on it', () => {
   t.assert(!els['screen-splash'].classList.contains('hidden'),
     'RESTART RUN left the riser hidden');
   t.assert(A.RUN_SEED!==seedBefore, 'RESTART RUN kept the seed — the same building is waiting at the door');
-  t.assert(G.floor===0 && G.leaksOpen===G.pipes && G.clock>=A.FLOOR_CLOCK,
+  t.assert(G.floor===0 && G.openLeaks===G.totalLeaks && G.clock>=A.FLOOR_CLOCK,
     'the floor after RESTART RUN is not a fresh floor 0');
   t.assert(A.lives===A.runLives, 'RESTART RUN did not restore the attempts');
   t.assert(!els['hud'].classList.contains('on'), 'the HUD stayed up over the riser');
@@ -489,8 +489,8 @@ test('the floor-clear card shows the clock left and the next floor', () => {
   /* The floor under the card is real and its clock is not running. Driven through
      frame(), not update(): the freeze is the loop's gate, and a direct update()
      call is not a state a player is ever in. */
-  t.assert(G.pipes===spec.leaks && G.leaksOpen===spec.leaks,
-    `the floor under the card has ${G.leaksOpen} of ${G.pipes} bursts open — it is not built`);
+  t.assert(G.totalLeaks===spec.leaks && G.openLeaks===spec.leaks,
+    `the floor under the card has ${G.openLeaks} of ${G.totalLeaks} bursts open — it is not built`);
   const c0 = G.clock;
   let now = Date.now();
   for (let i=0;i<120;i++) A.frame(now += 1000/60);   // two seconds of real frames

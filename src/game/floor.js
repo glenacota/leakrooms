@@ -118,7 +118,7 @@ export function makeFloorState(level, floorNum, seed){
  * Builds a floor and stores it in G (see sim/state.js).
  *
  * The same seed and floor number always produce the same layout, so a retry
- * puts the pipes in the same rooms — and now hands back the same canvases too.
+ * puts the leaks in the same rooms — and now hands back the same canvases too.
  *
  * @param {number} floorNum - 0-based floor index; picks the row in LEVELS.
  * @param {number} seed - the run seed.

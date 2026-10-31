@@ -40,7 +40,7 @@ export function buildHudSnap(G, livesLeft, nowMs){
   let repairProgress = 0;
   for (const L of G.leaks) if (!L.fixed && L.repair > repairProgress) repairProgress = L.repair;
   return {
-    /* Your own noise, not the building's. The open pipes hiss all the time, so
+    /* Your own noise, not the building's. The open leaks hiss all the time, so
        the total would keep the panel up for the whole floor. */
     noise: G.selfNoise,
     loud: G.selfNoise >= LOUD,

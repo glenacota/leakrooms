@@ -171,14 +171,14 @@ test('the bot seals every riser, then walks back out the door', () => {
       if (Math.abs(G.plumber.x-bx0)+Math.abs(G.plumber.y-by0) > 1e-6) hasMovedLastFrame=true;
       if (A.STATE!=='play') A.STATE='play';       // respawn on death, keep trying
     }
-    if (process.env.V) console.log(`     level ${s}: ${frames} frames, ${sealedThisLevel} pipes, ${allSealed?'all sealed':'LEFT OPEN'}`);
+    if (process.env.V) console.log(`     level ${s}: ${frames} frames, ${sealedThisLevel} leaks, ${allSealed?'all sealed':'LEFT OPEN'}`);
   }
   keys.w=keys.s=keys.a=keys.d=false; keys.shift=false;
   t.assert(noPath===0, `${noPath} legs had no path — the objective is unreachable`);
   t.assert(arrived===A.LEVELS_N, `the bot sealed every riser on ${arrived}/${A.LEVELS_N} levels`);
   t.assert(risersSealed===risersWanted,
-    `${risersSealed}/${risersWanted} pipes were sealed — the tallies do not agree`);
+    `${risersSealed}/${risersWanted} leaks were sealed — the tallies do not agree`);
   t.assert(descended===A.LEVELS_N, `the bot walked back out on ${descended}/${A.LEVELS_N} levels`);
-  console.log(`  bot: ${risersSealed} pipes sealed, ${descended}/${A.LEVELS_N} levels walked back out`);
+  console.log(`  bot: ${risersSealed} leaks sealed, ${descended}/${A.LEVELS_N} levels walked back out`);
   A.floorIdx=0;;
 });

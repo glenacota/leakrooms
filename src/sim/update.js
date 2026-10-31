@@ -11,7 +11,7 @@ import { tickBattery, tickMovement } from './plumber.js';
 
 /* The mix. Sends the audio levels for this frame: the lifeform drone, the noise
    bed (the HUD's noise bar, so the speakers and the meter agree), and the leak
-   bed (the pipes' total noise, quieter with distance). */
+   bed (the leaks' total noise, quieter with distance). */
 export function tickAudio(state){
   const prox = Math.max(0, 1 - state.nearest/13);
   emit('sfx', 'drone', prox * (0.35 + state.seenBy*0.65));

@@ -12,7 +12,7 @@ export function bindCards(){
       if (cause === DEATH_CAUSE.CAUGHT) title.textContent = 'CAUGHT';
       else if (cause === DEATH_CAUSE.CLOCK) title.textContent = "TIME'S UP";
       btn.textContent = 'TRY AGAIN';
-      sub.textContent = `${lives} LIVES LEFT • SEALED PIPES STAY SEALED`;
+      sub.textContent = `${lives} LIVES LEFT • SEALED LEAKS STAY SEALED`;
     } else {
       title.textContent = 'SHIFT OVER';
       btn.textContent = 'START OVER';
@@ -21,7 +21,7 @@ export function bindCards(){
   });
   on('win', ({ sealed, deaths, noises, floors, time }) => {
     document.getElementById('win-stats').innerHTML =
-      `You sealed <b>${sealed}</b> pipes and got back through the door on all <b>${floors}</b> levels.<br>Deaths: <b>${deaths}</b> &nbsp; Noise made: <b>${noises}</b><br>Time: <b>${Math.floor(time/60)}:${String(Math.floor(time%60)).padStart(2,'0')}</b>`;
+      `You sealed <b>${sealed}</b> leaks and got back through the door on all <b>${floors}</b> levels.<br>Deaths: <b>${deaths}</b> &nbsp; Noise made: <b>${noises}</b><br>Time: <b>${Math.floor(time/60)}:${String(Math.floor(time%60)).padStart(2,'0')}</b>`;
   });
   on('clear:show', () => {
     const el = id => document.getElementById(id);

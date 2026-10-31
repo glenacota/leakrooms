@@ -62,7 +62,7 @@ function doorSprites(){
  * @param {number} t - the frame timestamp, for the animations.
  */
 export function drawDoor(e, t){
-  const armed = G.leaksOpen === 0;
+  const armed = G.openLeaks === 0;
   const open  = Math.max(0, Math.min(1, e.open));
   /* The size is chosen to fit the wall face it is painted on. A door bigger than
      the band stops being a door in the wall and becomes a frame standing on the
@@ -187,7 +187,7 @@ let waveK = 0;                                        // eased 0..1, so the wren
 export function drawPlumber(p, t, wx, wy){
   const x=(wx===undefined?p.x:wx)*TILE, y=(wy===undefined?p.y:wy)*TILE;
 
-  // Waving the wrench while the repair bar is filling: standing still at an open pipe
+  // Waving the wrench while the repair bar is filling: standing still at an open leak
   const working = !p.moving && !!leakAt(G.leaks, p.x, p.y)?.repair;
   waveK += ((working ? 1 : 0) - waveK) * 0.2;
 

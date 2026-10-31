@@ -56,7 +56,7 @@
        The values are written by src/ui/hud.js. -->
   <div id="hud">
 
-    <!-- The clock, the lives and the pipe marks. The noise and radar
+    <!-- The clock, the lives and the leaks marks. The noise and radar
          readings moved to diegetic rings above the plumber. -->
     <div class="crt crt-tl">
       <div class="crt-clock" id="clock"><span id="val-clock">3:00</span></div>
@@ -64,7 +64,7 @@
         <span class="crt-lbl">LIVES</span>
         <span class="crt-val lives" id="val-lives">&#9679;&#9679;&#9679;</span>
         <span class="crt-lbl sep">LEAKS</span>
-        <span class="crt-pipes" id="val-pipes"></span>
+        <span class="crt-leaks" id="val-leaks"></span>
       </div>
       
     </div>
@@ -144,10 +144,10 @@
           <div class="field"><span>NOTES FROM THE LAST REPAIRS</span></div>
           <ul class="notes">
             <li><b>FOLLOW THE WATER.</b> Wetter floor = closer leaks.</li>
-            <li><b>STAND STILL beside the pipe for <span id="order-repair">5 seconds</span> to fix it.</b> It is loud.</li>
+            <li><b>STAND STILL beside the leak for <span id="order-repair">5 seconds</span> to fix it.</b> It is loud.</li>
             <li><b>GO BACK the way you came. Seal all leaks to unlock the door.</b></li>
             <li><b>HOSTILE LIFEFORMS DETECTED. Don't let them <s>kill</s> get you. </b> They hunt by sound. Walk. Run only when chased.</li>
-            <li><b>THE RADAR reveals the map, not the pipes.</b> It drains power fast. Look for spare batteries throughout the floor.</li>
+            <li><b>THE RADAR reveals the map, not the leaks.</b> It drains power fast. Look for spare batteries throughout the floor.</li>
           </ul>
 
           <!-- Difficulty is chosen here, at the door, and nowhere else, so a run
@@ -320,10 +320,10 @@
             <div class="field"><span>NOTES FROM THE LAST REPAIRS</span></div>
             <ul class="notes">
               <li><b>FOLLOW THE WATER.</b> Wetter floor = closer leaks.</li>
-              <li><b>STAND STILL beside the pipe for <span id="brief-repair">5 seconds</span> to fix it.</b> It is loud.</li>
+              <li><b>STAND STILL beside the leak for <span id="brief-repair">5 seconds</span> to fix it.</b> It is loud.</li>
               <li><b>GO BACK the way you came. Seal all leaks to unlock the door.</b></li>
               <li><b>HOSTILE LIFEFORMS DETECTED. Don't let them <s>kill</s> get you. </b> They hunt by sound. Walk. Run only when chased.</li>
-              <li><b>THE RADAR reveals the map, not the pipes.</b> It drains power fast. Look for spare batteries throughout the floor.</li>
+              <li><b>THE RADAR reveals the map, not the leaks.</b> It drains power fast. Look for spare batteries throughout the floor.</li>
             </ul>
           </div>
         </div>
@@ -335,7 +335,7 @@
           <small>LEVEL</small>
           <div class="badge" id="pause-level">1/5</div>
           <small>LEAKS FIXED</small>
-          <div class="badge" id="pause-pipes">0/1</div>
+          <div class="badge" id="pause-leaks">0/1</div>
           <small>LIVES</small>
           <div class="seed lives-row" id="pause-lives">&#9679;&#9679;&#9679;</div>
           <small>DIFFICULTY</small>

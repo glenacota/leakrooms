@@ -12,7 +12,7 @@ test('a built floor exposes exactly the state G owns', () => {
   A.buildFloor(0, 1234);
   assert.deepEqual(Object.keys(G), [
     'floor', 'seed', 'grid', 'at', 'inB', 'los', 'rooms', 'exitTiles', 'leaks', 'fixtures',
-    'batteries', 'graffiti', 'leaksOpen', 'pipes', 'lightArr', 'lightCv', 'lightCtx', 'lightImg',
+    'batteries', 'graffiti', 'openLeaks', 'totalLeaks', 'lightArr', 'lightCv', 'lightCtx', 'lightImg',
     'visArr', 'visFrom', 'visTgt', 'visScratch', 'maskArr', 'maskTgt', 'coneArr', 'maskCv',
     'maskCtx', 'maskImg', 'wallIdx', 'tilesCv', 'tilesCtx', 'wallsCv', 'wallsCtx', 'regionOf',
     'regionAdj', 'regionCount', 'visRegion', 'visStep', 'visFadeT', 'coneX', 'coneY', 'coneFace',

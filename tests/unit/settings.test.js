@@ -162,7 +162,7 @@ console.log('[20] settings — persistence, validation, and the difficulty contr
     t.assert(seen.length===3, `expected 3 difficulty presets, saw ${seen.length}`);
     for (const p of seen) t.assert(p.levels>=1 && p.lives>=1 && p.clock>0, `preset ${p.k} is degenerate`);
     console.log(`  3 presets move lives/clock/repair/chase only — noise table and level count untouched`);
-    console.log(`    ${seen.map(p=>`${p.k}: ${p.lives} lives, ${p.levels} levels, ${p.clock}s clock, ${p.repair}s at the pipe, chase ${p.hunt}+${p.step}/level`).join('\n    ')}`);
+    console.log(`    ${seen.map(p=>`${p.k}: ${p.lives} lives, ${p.levels} levels, ${p.clock}s clock, ${p.repair}s at the leak, chase ${p.hunt}+${p.step}/level`).join('\n    ')}`);
     A.setOption('difficulty','normal');
   }
 

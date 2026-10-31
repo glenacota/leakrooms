@@ -6,14 +6,14 @@ import { sustainedNoise } from './noise.js';
  * Door state bundle passed by reference.
  * @typedef {{
  *   plumber: {x:number,y:number},
- *   leaksOpen: number,
+ *   openLeaks: number,
  *   exitTiles: Array<{x:number,y:number,open:number,facing:string}>,
  *   descend: number,
  * }} DoorState
  */
 
 /**
- * The exit door. Once every pipe is sealed, standing at the door for DOOR_HOLD
+ * The exit door. Once every leak is sealed, standing at the door for DOOR_HOLD
  * (1.5 s) cycles it open and moves to the next floor. Stepping away drains the
  * progress quickly, so committing to the door is a real decision. With the clock
  * running it is also the last decision of the level.
@@ -28,7 +28,7 @@ import { sustainedNoise } from './noise.js';
  */
 export function tickDoor(doorState, dt){
   const p = doorState.plumber;
-  const leakDone = doorState.leaksOpen === 0;
+  const leakDone = doorState.openLeaks === 0;
   let onExit=false;
   if (leakDone){
     for (const e of doorState.exitTiles){
@@ -44,14 +44,14 @@ export function tickDoor(doorState, dt){
       doorState.descend = Math.max(0, doorState.descend - dt*2.5);
     }
   } else if (doorState.descend > 0){
-    /* Pipes still open: any cycle progress drains instead of holding, so you
+    /* Leaks still open: any cycle progress drains instead of holding, so you
        cannot sit in the doorway with the bar frozen waiting for something that
        has not happened. */
     doorState.descend = Math.max(0, doorState.descend - dt*2.5);
   }
 
   /* The door leaf. Where it swings to depends on the state:
-       pipes open      shut (0)
+       leaks open      shut (0)
        all sealed      ajar (DOOR_AJAR), so READY reads from across the room
        at the door     follows the hold progress up to fully open
      It eases toward that target, because a leaf that jumps between positions is
