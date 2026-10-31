@@ -7,8 +7,7 @@
      noise   — left, a live sound wave. Shows while the plumber is making noise
                (walking, wading, sprinting, repairing, the radar's ping).
                Amber sweep split at LOUD into red, with a threshold tick at
-               LOUD and a pulse while loud. A micro "LOUD" tag hovers above
-               the ring while loud (and briefly after).
+               LOUD and a pulse while loud.
      battery — right, a radar scope. Shows while the radar is on, or right
                after a battery pickup. Green, red when low.
 
@@ -54,12 +53,6 @@ const FADE_OUT = 0.4;
 
 /* Fraction of the ring at which the LOUD threshold sits (LOUD / NOISE_FS). */
 const LOUD_POS = LOUD / NOISE_FS;
-/* The micro LOUD tag: held fully visible for LOUD_TAG_HOLD seconds from the
-   moment the noise goes loud, then faded out over LOUD_TAG_FADE, even if the
-   noise stays loud. It is only shown while loud, and each new crossing into
-   loud starts it again. */
-const LOUD_TAG_HOLD = 2.0;
-const LOUD_TAG_FADE = 0.5;
 /* Extra line-width swing while loud, as a fraction of SWEEP_LW. */
 const PULSE_DEPTH = 0.35;
 
@@ -74,12 +67,7 @@ const SCOPE_FACE = 'rgba(143,208,122,0.35)';
    opacity so it reads without fighting the floor brightness behind it. */
 const HUD_OPACITY = 0.8;
 
-/* Seconds since the noise last crossed into loud, and whether it was loud on
-   the last frame. Module-level because the render pass owns this visual
-   effect; nothing in the sim reads it. */
-let loudTagT = 0;
-let wasLoud = false;
-/* How visible each ring is, 0 to 1. Render-only, like loudTagT. */
+/* How visible each ring is, 0 to 1. Render-only. */
 let noiseAlpha = 0;
 let battAlpha = 0;
 
@@ -99,6 +87,10 @@ const WAVE_MIN = 0.6;
 /* Scroll speed, in radians per millisecond, and the points the path is cut into. */
 const WAVE_SPEED = 0.012;
 const WAVE_STEPS = 28;
+/* How far each wave point jitters sideways when loud, as a share of the inner
+   radius. Only applied while loud, so quiet sounds stay a clean sine and loud
+   sounds look like noise/static. */
+const WAVE_JITTER = 0.14;
 let waveAmp = 0;
 let waveCyc = WAVE_CALM;
 
@@ -181,9 +173,22 @@ function batteryRing(cx, cy, progress, color, live){
   ctx.lineCap = 'butt';
 }
 
-/* The noise ring: two-tone sweep split at LOUD (amber up to LOUD, red past
-   it), a short threshold tick at LOUD, and a pulsed line width while loud.
-   A live sound wave in the middle says what the ring measures. */
+/* Deterministic per-point, per-frame hash in [0, 1). Mixes the point index
+   and the frame time so the noise animates but stays reproducible across runs
+   (no RNG import needed). */
+function waveHash(i, t){
+  let h = (i * 2654435761 + Math.floor(t)) | 0;
+  h ^= h >>> 16;
+  h *= 0x85ebca6b;
+  h ^= h >>> 13;
+  h *= 0xc2b2ae35;
+  h ^= h >>> 16;
+  return (h >>> 0) / 0x100000000;
+}
+
+/* The noise ring: a single-colour sweep - amber below LOUD, solid red at or
+   past it - a short threshold tick at LOUD, and a pulsed line width while
+   loud. A live sound wave in the middle says what the ring measures. */
 function noiseRing(rc, cx, cy, progress, loud){
   const r = RING_R*TILE;
   const loudEnd = -Math.PI/2 + LOUD_POS*TAU;
@@ -194,18 +199,11 @@ function noiseRing(rc, cx, cy, progress, loud){
     /* Pulse the sweep width when loud, so the ring asks for attention. */
     const pw = loud ? 1 + PULSE_DEPTH*Math.sin(rc.t*0.006) : 1;
 
-    if (progress > LOUD_POS){
-      /* Amber segment up to LOUD, then red past it (option C: two-tone). */
-      ctx.strokeStyle = AMBER;
-      ctx.lineWidth = SWEEP_LW*pw;
-      ctx.beginPath(); ctx.arc(cx, cy, r, -Math.PI/2, loudEnd); ctx.stroke();
-      ctx.strokeStyle = DANGER;
-      ctx.beginPath(); ctx.arc(cx, cy, r, loudEnd, -Math.PI/2 + progress*TAU); ctx.stroke();
-    } else {
-      ctx.strokeStyle = AMBER;
-      ctx.lineWidth = SWEEP_LW*pw;
-      ctx.beginPath(); ctx.arc(cx, cy, r, -Math.PI/2, -Math.PI/2 + progress*TAU); ctx.stroke();
-    }
+    /* Single-colour sweep: amber while quiet, solid red once loud. The whole
+       bar reads the same colour so the "you're noisy" state is unmistakable. */
+    ctx.strokeStyle = loud ? DANGER : AMBER;
+    ctx.lineWidth = SWEEP_LW*pw;
+    ctx.beginPath(); ctx.arc(cx, cy, r, -Math.PI/2, -Math.PI/2 + progress*TAU); ctx.stroke();
 
     /* Threshold tick at LOUD (option A): a short arc sitting on the LOUD
        position, brighter than the track. */
@@ -233,7 +231,10 @@ function noiseRing(rc, cx, cy, progress, loud){
   for (let i = 0; i <= WAVE_STEPS; i++){
     const u = i/WAVE_STEPS;
     const x = cx + (u*2 - 1)*half;
-    const y = cy + amp*Math.sin(Math.PI*u)*Math.sin(TAU*waveCyc*u - phase);
+    const baseY = cy + amp*Math.sin(Math.PI*u)*Math.sin(TAU*waveCyc*u - phase);
+    /* Jagged, static-like displacement while loud; zero when quiet. */
+    const jitter = loud ? (waveHash(i, rc.t)*2 - 1) * WAVE_JITTER * inner : 0;
+    const y = baseY + jitter;
     if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
   }
   ctx.stroke();
@@ -262,12 +263,6 @@ function tag(text, color, alpha, cx, cy){
   ctx.restore();
 }
 
-// How visible the LOUD tag is: full, then fading, and never once the noise is not loud.
-function loudTagAlpha(loud){
-  if (!loud) return 0;
-  return Math.min(1, Math.max(0, 1 - (loudTagT - LOUD_TAG_HOLD)/LOUD_TAG_FADE));
-}
-
 /**
  * Draws the diegetic noise and battery rings beside the plumber.
  * Called once per frame from render(), inside the world transform.
@@ -284,8 +279,6 @@ export function diegetic(rc){
   const pulse = (G.battPulseT || 0) > 0;
 
   const loud = selfNoise >= LOUD;
-  loudTagT = loud && !wasLoud ? 0 : loudTagT + rc.dt;
-  wasLoud = loud;
 
   // Eased before the early return, so the wave settles while the ring is hidden too.
   const k = 1 - Math.exp(-rc.dt/WAVE_EASE);
@@ -323,7 +316,6 @@ export function diegetic(rc){
     ctx.globalAlpha = noiseAlpha * HUD_OPACITY;
     const progress = Math.min(1, selfNoise/NOISE_FS);
     noiseRing(rc, nx, ny, progress, loud);
-    tag('LOUD', DANGER, loudTagAlpha(loud), nx, ny);
   }
   if (battAlpha > 0){
     ctx.globalAlpha = battAlpha * HUD_OPACITY;

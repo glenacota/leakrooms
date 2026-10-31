@@ -127,7 +127,7 @@ html, body{ overscroll-behavior:none; }
   /* Compact HUD: reuse the narrow-window (<=680px) values at every width, so a
      short screen keeps the panel small on any aspect ratio, not just a narrow
      one. Labels reuse the 9px narrow value but never compute below 10px here
-     (the compact floor). The LOUD tag (10px) and the % unit still fit above
+     (the compact floor). The red loud mark (10px) and the % unit still fit above
      the 7px-tall bar because .bar.noise keeps overflow:visible. */
   .crt-clock, #val-clock{ font-size:21px; }
   .crt-row{ font-size:10px; gap:5px; }

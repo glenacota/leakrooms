@@ -66,31 +66,6 @@ function setup(){
   G.selfNoise = 0;
 }
 
-/* The LOUD tag test runs first, while loudTagT starts at 0, so the
-   "absent when quiet" half isn't polluted by a previous test. */
-test('diegetic noise ring: LOUD label shown when loud, absent when quiet', () => {
-  const t = assert;
-  setup();
-  const {cx, cy} = noiseRingCentre(10, 10);
-
-  /* Quiet: no LOUD tag (loudTagT starts at 0 in a fresh module). */
-  G.selfNoise = 0.3;
-  draw();
-  const quietText = calls.list.filter(c => c[0] === 'fillText' && c[1] === 'LOUD');
-  t.ok(quietText.length === 0, 'no LOUD tag below LOUD');
-
-  /* Loud: LOUD tag drawn just above the noise ring. */
-  G.selfNoise = 0.7;
-  draw();
-  const loudText = calls.list.find(c => c[0] === 'fillText' && c[1] === 'LOUD');
-  t.ok(loudText, 'LOUD tag drawn when selfNoise >= LOUD');
-
-  /* Tag sits above the ring: cx horizontally centred, cy - radius - offset. */
-  const expectedY = cy - RING_RADIUS - 7;
-  t.ok(Math.abs(loudText[3] - expectedY) < 0.5,
-    `LOUD tag y=${loudText[3]}, expected near ${expectedY}`);
-});
-
 test('diegetic noise ring draws track, sweep and LOUD tick below LOUD', () => {
   const t = assert;
   setup();
@@ -120,32 +95,35 @@ test('diegetic noise ring draws track, sweep and LOUD tick below LOUD', () => {
   t.ok(tick, 'threshold tick at LOUD position present');
 });
 
-test('diegetic noise ring: two-tone sweep (amber to LOUD, red past it)', () => {
+test('diegetic noise ring: single-colour sweep - amber below LOUD, solid red at/above LOUD', () => {
   const t = assert;
   setup();
   const {cx, cy} = noiseRingCentre(10, 10);
-  const loudEnd = -Math.PI / 2 + (LOUD / NOISE_FS) * Math.PI * 2;
 
-  /* Below LOUD: track + one sweep + tick = 3 arcs. */
+  /* Below LOUD: track + one sweep + tick = 3 arcs, single sweep from -PI/2. */
   G.selfNoise = 0.3;
   draw();
-  t.ok(ringArcs(cx, cy).length === 3,
-    `below LOUD: expected exactly 3 arcs (single sweep), got ${ringArcs(cx, cy).length}`);
+  const below = ringArcs(cx, cy);
+  t.ok(below.length === 3, `below LOUD: expected exactly 3 arcs, got ${below.length}`);
+  const belowSweep = below.filter(a => Math.abs(a[4] - (-Math.PI / 2)) < 0.01);
+  t.ok(belowSweep.length === 1, `below LOUD: expected one sweep from -PI/2, got ${belowSweep.length}`);
 
-  /* Above LOUD: track + amber sweep + red sweep + tick = 4 arcs. */
+  /* At/above LOUD: track + one sweep + tick = 3 arcs (not two-tone's four),
+     single sweep from -PI/2, all red. */
   G.selfNoise = 0.7;
   draw();
-  const arcsAbove = ringArcs(cx, cy);
-  t.ok(arcsAbove.length === 4,
-    `above LOUD: expected exactly 4 arcs (two-tone sweep), got ${arcsAbove.length}`);
+  const above = ringArcs(cx, cy);
+  t.ok(above.length === 3, `at/above LOUD: expected exactly 3 arcs (single sweep), got ${above.length}`);
+  const aboveSweep = above.filter(a => Math.abs(a[4] - (-Math.PI / 2)) < 0.01);
+  t.ok(aboveSweep.length === 1, `at/above LOUD: expected one sweep from -PI/2, got ${aboveSweep.length}`);
 
-  /* The two sweep arcs: amber starts at -PI/2 and ends at LOUD; red starts
-     at LOUD and ends at the current progress. */
-  const amberStart = arcsAbove.filter(a => Math.abs(a[4] - (-Math.PI / 2)) < 0.01);
-  const redStart = arcsAbove.filter(a => Math.abs(a[4] - loudEnd) < 0.01);
-  t.ok(amberStart.length === 1 && redStart.length === 1,
-    `two-tone: expected 1 amber sweep starting at -PI/2 and 1 red sweep starting at LOUD, `+
-    `got ${amberStart.length} amber-start and ${redStart.length} red-start`);
+  /* Threshold tick still sits at the LOUD position. */
+  const loudEnd = -Math.PI / 2 + (LOUD / NOISE_FS) * Math.PI * 2;
+  const tick = above.find(a =>
+    Math.abs(a[4] - (loudEnd - 0.10)) < 0.05 &&
+    Math.abs(a[5] - (loudEnd + 0.10)) < 0.05
+  );
+  t.ok(tick, 'threshold tick at LOUD position present');
 });
 
 test('diegetic battery ring draws when radar is on', () => {
@@ -373,40 +351,6 @@ function stepTag(text, n, dt){
   return tagOf(text);
 }
 
-test('the LOUD tag holds for 2 s, fades over 0.5 s, and restarts on a new crossing', () => {
-  const t = assert;
-  setup();
-  G.selfNoise = 0;
-  draw();                         /* quiet: no tag, and the last crossing is over */
-
-  G.selfNoise = 0.7;
-  const at1 = stepTag('LOUD', 20, 0.05);       /* about 1.0 s after the crossing */
-  t.ok(at1 && Math.abs(at1.alpha - 0.8) < 0.01, `the tag is ${at1 ? at1.alpha : 'missing'} one second in, want 0.9`);
-  const at19 = stepTag('LOUD', 18, 0.05);      /* about 1.9 s */
-  t.ok(at19 && Math.abs(at19.alpha - 0.8) < 0.01, `the tag started fading before 2 s (${at19 ? at19.alpha : 'missing'})`);
-  const fading = stepTag('LOUD', 7, 0.05);     /* about 2.25 s */
-  t.ok(fading && fading.alpha > 0.3 && fading.alpha < 0.7,
-    `the tag is ${fading ? fading.alpha : 'missing'} at 2.25 s, want about half`);
-  t.ok(stepTag('LOUD', 12, 0.05) === null, 'the tag is still drawn 3 s after the noise went loud');
-
-  /* Still loud, still gone. Dropping below loud and crossing again starts it over. */
-  t.ok(stepTag('LOUD', 5, 0.05) === null, 'the tag came back with no new crossing');
-  G.selfNoise = 0.3;
-  t.ok(stepTag('LOUD', 1, 0.05) === null, 'the tag lingered after the noise stopped being loud');
-  G.selfNoise = 0.7;
-  const again = stepTag('LOUD', 1, 0.05);
-  t.ok(again && Math.abs(again.alpha - 0.8) < 0.01, 'a new loud crossing did not show the tag at full opacity');
-
-  /* A crossing while the tag is mid-fade also starts it over. */
-  stepTag('LOUD', 45, 0.05);
-  G.selfNoise = 0.3;
-  stepTag('LOUD', 1, 0.05);
-  G.selfNoise = 0.7;
-  const refade = stepTag('LOUD', 1, 0.05);
-  t.ok(refade && Math.abs(refade.alpha - 0.8) < 0.01, 'a crossing during the fade did not restart the tag');
-  G.selfNoise = 0;
-});
-
 test('the battery tag shows the charge in whole percent, in the ring colour', () => {
   const t = assert;
   setup();
@@ -487,7 +431,7 @@ test('the tags are 9px bold with a dark outline under the text', () => {
   G.batt = 60;
   G.selfNoise = 0.7;
   draw();
-  for (const text of ['LOUD', '60%']){
+  for (const text of ['60%']){
     const fills = calls.list.filter(c => c[0] === 'fillText' && c[1] === text);
     const strokes = calls.list.filter(c => c[0] === 'strokeText' && c[1] === text);
     t.ok(fills.length === 1 && strokes.length === 1, `${text}: expected one outline and one fill`);

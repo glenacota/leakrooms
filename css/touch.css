@@ -76,7 +76,7 @@ html[data-input=touch] #crt{ height:100dvh; }
   pointer-events:none;
   transition:border-color .12s, opacity .12s;
 }
-/* The latch is on: this is the loud pace. Same red as the LOUD mark. */
+/* The latch is on: this is the loud pace. Same red as the loud mark. */
 #touch-ring.sprint{ border-color:var(--danger); opacity:.8; }
 
 #touch-knob{
