@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "deny": [
+      "Edit(tests/fixtures/**)",
+      "Write(tests/fixtures/**)"
+    ],
+    "ask": [
+      "Edit(src/config/constants.js)",
+      "Write(src/config/constants.js)"
+    ]
+  }
+}
