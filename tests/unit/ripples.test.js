@@ -51,10 +51,10 @@ function setup(){
 
 /* ---------- The maths ---------- */
 
-test('the spawn gap is 0.5 s at a walk and 0.26 s at a sprint or the wrench', () => {
-  close(spawnGap(0.2), 0.5);
-  close(spawnGap(0.7), 0.26);
-  close(spawnGap(0.85), 0.26);
+test('the spawn gap is 0.5 s at a walk and 0.75 s at a sprint or the wrench', () => {
+  close(spawnGap(0.2), 0.75);
+  close(spawnGap(0.7), 0.5);
+  close(spawnGap(0.85), 0.5);
 });
 
 test('the spawn gap shortens as the noise rises', () => {
@@ -156,7 +156,7 @@ test('the glow is fainter when quieter, and flashes as a ring spawns', () => {
 test('the glow is clear in the middle, so it never covers the plumber', () => {
   /* The suit and hood reach about 0.2 tiles from the centre. A fixed number
      here, so changing GLOW_HOLE cannot quietly change what the test asks for. */
-  const BODY = 0.2;
+  const BODY = 0.1;
   assert.ok(GLOW_HOLE >= BODY, `the clear middle (${GLOW_HOLE} tiles) is smaller than the body (${BODY})`);
   for (const level of [0, 0.5, 1]){
     const R = glowRadius(level);

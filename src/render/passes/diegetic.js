@@ -6,10 +6,6 @@
      battery — right, a radar scope. Shows while the radar is on, or right
                after a battery pickup. Green, red when low.
 
-   The noise indicator is not in this file any more. It is the floor ripples
-   (render/passes/ripples.js), which replaced the old noise ring because a
-   ring plus a separate sound wave asked for too much attention.
-
    The ring sits on a dark disc so it stays readable over a bright floor. Its
    glyph says what it is, so nobody has to learn the colours. It is drawn with
    canvas paths (the game has no image assets).

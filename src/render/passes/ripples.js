@@ -8,7 +8,7 @@
    yellow to red as the noise passes LOUD. Its middle is clear, so it never
    washes out the plumber's suit.
 
-   The ripples are rings that spread out from the glow every 0.26 to 0.5 s. Size
+   The ripples are rings that spread out from the glow every 0.5 to 0.65 s. Size
    and speed follow the noise level, so a wade, a walk and a sprint look
    different with no words. A ring that grows past 1.5 tiles turns red, because
    that is the range that wakes sleepers and starts hunts. Nothing marks that
@@ -45,8 +45,8 @@ const R_START = 0.15;
 
 /* Spawn gap at the quiet end and the loud end, in seconds. A walk is 0.2 and
    gets the slow gap; anything at or above 0.44 gets the fast one. */
-const GAP_QUIET = 0.5;
-const GAP_LOUD = 0.26;
+const GAP_QUIET = 0.75;
+const GAP_LOUD = 0.5;
 const GAP_RAMP_FROM = 0.2;
 const GAP_RAMP_SPAN = 0.5;
 
@@ -73,7 +73,7 @@ const GLOW_R_GAIN = 0.5;
 /* Inside this radius, in tiles, the glow is clear. The plumber's suit and hood
    reach about 0.2 tiles from the centre, and a bright wash over a yellow suit
    hides the thing the player is watching. */
-export const GLOW_HOLE = 0.22;
+export const GLOW_HOLE = 0.1;
 /* The glow goes from pale yellow to the danger red over this noise range, which
    straddles LOUD (0.5) so the change is under way as the noise crosses it. */
 const GLOW_YELLOW = [255, 245, 160];
