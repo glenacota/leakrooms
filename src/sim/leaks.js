@@ -2,6 +2,7 @@ import { LEAK_NOISE_BASE, LEAK_NOISE_GAIN, LOUD, REPAIR_DECAY, REPAIR_NOISE, REP
 import { REPAIR_TIME } from '../config/tuning.js';
 import { emit } from '../util/events.js';
 import { sustainedNoise } from './noise.js';
+import { pulseDue } from './pulse-reach.js';
 import { repaintDirty } from '../util/repaint.js';
 
 /**
@@ -138,11 +139,13 @@ export function tickRepair(leakState, dt, moving, bumped){
   leakState.atLeak = !!L;
   if (L){
     if (!moving && !bumped){
-      if (L.repair === 0) L.wrenchT = 0;
+      if (L.repair === 0){ L.wrenchT = 0; L.pulseTicks = 0; }
       L.wrenchT = (L.wrenchT||0) - dt;
       if (L.wrenchT <= 0){ emit('sfx', 'wrench', REPAIR_NOISE); L.wrenchT = 1; }
       L.repair = Math.min(REPAIR_TIME, L.repair + dt);
       sustainedNoise(leakState, REPAIR_NOISE, L.sx+0.5, L.sy+0.5, true);
+      // The wrench is a steady sound, so it pulses on a beat from the standing spot.
+      if (pulseDue(L)) emit('pulse', L.sx+0.5, L.sy+0.5, REPAIR_NOISE);
       if (L.repair >= REPAIR_TIME){
         sealLeak(L, leakState);
       }

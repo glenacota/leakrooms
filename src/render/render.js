@@ -25,6 +25,7 @@ import { lighting } from './passes/lighting.js';
 import { markers } from './passes/markers.js';
 import { particles } from './passes/particles.js';
 import { diegetic } from './passes/diegetic.js';
+import { pulses } from './passes/pulses.js';
 import { post } from './passes/post.js';
 import { syncImages } from './pack.js';
 
@@ -131,5 +132,6 @@ export function render(t){
   /* The rings are drawn last, after the post-processing, so the light, the radar
      tint and the CRT passes never touch them: they must stay readable in the
      dark and while the radar is on. */
+  pulses(rc);
   diegetic(rc);
 }

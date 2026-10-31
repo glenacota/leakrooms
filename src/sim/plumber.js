@@ -122,6 +122,8 @@ export function tickMovement(plumber, grid, floodState, dt){
     if (plumber.stepT<=0){
       plumber.stepT = sprinting ? 0.26 : 0.46;
       plumber.stepDur = plumber.stepT;
+      // Each footstep leaves a sound pulse where the boot lands.
+      emit('pulse', plumber.x, plumber.y, stepPow);
       if (inWater){
         emit('sfx', 'splash', sprinting?1.4:0.5, stepPow);
         // A splash where the boot hits the water, pure visual.
@@ -141,6 +143,7 @@ export function tickMovement(plumber, grid, floodState, dt){
     sustainedNoise(floodState, power, plumber.x, plumber.y, true);
     // Count the bump once per contact, not every frame.
     if (!plumber.bumpedLastFrame){
+      emit('pulse', plumber.x, plumber.y, power);
       floodState.stat.noises++;
       emit('stat', 'noises');
       plumber.bumpedLastFrame = true;

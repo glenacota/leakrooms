@@ -8,13 +8,10 @@ const render = A.render;
 
 /* Diegetic ring layout constants, mirrored from src/render/passes/diegetic.js. */
 const TILE   = 40;
-const NOISE_Y = 0.3;        /* how far above the plumber's centre each ring sits, in tiles */
-const BATT_Y  = -0.3;
+const BATT_Y  = -0.3;       /* how far above the plumber's centre the ring sits, in tiles */
 const SIDE   = 0.8;         /* distance of each ring from the plumber, in tiles */
 const RING_R   = 0.30;      /* ring radius, in tiles */
 const RING_RADIUS = RING_R * TILE; /* 12 px */
-const NOISE_FS = 0.85;
-const LOUD     = 0.5;
 
 /* The rings fade, so one frame is not enough to see them (or to see them go).
    Eight frames of 0.1 s are longer than either fade, and the calls recorded are
@@ -28,17 +25,7 @@ function draw(){
   }
 }
 
-/* Centre of the noise ring (left of the plumber) for a plumber at (x, y).
-   simAlpha is 0 when render() is called directly, so the ring is at
-   p.px / p.py, which we set equal to p.x / p.y. */
-function noiseRingCentre(x, y){
-  return {
-    cx: (x - SIDE) * TILE,
-    cy: (y - NOISE_Y) * TILE,
-  };
-}
-
-// Centre of the battery ring (right of the plumber, lower than the noise ring).
+// Centre of the battery ring (right of the plumber, above its middle).
 function battRingCentre(x, y){
   return {
     bx: (x + SIDE) * TILE,
@@ -66,75 +53,13 @@ function setup(){
   G.selfNoise = 0;
 }
 
-test('diegetic noise ring draws track, sweep and LOUD tick below LOUD', () => {
-  const t = assert;
-  setup();
-  const {cx, cy} = noiseRingCentre(10, 10);
-  G.selfNoise = 0.3;   /* below LOUD (0.5) */
-
-  draw();
-
-  const arcs = ringArcs(cx, cy);
-  /* track (full circle) + sweep + threshold tick = 3 arcs */
-  t.ok(arcs.length >= 3, `below LOUD: expected >=3 arcs at noise ring, got ${arcs.length}`);
-
-  /* Track: full circle from 0 to TAU. (startAngle=c[4], endAngle=c[5]) */
-  const track = arcs.find(a => Math.abs(a[4]) < 0.01 && Math.abs(a[5] - Math.PI * 2) < 0.01);
-  t.ok(track, 'full-circle track arc present');
-
-  /* Sweep: starts at -PI/2 (top of the ring). */
-  const sweep = arcs.find(a => Math.abs(a[4] - (-Math.PI / 2)) < 0.01);
-  t.ok(sweep, 'sweep arc starting at -PI/2 present');
-
-  /* Threshold tick: short arc at the LOUD position. */
-  const loudEnd = -Math.PI / 2 + (LOUD / NOISE_FS) * Math.PI * 2;
-  const tick = arcs.find(a =>
-    Math.abs(a[4] - (loudEnd - 0.10)) < 0.05 &&
-    Math.abs(a[5] - (loudEnd + 0.10)) < 0.05
-  );
-  t.ok(tick, 'threshold tick at LOUD position present');
-});
-
-test('diegetic noise ring: single-colour sweep - amber below LOUD, solid red at/above LOUD', () => {
-  const t = assert;
-  setup();
-  const {cx, cy} = noiseRingCentre(10, 10);
-
-  /* Below LOUD: track + one sweep + tick = 3 arcs, single sweep from -PI/2. */
-  G.selfNoise = 0.3;
-  draw();
-  const below = ringArcs(cx, cy);
-  t.ok(below.length === 3, `below LOUD: expected exactly 3 arcs, got ${below.length}`);
-  const belowSweep = below.filter(a => Math.abs(a[4] - (-Math.PI / 2)) < 0.01);
-  t.ok(belowSweep.length === 1, `below LOUD: expected one sweep from -PI/2, got ${belowSweep.length}`);
-
-  /* At/above LOUD: track + one sweep + tick = 3 arcs (not two-tone's four),
-     single sweep from -PI/2, all red. */
-  G.selfNoise = 0.7;
-  draw();
-  const above = ringArcs(cx, cy);
-  t.ok(above.length === 3, `at/above LOUD: expected exactly 3 arcs (single sweep), got ${above.length}`);
-  const aboveSweep = above.filter(a => Math.abs(a[4] - (-Math.PI / 2)) < 0.01);
-  t.ok(aboveSweep.length === 1, `at/above LOUD: expected one sweep from -PI/2, got ${aboveSweep.length}`);
-
-  /* Threshold tick still sits at the LOUD position. */
-  const loudEnd = -Math.PI / 2 + (LOUD / NOISE_FS) * Math.PI * 2;
-  const tick = above.find(a =>
-    Math.abs(a[4] - (loudEnd - 0.10)) < 0.05 &&
-    Math.abs(a[5] - (loudEnd + 0.10)) < 0.05
-  );
-  t.ok(tick, 'threshold tick at LOUD position present');
-});
-
 test('diegetic battery ring draws when radar is on', () => {
   const t = assert;
   setup();
-  const {cx: nx, cy} = noiseRingCentre(10, 10);
   const {bx, by} = battRingCentre(10, 10); /* battery ring is right of the plumber */
 
   G.batt = 60;
   G.radar = true;
-  G.selfNoise = 0;
 
   draw();
 
@@ -147,122 +72,37 @@ test('diegetic battery ring draws when radar is on', () => {
   t.ok(battArcs.length === 2,
     `battery ring: expected 2 arcs (track + sweep), got ${battArcs.length}`);
 
-  /* No noise ring arcs when silent. */
-  t.ok(ringArcs(nx, cy).length === 0, `no noise ring arcs when silent, got ${ringArcs(nx, cy).length}`);
 });
 
 test('diegetic rings sit on a dark disc', () => {
   const t = assert;
   setup();
-  const {cx, cy} = noiseRingCentre(10, 10);
   const {bx, by} = battRingCentre(10, 10);
   G.batt = 60;
   G.radar = true;
-  G.selfNoise = 0.3;
 
   draw();
 
   const discs = calls.list.filter(c =>
     c[0] === 'arc' && Math.abs(c[3] - (RING_RADIUS + 2)) < 0.01);
-  t.ok(discs.some(d => Math.hypot(d[1] - cx, d[2] - cy) < 1), 'no dark disc behind the noise ring');
   t.ok(discs.some(d => Math.hypot(d[1] - bx, d[2] - by) < 1), 'no dark disc behind the battery ring');
-});
-
-/* The wave inside the noise ring is a polyline: one moveTo and a run of lineTo
-   calls across the ring's centre. Its tallest point is its amplitude. */
-function waveHeight(cx, cy){
-  const pts = calls.list.filter(c =>
-    (c[0] === 'moveTo' || c[0] === 'lineTo') && Math.abs(c[1] - cx) <= RING_RADIUS);
-  return { n: pts.length, h: Math.max(0, ...pts.map(c => Math.abs(c[2] - cy))),
-           w: Math.max(...pts.map(c => c[1])) - Math.min(...pts.map(c => c[1])) };
-}
-
-test('the sound wave grows with the volume and stays inside the ring', () => {
-  const t = assert;
-  setup();
-  const {cx, cy} = noiseRingCentre(10, 10);
-  const inner = RING_RADIUS - 1.5;
-
-  G.selfNoise = 0.1;
-  draw();
-  const quiet = waveHeight(cx, cy);
-  G.selfNoise = 0.3;
-  draw();
-  const walk = waveHeight(cx, cy);
-  G.selfNoise = 0.85;
-  draw();
-  const full = waveHeight(cx, cy);
-
-  t.ok(quiet.n > 10, `the wave is not drawn as a path (${quiet.n} points)`);
-  t.ok(quiet.h < walk.h && walk.h < full.h,
-    `the wave does not grow with the volume: ${quiet.h.toFixed(2)}, ${walk.h.toFixed(2)}, ${full.h.toFixed(2)}`);
-  t.ok(full.h <= inner, `the loudest wave (${full.h.toFixed(2)}px) leaves the ring's inner ${inner}px`);
-  t.ok(full.w <= inner*2, `the wave is wider (${full.w.toFixed(2)}px) than the ring's inside`);
-
-  /* Past full scale (the door is 1.8) the wave stays the size of full scale. */
-  G.selfNoise = 1.8;
-  draw();
-  const door = waveHeight(cx, cy);
-  t.ok(door.h <= inner, `an over-scale noise drew a wave of ${door.h.toFixed(2)}px`);
-});
-
-test('the sound wave is a flat line when the volume is gone', () => {
-  const t = assert;
-  setup();
-  const {cx, cy} = noiseRingCentre(10, 10);
-  G.selfNoise = 0.5;
-  draw();
-  G.selfNoise = 0;
-  /* One frame after the noise stops the ring is still fading, and its wave has
-     fallen but is still a wave and not a hole. */
-  calls.list.length = 0;
-  clock += 100;
-  render(clock);
-  const fading = waveHeight(cx, cy);
-  t.ok(fading.n > 10, 'the wave vanished the frame the noise stopped');
-  t.ok(fading.h < 4, `the wave is still ${fading.h.toFixed(2)}px tall after the noise stopped`);
-});
-
-test('diegetic rings fade in and out instead of switching', () => {
-  const t = assert;
-  setup();
-  const {cx, cy} = noiseRingCentre(10, 10);
-
-  draw();   /* let anything left by an earlier test fade out */
-  G.selfNoise = 0.3;
-  /* A frame with no time in it (same timestamp) fades nothing in yet. */
-  calls.list.length = 0;
-  render(clock);
-  t.ok(ringArcs(cx, cy).length === 0, 'noise ring popped in with no fade');
-  calls.list.length = 0;
-  clock += 100;
-  render(clock);
-  t.ok(ringArcs(cx, cy).length > 0, 'noise ring is not drawn on the first frame with time in it');
-
-  draw();
-  G.selfNoise = 0;
-  /* One frame after the noise stops the ring is still there, fading. */
-  calls.list.length = 0;
-  clock += 100;
-  render(clock);
-  t.ok(ringArcs(cx, cy).length > 0, 'noise ring vanished the frame the noise stopped');
 });
 
 test('diegetic rings are drawn after the post-processing pass', () => {
   const t = assert;
   setup();
-  const {cx, cy} = noiseRingCentre(10, 10);
-  G.selfNoise = 0.3;
+  const {bx: cx, by: cy} = battRingCentre(10, 10);
   G.radar = true;
+  G.batt = 60;
 
   draw();
 
   const lastImage = calls.list.map(c => c[0]).lastIndexOf('drawImage');
   const track = calls.list.findIndex(c =>
     c[0] === 'arc' && Math.hypot(c[1] - cx, c[2] - cy) < 4 && Math.abs(c[3] - RING_RADIUS) < 1);
-  t.ok(lastImage >= 0 && track >= 0, 'expected post-processing draws and a ring track');
+  t.ok(lastImage >= 0 && track >= 0, 'expected post-processing draws and a battery ring track');
   t.ok(track > lastImage,
-    `the ring track is call ${track} but the last post-pass drawImage is call ${lastImage}: the CRT would touch the ring`);
+    `the battery ring track is call ${track} but the last post-pass drawImage is call ${lastImage}: the CRT would touch the ring`);
   G.radar = false;
 });
 
@@ -391,14 +231,11 @@ test('the battery tag shows the charge in whole percent, in the ring colour', ()
 test('diegetic HUD draws nothing when the plumber is silent', () => {
   const t = assert;
   setup();
-  const {cx, cy} = noiseRingCentre(10, 10);
   G.radar = false;
   G.battPulseT = 0;
 
   draw();
 
-  t.ok(ringArcs(cx, cy).length === 0,
-    `no noise ring arcs when silent, got ${ringArcs(cx, cy).length}`);
   const {bx, by} = battRingCentre(10, 10);
   const battArcs = calls.list.filter(c =>
     c[0] === 'arc' &&
@@ -408,28 +245,11 @@ test('diegetic HUD draws nothing when the plumber is silent', () => {
   t.ok(battArcs.length === 0, 'no battery ring arcs when radar off and no pulse');
 });
 
-test('the two rings sit at their own heights: noise high, battery low', () => {
-  const t = assert;
-  setup();
-  const {cx, cy} = noiseRingCentre(10, 10);
-  const {bx, by} = battRingCentre(10, 10);
-  G.radar = true;
-  G.batt = 60;
-  G.selfNoise = 0.3;
-  draw();
-  t.ok(ringArcs(cx, cy).length >= 3, 'the noise ring is not 0.3 tile above the plumber');
-  t.ok(calls.list.some(c => c[0] === 'arc' && Math.hypot(c[1] - bx, c[2] - by) < 1 && Math.abs(c[3] - RING_RADIUS) < 1),
-    'the battery ring is not 0.3 tile below the plumber');
-  t.ok(by - cy === 0.6 * TILE, `the rings are ${by - cy}px apart vertically, want ${0.6 * TILE}`);
-  G.radar = false;
-});
-
 test('the tags are 9px bold with a dark outline under the text', () => {
   const t = assert;
   setup();
   G.radar = true;
   G.batt = 60;
-  G.selfNoise = 0.7;
   draw();
   for (const text of ['60%']){
     const fills = calls.list.filter(c => c[0] === 'fillText' && c[1] === text);
@@ -442,5 +262,4 @@ test('the tags are 9px bold with a dark outline under the text', () => {
     t.ok(s[2] === f[2] && s[3] === f[3], `${text}'s outline is not under the text`);
   }
   G.radar = false;
-  G.selfNoise = 0;
 });
