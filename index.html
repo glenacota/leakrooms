@@ -188,10 +188,6 @@
               <div><small>LIVES</small><b class="lives-row" id="pause-lives">&#9679;&#9679;&#9679;</b></div>
               <div><small>TERMS</small><b id="pause-terms">NORMAL</b></div>
             </div>
-            <div class="setrow buttons">
-              <button id="btn-resume">RESUME</button>
-              <button id="btn-reset-run" class="ghost danger">RESTART RUN</button>
-            </div>
           </div>
 
           <!-- Page: field manual. How to play: controls, the screen legend and the
@@ -327,9 +323,11 @@
 
       <div class="order-cta">
         <button id="btn-start" class="shift-only"><b><span class="kbd-only">BEGIN SHIFT</span><span class="touch-only">TAP TO BEGIN</span></b></button>
+        <button id="btn-resume" class="pause-only"><b>RESUME</b></button>
         <span class="cta-hint kbd-only shift-only">OR PRESS <b>ENTER</b> &nbsp;&middot;&nbsp; <b>&larr;&rarr;</b> PAGES &nbsp;&middot;&nbsp; <b>ESC</b> BACK</span>
-        <span class="cta-hint kbd-only pause-only">PRESS <b>ESC</b> TO RESUME THE SHIFT</span>
+        <span class="cta-hint kbd-only pause-only">OR PRESS <b>ENTER</b> &nbsp;&middot;&nbsp; </span>
         <span class="cta-hint touch-only pause-only">TAP <b>RESUME</b> TO RETURN TO THE SHIFT</span>
+        <button id="btn-reset-run" class="ghost danger pause-only"><b>RESTART SHIFT</b></button>
       </div>
       <footer class="screen-footer">
         <p class="footer-left">

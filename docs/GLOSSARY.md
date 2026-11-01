@@ -143,6 +143,9 @@ Code: `graffiti`, `NOTES`.
 From start to the win screen or the loss of the last life. Has a seed.
 Code: `RUN_SEED`, `startRun`.
 
+**Shift**
+Player-facing name for a run: one attempt through all five floors.
+
 **Seed**
 The same seed always builds the same five floors.
 Code: `RUN_SEED`, `setRunSeed`.

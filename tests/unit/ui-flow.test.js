@@ -30,6 +30,10 @@ test('the splash chain walks the riser, then the work order, then the run', () =
   t.assert(!/\bhidden\b/.test(splashHtml), 'the title ships hidden — the boot frame would be a blank canvas');
   t.assert(/class="screen hidden"/.test(binderHtml), 'the binder ships visible over the title');
   t.assert(/id="btn-start"/.test(binderHtml), 'the binder has no start button for btn-start to bind');
+  const cta = binderHtml.match(/<div class="order-cta">([\s\S]*?)<\/div>/)?.[1] || '';
+  for (const id of ['btn-start', 'btn-resume', 'btn-reset-run'])
+    t.assert(cta.includes(`id="${id}"`), `#${id} is not in the shared binder CTA`);
+  t.assert(/id="btn-reset-run"[^>]*>RESTART SHIFT<\/button>/.test(cta), 'reset CTA is not named RESTART SHIFT');
   for (const id of ['menu-start','menu-manual','menu-settings'])
     t.assert(splashHtml.includes(`id="${id}"`), `the title has no #${id}`);
 
@@ -304,41 +308,41 @@ test('the pause screen is the binder with the run written on it', () => {
 
   A.setOption('difficulty','normal');
   document.getElementById('btn-start').click();
-  /* RESTART RUN is the only control that ends a run, so it arms first. */
+  /* RESTART SHIFT is the only control that ends a run, so it arms first. */
   A.togglePause();
   t.assert(A.STATE==='pause' && A.binderTab==='run', 'the binder did not open on the run page for the reset check');
   const resetBtn = els['btn-reset-run'];
-  t.assert(resetBtn, 'the run page has no RESTART RUN button');
+  t.assert(resetBtn, 'the binder has no RESTART SHIFT button');
   const seedBefore = A.RUN_SEED;
   resetBtn.click();
-  t.assert(A.STATE==='pause', 'the first press of RESTART RUN fired — it must arm first');
+  t.assert(A.STATE==='pause', 'the first press of RESTART SHIFT fired — it must arm first');
   t.assert(/TAP AGAIN/.test(resetBtn.textContent), `the armed label reads "${resetBtn.textContent}"`);
-  t.assert(A.RUN_SEED===seedBefore, 'arming RESTART RUN rolled the seed');
-  t.assert(A.resetArmed, 'RESTART RUN did not report itself armed');
+  t.assert(A.RUN_SEED===seedBefore, 'arming RESTART SHIFT rolled the seed');
+  t.assert(A.resetArmed, 'RESTART SHIFT did not report itself armed');
 
   /* An armed reset does not survive the player moving on. */
   A.setBinderTab('manual');
-  t.assert(!A.resetArmed, 'the armed RESTART RUN survived a tab switch');
-  t.assert(!/TAP AGAIN/.test(resetBtn.textContent), 'the button still reads armed after the tab switch');
+  t.assert(!A.resetArmed, 'the armed RESTART SHIFT survived a tab switch');
+  t.assert(resetBtn.textContent==='RESTART SHIFT', `the button reads "${resetBtn.textContent}" after the tab switch`);
   A.setBinderTab('run');
 
   resetBtn.click();
   resetBtn.click();
-  t.assert(A.STATE==='splash', `RESTART RUN did not return to the title (STATE=${A.STATE})`);
-  t.assert(!els['screen-splash'].classList.contains('hidden'), 'RESTART RUN left the title hidden');
-  t.assert(A.RUN_SEED!==seedBefore, 'RESTART RUN kept the seed');
+  t.assert(A.STATE==='splash', `RESTART SHIFT did not return to the title (STATE=${A.STATE})`);
+  t.assert(!els['screen-splash'].classList.contains('hidden'), 'RESTART SHIFT left the title hidden');
+  t.assert(A.RUN_SEED!==seedBefore, 'RESTART SHIFT kept the seed');
   t.assert(G.floor===0 && G.openLeaks===G.totalLeaks && G.clock>=A.FLOOR_CLOCK,
-    'the floor after RESTART RUN is not a fresh floor 0');
-  t.assert(A.lives===A.runLives, 'RESTART RUN did not restore the attempts');
+    'the floor after RESTART SHIFT is not a fresh floor 0');
+  t.assert(A.lives===A.runLives, 'RESTART SHIFT did not restore the attempts');
   t.assert(!els['hud'].classList.contains('on'), 'the HUD stayed up over the title');
 
   const termsKept = A.SETTINGS.difficulty;
   document.getElementById('btn-start').click();
-  t.assert(A.STATE==='play' && A.lives===A.runLives, 'the run after RESTART RUN did not start whole');
-  t.assert(A.SETTINGS.difficulty===termsKept, 'RESTART RUN wiped the chosen terms — preferences are not progress');
+  t.assert(A.STATE==='play' && A.lives===A.runLives, 'the run after RESTART SHIFT did not start whole');
+  t.assert(A.SETTINGS.difficulty===termsKept, 'RESTART SHIFT wiped the chosen terms — preferences are not progress');
 
   A.STATE='play'; A.hideAll();
-  console.log('  pause = the binder with a run page; manual and settings shared; terms chosen at the door; RESTART RUN two-stage');
+  console.log('  pause = the binder with a run page; manual and settings shared; terms chosen at the door; RESTART SHIFT two-stage');
 });
 
 /* The one screen between two levels, asserted on three axes because each of

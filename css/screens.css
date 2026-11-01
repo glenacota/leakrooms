@@ -200,6 +200,8 @@
 
 /* The button row under a ticket. */
 .order-cta{ display:flex; font-weight: 900; align-items:center; gap:18px; flex-wrap:wrap; justify-content:center; }
+#btn-start, #btn-resume{ padding:13px 34px; font-size:13px; letter-spacing:.3em; }
+#btn-reset-run{ padding:10px 15px; }
 .cta-hint{ font-size:12px; letter-spacing:.2em; color:var(--yellow-deep); }
 .cta-hint b{ color:var(--yellow); font-weight:900; }
 
@@ -444,8 +446,8 @@ button:active{ transform:translateY(1px); }
 }
 /* ---------- Short windows: a phone held sideways ---------- */
 
-/* The ticket is taller than 360 to 412 px, and its two buttons that matter (BEGIN
-   and RESUME) used to sit at the bottom of a scroll. So on a short window the
+/* The ticket is taller than 360 to 412 px, and its important controls used to
+   sit at the bottom of a scroll. So on a short window the
    ticket is tightened, the stub stays beside the body instead of stacking under
    it, and the button row sticks to the bottom of the scroll so it is always in
    reach. This is placed after the width queries on purpose: at 740 px wide the
@@ -472,8 +474,8 @@ button:active{ transform:translateY(1px); }
   .setrow.buttons button{
     padding:8px 10px; font-size:11px; letter-spacing:.12em; white-space:nowrap;
   }
-  /* RESUME is right there, so the hint line under it has nothing to add. */
-  #screen-binder[data-binder-mode=pause] .order-cta{ display:none; }
+  #btn-start, #btn-resume{ padding:8px 10px; font-size:11px; letter-spacing:.12em; white-space:nowrap; }
+  #btn-reset-run{ padding:8px 10px; font-size:11px; letter-spacing:.12em; white-space:nowrap; }
   /* The footer links are not worth a strip of a 360 px screen. */
   #screen-binder .screen-footer{ display:none; }
 }
@@ -491,8 +493,6 @@ button:active{ transform:translateY(1px); }
     position:sticky; bottom:0; padding:6px 0;
     background:rgb(12,10,6);
   }
-  /* The run page has its own buttons, and a second bar would sit on them. */
-  #screen-binder[data-binder-mode=pause] .order-cta{ position:static; background:none; }
 }
 
 /* Mode visibility: BEGIN SHIFT and its hint belong to the shift mode, the
@@ -522,4 +522,3 @@ button:active{ transform:translateY(1px); }
   .controls-big b{ font-size:11px; min-width:0; }
   .controls-big span{ font-size:11px; }
 }
-

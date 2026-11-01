@@ -16,8 +16,7 @@ import { isMobileBlocked } from './mobile.js';
    for: start, resume, rewind, run again. */
 export const MODAL_ACTION = {
   splash: ()=>activateMenu(),
-  // Only the work order page begins a shift. On the other tabs ENTER does nothing.
-  binder: ()=>{ if (binderTab==='order') beginShift(); },
+  binder: ()=>beginShift(),
   pause:  ()=>togglePause(),
   clear:  ()=>dismissClear(),
   dead:   ()=>retryFloor(),
@@ -116,7 +115,7 @@ function handleKey(e, k){
 
   /* On the binder, left and right turn the tabs (a focused slider keeps its
      arrows), and the number keys pick terms on the work order page. SPACE
-     begins the shift from the work order. Other keys are consumed so they do
+     begins the shift from any shift tab. Other keys are consumed so they do
      not walk the player off the spawn once the run starts. */
   if (STATE==='binder'){
     if (e.repeat) return true;
@@ -125,7 +124,7 @@ function handleKey(e, k){
       e.preventDefault();
     } else if (binderTab==='order' && handleTermsKey(e)){
       // handled
-    } else if (e.key===' ' && !onAction && binderTab==='order'){
+    } else if (e.key===' ' && !onAction){
       beginShift();
       if (STATE==='play') e.preventDefault();
     }

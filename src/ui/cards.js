@@ -35,6 +35,6 @@ export function bindCards(){
   });
   on('reset', armed => {
     const b = document.getElementById('btn-reset-run');
-    if (b) b.textContent = armed ? 'TAP AGAIN — LOSES THE RUN' : 'RESTART RUN';
+    if (b) b.textContent = armed ? 'TAP AGAIN — LOSES THE SHIFT' : 'RESTART SHIFT';
   });
 }

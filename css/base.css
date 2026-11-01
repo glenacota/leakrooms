@@ -140,6 +140,8 @@ html, body{ overscroll-behavior:none; }
    this width the binder drops its spine and the buttons tighten to one row. */
 @media (max-height:520px) and (max-width:640px){
   .setrow.buttons button{ padding:6px 8px; font-size:10px; letter-spacing:.06em; }
+  #btn-start, #btn-resume{ padding:6px 8px; font-size:10px; letter-spacing:.06em; }
+  #btn-reset-run{ padding:6px 8px; font-size:10px; letter-spacing:.06em; }
 }
 
 /* ---------- Reduced motion ---------- */
