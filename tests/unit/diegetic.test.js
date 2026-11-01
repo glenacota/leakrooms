@@ -8,11 +8,11 @@ const render = A.render;
 
 /* Diegetic ring layout constants, mirrored from src/render/passes/diegetic.js. */
 const TILE   = 40;
-const BATT_Y  = -0.3;
-const SIDE   = 0.9;         /* distance of the ring from the plumber, in tiles */
-const RING_R   = 0.45;      /* radius of the cells' centre line, in tiles */
+const BATT_Y  = 0.3;
+const SIDE   = 1;         /* distance of the ring from the plumber, in tiles */
+const RING_R   = 0.38;      /* radius of the cells' centre line, in tiles */
 const RING_RADIUS = RING_R * TILE; /* 18 px */
-const CELL_LW = 5;
+const CELL_LW = 2;
 const CELLS = 10;
 const UNLIT = 'rgba(230,235,200,0.18)';
 const GREEN = '#8fd07a', DANGER = '#d8503c';

@@ -1,21 +1,15 @@
 /* ============================================================
    DIEGETIC HUD
-   A radar ring pinned to the right of the plumber, instead of a corner gauge.
+   A radar battery ring pinned to the right of the plumber.
    It fades in when it has something to say and fades out when it does not.
-
-     battery — right. Ten cells round the ring, one per second of radar, with
-               the percentage inside. Shows while the radar is on, or right
-               after a battery pickup. Green, red when low.
-
-   The ring sits on a dark disc so it stays readable over a bright floor. It
-   is drawn with canvas paths (the game has no image assets).
+   Ten cells round the ring, one per second of radar, with the percentage 
+   inside. Shows while the radar is on, or right after a battery pickup. 
+   Green, red when low.
 
    Drawn LAST, after the post-processing pass (see render.js), inside the world
    transform. Nothing darkens or tints it: not the light bake, not the radar's
    green, not the CRT effects, the vignette or the danger wash. It still
-   travels with the camera and stays pinned to the player. It uses the same arc
-   idiom as the pipe-repair ring (render/passes/leaks.js) and the door crank
-   (render/entities.js).
+   travels with the camera and stays pinned to the player.
    ============================================================ */
 
 import { G } from '../../sim/state.js';
@@ -24,17 +18,15 @@ import { ctx, SCALE } from '../canvas.js';
 import { TAU } from '../../cast/primitives.js';
 import { TILE, BATT_MAX, BATT_CELLS, BATT_LOW } from '../../config/constants.js';
 
-/* How far above the plumber's centre the battery ring sits, in tiles. It is
-   lower than the ripples' origin, so the two never overlap. */
-const BATT_Y = -0.3;
+/* How far above the plumber's centre the battery ring sits, in tiles. */
+const BATT_Y = 0.3;
 /* How far the ring sits to the right of the plumber's centre, in tiles. The
-   plumber's collision radius is 0.33, so the ring's outer edge (0.9 - 0.45 -
-   half a band) clears the body. */
-const SIDE = 0.9;
-/* Radius of the cells' centre line, in tiles. Big enough for "100%" inside. */
-const RING_R = 0.45;
+   plumber's collision radius is 0.33. */
+const SIDE = 1;
+/* Radius of the cells' centre line, in tiles. */
+const RING_R = 0.38;
 /* Cell thickness, in world pixels. */
-const CELL_LW = 5;
+const CELL_LW = 2;
 /* Each cell spans 36 degrees; this much is trimmed off both ends so the cells
    read as separate steps. */
 const CELL_SPAN = TAU/BATT_CELLS;
@@ -51,9 +43,8 @@ const GREEN  = '#8fd07a';  // same green as the door crank: charged
 const UNLIT  = 'rgba(230,235,200,0.18)';
 const DISC   = 'rgba(12,14,10,0.7)';
 const SCOPE_FACE = 'rgba(143,208,122,0.35)';
-/* The diegetic HUD (rings, discs, sweeps, glyphs, scope, tags) runs at 90%
-   opacity so it reads without fighting the floor brightness behind it. */
-const HUD_OPACITY = 0.8;
+/* The diegetic HUD (rings, discs, sweeps, glyphs, scope, tags) opacity. */
+const HUD_OPACITY = 0.75;
 
 /* How visible the battery ring is, 0 to 1. Render-only. */
 let battAlpha = 0;
