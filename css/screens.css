@@ -47,10 +47,10 @@
 /* The terms are a fixed panel of three buttons and a note. There is nothing
    to open: choosing is the one thing the work order asks for. */
 .terms{
-  border:1px solid rgba(228,230,168,.25); font-weight: 900; font-size:12px;
+  border:1px solid rgba(228,230,168,.25); font-weight: 900; font-size:14px;
   padding:10px 12px; background:rgba(228,230,168,.04);
 }
-.terms .seg button { font-weight: 900; font-size:12px; }
+.seg button { font-weight: 900; font-size:12px; }
 .terms .note{ line-height:1.6; color:var(--yellow-dim); margin-top:8px; }
 .terms .note.fixed{ margin-top:2px; font-size:11px; letter-spacing:.12em; color:var(--yellow-deep); }
 
@@ -65,16 +65,16 @@
 /* The field manual: columns of short sections. */
 .manual-cols{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px 22px; margin-top:48px; }
 .manual-cols h3{
-  font-size:12px; font-weight:900; letter-spacing:.22em; color:var(--yellow);
+  font-size:16px; font-weight:900; letter-spacing:.22em; color:var(--yellow);
   margin:0 0 8px; padding-bottom:4px; border-bottom:1px solid rgba(228,230,168,.2);
 }
 .manual-cols h3:not(:first-child){ margin-top:16px; }
-.manual-cols .notes li{ font-size:13px; }
+.manual-cols .notes li{ font-size:14px; }
 
 /* The screen legend: small drawings of the HUD pieces, in CSS, so a player
    can match a word to the thing on screen. */
 .legend{ margin:0; padding:0; list-style:none; }
-.legend li{ display:flex; gap:10px; align-items:center; padding:5px 0; font-size:13px; line-height:1.4; color:var(--yellow-dim); }
+.legend li{ display:flex; gap:10px; align-items:center; padding:5px 0; font-size:14px; line-height:1.4; color:var(--yellow-dim); }
 .legend li b{ color:var(--yellow); font-weight:900; letter-spacing:.08em; }
 .lg{
   flex:none; width:54px; display:flex; align-items:center; justify-content:center; gap:2px;
