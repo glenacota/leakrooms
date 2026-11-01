@@ -112,8 +112,7 @@ export function boot(){
 
   /* Audio is built now, at boot, so the title screen has its ambient sound.
      Browsers keep the audio context suspended until the player presses a key
-     or clicks; Audio_.unlock() is called from the key handler and from
-     advanceSplash() to resume it.
+     or clicks.
 
      Audio is optional. If the browser has no audio support or setup fails,
      the game still starts, just without sound. */
