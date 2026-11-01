@@ -79,7 +79,7 @@ An open leak is a constant noise source. A SEARCHing lifeform walks to the neare
 
 ## Detection
 
-A lifeform detects you two ways. **Sound** is long range: any sound at or above `LOUD` wakes a dormant lifeform and starts a hunt; quieter sounds turn a wandering lifeform curious (SEARCH) and pull it toward where it heard something. **Sight** is the close-range backstop: an awake lifeform within `SIGHT` tiles (8) that faces you, has nothing between you (`los()`), and you stand in light brighter than `SIGHT_AMBIENT` (0.30) goes straight to `HUNT` and chases you. Standing still keeps your noise down, but it does not make you invisible — if you're lit and in view, an awake lifeform will spot you. The red `seenBy` warning bar rises whenever a lifeform sights you.
+A lifeform detects you two ways. **Sound** is long range: any sound at or above `LOUD` wakes a dormant lifeform and starts a hunt; quieter sounds turn a wandering lifeform curious (SEARCH) and pull it toward where it heard something. **Sight** is the close-range backstop: an awake lifeform within `SIGHT` tiles (8) that faces you, has nothing between you (`los()`), and you stand in light brighter than `SIGHT_AMBIENT` (0.30) goes straight to `HUNT` and chases you. Standing still keeps your noise down, but it does not make you invisible — if you're lit and in view, an awake lifeform will spot you. The red edge wash strengthens whenever a lifeform sights you.
 
 Code: `tickLifeforms`, `seenBy`, `los`, `SIGHT`, `SIGHT_DOT`, `SIGHT_AMBIENT`.
 
@@ -190,12 +190,16 @@ On touch, the stick walks. Pushing it past a threshold sprints. The threshold is
 Code: `pad`, `STICK.SPRINT_PRESETS`.
 
 **Diegetic ring**
-The ring drawn around the plumber: the battery ring on the right.
+The battery meter beside the plumber. It shows charge, and a radar scope when the radar is on. It appears while the radar is on or briefly after a battery pickup.
 Code: `render/passes/diegetic.js`.
 
 **Noise indicators**
-A visual noise indicator using a responsive glow and spreading ripples to represent noise intensity and detection range.
+A glow around the plumber and spreading floor ripples show the plumber's noise. Their strength reflects noise intensity and detection range.
 Code: `render/passes/ripples.js`.
+
+**Awareness wash**
+A red wash at the screen edges that strengthens when a lifeform sees the plumber.
+Code: `G.seenBy`, `render/passes/post.js`.
 
 **HUD panel**
 The small corner panel showing the clock, lives and leak marks.

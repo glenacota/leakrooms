@@ -33,7 +33,11 @@ test('the splash chain walks the riser, then the work order, then the run', () =
   const cta = binderHtml.match(/<div class="order-cta">([\s\S]*?)<\/div>/)?.[1] || '';
   for (const id of ['btn-start', 'btn-resume', 'btn-reset-run'])
     t.assert(cta.includes(`id="${id}"`), `#${id} is not in the shared binder CTA`);
-  t.assert(/id="btn-reset-run"[^>]*>RESTART SHIFT<\/button>/.test(cta), 'reset CTA is not named RESTART SHIFT');
+  t.assert(/id="btn-reset-run"[^>]*>(?:<b>)?RESTART SHIFT(?:<\/b>)?<\/button>/.test(cta), 'reset CTA is not named RESTART SHIFT');
+  t.assert(/<canvas id="manual-battery"[^>]*width="72"[^>]*height="72"/.test(binderHtml),
+    'field manual battery meter is not a 72px canvas');
+  t.assert(calls.list.some(c => c[0] === 'fillText' && c[1] === '33%'),
+    'field manual battery meter was not drawn at 33%');
   for (const id of ['menu-start','menu-manual','menu-settings'])
     t.assert(splashHtml.includes(`id="${id}"`), `the title has no #${id}`);
 

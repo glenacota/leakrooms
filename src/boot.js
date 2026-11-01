@@ -28,6 +28,7 @@ import { mobileVerdict, showMobileNotice, looksHandheld } from './ui/mobile.js';
 import { setFatalHook, setFrameHooks } from './game/loop.js';
 import { adaptResolution } from './render/adaptive.js';
 import { render, setSimAlpha } from './render/render.js';
+import { drawBatteryMeter } from './render/battery-meter.js';
 import { updateHUD, setPrompt, tickTouchHud } from './ui/hud.js';
 import { loadSettings } from './settings/store.js';
 import { RUN_SEED } from './game/run.js';
@@ -63,6 +64,15 @@ export function boot(){
   window.addEventListener('error',              e => showFatal(e.error || e));
   window.addEventListener('unhandledrejection', e => showFatal(e.reason || e));
   document.getElementById('btn-reload').onclick = ()=>globalThis.location?.reload();
+  const manualBattery = document.getElementById('manual-battery');
+  const meterCtx = manualBattery.getContext('2d');
+  if (!meterCtx) throw new Error('2D canvas context unavailable for manual battery meter');
+  meterCtx.save();
+  meterCtx.translate(28, 30);
+  meterCtx.scale(1.3, 1.3);
+  meterCtx.globalAlpha = 0.75;
+  drawBatteryMeter(meterCtx, 0, 0, 83, true, -Math.PI/3);
+  meterCtx.restore();
 
   /* A handheld may start at a lower render scale so it stays under its limit.
      RENDER_START_IDX_HANDHELD is 0 here (full resolution); real device data

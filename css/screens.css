@@ -82,11 +82,14 @@
   min-height:24px; border:1px solid rgba(228,230,168,.25); background:rgba(228,230,168,.05);
 }
 .lg-lives{ color:var(--danger); letter-spacing:.1em; }
-.lg-ring{ border-radius:50%; width:24px; margin:0 15px; height:24px; border:2px solid #8fc4cc; background:none; }
+.lg-battery{ width:54px; height:54px; min-height:54px; border:0; background:none; }
 .lg-noise{ gap:3px; }
 .lg-noise u{ display:block; width:6px; background:var(--yellow-dim); text-decoration:none; }
 .lg-noise u:nth-child(1){ height:6px; } .lg-noise u:nth-child(2){ height:12px; } .lg-noise u:nth-child(3){ height:18px; }
-.lg-seen u{ display:block; width:40px; height:6px; background:var(--danger); text-decoration:none; }
+.lg-seen{
+  width:54px; height:24px; border:0; background:
+    radial-gradient(ellipse at center,transparent 35%,rgba(216,80,60,.75) 100%);
+}
 
 /* ---------- In-game text over the map ---------- */
 
