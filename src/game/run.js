@@ -18,7 +18,7 @@ import { buildFloor } from './floor.js';
    but only this file may assign to them. Changes go through the setter
    functions at the bottom, so there is one place where the run changes. */
 
-// One of: splash | order | clear | play | pause | dead | win
+// One of: splash | binder | clear | play | pause | dead | win
 export let STATE='splash';
 
 // The seed that builds every floor of the run (floor N uses this seed plus N).

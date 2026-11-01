@@ -261,8 +261,8 @@ html:not([data-input=touch]) .touch-only{ display:none !important; }
    default; this brings them up without changing how they look. */
 [data-input=touch] .seg button,
 [data-input=touch] .setrow.buttons button,
-[data-input=touch] .pause-tabs button,
-[data-input=touch] .stamp-terms .chg,
+[data-input=touch] .binder-tabs button,
+[data-input=touch] .title-menu button,
 [data-input=touch] button.ghost,
 [data-input=touch] button.danger{ min-height:40px; }
 

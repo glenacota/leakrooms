@@ -65,7 +65,7 @@ function classesOf(n){
 function dataKeys(n){
   return Object.keys(n.attrs).filter(k => k.startsWith('data-'));
 }
-/* `data-pause-tab` reaches the game as `dataset.pauseTab`: the attribute is
+/* `data-binder-tab` reaches the game as `dataset.binderTab`: the attribute is
    dashed, the property is camel. Getting this backwards leaves an element that
    parses correctly and then answers undefined to everything that reads it. */
 function camel(s){
@@ -97,8 +97,10 @@ const MATCHERS = [
   { sel: '.seg[data-opt]',   test: n => classesOf(n).includes('seg') && dataKeys(n).some(k => k === 'data-opt') },
   { sel: 'input[type=range][data-opt]',
     test: n => n.tag === 'input' && n.attrs.type === 'range' && dataKeys(n).some(k => k === 'data-opt') },
-  { sel: '[data-pause-tab]', test: n => dataKeys(n).some(k => k === 'data-pause-tab') },
-  { sel: '[data-pause-page]',test: n => dataKeys(n).some(k => k === 'data-pause-page') },
+  { sel: '[data-binder-tab]', test: n => dataKeys(n).some(k => k === 'data-binder-tab') },
+  { sel: '[data-binder-page]',test: n => dataKeys(n).some(k => k === 'data-binder-page') },
+  { sel: '[data-binder-for]', test: n => dataKeys(n).some(k => k === 'data-binder-for') },
+  { sel: '[data-menu]',       test: n => dataKeys(n).some(k => k === 'data-menu') },
   { sel: 'button',           test: n => n.tag === 'button' },
 ];
 

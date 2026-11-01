@@ -21,34 +21,36 @@ const byId = id => getElementById(id);
 
 test('[37] the DOM stub resolves the markup it claims to', () => {
   /* Ids: every one the markup declares, and no element for an id it does not. */
-  for (const id of ['game', 'hud', 'val-clock', 'screen-order',
-                    'btn-start', 'btn-retry', 'terms-fold', 'set-master']){
+  for (const id of ['game', 'hud', 'val-clock', 'screen-binder',
+                    'btn-start', 'btn-retry', 'set-master']){
     assert.ok(byId(id), `index.html declares #${id} and the stub has no element for it`);
   }
 
 
   /* The five collection shapes, against the counts the markup declares:
-     eight segmented rows, four range inputs, two pause tabs, two pause pages. */
+     eight segmented rows, four range inputs, four binder tabs, four binder pages. */
   assert.equal(querySelectorAll('.seg[data-opt]').length, 8, 'wrong number of segmented rows');
   assert.equal(querySelectorAll('input[type=range][data-opt]').length, 4, 'wrong number of range inputs');
-  assert.equal(querySelectorAll('[data-pause-tab]').length, 2, 'wrong number of pause tabs');
-  assert.equal(querySelectorAll('[data-pause-page]').length, 2, 'wrong number of pause pages');
+  assert.equal(querySelectorAll('[data-binder-tab]').length, 4, 'wrong number of binder tabs');
+  assert.equal(querySelectorAll('[data-binder-page]').length, 4, 'wrong number of binder pages');
   /* Ten since the fatal card shipped its RELOAD: the markup gained a button, so
      this count moved with it. Thirteen since the touch layer: RESUME, and the
      radar and pause buttons. Seventeen since fullscreen: its glyph, its
-     pause-page button and the two dismiss buttons of the home-screen tip. */
-  assert.equal(querySelectorAll('button').length, 17, 'wrong number of buttons');
+     pause-page button and the two dismiss buttons of the home-screen tip.
+     Twenty-two since the binder: three title menu entries and four tabs, less
+     the old CHANGE link and two pause tabs. */
+  assert.equal(querySelectorAll('button').length, 22, 'wrong number of buttons');
 
   /* Attributes become dataset properties in camelCase — the direction that
-     matters, since `data-pause-tab` is `dataset.pauseTab` and not the reverse. */
-  assert.equal(byId('tab-pause-briefing').dataset.pauseTab, 'briefing');
+     matters, since `data-binder-tab` is `dataset.binderTab` and not the reverse. */
+  assert.equal(byId('tab-binder-manual').dataset.binderTab, 'manual');
   assert.equal(byId('set-master').dataset.opt, 'master');
 
-  /* Initial class state comes from the markup: the briefing page ships hidden,
-     the settings page does not. */
-  const pages = querySelectorAll('[data-pause-page]');
-  const hidden = pages.filter(p => p.classList.contains('hidden')).map(p => p.dataset.pausePage);
-  assert.deepEqual(hidden, ['briefing'], `pages that ship hidden: [${hidden}]`);
+  /* Initial class state comes from the markup: only the work order page
+     ships showing. */
+  const pages = querySelectorAll('[data-binder-page]');
+  const hidden = pages.filter(p => p.classList.contains('hidden')).map(p => p.dataset.binderPage);
+  assert.deepEqual(hidden, ['run', 'manual', 'settings'], `pages that ship hidden: [${hidden}]`);
 });
 
 test('[38] elements behave like elements', () => {
@@ -91,7 +93,7 @@ test('[38] elements behave like elements', () => {
 
   /* closest, for the splash screen's "was that a control?" guard. */
   assert.equal(typeof byId('btn-start').closest('button'), 'object', 'closest missed its own button');
-  assert.equal(byId('terms-fold').closest('button'), null, 'closest invented a button ancestor');
+  assert.equal(byId('note-difficulty').closest('button'), null, 'closest invented a button ancestor');
 
   /* An id the markup does not carry still gets an element: the suite asks for
      ids the game creates at runtime, and those must not start returning null. */

@@ -43,9 +43,10 @@ import {
 import { frame, setFrameHooks } from '../../src/game/loop.js';
 import { hideAll, SCREENS, show } from '../../src/ui/dom.js';
 import { flash, HUD, livesHTML, renderLives, updateHUD, setPrompt } from '../../src/ui/hud.js';
-import { advanceSplash, backSplash, syncAmbience } from '../../src/ui/splash.js';
-import { setTermsOpen, termsOpen } from '../../src/ui/terms.js';
-import { pausePage, setPausePage, togglePause } from '../../src/ui/pause.js';
+import { activateMenu, beginShift, backSplash, syncAmbience, moveMenu, selectMenu, TITLE_MENU } from '../../src/ui/splash.js';
+import { binderMode, binderTab, openBinder, setBinderTab, stepBinderTab } from '../../src/ui/binder.js';
+import { togglePause } from '../../src/ui/pause.js';
+import { setManualSeen, manualSeen } from '../../src/settings/manual-seen.js';
 import { buildSettingsUI, SEGMENTS, syncSettingsUI } from '../../src/ui/settings-panel.js';
 import { bindInput, MODAL_ACTION, toggleMute } from '../../src/ui/input.js';
 import { bindButtons } from '../../src/ui/buttons.js';
@@ -109,7 +110,7 @@ get DIFFICULTIES(){ return DIFFICULTIES; },
 get WATER_TINTS(){ return WATER_TINTS; },
 loadSettings, saveSettings, resetSettings, applySettings, setOption,
 settingsValid, get SETTINGS_KEY(){ return SETTINGS_KEY; },
-advanceSplash, backSplash, show, hideAll, get SCREENS(){ return SCREENS; },
+activateMenu, beginShift, backSplash, moveMenu, selectMenu, TITLE_MENU, setManualSeen, manualSeen, show, hideAll, get SCREENS(){ return SCREENS; },
 nextFloor, dismissClear, get clearCard(){ return clearCard; },
 get STATE(){ return STATE; },
 set STATE(v){ setState(v); },
@@ -148,10 +149,9 @@ paintSplashPlan, rollRunSeed, get RUN_SEED(){ return RUN_SEED; },
 set RUN_SEED(v){ setRunSeed(v); },
 mulberry32, seedSplash,
 togglePause, clockText,
-get pausePage(){ return pausePage; },
-setPausePage,
-get termsOpen(){ return termsOpen; },
-setTermsOpen,
+get binderMode(){ return binderMode; },
+get binderTab(){ return binderTab; },
+openBinder, setBinderTab, stepBinderTab,
 resetRun,
 get resetArmed(){ return resetArmed; },
 get FLOORS(){ return FLOORS; },

@@ -47,7 +47,7 @@ Code: `repair` (seconds of progress), `tickRepair`.
 **Seal**
 A repair that completes. The leak is then `fixed`, and it stops contributing water and noise.
 Code: `sealLeak`, `fixed`.
-Avoid: "fix" for this action. "Fix" is used for code bugs.
+Avoid: "fix" for this action. "Fix" is used for code bugs. Player copy says "SEAL" and "LEAKS SEALED".
 
 **Water and waterline**
 The wetness spreading from every open leak along walkable floor. It moves outward at `LEAK_SPREAD` seconds per tile and drains back at `LEAK_RETREAT` seconds per tile once the last leak is sealed. It is the main clue to where the leaks are.
@@ -114,7 +114,7 @@ Code: `radar` (on, boolean), `RADAR_DRAIN`.
 **Floor**
 One generated building. The five floors make up a run. Each floor's index is `floorIdx` (0 to 4), shown to the player as 1 to 5.
 Code: `floorIdx`, `buildFloor`.
-Avoid: "level" in code. Pending decision (see below).
+Avoid: "level" in player copy and in new code. Player copy says "FLOOR 2/5".
 
 **Level**
 The row of `LEVELS` that gives a floor's leak count and lifeform count. Code-only term.
@@ -154,15 +154,23 @@ Code: `lives`, `runLives`.
 **Terms**
 The difficulty chosen at the door before a run starts. Options: RELAXED, NORMAL, HARD. The choice is stamped on the work order and cannot be changed mid-run.
 Code: `difficulty`, `DIFFICULTIES`, `currentTerms`.
-Avoid: "mode" and "difficulty" in player copy.
+Avoid: "mode" and "difficulty" in player copy. Show "TERMS", with a one-line hint of what each option changes.
 
 **Settings**
 Preferences saved between sessions: volume, ambience, water tint, contrast, CRT intensity, touch options. They are not per run.
 Code: `SETTINGS`, `settings/store.js`.
 
 **Work order**
-The ticket-style screen before the run. It states the scope and the rules, and holds the terms stamp. Pause uses the same ticket style, with live numbers and two pages (settings and briefing).
-Code: `screen-order`, `screen-pause`.
+The first page of the binder before a run. It is the job briefing: contractor, location, job, hazard warning, and the terms chooser. It holds no controls and no how-to-play instructions.
+Code: `data-binder-page="order"` in `#screen-binder`.
+
+**Binder**
+The one screen for everything the player reads or sets outside a run. It has two modes. Shift mode (STATE `binder`) opens from the title with the tabs WORK ORDER, FIELD MANUAL, SETTINGS. Pause mode (STATE `pause`) has the tabs RUN, FIELD MANUAL, SETTINGS. The manual and settings pages are the same markup in both modes. The first CLOCK IN opens the manual; later ones open the work order.
+Code: `#screen-binder`, `src/ui/binder.js`, `src/settings/manual-seen.js`.
+
+**Field manual**
+The how-to-play reference: controls for keyboard and touch, the HUD legend, and the rules (repair, noise, radar, door, clock, lives). One shared page of the binder, reachable from the title menu, the binder tabs and pause. It replaces the pause "briefing" page.
+Avoid: "briefing" for how-to-play. The briefing is the work order.
 
 **Floor clear card**
 The card between two floors, headed "FLOOR SEALED". It shows the clock left over and the next floor's briefing. The next floor is already built behind it, and the clock is frozen while it is up.
@@ -196,4 +204,4 @@ These terms are used inconsistently today. Pick one per row, then update the cod
 
 | Question | Options | Recommendation |
 | --- | --- | --- |
-| Floor or level? | Code uses both. The pause ticket shows "LEVEL 1/5"; the clear card shows "FLOOR". | Use "floor" in code. Changing player copy to "FLOOR" is visible, so confirm first. |
+| Floor or level? | Resolved: "floor". The binder shows "FLOOR 1/5". | Done in the binder redesign. |

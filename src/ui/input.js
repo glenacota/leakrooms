@@ -6,19 +6,18 @@ import { G } from '../sim/state.js';
 import { STATE, dismissClear, retryFloor, runAgain } from '../game/run.js';
 import { resize } from '../render/canvas.js';
 import { flash } from './hud.js';
-import { setPausePage, togglePause, pausePage } from './pause.js';
-import { advanceSplash, backSplash } from './splash.js';
-import { setTermsOpen, termsOpen, handleTermsKey } from './terms.js';
+import { togglePause } from './pause.js';
+import { backSplash, beginShift, activateMenu, moveMenu } from './splash.js';
+import { binderTab, stepBinderTab } from './binder.js';
+import { handleTermsKey } from './terms.js';
 import { isMobileBlocked } from './mobile.js';
 
 /* What ENTER does on each screen. It confirms whatever the screen is asking
    for: start, resume, rewind, run again. */
 export const MODAL_ACTION = {
-  splash: ()=>advanceSplash(),
-  order:  ()=>advanceSplash(),
-  /* The pause screen has no resume button (ESC resumes), so ENTER calls the
-     same toggle directly. Pointing ENTER at a button that is not on screen
-     would leave the key doing nothing. */
+  splash: ()=>activateMenu(),
+  // Only the work order page begins a shift. On the other tabs ENTER does nothing.
+  binder: ()=>{ if (binderTab==='order') beginShift(); },
   pause:  ()=>togglePause(),
   clear:  ()=>dismissClear(),
   dead:   ()=>retryFloor(),
@@ -75,46 +74,27 @@ function handleKey(e, k){
     return true;
   }
 
-  /* ESC with the difficulty chooser open closes the chooser first. The chooser
-     is the top layer of the work order screen, and one mistimed ESC should not
-     throw the player back to the title. This must run before backSplash. */
-  if (e.key==='Escape' && STATE==='order' && termsOpen){
-    setTermsOpen(false);
-    return true;
-  }
-
-  /* ESC walks back through the title screens: work order to title. On the
-     title there is nothing behind it, so it does nothing. */
+  /* ESC goes one step back: from the binder to the title, and from a pause
+     back into the run. It works on every binder tab. On the title there is
+     nothing behind it, so it does nothing. */
   if (e.key==='Escape' && backSplash()) return true;
 
-  /* ESC on the pause screen's Briefing page goes back to the Settings page.
-     Only the Settings page resumes the run. */
-  if (e.key==='Escape' && STATE==='pause' && pausePage!=='settings'){
-    setPausePage('settings');
-    return true;
-  }
+  const inBinder = STATE==='binder' || STATE==='pause';
+  const focused = document.activeElement;
+  const onButton = !!focused && focused.tagName === 'BUTTON';
+  const onSlider = !!focused && focused.tagName === 'INPUT';
+  // A button on the binder (not a tab) handles ENTER and SPACE itself.
+  const onAction = onButton && !(focused.dataset && focused.dataset.binderTab)
+      && !!focused.closest && !!focused.closest('#screen-binder');
 
   if (k==='enter'){
     const act = MODAL_ACTION[STATE];
     let consumed = false;
     // Auto-repeat is ignored, so holding ENTER cannot rush through the title and start a second run.
     if (act && !e.repeat){
-      const focused = document.activeElement;
-      const onButton = focused && focused.tagName === 'BUTTON';
-      /* ENTER closes the difficulty chooser instead of starting the run. The
-         choice is already saved when a term button is clicked, and starting
-         from the key that closed the chooser would clock the player in while
-         they were still reading. preventDefault stops the browser from also
-         pressing the focused button. */
-      if (STATE==='order' && termsOpen){
-        setTermsOpen(false);
-        e.preventDefault();
-        return true;
-      }
-      /* On the pause screen, a focused tab or button handles ENTER itself, so
-         the key is left to the browser instead of resuming the run over it. */
-      if (STATE==='pause' && onButton
-          && focused.closest && focused.closest('#screen-pause')) return false;
+      /* A focused button on the binder handles ENTER itself, so the key is
+         left to the browser instead of starting or resuming over it. */
+      if (inBinder && onAction) return false;
       act();
       if (onButton) focused.blur();           // avoids a second activation by the same ENTER
       consumed = true;
@@ -123,49 +103,54 @@ function handleKey(e, k){
     return consumed;
   }
 
-  /* On the title screen any key advances (once per press, not per auto-repeat).
-     Movement keys count too. ESC is excluded because it goes backwards. */
-  if (STATE==='splash' && e.key!=='Escape' && !e.repeat){
-    advanceSplash();
-    if (STATE==='play') e.preventDefault();
+  /* The title is a three-entry menu: up and down select, ENTER or SPACE
+     confirms. Other keys are consumed so they do not carry into the run. */
+  if (STATE==='splash'){
+    if (e.repeat) return true;
+    if (e.key==='ArrowUp') moveMenu(-1);
+    else if (e.key==='ArrowDown') moveMenu(1);
+    else if (e.key===' ') activateMenu();
+    e.preventDefault();
     return true;
   }
 
-  /* On the work order screen only ENTER, SPACE, or clicking BEGIN SHIFT starts
-     the run. Other keys do nothing and are consumed so they do not carry into
-     the run. ESC still goes back. The difficulty chooser acts like a form. */
-  if (STATE==='order' && !e.repeat && !termsOpen){
-    if (e.key===' '){
-      advanceSplash();
+  /* On the binder, left and right turn the tabs (a focused slider keeps its
+     arrows), and the number keys pick terms on the work order page. SPACE
+     begins the shift from the work order. Other keys are consumed so they do
+     not walk the player off the spawn once the run starts. */
+  if (STATE==='binder'){
+    if (e.repeat) return true;
+    if ((e.key==='ArrowLeft' || e.key==='ArrowRight') && !onSlider){
+      stepBinderTab(e.key==='ArrowRight' ? 1 : -1);
+      e.preventDefault();
+    } else if (binderTab==='order' && handleTermsKey(e)){
+      // handled
+    } else if (e.key===' ' && !onAction && binderTab==='order'){
+      beginShift();
       if (STATE==='play') e.preventDefault();
     }
-    return e.key!=='Escape';
+    return true;
   }
-
-  /* While the chooser is open it owns the number row and the left and right
-     arrows. Every other key is consumed, so it does not walk the player off
-     the spawn once the run starts. */
-  const chooser = STATE==='order' && termsOpen;
-  if (chooser && handleTermsKey(e)) return true;
 
   if (k==='r') toggleRadar();
   if (e.key==='Escape' && (STATE==='play'||STATE==='pause')){
     togglePause();
     return true;
   }
+  if (STATE==='pause' && (e.key==='ArrowLeft' || e.key==='ArrowRight') && !onSlider){
+    stepBinderTab(e.key==='ArrowRight' ? 1 : -1);
+    e.preventDefault();
+    return false;
+  }
   if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key)){
     /* One exception: on the pause screen, arrows move a focused slider and
        space presses a focused button, so those keys belong to the screen.
        Everywhere else they are movement, and preventDefault stops the page
        from scrolling. */
-    if (STATE==='pause'){
-      const el = document.activeElement;
-      if (el && el.closest && el.closest('#screen-pause')
-          && (el.tagName==='INPUT' || el.tagName==='BUTTON')) return chooser;
-    }
+    if (STATE==='pause' && (onSlider || onButton) && focused.closest && focused.closest('#screen-binder')) return false;
     e.preventDefault();
   }
-  return chooser;
+  return false;
 }
 
 // The one keydown handler: the guards, then handleKey, then the key is held unless a screen used it.

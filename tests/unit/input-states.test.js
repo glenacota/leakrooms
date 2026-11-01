@@ -33,7 +33,7 @@ test('[UI] ENTER on every modal screen runs its action without throwing', () => 
     return !err;
   };
 
-  for (const st of ['splash','order','pause','dead','win']) enterOn(st);
+  for (const st of ['splash','binder','pause','dead','win']) enterOn(st);
 
   /* the clear card needs a real descent behind it: nextFloor() is what raises
      the card, and dismissClear() is the action ENTER is wired to */
@@ -48,7 +48,7 @@ test('[UI] ENTER on every modal screen runs its action without throwing', () => 
   t.assert(A.STATE==='play',
     `ENTER on the clear card left STATE '${A.STATE}', want 'play'`);
 
-  console.log('  splash, order, pause, dead, win, clear — all six ENTER actions run');
+  console.log('  splash, binder, pause, dead, win, clear — all six ENTER actions run');
   t.done();
 });
 

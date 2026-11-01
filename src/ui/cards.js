@@ -21,7 +21,7 @@ export function bindCards(){
   });
   on('win', ({ sealed, deaths, noises, floors, time }) => {
     document.getElementById('win-stats').innerHTML =
-      `You sealed <b>${sealed}</b> leaks and got back through the door on all <b>${floors}</b> levels.<br>Deaths: <b>${deaths}</b> &nbsp; Noise made: <b>${noises}</b><br>Time: <b>${Math.floor(time/60)}:${String(Math.floor(time%60)).padStart(2,'0')}</b>`;
+      `You sealed <b>${sealed}</b> leaks and got back through the door on all <b>${floors}</b> floors.<br>Deaths: <b>${deaths}</b> &nbsp; Noise made: <b>${noises}</b><br>Time: <b>${Math.floor(time/60)}:${String(Math.floor(time%60)).padStart(2,'0')}</b>`;
   });
   on('clear:show', () => {
     const el = id => document.getElementById(id);

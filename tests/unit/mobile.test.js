@@ -60,7 +60,7 @@ test('the handheld notice swaps in, and cannot be walked past', () => {
   t.assert(isMobileBlocked(), 'showMobileNotice did not report itself as blocking');
   t.assert(!els['screen-mobile'].classList.contains('hidden'), 'the notice did not come up');
   t.assert(els['screen-splash'].classList.contains('hidden')
-      && els['screen-order'].classList.contains('hidden'),
+      && els['screen-binder'].classList.contains('hidden'),
     'the notice came up without dismissing the screens behind it');
 
   /* A key that would otherwise walk the riser does nothing. */

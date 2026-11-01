@@ -72,7 +72,6 @@ html, body{ overscroll-behavior:none; }
   .order-side .big{ font-size:24px; }
   .order-side .badge{ font-size:16px; }
   .order-side .seed{ font-size:13px; }
-  .stamp-terms{ margin:10px 0 0; }
 
   /* Settings: three columns when there is width for them. minmax(0,...) lets a
      column shrink below its widest control instead of pushing the ticket wider. */
@@ -81,17 +80,17 @@ html, body{ overscroll-behavior:none; }
   @media (min-width:700px){ .settings-grid{ grid-template-columns:repeat(3,minmax(0,1fr)); } }
   .setrow.section{ margin-top:6px; padding-top:0; }
   .setrow.buttons{ margin-top:10px; flex-wrap:wrap; justify-content:flex-start; gap:6px 8px; }
-  .pause-tabs{ margin-bottom:8px; }
+  .binder-tabs{ margin-bottom:8px; }
 
   /* The pause pages scroll inside the ticket. The tab row and the button row
      are pinned, so they stay in reach while the controls move under them. */
-  .pause-page[data-pause-page="settings"],
-  .pause-page[data-pause-page="briefing"]{
+  .binder-page[data-binder-page="settings"],
+  .binder-page[data-binder-page="manual"]{
     max-height:calc(100vh - var(--pause-chrome) - 8px);
     max-height:calc(100dvh - var(--safe-t) - var(--safe-b) - var(--pause-chrome) - 8px);
     overflow-y:auto; padding-right:6px;
   }
-  .pause-tabs{ position:sticky; top:0; z-index:2; background:rgb(12,10,6); }
+  .binder-tabs{ position:sticky; top:0; z-index:2; background:rgb(12,10,6); }
   .setrow.buttons{ position:sticky; bottom:0; z-index:2; padding:6px 0; background:rgb(12,10,6); }
 
   /* The cards: clear, dead, win, the handheld notice and the fatal card. */
@@ -138,11 +137,8 @@ html, body{ overscroll-behavior:none; }
 /* A 568 px phone: with the stub beside it the pause ticket's body is about 260 px
    wide, and its four buttons wrap onto three rows that eat the whole page. The
    stub is only a read-out of the run (the HUD shows the same numbers), so on
-   this width the pause ticket gives its column to the controls, and the
-   buttons tighten to one row. The work order keeps its stub. */
+   this width the binder drops its spine and the buttons tighten to one row. */
 @media (max-height:520px) and (max-width:640px){
-  #screen-pause .order{ grid-template-columns:1fr; }
-  #screen-pause .order-side{ display:none; }
   .setrow.buttons button{ padding:6px 8px; font-size:10px; letter-spacing:.06em; }
 }
 
@@ -154,7 +150,7 @@ html, body{ overscroll-behavior:none; }
   .splash-water,.splash-water::before,.splash-plate .go{ animation:none; }
   /* Hold the water at a fixed height. The rise is a transform, so the
      height is set with scaleY: 0.65 of the 40% band is 26% of the frame. */
-  .splash-water{ transform:scaleY(.65); }
+  .splash-water{ transform:scaleY(.55); }
   /* The floor plan stops scrolling but stays painted, because it shows
      information about the run. */
   .splash-plan canvas,.splash-track{ animation:none; }

@@ -135,7 +135,7 @@ test('[FS] a click on the title requests fullscreen exactly once, in touch mode 
   w.calls.screens['screen-splash'].click();
   assert.equal(w.calls.request, 1);
   w.calls.screens['screen-splash'].click();
-  w.calls.screens['screen-order'].click();
+  w.calls.screens['screen-binder'].click();
   assert.equal(w.calls.request, 1, 'asked again');
 });
 
@@ -165,7 +165,7 @@ test('[FS] ...not from the home screen, and not after the player left fullscreen
   w.doc.fullscreenElement = null;          // ...and the player leaves
   w.calls.handlers.fullscreenchange();
   assert.equal(w.root.dataset.fs, 'off');
-  w.calls.screens['screen-order'].click();
+  w.calls.screens['screen-binder'].click();
   assert.equal(w.calls.request, 0, 'went back in after the player left');
 });
 

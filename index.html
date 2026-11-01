@@ -30,7 +30,7 @@
   Everything lives inside the CRT frame, in this order:
     1. Stage    the game canvas plus the prompt and flash text over it
     2. HUD      the instrument panel of readouts
-    3. Screens  overlays: title, work order, pause, floor clear, death, win
+    3. Screens  overlays: title, binder (work order, field manual, settings, pause), floor clear, death, win
     4. Fatal    the error card (kept separate from the screens)
   All behaviour is in src/ and is loaded as a module at the bottom of the page.
 -->
@@ -94,11 +94,12 @@
        Overlay screens. Only one is visible at a time, and src/ui/dom.js
        switches between them by adding or removing the hidden class.
        The order of this list matches the run:
-         title -> work order -> (play) -> pause / floor clear / death / win -->
+         title -> binder -> (play) -> pause (binder) / floor clear / death / win -->
 
   <!-- ------------ TITLE SCREEN ------------
        The first thing the player sees. Behind the title are the rolling
-       floor plan and the water animation (see splash.css). Any key starts. -->
+       floor plan and the water animation (see splash.css). The menu below the
+       title starts the run, or opens the field manual or the settings. -->
   <div id="screen-splash" class="screen splash">
     <div class="splash-plan"><canvas id="splash-plan"></canvas></div>
     <div class="splash-plan far"><canvas id="splash-plan-far"></canvas></div>
@@ -108,7 +109,13 @@
     <div class="splash-plate">
       <h1>LEAKROOMS</h1>
       <h2>The Backrooms are flooding. <b>Seal the leaks</b>. Get back in one piece.</h2>
-      <p class="go"><span class="kbd-only">PRESS <b>ANY KEY</b></span><span class="touch-only">TAP <b>ANYWHERE</b> TO CLOCK IN</span></p>
+      <!-- The title menu. Entries are bound by src/ui/buttons.js and moved with the arrow keys (src/ui/input.js). -->
+      <nav class="title-menu" aria-label="MAIN MENU">
+        <button type="button" id="menu-clock-in" class="sel" data-menu="clock-in">CLOCK IN <small>START THE GAME</small></button>
+        <button type="button" id="menu-manual" data-menu="manual">FIELD MANUAL <small>HOW TO PLAY</small></button>
+        <button type="button" id="menu-settings" data-menu="settings">SETTINGS</button>
+      </nav>
+      <p class="go kbd-only">&uarr;&darr; SELECT &middot; <b>ENTER</b> CONFIRM</p>
       <p class="fs-hint touch-only" hidden><span>TIP: SHARE, THEN ADD TO HOME SCREEN, TO PLAY WITHOUT BROWSER BARS.</span><button type="button" id="btn-hint-title" aria-label="Dismiss tip">OK</button></p>
     </div>
     <footer class="screen-footer">
@@ -126,115 +133,136 @@
     </footer>
   </div>
 
-  <!-- ------------ WORK ORDER SCREEN ------------
-       The backstory, the rules, the difficulty choice and the controls
-       list, laid out as a paper ticket. Starting the run happens here. -->
-  <div id="screen-order" class="screen hidden">
+  <!-- ------------ BINDER ------------
+       One screen for everything the player reads or sets outside a run. It has
+       two modes (data-binder-mode, written by src/ui/binder.js):
+         shift  before a run, opened from the title. Tabs: WORK ORDER, FIELD MANUAL, SETTINGS.
+                Starting the run happens here.
+         pause  during a run (STATE 'pause'). Tabs: RUN, FIELD MANUAL, SETTINGS.
+       The work order is the job briefing and nothing else. How to play lives
+       in the field manual, which exists once and is shared by both modes. -->
+  <div id="screen-binder" class="screen hidden" data-binder-mode="shift">
     <div class="order-wrap">
-      <div class="order perf">
+      <div class="order perf binder">
+        <div class="binder-spine" aria-hidden="true"><span>LEAKROOMS &middot; CONTRACTOR BINDER</span></div>
         <div class="order-body">
-          <div class="order-head">
-            <h2>WORK ORDER 88D</h2>
-            <p class="meta">CONTRACTOR: <b>ASYNC</b> &middot; LOCATION: <b>SECTOR D, FLOORS 1-5</b></p>
+          <div class="binder-tabs" role="tablist" aria-label="BINDER PAGES">
+            <button type="button" id="tab-binder-order" data-binder-tab="order" data-binder-for="shift" role="tab" aria-selected="true">WORK ORDER</button>
+            <button type="button" id="tab-binder-run" data-binder-tab="run" data-binder-for="pause" role="tab" aria-selected="false">RUN</button>
+            <button type="button" id="tab-binder-manual" data-binder-tab="manual" role="tab" aria-selected="false">FIELD MANUAL</button>
+            <button type="button" id="tab-binder-settings" data-binder-tab="settings" role="tab" aria-selected="false">SETTINGS</button>
           </div>
 
-          <div class="field"><span>SCOPE OF WORK</span></div>
-          <div class="field"><b>Seal every leak. Be back at the door in <span id="order-return">3 minutes</span>.</b></div>
-
-          <div class="field"><span>NOTES FROM THE LAST REPAIRS</span></div>
-          <ul class="notes">
-            <li><b>FOLLOW THE WATER.</b> Wetter floor = closer leaks.</li>
-            <li><b>STAND STILL beside the leak for <span id="order-repair">5 seconds</span> to fix it.</b> It is loud.</li>
-            <li><b>GO BACK the way you came. Seal all leaks to unlock the door.</b></li>
-            <li><b>HOSTILE LIFEFORMS DETECTED. Don't let them <s>kill</s> get you. </b> They hunt by sound at range and sight up close. Walk. Run only when chased.</li>
-            <li><b>THE RADAR reveals the map, not the leaks.</b> It drains power fast. Look for spare batteries throughout the floor.</li>
-          </ul>
-
-          <!-- Difficulty is chosen here, at the door, and nowhere else, so a run
-               keeps the same rules from its first frame to its last. 
-               The buttons in the chooser are built by src/ui/settings-panel.js. -->
-          <div class="stamp-terms">
-            <span class="k">DIFFICULTY:</span>
-            <span class="v" id="order-terms">NORMAL</span>
-            <button class="chg" id="btn-terms-change">CHANGE</button>
-          </div>
-          <div class="terms-fold" id="terms-fold">
+          <!-- Page: work order (shift mode). The job briefing, in the game's voice. -->
+          <div class="binder-page" data-binder-page="order">
+            <div class="order-head">
+              <h2>WORK ORDER 88D</h2>
+              <p class="meta">CONTRACTOR: <b>ASYNC</b> &middot; LOCATION: <b>SECTOR D, FLOORS 1-5</b></p>
+            </div>
+            <div class="field"><span>JOB</span></div>
+            <div class="field"><b>The Backrooms are flooding. Pipes have burst on every floor. Find each leak and seal it, then get back to the door before the clock runs out.</b></div>
+            <div class="field"><span>HAZARD</span></div>
+            <div class="field"><b>Hostile lifeforms detected. They hunt by sound. Stay quiet.</b></div>
+            <div class="field"><span>TERMS</span></div>
+            <!-- Terms are chosen here, before the run, and nowhere else, so a run
+                 keeps the same rules from its first frame to its last. The
+                 buttons are built by src/ui/settings-panel.js. -->
             <div class="terms">
-              <div class="seg" id="set-difficulty" data-opt="difficulty" role="group" aria-label="DIFFICULTY"></div>
+              <div class="seg" id="set-difficulty" data-opt="difficulty" role="group" aria-label="TERMS"></div>
               <p class="note" id="note-difficulty"></p>
+              <p class="note fixed">THE TERMS ARE FIXED ONCE THE SHIFT STARTS.</p>
             </div>
           </div>
-        </div>
 
-        <!-- The stub on the right: run seed and the controls list -->
-        <div class="order-side">
-          <div class="stub-note">
-            <small>CONTROLS</small>
-            <div class="controls controls-big kbd-only">
-              <div><b>WASD / arrows</b><span>move</span></div>
-              <div><b>SHIFT</b><span>sprint</span></div>
-              <div><b>R</b><span>radar</span></div>
-              <div><b>M</b><span>mute</span></div>
-              <div><b>F</b><span>fullscreen</span></div>
-              <div><b>ESC</b><span>pause / settings</span></div>
+          <!-- Page: run (pause mode). The numbers are written by src/ui/pause.js. -->
+          <div class="binder-page hidden" data-binder-page="run">
+            <div class="order-head">
+              <h2>SHIFT PAUSED</h2>
             </div>
-            <div class="controls controls-big touch-only">
-              <div><b>LEFT THUMB</b><span>drag to move</span></div>
-              <div><b>TO THE EDGE</b><span>push to run</span></div>
-              <div><b>LIFT</b><span>hold still</span></div>
-              <div><b>RADAR</b><span>corner button</span></div>
-              <div><b>II</b><span>pause / settings</span></div>
+            <div class="run-stats">
+              <div><small>ON THE CLOCK</small><b id="pause-clock">3:00</b></div>
+              <div><small>FLOOR</small><b id="pause-floor">1/5</b></div>
+              <div><small>LEAKS SEALED</small><b id="pause-leaks">0/1</b></div>
+              <div><small>LIVES</small><b class="lives-row" id="pause-lives">&#9679;&#9679;&#9679;</b></div>
+              <div><small>TERMS</small><b id="pause-terms">NORMAL</b></div>
+            </div>
+            <div class="setrow buttons">
+              <button id="btn-resume">RESUME</button>
+              <button id="btn-reset-run" class="ghost danger">RESTART RUN</button>
             </div>
           </div>
-        </div>
-      </div>
 
-      <div class="order-cta">
-        <button id="btn-start"><b><span class="kbd-only">CLICK TO BEGIN</span><span class="touch-only">TAP TO BEGIN</span></b></button>
-        <span class="cta-hint kbd-only">OR PRESS <b>ENTER</b> &nbsp;&middot;&nbsp; (<b>ESC</b> GOES BACK)</span>
-      </div>
-      <footer class="screen-footer">
-        <p class="footer-left">
-          <a href="https://github.com/glenacota/leakrooms" target="_blank" rel="noopener noreferrer" class="footer-link">
-            <svg class="footer-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
-            <b>glenacota/leakrooms</b>
-          </a>
-          <span>&bull; 2026 &bull;</span>
-          <a href="https://ko-fi.com/A6C827EN29" target="_blank" rel="noopener noreferrer" class="footer-link">
-              <img src="./kofi_logo.png" alt="Buy me a Coffee" class="footer-icon"></span>
-              <b>Buy me a Coffee</b>
-          </a>
-        </p>
-      </footer>
-    </div>
-  </div>
-
-  <!-- ============ PAUSE ============
-       The pause screen reuses the work order ticket and adds the run's live
-       numbers on the stub. It has two pages, switched by the tabs:
-         Settings  
-         Briefing  a reprint of the work order text -->
-  <div id="screen-pause" class="screen hidden">
-    <div class="order-wrap">
-      <div class="order perf">
-        <div class="order-body">
-          <div class="order-head">
-            <h2>MISSION PAUSED</h2>
+          <!-- Page: field manual. How to play: controls, the screen legend and the
+               rules. Plain words, no story. The numbers are written by
+               src/ui/terms.js so they match the chosen terms. -->
+          <div class="binder-page hidden" data-binder-page="manual">
+            <div class="order-head">
+              <h2>FIELD MANUAL</h2>
+            </div>
+            <div class="manual-cols">
+              <section>
+                <h3>CONTROLS</h3>
+                <div class="controls controls-big kbd-only">
+                  <div><b>WASD / arrows</b><span>move</span></div>
+                  <div><b>SHIFT</b><span>sprint (loud)</span></div>
+                  <div><b>R</b><span>radar</span></div>
+                  <div><b>M</b><span>mute</span></div>
+                  <div><b>F</b><span>fullscreen</span></div>
+                  <div><b>ESC</b><span>pause</span></div>
+                </div>
+                <div class="controls controls-big touch-only">
+                  <div><b>LEFT THUMB</b><span>drag to move</span></div>
+                  <div><b>TO THE EDGE</b><span>push to sprint (loud)</span></div>
+                  <div><b>LIFT</b><span>hold still to seal</span></div>
+                  <div><b>RADAR</b><span>corner button</span></div>
+                  <div><b>II</b><span>pause</span></div>
+                </div>
+              </section>
+              <section>
+                <h3>SCREEN LEGEND</h3>
+                <ul class="legend">
+                  <li><i class="lg lg-clock">2:41</i><span><b>CLOCK</b> Time left on this floor. At zero you lose a life.</span></li>
+                  <li><i class="lg lg-lives">&#9679;&#9679;&#9675;</i><span><b>LIVES</b> Each death costs one.</span></li>
+                  <li><i class="lg lg-leaks">1/3</i><span><b>LEAKS SEALED</b> The door opens when all are sealed.</span></li>
+                  <li><i class="lg lg-ring"></i><span><b>BATTERY RING</b> Drawn around you. The radar drains it.</span></li>
+                  <li><i class="lg lg-noise"><u></u><u></u><u></u></i><span><b>NOISE</b> Yours and the building's, shown separately.</span></li>
+                  <li><i class="lg lg-seen"><u></u></i><span><b>RED BAR</b> A lifeform has seen you.</span></li>
+                </ul>
+              </section>
+              <section>
+                <h3>RULES</h3>
+                <ul class="notes">
+                  <li><b>FOLLOW THE WATER.</b> Wetter floor means a leak is closer.</li>
+                  <li><b>SEAL A LEAK.</b> Stand on the spot below it and hold still for <span id="manual-repair">5 seconds</span>. Moving drains the bar. Sealing is loud.</li>
+                  <li><b>USE THE RADAR.</b> It shows the floor map, not the leaks. It drains the battery. Pick up spare batteries.</li>
+                  <li><b>LEAVE BY THE DOOR.</b> It opens only when every leak is sealed.</li>
+                  <li><b>BEAT THE CLOCK.</b> You have <span id="manual-return">3 minutes</span> per floor. At zero you lose a life.</li>
+                </ul>
+                <h3>STEALTH</h3>
+                <ul class="notes">
+                  <li><b>LIFEFORMS HUNT BY SOUND.</b> Walking is quiet. Sprinting, sealing and the door are loud and wake them.</li>
+                  <li><b>THEY ALSO SEE.</b> Up close, in the light, they spot you even when you stand still.</li>
+                  <li><b>WALK.</b> Run only when chased.</li>
+                </ul>
+              </section>
+            </div>
+            <!-- First shift only: shown by src/ui/binder.js. -->
+            <div class="setrow buttons manual-next" id="manual-next" hidden>
+              <button id="btn-manual-next">CONTINUE TO WORK ORDER</button>
+            </div>
           </div>
 
-          <div class="pause-tabs" role="tablist" aria-label="PAUSE PAGES">
-            <button id="tab-pause-settings" data-pause-tab="settings" role="tab" aria-selected="true">SETTINGS</button>
-            <button id="tab-pause-briefing" data-pause-tab="briefing" role="tab" aria-selected="false">BRIEFING</button>
-          </div>
-
-          <!-- Page 1: settings. The controls are wired by src/ui/settings-panel.js. -->
-          <div class="pause-page" data-pause-page="settings">
+          <!-- Page: settings. The controls are wired by src/ui/settings-panel.js. -->
+          <div class="binder-page hidden" data-binder-page="settings">
+            <div class="order-head">
+              <h2>SETTINGS</h2>
+            </div>
             <div class="settings-grid">
 
               <div class="setrow section"><span>AUDIO</span></div>
 
               <div class="setrow">
-                <label for="set-master">VOLUME</label>
+                <label for="set-master">VOL</label>
                 <input type="range" id="set-master" min="0" max="1" step="0.05" data-opt="master">
               </div>
 
@@ -250,12 +278,11 @@
                 <input type="range" id="set-contrast" min="0.4" max="2" step="0.1" data-opt="waterContrast">
               </div>
 
-              
               <div class="setrow">
                 <label for="set-crt">CRT INTENSITY</label>
                 <input type="range" id="set-crt" min="0" max="1" step="0.05" data-opt="crt">
               </div>
-              
+
               <div class="setrow">
                 <span class="lbl">WATER TINT</span>
                 <div class="seg" id="set-hue" data-opt="waterHue" role="group" aria-label="WATER TINT"></div>
@@ -300,66 +327,18 @@
             </div>
 
             <div class="setrow buttons">
-              <button id="btn-resume">RESUME</button>
               <button id="btn-fullscreen" class="ghost touch-only fs-ui">ENTER FULLSCREEN</button>
               <button id="btn-settings-reset" class="ghost">RESET SETTINGS</button>
-              <button id="btn-reset-run" class="ghost danger">RESTART RUN</button>
-            </div>
-          </div>
-
-          <!-- Page 2: briefing. The same text as the work order, so a player can
-               re-read the rules without leaving the run. -->
-          <div class="pause-page hidden" data-pause-page="briefing">
-            <div class="field"><span>SCOPE OF WORK</span></div>
-            <div class="field"><b>Seal every leak. Be back at the door in <span id="brief-return">3 minutes</span>.</b></div>
-
-            <div class="field"><span>NOTES FROM THE LAST REPAIRS</span></div>
-            <ul class="notes">
-              <li><b>FOLLOW THE WATER.</b> Wetter floor = closer leaks.</li>
-              <li><b>STAND STILL beside the leak for <span id="brief-repair">5 seconds</span> to fix it.</b> It is loud.</li>
-              <li><b>GO BACK the way you came. Seal all leaks to unlock the door.</b></li>
-              <li><b>HOSTILE LIFEFORMS DETECTED. Don't let them <s>kill</s> get you. </b> They hunt by sound at range and sight up close. Walk. Run only when chased.</li>
-              <li><b>THE RADAR reveals the map, not the leaks.</b> It drains power fast. Look for spare batteries throughout the floor.</li>
-            </ul>
-          </div>
-        </div>
-
-        <!-- The stub: the run's current numbers, filled in by src/ui/pause.js -->
-        <div class="order-side">
-          <small>ON THE CLOCK</small>
-          <div class="big" id="pause-clock">3:00</div>
-          <small>LEVEL</small>
-          <div class="badge" id="pause-level">1/5</div>
-          <small>LEAKS FIXED</small>
-          <div class="badge" id="pause-leaks">0/1</div>
-          <small>LIVES</small>
-          <div class="seed lives-row" id="pause-lives">&#9679;&#9679;&#9679;</div>
-          <small>DIFFICULTY</small>
-          <div class="badge" id="pause-terms">NORMAL</div>
-          <div class="stub-note">
-            <small>CONTROLS</small>
-            <div class="controls controls-big kbd-only">
-              <div><b>WASD / arrows</b><span>move</span></div>
-              <div><b>SHIFT</b><span>sprint</span></div>
-              <div><b>R</b><span>radar</span></div>
-              <div><b>M</b><span>mute</span></div>
-              <div><b>F</b><span>fullscreen</span></div>
-              <div><b>ESC</b><span>resume</span></div>
-            </div>
-            <div class="controls controls-big touch-only">
-              <div><b>LEFT THUMB</b><span>drag to move</span></div>
-              <div><b>TO THE EDGE</b><span>push to run</span></div>
-              <div><b>LIFT</b><span>hold still</span></div>
-              <div><b>RADAR</b><span>corner button</span></div>
-              <div><b>II</b><span>pause</span></div>
             </div>
           </div>
         </div>
       </div>
 
       <div class="order-cta">
-        <span class="cta-hint kbd-only">PRESS <b>ESC</b> OR <b>ENTER</b> TO RESUME THE MISSION</span>
-        <span class="cta-hint touch-only">TAP <b>RESUME</b> TO RETURN TO THE MISSION</span>
+        <button id="btn-start" class="shift-only"><b><span class="kbd-only">BEGIN SHIFT</span><span class="touch-only">TAP TO BEGIN</span></b></button>
+        <span class="cta-hint kbd-only shift-only">OR PRESS <b>ENTER</b> &nbsp;&middot;&nbsp; <b>&larr;&rarr;</b> PAGES &nbsp;&middot;&nbsp; <b>ESC</b> BACK</span>
+        <span class="cta-hint kbd-only pause-only">PRESS <b>ESC</b> TO RESUME THE SHIFT</span>
+        <span class="cta-hint touch-only pause-only">TAP <b>RESUME</b> TO RETURN TO THE SHIFT</span>
       </div>
       <footer class="screen-footer">
         <p class="footer-left">
@@ -369,7 +348,7 @@
           </a>
           <span>&bull; 2026 &bull;</span>
           <a href="https://ko-fi.com/A6C827EN29" target="_blank" rel="noopener noreferrer" class="footer-link">
-              <img src="./kofi_logo.png" alt="Buy me a Coffee" class="footer-icon"></span>
+              <img src="./kofi_logo.png" alt="Buy me a Coffee" class="footer-icon">
               <b>Buy me a Coffee</b>
           </a>
         </p>
@@ -420,7 +399,7 @@
   <div id="screen-win" class="screen hidden">
     <div class="tape">
       <h1>NOCLIP</h1>
-      <p class="sub">ALL FIVE LEVELS SEALED AND WALKED BACK</p>
+      <p class="sub">ALL FIVE FLOORS SEALED AND WALKED BACK</p>
       <p class="hint" id="win-stats"></p>
       <button id="btn-again">RUN IT AGAIN</button>
     </div>

@@ -80,55 +80,49 @@ test('[36] the controls change what they claim to change', () => {
   teal.click();
   t.assert(A.SETTINGS.waterHue === 'teal', `clicking TEAL left waterHue at ${A.SETTINGS.waterHue}`);
   t.assert(teal.getAttribute('aria-pressed') === 'true', 'the clicked tint did not mark itself pressed');
-  t.assert(el('order-terms').textContent.length > 0, 'the work order stamp is empty after a change');
+  t.assert(el('note-difficulty').textContent.length > 0, 'the terms note is empty after a change');
 
-  /* The pause ticket is two pages of one screen: the tab decides which is up. */
-  const brief = el('tab-pause-briefing');
-  brief.click();
-  const shown = document.querySelectorAll('[data-pause-page]').filter(p => !p.classList.contains('hidden'));
-  t.assert(shown.length === 1 && shown[0].dataset.pausePage === 'briefing',
-    `after clicking BRIEFING the visible pages are [${shown.map(p => p.dataset.pausePage).join(', ')}]`);
-  t.assert(brief.getAttribute('aria-selected') === 'true', 'the briefing tab did not select itself');
+  /* The binder is one screen with pages: the tab decides which is up. */
+  A.STATE = 'binder'; A.openBinder('shift', 'order');
+  const manual = el('tab-binder-manual');
+  manual.click();
+  const shown = document.querySelectorAll('[data-binder-page]').filter(p => !p.classList.contains('hidden'));
+  t.assert(shown.length === 1 && shown[0].dataset.binderPage === 'manual',
+    `after clicking FIELD MANUAL the visible pages are [${shown.map(p => p.dataset.binderPage).join(', ')}]`);
+  t.assert(manual.getAttribute('aria-selected') === 'true', 'the manual tab did not select itself');
 
-  /* And the terms fold is the front door onto the difficulty stamp. Its state is
-     the one thing test 35's sweep disturbs — it clicks every shipped button,
-     CHANGE among them — so normalise it closed before asserting a toggle. */
-  const fold = el('terms-fold');
-  if (fold.classList.contains('open')) el('btn-terms-change').click();
-  el('btn-terms-change').click();
-  t.assert(fold.classList.contains('open'), 'CHANGE did not fold the chooser open');
-  el('btn-terms-change').click();
-  t.assert(!fold.classList.contains('open'), 'CHANGE did not fold the chooser shut again');
+  /* The terms chooser is always open on the work order page: a term button writes the store. */
+  const termsRow = document.querySelectorAll('.seg[data-opt]').find(r => r.dataset.opt === 'difficulty');
+  termsRow.querySelectorAll('button').find(b => b.dataset.value === 'hard').click();
+  t.assert(A.SETTINGS.difficulty === 'hard', `clicking HARD left difficulty at ${A.SETTINGS.difficulty}`);
 
   console.log(`[36] the controls change what they claim to change`);
-  console.log('  slider -> store, tint -> stamp, tab -> page, CHANGE -> fold');
+  console.log('  slider -> store, tint -> note, tab -> page, terms -> store');
   t.done();
 });
 
-/* One click advances one screen. bindButtons() is the single owner of the
-   screen click wiring. On the riser (splash), any click advances. On the work
-   order, only the BEGIN SHIFT button advances — clicking the background does
-   nothing. This prevents a reflex double-tap from skipping the only rules
-   screen. */
-test('[37] a click on a splash screen advances exactly one screen', () => {
+/* The title is a menu. A click on an entry opens the binder on that entry's
+   page, and a click on the background does nothing. On the binder, only the
+   BEGIN SHIFT button starts the run. This prevents a reflex double-tap from
+   skipping the work order. */
+test('[37] the title menu opens the binder, and only BEGIN SHIFT starts the run', () => {
   const t = softAssert();
 
+  A.setManualSeen(true);
   A.hideAll(); A.STATE='splash'; A.show('splash');
   el('screen-splash')._fire('click', { target:{ closest: ()=>null } });
-  t.assert(A.STATE==='order',
-    `one click on the riser left STATE at '${A.STATE}' — the screen listener is bound twice, so the click advanced twice`);
+  t.assert(A.STATE==='splash', `clicking the title background left STATE at '${A.STATE}' — only the menu should leave the title`);
 
-  /* Clicking the work order background does NOT advance. Only btn-start does. */
-  el('screen-order')._fire('click', { target:{ closest: ()=>null } });
-  t.assert(A.STATE==='order',
-    `clicking the work order background advanced to '${A.STATE}' — only btn-start should start the run`);
+  el('menu-clock-in').click();
+  t.assert(A.STATE==='binder' && A.binderTab==='order',
+    `CLOCK IN left STATE '${A.STATE}' on tab '${A.binderTab}' — a returning player should land on the work order`);
 
-  /* Clicking BEGIN SHIFT starts the run. */
+  el('screen-binder')._fire('click', { target:{ closest: ()=>null } });
+  t.assert(A.STATE==='binder', `clicking the binder background advanced to '${A.STATE}'`);
+
   el('btn-start').click();
-  t.assert(A.STATE==='play',
-    `clicking btn-start left STATE at '${A.STATE}' — the BEGIN SHIFT button did not clock the player in`);
+  t.assert(A.STATE==='play', `clicking btn-start left STATE at '${A.STATE}'`);
 
-  console.log('[37] a click on a splash screen advances exactly one screen');
-  console.log('  one listener per screen: click -> order, btn-start -> play, no skipped ticket');
+  console.log('[37] the title menu opens the binder, and only BEGIN SHIFT starts the run');
   t.done();
 });

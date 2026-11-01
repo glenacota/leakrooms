@@ -62,16 +62,16 @@
   position:absolute; left:0; right:0; bottom:0; height:100%;
   transform-origin:50% 100%;
   background:linear-gradient(180deg,#8fc4cc 0 3px,#3c5a60 4px 55%,#1d2f34 100%);
-  background-size:100% 40%;
+  background-size:100% 50%;
   background-position:bottom;
   background-repeat:no-repeat;
-  animation:rise 9s cubic-bezier(.2,.7,.3,1) infinite alternate;
+  animation:rise 20s cubic-bezier(.2,.3,.3,1) infinite alternate;
 }
 
 /* The wavy crest line. bottom:40% puts it on the top edge of the painted
    band, so it moves with the waterline. */
 .splash-water::before{
-  content:""; position:absolute; left:-50%; bottom:40%; margin-bottom:-3px;
+  content:""; position:absolute; left:-50%; bottom:50%; margin-bottom:-3px;
   width:200%; height:6px;
   background:repeating-linear-gradient(90deg,#8fc4cc 0 18px,transparent 18px 36px);
   animation:drift 3.4s linear infinite; opacity:.55;
@@ -99,12 +99,34 @@
   font-weight: 500;
   /* text-transform: uppercase; */
 }
+
 .splash-plate .go{
   margin:34px 0 0; font-size:14px; letter-spacing:.3em; font-weight: 900;
   animation:pulse 2.2s ease-in-out infinite;
 }
 .splash-plate .go b{ color:var(--ink); background:var(--yellow); font-weight: 900; padding:2px 8px; }
 @keyframes pulse{ 50%{ opacity:.35 } }
+
+/* The title menu: three entries in a column. The selected one is filled, the
+   same "filled is active" rule the tabs and settings buttons use. */
+.title-menu{ display:flex; flex-direction:column; align-items:center; gap:8px; margin:30px 0 0; }
+.title-menu button{
+  min-width:260px; width: 350px; padding:10px 22px; font-size:15px; font-weight:900; letter-spacing:.3em;
+  background:rgba(6,5,3,.6); color:var(--yellow-dim);
+  border:1px solid rgba(228,230,168,.35); cursor:pointer;
+}
+.title-menu button small{ font-size:10px; letter-spacing:.2em; margin-left:8px; opacity:.7; }
+.title-menu button.sel, .title-menu button:focus-visible{
+  background:var(--yellow); color:var(--ink); border-color:var(--yellow);
+}
+@media (hover:hover){
+  .title-menu button:hover{ background:var(--yellow); color:var(--ink); border-color:var(--yellow); }
+}
+.splash-plate .title-menu + .go{ margin-top:18px; animation:none; opacity:.8; }
+@media (max-height:480px){
+  .title-menu{ margin-top:12px; gap:5px; }
+  .title-menu button{ padding:6px 18px; font-size:12px; }
+}
 
 /* ---------- Work order and pause ticket frame ---------- */
 
@@ -116,7 +138,7 @@
   max-height:calc(94dvh - var(--safe-t) - var(--safe-b));
   display:flex; flex-direction:column; align-items:center; gap:18px;
 }
-#screen-order, #screen-pause{ background:rgba(6,5,3,.95); }
+#screen-binder{ background:rgba(6,5,3,.95); }
 /* Two columns: the main body and a 250px stub on the right. */
 .order{
   width:100%;

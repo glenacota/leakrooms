@@ -1,6 +1,7 @@
 import { Audio_ } from '../audio/index.js';
 import { setState, startRun, STATE } from '../game/run.js';
-import { setTermsOpen } from './terms.js';
+import { markManualSeen, manualSeen } from '../settings/manual-seen.js';
+import { openBinder } from './binder.js';
 import { show } from './dom.js';
 
 /* Starts or stops the ambient room sound to match the current state. It
@@ -8,28 +9,59 @@ import { show } from './dom.js';
    pause screen appears, and the title sound must not leak into the pause menu.
 
    The floor clear card counts as a menu: the room hum keeps playing under it.
-   What stops there is the level's own sound (the leak and noise beds), which
+   What stops there is the floor's own sound (the leak and noise beds), which
    is closed by the 'state' event. */
 export function syncAmbience(){
-  Audio_.ambience(STATE==='splash' || STATE==='order' || STATE==='clear');
+  Audio_.ambience(STATE==='splash' || STATE==='binder' || STATE==='clear');
 }
 
-/* Moves one step forward: title to work order, then work order to the run.
-   Called by key presses, clicks and ENTER, so all three behave the same. */
-export function advanceSplash(){
-  if (STATE==='splash'){
-    setState('order');
-    show('order');
-  } else if (STATE==='order'){
-    // Close the difficulty chooser on the way in, so the next time this ticket is seen it shows the chosen terms and not an open fold.
-    setTermsOpen(false);
-    startRun();
-  }
+/* The title menu. Each entry opens the binder, on the page named here. CLOCK IN
+   opens the field manual on the first shift only, so a new player reads the
+   controls once and a returning player goes straight to the work order. */
+export const TITLE_MENU = ['clock-in', 'manual', 'settings'];
+export let menuIndex = 0;
+
+function paintMenu(){
+  TITLE_MENU.forEach((name, i)=>{
+    const el = document.getElementById('menu-' + (name==='clock-in' ? 'clock-in' : name));
+    if (el){ el.classList.toggle('sel', i===menuIndex); el.setAttribute('aria-current', String(i===menuIndex)); }
+  });
+}
+
+/** Moves the title menu selection, wrapping at the ends. @param {number} delta */
+export function moveMenu(delta){
+  menuIndex = (menuIndex + delta + TITLE_MENU.length) % TITLE_MENU.length;
+  paintMenu();
+}
+
+/** Sets the title menu selection by name or index. @param {string|number} which */
+export function selectMenu(which){
+  const i = typeof which==='number' ? which : TITLE_MENU.indexOf(which);
+  if (i >= 0){ menuIndex = i; paintMenu(); }
+}
+
+/** Opens the binder from the title for the selected (or given) menu entry. @param {string} [entry] */
+export function activateMenu(entry){
+  if (STATE!=='splash') return;
+  if (entry) selectMenu(entry);
+  const name = TITLE_MENU[menuIndex];
+  const tab = name==='clock-in' ? (manualSeen() ? 'order' : 'manual')
+            : name==='manual' ? 'manual' : 'settings';
+  setState('binder');
+  openBinder('shift', tab);
+  show('binder');
   syncAmbience();
 }
 
-// ESC: one step back (work order to title). Returns false when there is nothing behind the current screen.
+/** BEGIN SHIFT: records that the manual had its chance, then starts the run. */
+export function beginShift(){
+  markManualSeen();
+  startRun();
+  syncAmbience();
+}
+
+// ESC: one step back (binder to title). Returns false when there is nothing behind the current screen.
 export function backSplash(){
-  if (STATE==='order'){ setState('splash'); show('splash'); syncAmbience(); return true; }
+  if (STATE==='binder'){ setState('splash'); show('splash'); syncAmbience(); return true; }
   return false;
 }

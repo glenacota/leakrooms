@@ -1,7 +1,7 @@
-import { dismissClear, retryFloor, runAgain, startRun, STATE, armReset, resetArmed, resetRun } from '../game/run.js';
-import { advanceSplash } from './splash.js';
-import { togglePause, setPausePage } from './pause.js';
-import { setTermsOpen, termsOpen } from './terms.js';
+import { dismissClear, retryFloor, runAgain, STATE, armReset, resetArmed, resetRun } from '../game/run.js';
+import { activateMenu, beginShift } from './splash.js';
+import { togglePause } from './pause.js';
+import { setBinderTab } from './binder.js';
 import { toggleFullscreen, dismissHint } from './fullscreen.js';
 import { resetSettings } from '../settings/store.js';
 import { syncSettingsUI } from './settings-panel.js';
@@ -11,7 +11,7 @@ import { syncSettingsUI } from './settings-panel.js';
    same listener twice is not harmless: one click on the title screen would
    advance twice and skip the work order. */
 export function bindButtons(){
-  document.getElementById('btn-start').onclick   = ()=>startRun();
+  document.getElementById('btn-start').onclick   = ()=>beginShift();
   document.getElementById('btn-descend').onclick = ()=>dismissClear();
   document.getElementById('btn-retry').onclick   = ()=>retryFloor();
   document.getElementById('btn-again').onclick   = ()=>runAgain();
@@ -26,25 +26,18 @@ export function bindButtons(){
   for (const id of ['btn-hint-title','btn-hint-pause'])
     document.getElementById(id).onclick = ()=>dismissHint();
 
-  /* Clicking the BEGIN SHIFT button on the work order screen starts the run.
-     Clicking anywhere else on the title or work order screen does nothing.
-     Clicking on a control (button, slider, difficulty chooser) is a choice and
-     not an advance. While the difficulty chooser is open, a click on the
-     background closes it, the same as ESC. */
-  for (const id of ['screen-splash','screen-order']){
-    const el = document.getElementById(id);
-    if (el) el.addEventListener('click', (e)=>{
-      if (e.target.closest && e.target.closest('button, input, .terms-fold')) return;
-      if (STATE==='order' && termsOpen){ setTermsOpen(false); return; }
-      if (STATE==='splash') advanceSplash();
-    });
-  }
+  /* The title menu buttons open the binder. A click on the title background
+     does nothing: the menu is the only way in. */
+  for (const el of document.querySelectorAll('[data-menu]'))
+    el.onclick = ()=> activateMenu(el.dataset.menu);
+
+  // CONTINUE TO WORK ORDER ends the first-shift manual.
+  const next = document.getElementById('btn-manual-next');
+  if (next) next.onclick = ()=> setBinderTab('order');
   const resetSettingsBtn = document.getElementById('btn-settings-reset');
   if (resetSettingsBtn) resetSettingsBtn.onclick = ()=>{ resetSettings({keepTerms:true}); syncSettingsUI(); };
-  for (const tab of document.querySelectorAll('[data-pause-tab]'))
-    tab.onclick = ()=> setPausePage(tab.dataset.pauseTab);
-  const change = document.getElementById('btn-terms-change');
-  if (change) change.onclick = ()=> setTermsOpen(!termsOpen);
+  for (const tab of document.querySelectorAll('[data-binder-tab]'))
+    tab.onclick = ()=> setBinderTab(tab.dataset.binderTab);
   const resetRunBtn = document.getElementById('btn-reset-run');
   if (resetRunBtn) resetRunBtn.onclick = ()=>{
     if (!resetArmed){ armReset(); return; }

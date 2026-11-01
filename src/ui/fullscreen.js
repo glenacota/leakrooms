@@ -195,7 +195,7 @@ export function initFullscreen(env = realEnv(), deps = {}){
     doc.addEventListener('fullscreenchange', onChange);
     doc.addEventListener('webkitfullscreenchange', onChange);
   }
-  for (const id of ['screen-splash', 'screen-order']){
+  for (const id of ['screen-splash', 'screen-binder']){
     const el = byId(id);
     if (el && el.addEventListener) el.addEventListener('click', onScreenClick);
   }

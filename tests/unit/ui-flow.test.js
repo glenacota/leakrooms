@@ -20,23 +20,26 @@ test('the splash chain walks the riser, then the work order, then the run', () =
   const html = readHtml();
   const css  = readCss();
 
-  /* The markup contract: both splash screens are present, and only the riser
-     ships visible. */
+  /* The markup contract: the title and the binder are present, and only the
+     title ships visible. */
   t.assert(!/screen-title/.test(html), 'the old title screen is still wired into index.html');
-  const splashHtml = html.slice(html.indexOf('id="screen-splash"'), html.indexOf('id="screen-order"'));
-  const orderHtml  = html.slice(html.indexOf('id="screen-order"'), html.indexOf('id="screen-pause"'));
-  t.assert(splashHtml.length>0 && orderHtml.length>0, 'the splash or work-order screen is missing from index.html');
-  t.assert(/LEAKROOMS/.test(splashHtml), 'splash 03 does not show the title');
-  t.assert(!/\bhidden\b/.test(splashHtml), 'splash 03 ships hidden — the boot frame would be a blank canvas');
-  t.assert(/class="screen hidden"/.test(orderHtml), 'work order 04 ships visible over the riser');
-  t.assert(/id="btn-start"/.test(orderHtml), 'work order 04 has no clock-in button for btn-start to bind');
+  const splashHtml = html.slice(html.indexOf('id="screen-splash"'), html.indexOf('id="screen-binder"'));
+  const binderHtml = html.slice(html.indexOf('id="screen-binder"'), html.indexOf('id="screen-clear"'));
+  t.assert(splashHtml.length>0 && binderHtml.length>0, 'the title or the binder is missing from index.html');
+  t.assert(/LEAKROOMS/.test(splashHtml), 'the title does not show the name');
+  t.assert(!/\bhidden\b/.test(splashHtml), 'the title ships hidden — the boot frame would be a blank canvas');
+  t.assert(/class="screen hidden"/.test(binderHtml), 'the binder ships visible over the title');
+  t.assert(/id="btn-start"/.test(binderHtml), 'the binder has no clock-in button for btn-start to bind');
+  for (const id of ['menu-clock-in','menu-manual','menu-settings'])
+    t.assert(splashHtml.includes(`id="${id}"`), `the title has no #${id}`);
 
-  /* The controls summary is the reason the work order screen exists. */
+  /* The controls live in the field manual page, and only there. */
+  const manualHtml = binderHtml.slice(binderHtml.indexOf('data-binder-page="manual"'), binderHtml.indexOf('data-binder-page="settings"'));
   for (const key of ['WASD','SHIFT','ESC']){
-    t.assert(new RegExp('>'+key+'[^<]*<').test(orderHtml), `work order 04 never lists ${key}`);
+    t.assert(new RegExp('>'+key+'[^<]*<').test(manualHtml), `the field manual never lists ${key}`);
   }
-  t.assert(/>R</.test(orderHtml), 'work order 04 never lists R, the radar');
-  t.assert(/>M</.test(orderHtml), 'work order 04 never lists M, the mute');
+  t.assert(/>R</.test(manualHtml), 'the field manual never lists R, the radar');
+  t.assert(/>M</.test(manualHtml), 'the field manual never lists M, the mute');
 
   /* Legibility, not just presence: the requirement is a floor on rendered size,
      not the existence of the text. */
@@ -61,69 +64,64 @@ test('the splash chain walks the riser, then the work order, then the run', () =
   A.hideAll(); A.STATE='splash'; A.show('splash');
   t.assert(vis().join()==='splash', `boot shows ${vis().join()||'nothing'}, expected the riser`);
 
+  A.setManualSeen(true);
   press('Enter');
-  t.assert(A.STATE==='order', `ENTER on the riser left STATE at ${A.STATE}`);
-  t.assert(vis().join()==='order', `ENTER showed ${vis().join()||'nothing'}, expected the work order alone`);
-  
-  press('Escape');
-  t.assert(A.STATE==='splash' && vis().join()==='splash', 'ESC did not walk back to the riser');
-  press('Escape');
-  t.assert(A.STATE==='splash', 'ESC on the riser advanced anyway — there is nothing behind it');
+  t.assert(A.STATE==='binder', `ENTER on the title left STATE at ${A.STATE}`);
+  t.assert(vis().join()==='binder', `ENTER showed ${vis().join()||'nothing'}, expected the binder alone`);
+  t.assert(A.binderTab==='order', `a returning player landed on '${A.binderTab}', expected the work order`);
 
+  press('Escape');
+  t.assert(A.STATE==='splash' && vis().join()==='splash', 'ESC did not walk back to the title');
+  press('Escape');
+  t.assert(A.STATE==='splash', 'ESC on the title advanced anyway — there is nothing behind it');
+
+  /* The title is a menu: an ordinary key does nothing, the arrows pick an entry. */
   press('q');
-  t.assert(A.STATE==='order', 'an ordinary key did not advance the splash');
+  t.assert(A.STATE==='splash', 'an ordinary key advanced the title');
+  press('ArrowDown');
+  press('Enter');
+  t.assert(A.STATE==='binder' && A.binderTab==='manual', `FIELD MANUAL entry opened '${A.binderTab}'`);
+  press('ArrowRight');
+  t.assert(A.binderTab==='settings', 'the right arrow did not turn to the next tab');
+  press('Escape');
+  t.assert(A.STATE==='splash', 'ESC on a non-order tab did not go back to the title');
 
-  /* While the chooser is open the work order is a form: an ordinary key must not
-     clock the player in or stay held, and both dismiss keys fold the chooser
-     shut before they do anything else. */
-  A.setTermsOpen(true);
-  t.assert(A.termsOpen, 'the terms chooser did not open');
+  /* A first-time player's CLOCK IN opens the manual. */
+  A.setManualSeen(false);
+  A.selectMenu('clock-in');
+  press('Enter');
+  t.assert(A.binderTab==='manual', 'the first CLOCK IN did not open the field manual');
+  t.assert(!els['manual-next'].classList.contains('hidden'), 'the first-shift manual has no way on');
+  t.assert(A.STATE==='binder', 'the manual blocked or skipped the binder');
+  press('Escape');
+  A.setManualSeen(true);
 
-  press('w');
-  t.assert(A.STATE==='order', 'a key with the terms chooser open clocked the player in');
-  t.assert(!A.keys['w'], 'a key swallowed by the chooser stayed held — the player walks on spawn');
-
+  A.selectMenu('clock-in');
+  press('Enter');
+  /* Terms are picked with the number keys on the work order page. */
   const at = ()=> A.SETTINGS.difficulty;
   press('1');
   t.assert(at()==='relaxed', 'the 1 key did not pick the first term');
   press('3');
   t.assert(at()==='hard', 'the 3 key did not pick the last term');
-  press('ArrowRight');
-  t.assert(at()==='relaxed', 'the arrow keys did not cycle the terms');
-  press('ArrowLeft');
-  t.assert(at()==='hard', 'the arrow keys did not cycle back');
-
-  press('Enter');
-  t.assert(A.STATE==='order', 'ENTER with the chooser open clocked the player in instead of folding it shut');
-  t.assert(!A.termsOpen, 'ENTER did not fold the terms chooser shut');
-
-  A.setTermsOpen(true);
-  press('Escape');
-  t.assert(A.STATE==='order', 'ESC with the chooser open left the ticket instead of folding it shut');
-  t.assert(!A.termsOpen, 'ESC did not fold the terms chooser shut');
-
-  /* The guard covers the open fold only. ESC on a shut chooser walks the chain. */
-  press('Escape');
-  t.assert(A.STATE==='splash', 'ESC with the chooser shut did not walk back to the riser');
-  press('q');
-
-  /* With the chooser shut the frame is a splash again. */
-  A.setOption('difficulty','normal');
   press('w');
-  t.assert(A.STATE==='order', `the clock-in with a hotkey different than Enter started the run (STATE=${A.STATE})`);
-  press('Enter');
-  t.assert(A.STATE==='play', `the clock-in did not start the run (STATE=${A.STATE})`);
-  t.assert(!A.keys['w'], 'the key that dismissed the splash is still held — the player walks before they can react');
+  t.assert(A.STATE==='binder', 'an ordinary key on the work order clocked the player in');
+  t.assert(!A.keys['w'], 'a key swallowed by the binder stayed held — the player walks on spawn');
+
+  A.setOption('difficulty','normal');
+  press(' ');
+  t.assert(A.STATE==='play', `SPACE on the work order did not start the run (STATE=${A.STATE})`);
+  t.assert(!A.keys['w'], 'a key that was swallowed by the binder is still held');
   t.assert(els['hud'].classList.contains('on'), 'the HUD did not come up with the run');
   t.assert(vis().length===0, `${vis().join()} still up on top of the run`);
 
   /* Auto-repeat is how a held key behaves, and it must not advance twice. */
   A.hideAll(); A.STATE='splash'; A.show('splash');
   press('Enter', {repeat:true});
-  t.assert(A.STATE==='splash', 'an auto-repeating ENTER advanced the splash');
+  t.assert(A.STATE==='splash', 'an auto-repeating ENTER advanced the title');
   press('Enter');
   press('Enter', {repeat:true});
-  t.assert(A.STATE==='order', 'an auto-repeating ENTER skipped the work order and started the run');
+  t.assert(A.STATE==='binder', 'an auto-repeating ENTER skipped the work order and started the run');
   press('Enter');
   t.assert(A.STATE==='play', `two ENTER presses on the chain did not reach the run (STATE=${A.STATE})`);
 
@@ -138,7 +136,7 @@ test('the splash chain walks the riser, then the work order, then the run', () =
     A.loadSettings();
     return s;
   };
-  for (const st of ['splash','order','pause','dead','win']){
+  for (const st of ['splash','binder','pause','dead','win']){
     A.STATE = st;
     t.assert(mutedAt()===false || typeof mutedAt()==='boolean',
       `could not read the muted flag in state ${st}`);
@@ -174,7 +172,7 @@ test('the splash plan is painted from the seed the run uses', () => {
   const t = softAssert();
   const html = readHtml();
   const css  = readCss();
-  const splashHtml = html.slice(html.indexOf('id="screen-splash"'), html.indexOf('id="screen-order"'));
+  const splashHtml = html.slice(html.indexOf('id="screen-splash"'), html.indexOf('id="screen-binder"'));
 
   /* Two layers plus the tape pass over the plan. */
   t.assert(/id="splash-plan"/.test(splashHtml),  'the splash has no plan canvas');
@@ -219,93 +217,30 @@ test('the splash plan is painted from the seed the run uses', () => {
   t.assert(G.seed===A.RUN_SEED, 'the re-rolled seed did not reach the level');
   console.log(`  plan rolls at two speeds, faded to ${op?op[1]:'?'}, loops seamlessly, and matches seed #${(A.RUN_SEED>>>0).toString(16)}`);;
 });
-/* The work order and the pause modal are the same document, which is a design
-   claim worth asserting: same ticket markup, same controls block, and numbers
-   that belong to the run in front of you rather than the static splash copy. */
-test('the pause screen shows the work order with the run written on it', () => {
+/* The work order and the pause screen are one binder: the manual and settings
+   pages are the same markup in both modes, so they cannot drift apart. The RUN
+   page carries numbers that belong to the run in front of you. */
+test('the pause screen is the binder with the run written on it', () => {
   const t = softAssert();
   const html = readHtml();
-  const splash = html.slice(html.indexOf('id="screen-splash"'));
-  const order  = html.slice(html.indexOf('id="screen-order"'),  html.indexOf('id="screen-pause"'));
-  const pause  = html.slice(html.indexOf('id="screen-pause"'),   html.indexOf('id="screen-dead"'));
-  t.assert(pause.length>0, 'the pause screen is missing from index.html');
+  const binder = html.slice(html.indexOf('id="screen-binder"'), html.indexOf('id="screen-clear"'));
+  t.assert(binder.length>0, 'the binder is missing from index.html');
+  t.assert(!/id="screen-pause"/.test(html) && !/id="screen-order"/.test(html),
+    'an old order or pause screen is still in index.html');
+  t.assert(!/id="screen-settings"/.test(html), 'the settings modal is still in index.html');
 
-  /* Same furniture: the pause screen is the ticket. */
-  t.assert(/class="order perf"/.test(pause), 'the pause screen is not the ticket');
-  t.assert(!/class="tape"/.test(pause), 'the pause screen still has its own layout');
-
-  /* The settings rows live inside the ticket, not in a modal of their own. */
-  t.assert(!/id="screen-settings"/.test(html),
-    'the settings modal is still in index.html — the settings belong on the ticket');
+  const page = name => {
+    const at = binder.indexOf(`data-binder-page="${name}"`);
+    return at < 0 ? '' : binder.slice(at);
+  };
+  t.assert(/id="set-difficulty"/.test(page('order')) && !/id="set-difficulty"/.test(page('run')),
+    'the terms chooser must be on the work order page, and not on the run page');
   for (const id of ['set-master','set-hue','set-contrast','btn-settings-reset'])
-    t.assert(new RegExp('id="'+id+'"').test(pause),
-      `the pause ticket has no ${id} — a settings row left the ticket`);
-  t.assert(pause.indexOf('id="set-master"') > pause.indexOf('class="order perf"'),
-    'the settings rows are outside the ticket instead of inside it');
-
-  /* Difficulty is not one of them. The terms are taken at the door and the run is
-     built with whatever the stamp says, so a difficulty control on the pause
-     ticket would rewrite FLOOR_CLOCK under a floor already being played. */
-  t.assert(!/id="set-difficulty"/.test(pause),
-    'the difficulty chooser is still on the pause ticket — the terms belong at the door');
-  t.assert(!/id="note-difficulty"/.test(pause),
-    'the difficulty note is still on the pause ticket');
-  t.assert(/id="set-difficulty"/.test(order)
-         && order.indexOf('id="set-difficulty"') > order.indexOf('class="order perf"'),
-    'the work order has no terms chooser inside the ticket');
-  t.assert(/id="order-terms"/.test(order) && /id="btn-terms-change"/.test(order),
-    'the work order has no SHIFT TERMS stamp or no CHANGE link');
-  t.assert(/id="pause-terms"/.test(pause),
-    'the pause ticket does not print the shift terms the run is on');
-  
-  /* The briefing is a page of the ticket too. */
-  t.assert(/data-pause-page="briefing"/.test(pause), 'the pause ticket has no briefing page');
-  t.assert(/data-pause-tab="settings"/.test(pause) && /data-pause-tab="briefing"/.test(pause),
-    'the pause ticket has no tabs for its two pages');
-
-  /* The same controls in the same place: the stub, under CONTROLS. */
-  const ctrlBlock = (s)=>{ const m = s.match(/<small>CONTROLS<\/small>([\s\S]*?)<\/div>\s*<\/(?:p|div)>/); return m?m[1]:''; };
-  const keysOf = (s)=> [...ctrlBlock(s).matchAll(/<b>([^<]+)<\/b>/g)].map(m=>m[1]);
-  const pk = keysOf(pause), ok = keysOf(order);
-  t.assert(ctrlBlock(pause).length>0, 'the pause ticket has no controls block');
-  t.assert(ctrlBlock(order).length>0, 'the splash ticket has no controls block');
-  /* The chips are styled with letter-spacing, so their labels can be written in
-     prose case ("WASD / arrows") and matching stays case-insensitive. */
-  const has = (list, k)=> list.some(x=>x.toUpperCase().includes(k.toUpperCase()));
-  for (const k of ['WASD','ARROWS','SHIFT','R','M','ESC']){
-    t.assert(has(pk, k), `the pause ticket never lists ${k}`);
-  }
-  /* ENTER resumes the run but is not among the chips: a chip list and a resume
-     hint are different furniture, and listing a key as doing something it does
-     not do is worse than leaving it out. */
-  t.assert(!has(pk, 'ENTER'), 'the pause stub still lists ENTER, which resumes nothing');
-  for (const k of ok.filter(x=>!x.toUpperCase().includes('ENTER'))){
-    t.assert(has(pk, k), `the pause ticket dropped ${k}, which the splash lists`);
-  }
-
-  /* The briefing page reprints the ticket's work: scope and notes. It drops the
-     letterhead and the controls list, because the stub already carries the
-     controls on every page. Scoped to the briefing slice alone: if the slice ran
-     past the stub, the stub's own chips would answer for the page. */
-  const body = pause.slice(pause.indexOf('data-pause-page="briefing"'),
-                           pause.indexOf('class="order-side"'));
-  t.assert(/Scope of work/i.test(body), 'the briefing page has no scope of work');
-  t.assert(body.includes('Seal every leak. Be back at the door in'),
-    'the briefing page dropped the splash scope sentence');
-  const notesOf = (s)=> [...s.matchAll(/<li>([\s\S]*?)<\/li>/g)].map(m=>m[1].trim());
-  const splashNotes = notesOf(order);
-  t.assert(splashNotes.length>0, 'the splash ticket has no notes to reprint');
-  /* The apostrophe may be encoded on one ticket and typed on the other, so the
-     comparison flattens entities and strips tags first: check the words the
-     player reads, not the markup that carries them. */
-  const flat = (s)=> s.replace(/<[^>]+>/g,'')
-                      .replace(/&rsquo;/g,"'").replace(/&lsquo;/g,"'")
-                      .replace(/&#39;/g,"'").replace(/&amp;/g,"&");
-  for (const n of splashNotes){
-    t.assert(flat(body).includes(flat(n)), `the briefing page dropped a splash note: ${n.slice(0,44)}…`);
-  }
-  t.assert(!/controls-big/.test(body),
-    'the briefing page reprints the controls list — the stub already carries it');
+    t.assert(binder.includes(`id="${id}"`), `the binder has no ${id}`);
+  t.assert(binder.split('id="set-master"').length===2, 'the settings rows are in the binder more than once');
+  t.assert(/id="pause-terms"/.test(binder), 'the run page does not print the terms the run is on');
+  for (const tab of ['order','run','manual','settings'])
+    t.assert(binder.includes(`data-binder-tab="${tab}"`), `the binder has no ${tab} tab`);
 
   /* The numbers are the run's. */
   buildFloor(2, 9090);
@@ -313,49 +248,48 @@ test('the pause screen shows the work order with the run written on it', () => {
   A.STATE = 'play';
   A.togglePause();
   t.assert(A.STATE==='pause', 'ESC did not pause');
-  /* A pause lands on the settings page: it is the page with something to change
-     on it, and the reason most players come back to the ticket. */
-  t.assert(A.pausePage==='settings', 'a pause does not land on the settings page');
+  t.assert(A.binderMode==='pause' && A.binderTab==='run', `a pause lands on '${A.binderMode}/${A.binderTab}', expected pause/run`);
+  const shownTabs = document.querySelectorAll('[data-binder-tab]').filter(x=>!x.classList.contains('hidden'));
+  t.assert(shownTabs.map(x=>x.dataset.binderTab).join()==='run,manual,settings',
+    'a pause does not show exactly its own three tabs');
 
-  /* ESC walks the pages backwards before it leaves the ticket. Driven through the
-     real key handler, because a chain asserted only at the API level is not the
-     chain the player walks. */
+  /* ESC resumes from any tab. Driven through the real key handler. */
   const keydown = global.window._h.keydown;
   t.assert(typeof keydown==='function', 'no keydown handler was registered');
   const press = (key, extra={})=> keydown({ key, repeat:false, metaKey:false, ctrlKey:false,
                                             altKey:false, preventDefault(){}, ...extra });
-  A.setPausePage('briefing');
+  A.setBinderTab('manual');
   press('Escape');
-  t.assert(A.pausePage==='settings', 'ESC on the briefing page did not return to the settings page');
-  t.assert(A.STATE==='pause', 'ESC on the briefing page resumed the run instead of stepping back');
-  press('Escape');
-  t.assert(A.STATE==='play', 'ESC on the settings page did not resume');
+  t.assert(A.STATE==='play', 'ESC on the manual tab did not resume');
+  A.togglePause();
+  press('ArrowRight');
+  t.assert(A.binderTab==='manual', 'the right arrow did not turn the pause tab');
+  press('ArrowRight'); press('ArrowRight');
+  t.assert(A.binderTab==='run', 'the tabs do not wrap');
   const txt = id=> els[id] ? els[id].innerHTML : '';
-  t.assert(txt('pause-level')==='3/5', `depth reads "${txt('pause-level')}" on level 3`);
-  t.assert(txt('pause-leaks').includes('0/'), `the riser tally reads "${txt('pause-leaks')}"`);
-  t.assert(txt('pause-clock')===A.clockText(G.clock), 'the clock on the ticket is not the clock in state');
-  
+  press('Escape');
+  A.togglePause();
+  t.assert(txt('pause-floor')==='3/5', `depth reads "${txt('pause-floor')}" on floor 3`);
+  t.assert(txt('pause-leaks').includes('0/'), `the leak tally reads "${txt('pause-leaks')}"`);
+  t.assert(txt('pause-clock')===A.clockText(G.clock), 'the clock on the run page is not the clock in state');
+
   /* The life pips include the spent ones, matching the count the HUD shows. */
   A.lives = Math.max(1, A.runLives-1);
   A.STATE='play'; A.togglePause();
-  t.assert(/gone/.test(txt('pause-lives')), 'a spent life is not drawn as spent on the ticket');
+  t.assert(/gone/.test(txt('pause-lives')), 'a spent life is not drawn as spent on the run page');
   A.lives = A.runLives;
 
-  /* Once every riser is sealed the tally says so instead of stalling. */
   G.openLeaks = 0;
   A.STATE='play'; A.togglePause();
   t.assert(txt('pause-leaks')===`${G.totalLeaks}/${G.totalLeaks}`,
-    `with every riser sealed the tally reads "${txt('pause-leaks')}"`);
+    `with every leak sealed the tally reads "${txt('pause-leaks')}"`);
 
-  /* The strip under the ticket promises ENTER resumes as well as ESC, so the
-     promise is asserted through the real key handler on the page a pause
-     lands on. */
+  /* ENTER resumes from the run page. */
   A.STATE='play'; A.togglePause();
-  t.assert(A.pausePage==='settings', 'a pause does not land on the settings page');
   press('Enter');
-  t.assert(A.STATE==='play', 'ENTER did not resume from the settings page');
+  t.assert(A.STATE==='play', 'ENTER did not resume from the run page');
 
-  /* The run is built with the stamped terms, and the ticket says so. */
+  /* The run is built with the chosen terms, and the run page says so. */
   A.setOption('difficulty','hard');
   t.assert(A.FLOOR_CLOCK===A.DIFFICULTIES.hard.clock,
     'choosing HARD did not move the clock the run is built with');
@@ -363,74 +297,59 @@ test('the pause screen shows the work order with the run written on it', () => {
   t.assert(A.runLives===1, 'clocking in on HARD did not set the attempts to 1');
   t.assert(G.clock===A.DIFFICULTIES.hard.clock, 'the floor was not built with the HARD clock');
   A.togglePause();
-  const stamp = els['order-terms'] ? els['order-terms'].textContent : '';
-  t.assert(stamp==='HARD', `the work order stamp reads "${stamp}" on HARD`);
-  t.assert(txt('pause-terms')==='HARD',
-    `the pause stub reads "${txt('pause-terms')}" — the run is on terms the ticket never names`);
+  t.assert(txt('pause-terms')==='HARD', `the run page reads "${txt('pause-terms')}" on HARD`);
 
-  /* The briefing is written for the terms. Both copies of the document follow the
-     choice rather than printing fixed minutes and seconds. */
+  /* The manual is written for the terms: it follows the choice. */
   const prose = (id)=> (els[id] ? els[id].textContent : '');
   A.setOption('difficulty','hard');
-  t.assert(prose('order-return')==='2 minutes 30 seconds',
-    `the work order reads "${prose('order-return')}" on HARD`);
-  t.assert(prose('order-repair')==='4 seconds',
-    `the repair note reads "${prose('order-repair')}" on HARD`);
-  t.assert(prose('brief-return')==='2 minutes 30 seconds' && prose('brief-repair')==='4 seconds',
-    'the pause reprint of the work order did not follow the terms');
+  t.assert(prose('manual-return')==='2 minutes 30 seconds' && prose('manual-repair')==='4 seconds',
+    `the manual reads "${prose('manual-return')}" and "${prose('manual-repair')}" on HARD`);
   A.setOption('difficulty','relaxed');
-  t.assert(prose('order-return')==='4 minutes' && prose('order-repair')==='7 seconds',
-    `the work order reads "${prose('order-return')}" and "${prose('order-repair')}" on RELAXED`);
+  t.assert(prose('manual-return')==='4 minutes' && prose('manual-repair')==='7 seconds',
+    'the manual did not follow RELAXED');
   A.setOption('difficulty','normal');
-  t.assert(prose('order-return')==='3 minutes' && prose('order-repair')==='5 seconds',
-    'the work order did not return to the NORMAL numbers');
+  t.assert(prose('manual-return')==='3 minutes' && prose('manual-repair')==='5 seconds',
+    'the manual did not return to the NORMAL numbers');
+  t.assert(/lives/.test(prose('note-difficulty')) && /floor/.test(prose('note-difficulty')),
+    `the terms note reads "${prose('note-difficulty')}"`);
 
-  /* Leave the store as the next test expects to find it. */
   A.setOption('difficulty','normal');
   document.getElementById('btn-start').click();
-  /* RESTART RUN is the only control on the ticket that ends a run, so it arms
-     first: the first press changes the label, the second moves the player. */
+  /* RESTART RUN is the only control that ends a run, so it arms first. */
   A.togglePause();
-  t.assert(A.STATE==='pause' && A.pausePage==='settings',
-    'the ticket did not open on the settings page for the reset check');
+  t.assert(A.STATE==='pause' && A.binderTab==='run', 'the binder did not open on the run page for the reset check');
   const resetBtn = els['btn-reset-run'];
-  t.assert(resetBtn, 'the pause settings have no RESTART RUN button');
+  t.assert(resetBtn, 'the run page has no RESTART RUN button');
   const seedBefore = A.RUN_SEED;
   resetBtn.click();
   t.assert(A.STATE==='pause', 'the first press of RESTART RUN fired — it must arm first');
-  t.assert(/TAP AGAIN/.test(resetBtn.textContent),
-    `the armed label reads "${resetBtn.textContent}"`);
-  t.assert(A.RUN_SEED===seedBefore, 'arming RESTART RUN rolled the seed — nothing should have moved');
+  t.assert(/TAP AGAIN/.test(resetBtn.textContent), `the armed label reads "${resetBtn.textContent}"`);
+  t.assert(A.RUN_SEED===seedBefore, 'arming RESTART RUN rolled the seed');
   t.assert(A.resetArmed, 'RESTART RUN did not report itself armed');
 
-  /* An armed reset does not survive the player's attention moving on. */
-  A.setPausePage('briefing');
-  t.assert(!A.resetArmed, 'the armed RESTART RUN survived a page switch');
-  t.assert(!/TAP AGAIN/.test(resetBtn.textContent),
-    'the button still reads armed after the page switch');
-  A.setPausePage('settings');
+  /* An armed reset does not survive the player moving on. */
+  A.setBinderTab('manual');
+  t.assert(!A.resetArmed, 'the armed RESTART RUN survived a tab switch');
+  t.assert(!/TAP AGAIN/.test(resetBtn.textContent), 'the button still reads armed after the tab switch');
+  A.setBinderTab('run');
 
-  /* The second press is the one that fires. */
   resetBtn.click();
   resetBtn.click();
-  t.assert(A.STATE==='splash', `RESTART RUN did not return to the riser (STATE=${A.STATE})`);
-  t.assert(!els['screen-splash'].classList.contains('hidden'),
-    'RESTART RUN left the riser hidden');
-  t.assert(A.RUN_SEED!==seedBefore, 'RESTART RUN kept the seed — the same building is waiting at the door');
+  t.assert(A.STATE==='splash', `RESTART RUN did not return to the title (STATE=${A.STATE})`);
+  t.assert(!els['screen-splash'].classList.contains('hidden'), 'RESTART RUN left the title hidden');
+  t.assert(A.RUN_SEED!==seedBefore, 'RESTART RUN kept the seed');
   t.assert(G.floor===0 && G.openLeaks===G.totalLeaks && G.clock>=A.FLOOR_CLOCK,
     'the floor after RESTART RUN is not a fresh floor 0');
   t.assert(A.lives===A.runLives, 'RESTART RUN did not restore the attempts');
-  t.assert(!els['hud'].classList.contains('on'), 'the HUD stayed up over the riser');
+  t.assert(!els['hud'].classList.contains('on'), 'the HUD stayed up over the title');
 
-  /* The run it starts from the riser is a full one on the same terms. */
   const termsKept = A.SETTINGS.difficulty;
   document.getElementById('btn-start').click();
   t.assert(A.STATE==='play' && A.lives===A.runLives, 'the run after RESTART RUN did not start whole');
-  t.assert(A.SETTINGS.difficulty===termsKept,
-    'RESTART RUN wiped the stamped terms — preferences are not progress');
+  t.assert(A.SETTINGS.difficulty===termsKept, 'RESTART RUN wiped the chosen terms — preferences are not progress');
 
   A.STATE='play'; A.hideAll();
-  console.log('  pause = the work order, live numbers, settings and briefing as pages of it; terms taken at the door; RESTART RUN two-stage');;
+  console.log('  pause = the binder with a run page; manual and settings shared; terms chosen at the door; RESTART RUN two-stage');
 });
 
 /* The one screen between two levels, asserted on three axes because each of
@@ -473,7 +392,7 @@ test('the floor-clear card shows the clock left and the next floor', () => {
     `LEVELS[1] says ${spec.leaks} / ${spec.lifeforms}`);
   t.assert(!els['screen-clear'].classList.contains('hidden'), 'show(\'clear\') left the card hidden');
   t.assert(els['screen-splash'].classList.contains('hidden')
-      && els['screen-order'].classList.contains('hidden'),
+      && els['screen-binder'].classList.contains('hidden'),
     'the clear card came up without dismissing the screens behind it');
   t.assert(els['hud'].classList.contains('on')===false, 'the HUD is still lit behind the clear card');
 

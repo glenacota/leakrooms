@@ -95,7 +95,7 @@ test('[FIT] the 820 px stacking rule does not apply to a short landscape screen'
 
 test('[FIT] touch.css has the 40px targets, the 44px primary buttons and the hidden legend', () => {
   const t = strip(sheet.touch);
-  for (const sel of ['.seg button', '.pause-tabs button', '.stamp-terms .chg', 'button.ghost', 'button.danger'])
+  for (const sel of ['.seg button', '.binder-tabs button', '.title-menu button', 'button.ghost', 'button.danger'])
     assert.ok(new RegExp(`\\[data-input=touch\\]\\s*${sel.replace(/[.]/g, '\\.')}[^{]*[,{]`).test(t), `no touch rule for ${sel}`);
   assert.ok(/min-height\s*:\s*40px/.test(t));
   for (const id of ['btn-start', 'btn-descend', 'btn-retry', 'btn-again', 'btn-resume'])
@@ -115,11 +115,11 @@ test('[FIT] css/base.css is the last stylesheet linked in index.html', () => {
   assert.equal(links[links.length - 1], 'css/base.css');
 });
 
-test('[FIT] the compact pause pages scroll inside the ticket and pin their tab and button rows', () => {
+test('[FIT] the compact binder pages scroll inside the ticket and pin their tab and button rows', () => {
   const b = mediaBlock(sheet.base, '(max-height:520px)');
   assert.ok(/--pause-chrome\s*:\s*\d+px/.test(b), 'no --pause-chrome');
-  assert.ok(/\[data-pause-page="settings"\][\s\S]*?overflow-y\s*:\s*auto/.test(b));
-  assert.ok(/\.pause-tabs\s*\{[^}]*position\s*:\s*sticky/.test(b));
+  assert.ok(/\[data-binder-page="settings"\][\s\S]*?overflow-y\s*:\s*auto/.test(b));
+  assert.ok(/\.binder-tabs\s*\{[^}]*position\s*:\s*sticky/.test(b));
   assert.ok(/\.setrow\.buttons\s*\{[^}]*position\s*:\s*sticky/.test(b));
 });
 

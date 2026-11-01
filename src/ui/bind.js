@@ -39,7 +39,7 @@ export function bindDom(){
   on('lives', renderLives);
   on('splash:repaint', () => paintSplashPlan());
   on('resize', () => {
-    if (G && (STATE === 'splash' || STATE === 'order')) paintSplashPlan();
+    if (G && (STATE === 'splash' || STATE === 'binder')) paintSplashPlan();
   });
   on('contextrestored', () => {
     buildPatterns();
