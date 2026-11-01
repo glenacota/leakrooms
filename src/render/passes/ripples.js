@@ -26,9 +26,9 @@
 import { G } from '../../sim/state.js';
 import { simAlpha } from './actors.js';
 import { ctx, SCALE } from '../canvas.js';
-import { TAU } from '../../cast/primitives.js';
 import { LOUD, NOISE_FS, TILE } from '../../config/constants.js';
 import { on } from '../../util/events.js';
+import { drawNoiseGlow, drawNoiseRipple } from '../noise-visuals.js';
 
 /* Below this noise nothing is drawn or spawned. Same gate as the old ring, so
    the HUD appears at the same moments it always did. */
@@ -195,26 +195,16 @@ on('floorBuilt', resetRipples);
 function glow(x, y){
   const R = glowRadius(level)*TILE;
   const [r, g, b] = glowRgb(level*NOISE_FS);
-  const grad = ctx.createRadialGradient(x, y, 0, x, y, R);
-  for (const [at, a] of glowStops(glowRadius(level))) grad.addColorStop(at, `rgba(${r},${g},${b},${a})`);
   const kick = glowKick(gapT);
-  ctx.globalAlpha = Math.min(1, presence*HUD_OPACITY*glowAlpha(level, kick));
-  ctx.fillStyle = grad;
-  ctx.beginPath(); ctx.arc(x, y, R, 0, TAU); ctx.fill();
+  drawNoiseGlow(ctx, x, y, R, [r, g, b], presence*glowAlpha(level, kick), glowStops(glowRadius(level)));
 }
 
 /* Draws one ring around the plumber at (x, y): a dark outline under a coloured
    stroke, so it reads on carpet and on the dark. The ring is centred on the
    plumber as they are now, not where the ring was made. */
 function drawRing(r, x, y){
-  const a = ringAlpha(r.n, r.age)*HUD_OPACITY;
-  if (a < 0.004) return;
-  const rad = ringRadius(r.n, r.age);
-  const k = clamp(r.age/ringLife(r.n), 0, 1);
-  const w = 2.4*(1 - 0.5*k);
-  ctx.beginPath(); ctx.arc(x, y, rad*TILE, 0, TAU);
-  ctx.globalAlpha = a*0.55; ctx.strokeStyle = OUTLINE; ctx.lineWidth = w + 2; ctx.stroke();
-  ctx.globalAlpha = a; ctx.strokeStyle = isRedRing(rad) ? DANGER : AMBER; ctx.lineWidth = w; ctx.stroke();
+  const radius = ringRadius(r.n, r.age);
+  drawNoiseRipple(ctx, x, y, radius*TILE, ringAlpha(r.n, r.age), r.age, ringLife(r.n), isRedRing(radius));
 }
 
 /**

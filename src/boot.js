@@ -29,11 +29,13 @@ import { setFatalHook, setFrameHooks } from './game/loop.js';
 import { adaptResolution } from './render/adaptive.js';
 import { render, setSimAlpha } from './render/render.js';
 import { drawBatteryMeter } from './render/battery-meter.js';
+import { drawNoiseGlow, drawNoisePlumber, drawNoiseRipple } from './render/noise-visuals.js';
+import { glowAlpha, glowRadius, glowRgb, glowStops, isRedRing, maxRadius, ringAlpha, ringLife, ringRadius } from './render/passes/ripples.js';
 import { updateHUD, setPrompt, tickTouchHud } from './ui/hud.js';
 import { loadSettings } from './settings/store.js';
 import { RUN_SEED } from './game/run.js';
 import { frame } from './game/loop.js';
-import { RENDER_START_IDX_HANDHELD } from './config/constants.js';
+import { NOISE_FS, REPAIR_NOISE, RENDER_START_IDX_HANDHELD, TILE } from './config/constants.js';
 
 /**
  * Shows the "SYSTEM FAULT" card when the game hits an error it cannot recover
@@ -73,6 +75,29 @@ export function boot(){
   meterCtx.globalAlpha = 0.75;
   drawBatteryMeter(meterCtx, 0, 0, 83, true, -Math.PI/3);
   meterCtx.restore();
+  const manualNoise = document.getElementById('manual-noise');
+  const noiseCtx = manualNoise.getContext('2d');
+  if (!noiseCtx) throw new Error('2D canvas context unavailable for manual noise indicator');
+  const noise = REPAIR_NOISE;
+  const rippleLife = ringLife(noise);
+  const olderAge = rippleLife*0.35;
+  const freshAge = rippleLife*0.12;
+  const scale = (manualNoise.width/2 - 4)/(maxRadius(noise)*TILE);
+  const minimumRippleWidth = 1/scale;
+  const center = manualNoise.width/2;
+  noiseCtx.save();
+  noiseCtx.translate(center, center);
+  noiseCtx.scale(scale, scale);
+  const level = noise/NOISE_FS;
+  const glow = glowRadius(level);
+  drawNoiseGlow(noiseCtx, 0, 0, glow*TILE, glowRgb(noise), glowAlpha(level, 1), glowStops(glow));
+  noiseCtx.globalAlpha = 1;
+  drawNoisePlumber(noiseCtx, 0, 0);
+  for (const age of [olderAge, freshAge]){
+    const radius = ringRadius(noise, age);
+    drawNoiseRipple(noiseCtx, 0, 0, radius*TILE, ringAlpha(noise, age), age, rippleLife, isRedRing(radius), minimumRippleWidth);
+  }
+  noiseCtx.restore();
 
   /* A handheld may start at a lower render scale so it stays under its limit.
      RENDER_START_IDX_HANDHELD is 0 here (full resolution); real device data

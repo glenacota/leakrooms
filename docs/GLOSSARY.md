@@ -194,7 +194,7 @@ The battery meter beside the plumber. It shows charge, and a radar scope when th
 Code: `render/passes/diegetic.js`.
 
 **Noise indicators**
-A glow around the plumber and spreading floor ripples show the plumber's noise. Their strength reflects noise intensity and detection range.
+A glow around the plumber and spreading floor ripples show the plumber's noise intensity. Red means the noise can wake dormant lifeforms.
 Code: `render/passes/ripples.js`.
 
 **Awareness wash**

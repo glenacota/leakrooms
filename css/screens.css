@@ -83,9 +83,7 @@
 }
 .lg-lives{ color:var(--danger); letter-spacing:.1em; }
 .lg-battery{ width:54px; height:54px; min-height:54px; border:0; background:none; }
-.lg-noise{ gap:3px; }
-.lg-noise u{ display:block; width:6px; background:var(--yellow-dim); text-decoration:none; }
-.lg-noise u:nth-child(1){ height:6px; } .lg-noise u:nth-child(2){ height:12px; } .lg-noise u:nth-child(3){ height:18px; }
+.lg-noise{ display:block; width:54px; height:54px; min-height:54px; border:0; background:none; }
 .lg-seen{
   width:54px; height:24px; border:0; background:
     radial-gradient(ellipse at center,transparent 35%,rgba(216,80,60,.75) 100%);
