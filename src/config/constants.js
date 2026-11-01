@@ -82,13 +82,12 @@ export const BATT_MAX   = 100;
    10 seconds of sweeping. It has to be switched off and thought about. */
 export const RADAR_DRAIN = BATT_MAX / 10; // per second while sweeping
 
-/* The radar gauge is drawn as a battery: a shell with a terminal on the right
-   and a row of cells inside it that empty from the right as the charge goes.
-   BATT_CELLS is how many cells there are, so each one is a step of
-   BATT_MAX/BATT_CELLS charge. Below BATT_LOW the lit cells turn red, which
-   is the same warning the noise bar gives. */
+/* The radar gauge is a ring of BATT_CELLS cells, so each one is a step of
+   BATT_MAX/BATT_CELLS charge: one second of radar. At or below BATT_LOW the lit
+   cells turn red, which is the same warning the noise bar gives. 40 is exactly
+   four cells, so the red cells and the red percentage change together. */
 export const BATT_CELLS = 10;
-export const BATT_LOW  = 35;
+export const BATT_LOW  = 40;
 
 /* ---------- The leaks ----------
    The player is here because pipes burst, and the water shows where. The only

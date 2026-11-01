@@ -31,7 +31,9 @@ export function fakeCtx(){
     fillRect(...a){ calls.list.push(['fillRect',...a]); },
     /* arc and stroke are recorded because the repair ring is drawn with them and
        nothing else, so they are the only way to find the ring's radius. */
-    arc(...a){ calls.list.push(['arc',...a]); },
+    /* The stroke colour in force is kept on the call, so a test can tell a lit
+       battery cell from a dim one. */
+    arc(...a){ const e = ['arc',...a]; e.style = self.strokeStyle; calls.list.push(e); },
     /* ellipse is recorded for the same reason: both sprites open with a contact
        shadow drawn as an ellipse, so it is the first primitive that reveals
        where a figure was actually placed. */
