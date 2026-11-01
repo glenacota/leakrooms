@@ -70,7 +70,6 @@
 }
 .manual-cols h3:not(:first-child){ margin-top:16px; }
 .manual-cols .notes li{ font-size:13px; }
-.manual-next{ margin-top:12px; justify-content:flex-start; }
 
 /* The screen legend: small drawings of the HUD pieces, in CSS, so a player
    can match a word to the thing on screen. */

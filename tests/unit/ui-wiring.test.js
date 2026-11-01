@@ -108,7 +108,6 @@ test('[36] the controls change what they claim to change', () => {
 test('[37] the title menu opens the binder, and only BEGIN SHIFT starts the run', () => {
   const t = softAssert();
 
-  A.setManualSeen(true);
   A.hideAll(); A.STATE='splash'; A.show('splash');
   el('screen-splash')._fire('click', { target:{ closest: ()=>null } });
   t.assert(A.STATE==='splash', `clicking the title background left STATE at '${A.STATE}' — only the menu should leave the title`);

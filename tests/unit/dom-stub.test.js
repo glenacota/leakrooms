@@ -37,9 +37,9 @@ test('[37] the DOM stub resolves the markup it claims to', () => {
      this count moved with it. Thirteen since the touch layer: RESUME, and the
      radar and pause buttons. Seventeen since fullscreen: its glyph, its
      pause-page button and the two dismiss buttons of the home-screen tip.
-     Twenty-two since the binder: three title menu entries and four tabs, less
+     Twenty-one since the binder: three title menu entries and four tabs, less
      the old CHANGE link and two pause tabs. */
-  assert.equal(querySelectorAll('button').length, 22, 'wrong number of buttons');
+  assert.equal(querySelectorAll('button').length, 21, 'wrong number of buttons');
 
   /* Attributes become dataset properties in camelCase — the direction that
      matters, since `data-binder-tab` is `dataset.binderTab` and not the reverse. */

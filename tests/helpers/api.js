@@ -46,7 +46,6 @@ import { flash, HUD, livesHTML, renderLives, updateHUD, setPrompt } from '../../
 import { activateMenu, beginShift, backSplash, syncAmbience, moveMenu, selectMenu, TITLE_MENU } from '../../src/ui/splash.js';
 import { binderMode, binderTab, openBinder, setBinderTab, stepBinderTab } from '../../src/ui/binder.js';
 import { togglePause } from '../../src/ui/pause.js';
-import { setManualSeen, manualSeen } from '../../src/settings/manual-seen.js';
 import { buildSettingsUI, SEGMENTS, syncSettingsUI } from '../../src/ui/settings-panel.js';
 import { bindInput, MODAL_ACTION, toggleMute } from '../../src/ui/input.js';
 import { bindButtons } from '../../src/ui/buttons.js';
@@ -110,7 +109,7 @@ get DIFFICULTIES(){ return DIFFICULTIES; },
 get WATER_TINTS(){ return WATER_TINTS; },
 loadSettings, saveSettings, resetSettings, applySettings, setOption,
 settingsValid, get SETTINGS_KEY(){ return SETTINGS_KEY; },
-activateMenu, beginShift, backSplash, moveMenu, selectMenu, TITLE_MENU, setManualSeen, manualSeen, show, hideAll, get SCREENS(){ return SCREENS; },
+activateMenu, beginShift, backSplash, moveMenu, selectMenu, TITLE_MENU, show, hideAll, get SCREENS(){ return SCREENS; },
 nextFloor, dismissClear, get clearCard(){ return clearCard; },
 get STATE(){ return STATE; },
 set STATE(v){ setState(v); },

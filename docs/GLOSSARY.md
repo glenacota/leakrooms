@@ -165,8 +165,8 @@ The first page of the binder before a run. It is the job briefing: contractor, l
 Code: `data-binder-page="order"` in `#screen-binder`.
 
 **Binder**
-The one screen for everything the player reads or sets outside a run. It has two modes. Shift mode (STATE `binder`) opens from the title with the tabs WORK ORDER, FIELD MANUAL, SETTINGS. Pause mode (STATE `pause`) has the tabs RUN, FIELD MANUAL, SETTINGS. The manual and settings pages are the same markup in both modes. The first CLOCK IN opens the manual; later ones open the work order.
-Code: `#screen-binder`, `src/ui/binder.js`, `src/settings/manual-seen.js`.
+The one screen for everything the player reads or sets outside a run. It has two modes. Shift mode (STATE `binder`) opens from the title with the tabs WORK ORDER, FIELD MANUAL, SETTINGS. Pause mode (STATE `pause`) has the tabs RUN, FIELD MANUAL, SETTINGS. The manual and settings pages are the same markup in both modes.
+Code: `#screen-binder`, `src/ui/binder.js`.
 
 **Field manual**
 The how-to-play reference: controls for keyboard and touch, the HUD legend, and the rules (repair, noise, radar, door, clock, lives). One shared page of the binder, reachable from the title menu, the binder tabs and pause. It replaces the pause "briefing" page.

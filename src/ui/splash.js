@@ -1,6 +1,5 @@
 import { Audio_ } from '../audio/index.js';
 import { setState, startRun, STATE } from '../game/run.js';
-import { markManualSeen, manualSeen } from '../settings/manual-seen.js';
 import { openBinder } from './binder.js';
 import { show } from './dom.js';
 
@@ -15,9 +14,7 @@ export function syncAmbience(){
   Audio_.ambience(STATE==='splash' || STATE==='binder' || STATE==='clear');
 }
 
-/* The title menu. Each entry opens the binder, on the page named here. CLOCK IN
-   opens the field manual on the first shift only, so a new player reads the
-   controls once and a returning player goes straight to the work order. */
+/* The title menu. Each entry opens the binder on its own page. */
 export const TITLE_MENU = ['clock-in', 'manual', 'settings'];
 export let menuIndex = 0;
 
@@ -45,7 +42,7 @@ export function activateMenu(entry){
   if (STATE!=='splash') return;
   if (entry) selectMenu(entry);
   const name = TITLE_MENU[menuIndex];
-  const tab = name==='clock-in' ? (manualSeen() ? 'order' : 'manual')
+  const tab = name==='clock-in' ? 'order'
             : name==='manual' ? 'manual' : 'settings';
   setState('binder');
   openBinder('shift', tab);
@@ -53,9 +50,8 @@ export function activateMenu(entry){
   syncAmbience();
 }
 
-/** BEGIN SHIFT: records that the manual had its chance, then starts the run. */
+/** BEGIN SHIFT: starts the run. */
 export function beginShift(){
-  markManualSeen();
   startRun();
   syncAmbience();
 }

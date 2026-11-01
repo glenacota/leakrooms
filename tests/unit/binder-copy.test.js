@@ -41,19 +41,13 @@ test('[COPY] how-to-play lives in the field manual and not in the story pages', 
   assert.ok(!/WASD/.test(title), 'the title lists the movement keys');
 });
 
-test('[COPY] the first CLOCK IN opens the manual, later ones the work order, and BEGIN is never blocked', () => {
-  A.setManualSeen(false);
+test('[COPY] CLOCK IN opens the work order, and BEGIN starts the run', () => {
   A.STATE = 'splash'; A.show('splash'); A.selectMenu('clock-in');
   A.activateMenu();
   assert.equal(A.STATE, 'binder');
-  assert.equal(A.binderTab, 'manual');
+  assert.equal(A.binderTab, 'order');
   A.beginShift();
   assert.equal(A.STATE, 'play');
-  assert.equal(A.manualSeen(), true, 'starting a shift did not mark the manual as seen');
-
-  A.STATE = 'splash'; A.show('splash'); A.selectMenu('clock-in');
-  A.activateMenu();
-  assert.equal(A.binderTab, 'order');
 
   A.STATE = 'splash'; A.show('splash'); A.selectMenu('settings');
   A.activateMenu();

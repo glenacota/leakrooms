@@ -11,7 +11,6 @@
    ============================================================ */
 
 import { disarmReset } from '../game/run.js';
-import { manualSeen } from '../settings/manual-seen.js';
 
 export const SHIFT_TABS = ['order', 'manual', 'settings'];
 export const PAUSE_TABS = ['run', 'manual', 'settings'];
@@ -34,9 +33,6 @@ export function openBinder(mode, tab){
   for (const t of document.querySelectorAll('[data-binder-for]'))
     t.classList.toggle('hidden', t.dataset.binderFor !== mode);
   setBinderTab(tab);
-  // The first shift ends the manual with a way on; later visits do not need it.
-  const next = document.getElementById('manual-next');
-  if (next) next.classList.toggle('hidden', !(mode === 'shift' && !manualSeen()));
 }
 
 /**

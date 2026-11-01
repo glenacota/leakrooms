@@ -64,11 +64,10 @@ test('the splash chain walks the riser, then the work order, then the run', () =
   A.hideAll(); A.STATE='splash'; A.show('splash');
   t.assert(vis().join()==='splash', `boot shows ${vis().join()||'nothing'}, expected the riser`);
 
-  A.setManualSeen(true);
   press('Enter');
   t.assert(A.STATE==='binder', `ENTER on the title left STATE at ${A.STATE}`);
   t.assert(vis().join()==='binder', `ENTER showed ${vis().join()||'nothing'}, expected the binder alone`);
-  t.assert(A.binderTab==='order', `a returning player landed on '${A.binderTab}', expected the work order`);
+  t.assert(A.binderTab==='order', `CLOCK IN landed on '${A.binderTab}', expected the work order`);
 
   press('Escape');
   t.assert(A.STATE==='splash' && vis().join()==='splash', 'ESC did not walk back to the title');
@@ -85,16 +84,6 @@ test('the splash chain walks the riser, then the work order, then the run', () =
   t.assert(A.binderTab==='settings', 'the right arrow did not turn to the next tab');
   press('Escape');
   t.assert(A.STATE==='splash', 'ESC on a non-order tab did not go back to the title');
-
-  /* A first-time player's CLOCK IN opens the manual. */
-  A.setManualSeen(false);
-  A.selectMenu('clock-in');
-  press('Enter');
-  t.assert(A.binderTab==='manual', 'the first CLOCK IN did not open the field manual');
-  t.assert(!els['manual-next'].classList.contains('hidden'), 'the first-shift manual has no way on');
-  t.assert(A.STATE==='binder', 'the manual blocked or skipped the binder');
-  press('Escape');
-  A.setManualSeen(true);
 
   A.selectMenu('clock-in');
   press('Enter');

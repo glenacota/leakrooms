@@ -31,9 +31,6 @@ export function bindButtons(){
   for (const el of document.querySelectorAll('[data-menu]'))
     el.onclick = ()=> activateMenu(el.dataset.menu);
 
-  // CONTINUE TO WORK ORDER ends the first-shift manual.
-  const next = document.getElementById('btn-manual-next');
-  if (next) next.onclick = ()=> setBinderTab('order');
   const resetSettingsBtn = document.getElementById('btn-settings-reset');
   if (resetSettingsBtn) resetSettingsBtn.onclick = ()=>{ resetSettings({keepTerms:true}); syncSettingsUI(); };
   for (const tab of document.querySelectorAll('[data-binder-tab]'))
