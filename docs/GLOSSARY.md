@@ -140,7 +140,7 @@ Code: `graffiti`, `NOTES`.
 ## The run
 
 **Run**
-From clock-in to the win screen or the loss of the last life. Has a seed.
+From start to the win screen or the loss of the last life. Has a seed.
 Code: `RUN_SEED`, `startRun`.
 
 **Seed**

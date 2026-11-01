@@ -42,7 +42,7 @@ test('[COPY] how-to-play lives in the field manual and not in the story pages', 
 });
 
 test('[COPY] CLOCK IN opens the work order, and BEGIN starts the run', () => {
-  A.STATE = 'splash'; A.show('splash'); A.selectMenu('clock-in');
+  A.STATE = 'splash'; A.show('splash'); A.selectMenu('start');
   A.activateMenu();
   assert.equal(A.STATE, 'binder');
   assert.equal(A.binderTab, 'order');

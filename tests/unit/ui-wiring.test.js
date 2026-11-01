@@ -112,7 +112,7 @@ test('[37] the title menu opens the binder, and only BEGIN SHIFT starts the run'
   el('screen-splash')._fire('click', { target:{ closest: ()=>null } });
   t.assert(A.STATE==='splash', `clicking the title background left STATE at '${A.STATE}' — only the menu should leave the title`);
 
-  el('menu-clock-in').click();
+  el('menu-start').click();
   t.assert(A.STATE==='binder' && A.binderTab==='order',
     `CLOCK IN left STATE '${A.STATE}' on tab '${A.binderTab}' — a returning player should land on the work order`);
 

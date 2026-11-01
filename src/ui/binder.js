@@ -1,6 +1,6 @@
 /* ============================================================
    THE BINDER
-   One screen, two modes. Before a shift it is the clock-in binder (WORK ORDER,
+   One screen, two modes. Before a shift it is the start binder (WORK ORDER,
    FIELD MANUAL, SETTINGS). While paused it is the same binder with a RUN page
    in place of the work order. The manual and settings pages are the same
    markup in both modes, so they cannot drift apart.

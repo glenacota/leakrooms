@@ -15,12 +15,12 @@ export function syncAmbience(){
 }
 
 /* The title menu. Each entry opens the binder on its own page. */
-export const TITLE_MENU = ['clock-in', 'manual', 'settings'];
+export const TITLE_MENU = ['start', 'manual', 'settings'];
 export let menuIndex = 0;
 
 function paintMenu(){
   TITLE_MENU.forEach((name, i)=>{
-    const el = document.getElementById('menu-' + (name==='clock-in' ? 'clock-in' : name));
+    const el = document.getElementById('menu-' + name);
     if (el){ el.classList.toggle('sel', i===menuIndex); el.setAttribute('aria-current', String(i===menuIndex)); }
   });
 }
@@ -42,7 +42,7 @@ export function activateMenu(entry){
   if (STATE!=='splash') return;
   if (entry) selectMenu(entry);
   const name = TITLE_MENU[menuIndex];
-  const tab = name==='clock-in' ? 'order'
+  const tab = name==='start' ? 'order'
             : name==='manual' ? 'manual' : 'settings';
   setState('binder');
   openBinder('shift', tab);

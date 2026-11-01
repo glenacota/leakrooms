@@ -29,8 +29,8 @@ test('the splash chain walks the riser, then the work order, then the run', () =
   t.assert(/LEAKROOMS/.test(splashHtml), 'the title does not show the name');
   t.assert(!/\bhidden\b/.test(splashHtml), 'the title ships hidden — the boot frame would be a blank canvas');
   t.assert(/class="screen hidden"/.test(binderHtml), 'the binder ships visible over the title');
-  t.assert(/id="btn-start"/.test(binderHtml), 'the binder has no clock-in button for btn-start to bind');
-  for (const id of ['menu-clock-in','menu-manual','menu-settings'])
+  t.assert(/id="btn-start"/.test(binderHtml), 'the binder has no start button for btn-start to bind');
+  for (const id of ['menu-start','menu-manual','menu-settings'])
     t.assert(splashHtml.includes(`id="${id}"`), `the title has no #${id}`);
 
   /* The controls live in the field manual page, and only there. */
@@ -85,7 +85,7 @@ test('the splash chain walks the riser, then the work order, then the run', () =
   press('Escape');
   t.assert(A.STATE==='splash', 'ESC on a non-order tab did not go back to the title');
 
-  A.selectMenu('clock-in');
+  A.selectMenu('start');
   press('Enter');
   /* Terms are picked with the number keys on the work order page. */
   const at = ()=> A.SETTINGS.difficulty;

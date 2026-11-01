@@ -10,7 +10,7 @@
    hideAll() can reach it like any other screen. */
 export const SCREENS = ['splash','binder','clear','dead','win','mobile'];
 
-/* The binder is both the clock-in screen (state 'binder') and the pause screen
+/* The binder is both the start screen (state 'binder') and the pause screen
    (state 'pause'), so both names show the same element. */
 const screenOf = name => (name==='pause' ? 'binder' : name);
 

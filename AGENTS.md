@@ -74,7 +74,7 @@ Full definitions and the words to avoid are in `docs/GLOSSARY.md`.
 - **Noise**: sound events with a power. `selfNoise` is the plumber's own noise. `leakTotal` is the leaks' noise. `LOUD` is the threshold that wakes sleepers and starts hunts.
 - **Lure**: an open leak's noise pulls SEARCHing lifeforms toward it.
 - **Floor**: one generated level map. `floorIdx` runs 0 to 4 and is shown as 1 to 5.
-- **Run**: from clock-in until the win screen or the last life is lost. Has a seed (`RUN_SEED`).
+- **Run**: from start until the win screen or the last life is lost. Has a seed (`RUN_SEED`).
 - **Door**: the exit (`exitTiles`). It opens after `DOOR_HOLD` seconds of standing at it, and only once every leak is sealed.
 - **Clock**: the per-floor countdown (`FLOOR_CLOCK`).
 - **Terms**: the difficulty chosen at the door before a run (RELAXED, NORMAL, HARD). Per run.
