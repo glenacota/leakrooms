@@ -193,6 +193,11 @@ export const VIEW_FADE_FAR  = 31;    // black from this distance
    edge. It is much shorter than LIGHT_FADE on purpose. */
 export const MASK_TAU = 0.055;
 
+/* Width of the soft feathered edge of the vision mask, in tiles. One-sided:
+   darkness bleeds into light; lit surfaces stay crisp and pure black stays
+   pure black. Computed once at pack time in render/pack.js. */
+export const VISION_PENUMBRA_TILES = 1;
+
 /* The dimmest a lit surface can be. With darkness handled by the mask this is
    1.0: a visible surface shows the palette at full strength. The pools of light
    under the tubes come from the additive pass in the renderer, not from this

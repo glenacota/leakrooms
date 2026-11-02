@@ -1,4 +1,4 @@
-import { MAP_H, MAP_W, WET_DRAW } from '../config/constants.js';
+import { MAP_H, MAP_W, WET_DRAW, VISION_PENUMBRA_TILES } from '../config/constants.js';
 import { WATER_TINTS } from '../config/presets.js';
 import { SETTINGS } from '../settings/store.js';
 import { G } from '../sim/state.js';
@@ -67,10 +67,37 @@ export function packMask(){
   if (!wantPixels) return;
   const d = G.maskImg.data;
   const { maskArr } = G;
-  for (let i=0; i<MAP_W*MAP_H; i++){
-    const b = Math.min(255, maskArr[i]*255);
-    const k = i*4;
-    d[k]=b; d[k+1]=b; d[k+2]=b; d[k+3]=255;
+  /* One-sided smoothstep feather over VISION_PENUMBRA_TILES tile(s).
+     A lit tile that sits next to a darker tile is dimmed toward the dark
+     neighbour; a lit tile surrounded by at-least-as-bright neighbours stays
+     crisp, and pure black stays pure black. Darkness bleeds into light, never
+     the other way round, so the playable area keeps full brightness and the
+     black area keeps full depth. */
+  let i = 0;
+  for (let y=0; y<MAP_H; y++){
+    for (let x=0; x<MAP_W; x++, i++){
+      const v = maskArr[i];
+      let out = v;
+      if (v > 0){
+        // Darkest orthogonal neighbour: only a darker neighbour can dim this tile.
+        let nmin = v;
+        if (x > 0          && maskArr[i-1]   < nmin) nmin = maskArr[i-1];
+        if (x+1 < MAP_W    && maskArr[i+1]   < nmin) nmin = maskArr[i+1];
+        if (y > 0          && maskArr[i-MAP_W] < nmin) nmin = maskArr[i-MAP_W];
+        if (y+1 < MAP_H    && maskArr[i+MAP_W] < nmin) nmin = maskArr[i+MAP_W];
+        if (nmin < v){
+          const gap = v - nmin;                 // how much brighter than the darkest neighbour
+          const s = gap*gap*(3 - 2*gap);        // smoothstep falloff across the penumbra
+          // Spread the softening across VISION_PENUMBRA_TILES tile(s). With
+          // width == 1 the edge tile sits at the penumbra midpoint (0.5), so
+          // it is dimmed by up to half; a wider penumbra spreads that over more tiles.
+          out = v * (1 - s * (0.5 / VISION_PENUMBRA_TILES));
+        }
+      }
+      const b = Math.min(255, out * 255);
+      const k = i*4;
+      d[k]=b; d[k+1]=b; d[k+2]=b; d[k+3]=255;
+    }
   }
   G.maskCtx.putImageData(G.maskImg, 0, 0);
 }
