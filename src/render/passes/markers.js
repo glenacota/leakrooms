@@ -1,38 +1,70 @@
 import { TILE } from '../../config/constants.js';
 import { G } from '../../sim/state.js';
 import { ctx } from '../canvas.js';
-import { TAU } from '../../cast/primitives.js';
 import { drawDoor } from '../entities.js';
 
+const RIM = 'rgba(24,26,16,.55)';
+const LIGHT = { x: -.55, y: -.55 };
+
+function batteryShadow(rx, ry, len, alpha){
+  ctx.fillStyle=`rgba(8,6,3,${alpha})`;
+  ctx.beginPath();
+  for (let i=0; i<=5; i++){
+    const u=i/5;
+    ctx.moveTo(-LIGHT.x*len*u+rx, -LIGHT.y*len*u);
+    ctx.ellipse(-LIGHT.x*len*u, -LIGHT.y*len*u, rx*(1-.3*u), ry*(1-.3*u), 0, 0, Math.PI*2);
+  }
+  ctx.fill();
+}
+
+function drawBattery(t){
+  const pulse=.5+.5*Math.sin(t*3);
+  const hover=.5+.5*Math.sin(t*2.4);
+  ctx.save();
+  ctx.rotate(Math.sin(t*.8)*.35);
+
+  ctx.fillStyle=`rgba(232,217,138,${.3+.2*pulse})`;
+  ctx.beginPath(); ctx.arc(0,0,17,0,Math.PI*2); ctx.fill();
+
+  batteryShadow(8,10,3+hover*3,.3-hover*.08);
+
+  ctx.strokeStyle=`rgba(232,217,138,${.5+.3*pulse})`;
+  ctx.lineWidth=1;
+  ctx.beginPath(); ctx.roundRect(-11,-13.5,22,27,5); ctx.stroke();
+
+  ctx.fillStyle='#c8d97a'; ctx.strokeStyle=RIM;
+  ctx.beginPath(); ctx.roundRect(-8.5,-11,17,22,3); ctx.fill(); ctx.stroke();
+
+  ctx.fillStyle='#d9dcc0';
+  ctx.fillRect(-2.4,-13.4,4.8,2.6);
+
+  ctx.fillStyle='#2c2a12';
+  ctx.fillRect(-6,-7.5,12,15);
+
+  const charge=Math.floor((t*1.2)%5);
+  for (let i=0; i<4; i++){
+    ctx.fillStyle=i<charge ? (i<1 ? '#e8704a' : '#9fe870') : '#3c4a2c';
+    ctx.fillRect(-4.6,4.8-i*3.6,9.2,2.4);
+  }
+  ctx.restore();
+}
+
 export function markers(rc){
-  const {t} = rc;
+  const t=rc.t*0.001;
   /* ---------- 4. World markers: batteries and the door ---------- */
   for (const b of G.batteries){
     if (b.taken) continue;
     const bx=(b.x+0.5)*TILE, by=(b.y+0.5)*TILE;
-    const pu = 0.5 + 0.5*Math.sin(t*0.003);
-    // A cylindrical cell seen end-on: pulsing glow, steel can, "+" terminal, a glint that turns
-    ctx.fillStyle=`rgba(232,217,138,${0.12+0.14*pu})`;
-    ctx.beginPath(); ctx.arc(bx, by, 14, 0, TAU); ctx.fill();
-    ctx.strokeStyle=`rgba(232,217,138,${0.4+0.3*pu})`; ctx.lineWidth=1;
-    ctx.beginPath(); ctx.arc(bx, by, 10+pu*1.2, 0, TAU); ctx.stroke();
-    ctx.fillStyle='rgba(20,17,8,0.45)';
-    ctx.beginPath(); ctx.arc(bx+1.2, by+1.5, 8, 0, TAU); ctx.fill();
-    ctx.fillStyle='#b9bdb0'; ctx.strokeStyle='rgba(24,26,16,0.55)';
-    ctx.beginPath(); ctx.arc(bx, by, 7.6, 0, TAU); ctx.fill(); ctx.stroke();
-    ctx.fillStyle='#8f9488';
-    ctx.beginPath(); ctx.arc(bx, by, 6, 0, TAU); ctx.fill();
-    ctx.fillStyle='#c8d97a';
-    ctx.beginPath(); ctx.arc(bx, by, 3.6, 0, TAU); ctx.fill();
-    ctx.strokeStyle='#2c2a12'; ctx.lineWidth=1.1;
-    ctx.beginPath(); ctx.moveTo(bx-1.8, by); ctx.lineTo(bx+1.8, by); ctx.moveTo(bx, by-1.8); ctx.lineTo(bx, by+1.8); ctx.stroke();
-    ctx.strokeStyle='rgba(255,255,235,0.7)'; ctx.lineWidth=1;
-    ctx.beginPath(); ctx.arc(bx, by, 6.8, t*0.002, t*0.002+1.1); ctx.stroke();
+    ctx.save();
+    ctx.translate(bx,by);
+    ctx.scale(0.6,0.6);
+    drawBattery(t);
+    ctx.restore();
   }
 
   /* The leaks are not drawn here. They are drawn after the lighting multiply (see
      passes/leaks.js), because they are the one object in the world that the cone
      of vision does not hide. */
 
-  for (const e of G.exitTiles) drawDoor(e, t);
+  for (const e of G.exitTiles) drawDoor(e, rc.t);
 }
