@@ -47,7 +47,7 @@ const OWNER = {
   maskCv: 'vision', maskCtx: 'vision', maskImg: 'vision',
   visRegion: 'vision', visStep: 'vision', visFadeT: 'vision',
   coneX: 'vision', coneY: 'vision', coneFace: 'vision', coneRadar: 'vision',
-  scopeDirty: 'vision',
+  scopeDirty: 'vision', wantVision: 'vision',
 
   /* NoiseState */
   noise: 'noise', noisePeak: 'noise', selfNoise: 'noise', ambientNoise: 'noise', stat: 'noise',
@@ -67,7 +67,7 @@ const KEY_ORDER = [
   'visArr', 'visFrom', 'visTgt', 'visScratch', 'maskArr', 'maskTgt', 'coneArr', 'maskCv',
   'maskCtx', 'maskImg', 'wallIdx', 'tilesCv', 'tilesCtx', 'wallsCv', 'wallsCtx', 'regionOf',
   'regionAdj', 'regionCount', 'visRegion', 'visStep', 'visFadeT', 'coneX', 'coneY', 'coneFace',
-  'coneRadar', 'scopeDirty', 'wetArr', 'waterDist', 'wetByDist', 'wetFront', 'wetMaxDist',
+  'coneRadar', 'scopeDirty', 'wantVision', 'wetArr', 'waterDist', 'wetByDist', 'wetFront', 'wetMaxDist',
   'wetSum', 'wetEdgeD', 'wetIndexAtDist', 'wetCv', 'wetCtx', 'wetImg', 'ended', 'arng',
   'dirty', 'lifeforms', 'plumber', 'batt', 'radar', 'radarRattleT', 'battPulseT', 'noise', 'noisePeak',
   'selfNoise', 'ambientNoise', 'descend', 'clock', 'time', 'seenBy', 'nearest', 'stat',

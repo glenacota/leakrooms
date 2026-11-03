@@ -58,12 +58,6 @@ import { repaintDirty } from '../util/repaint.js';
  * @typedef {{x:number, y:number, face:number, radar:boolean}} VisionPlumberState
  */
 
-/* The tests switch the per-frame cone and mask work off with this flag. The
-   pixel flag lives in render/pack.js, and setHeadless() in the test API
-   switches both with one call. */
-export let wantVision = true;
-export function setVision(v){ wantVision = !!v; }
-
 /**
  * Is this world point inside the rectangle the renderer draws?
  * It is worked out from the PLUMBER's position and not from the renderer's

@@ -117,8 +117,8 @@ export function createFloodState() {
 }
 
 /**
- * VisionState — vis/mask/cone arrays + visRegion/Step/FadeT + coneX/Y/Face/Radar + scopeDirty.
- * wantVision is a module-level flag in vision.js, not stored here.
+ * VisionState — vis/mask/cone arrays + visRegion/Step/FadeT + coneX/Y/Face/Radar + scopeDirty
+ * plus the per-floor wantVision flag that gates the cone/mask work in update().
  */
 export function createVisionState() {
   return {
@@ -140,6 +140,7 @@ export function createVisionState() {
     coneFace: NaN,
     coneRadar: null,
     scopeDirty: false,
+    wantVision: true,
   };
 }
 

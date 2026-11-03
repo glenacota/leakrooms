@@ -5,7 +5,7 @@ import { tickLeakNoise, tickRepair } from './leaks.js';
 import { NOISE_FS } from '../config/constants.js';
 import { tickLifeforms } from './lifeforms.js';
 import { tickClock } from './clock.js';
-import { combineMask, fadeRoomLight, scopeRoomLight, smoothMask, traceViewCone, wantVision } from './vision.js';
+import { combineMask, fadeRoomLight, scopeRoomLight, smoothMask, traceViewCone } from './vision.js';
 import { tickRadarReveal } from './radar.js';
 import { tickBattery, tickMovement } from './plumber.js';
 
@@ -71,7 +71,7 @@ export function update(state, dt){
      The whole block is skipped when the tests switch vision off. state.scopeDirty is
      left alone on purpose: it is pending work, so the first frame after vision
      comes back recombines whatever the crossfade moved in the meantime. */
-  if (wantVision){
+  if (state.wantVision){
     if (traceViewCone(state, state.plumber, state.radar, false) || state.scopeDirty){ combineMask(state, state.plumber, state.radar); state.scopeDirty = false; }
     smoothMask(state, dt);
   }
