@@ -52,9 +52,8 @@ function doorSprites(){
  * Draws the exit door.
  *
  * The door tile is masonry, and its lit face (the wallpaper band, with the hard
- * ceiling line above it) is in the carpet tile BELOW it (see bakeTiles). So the
- * door is painted there, centred on the band, because the band is the wall and
- * the rest of that tile is floor. It is drawn after the flood and the wall
+ * ceiling line above it) is in the bottom of that same tile (see bakeTiles). So
+ * the door is painted there, centred on the band. It is drawn after the flood and the wall
  * layers, so it lands on top of the face, and the plumber (drawn later) stands in
  * front of the frame.
  *
@@ -76,7 +75,7 @@ export function drawDoor(e, t){
   const rot = 0;
 
   ctx.save();
-  ctx.translate((e.x+0.5)*TILE, (e.y+1)*TILE + WALL_FACE/2);
+  ctx.translate((e.x+0.5)*TILE, (e.y+1)*TILE - WALL_FACE/2);
   ctx.save();
   ctx.rotate(rot);
 
@@ -167,7 +166,7 @@ export function doorCrank(e, t){
   const hw = OW/2;
   const cx = -hw-2, cy = 0, r = 8, p = G.descend/DOOR_HOLD;
   ctx.save();
-  ctx.translate((e.x+0.5)*TILE, (e.y+1)*TILE + WALL_FACE/2);
+  ctx.translate((e.x+0.5)*TILE, (e.y+1)*TILE - WALL_FACE/2);
   ctx.strokeStyle = 'rgba(28,26,20,0.4)'; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.arc(cx, cy, r, Math.PI*0.5, Math.PI*1.5); ctx.stroke();
   ctx.strokeStyle = '#8fd07a';

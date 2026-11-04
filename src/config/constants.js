@@ -22,10 +22,12 @@ export const VIEW_T = 27;                // tiles across the viewport
    limits and 16:9 is unchanged. Only ratios wider than 27:12 hit the row floor. */
 export const VIEW_ROWS_MIN = 12;
 
-/* The lit face of a wall: how tall the wallpaper band is, as a fraction of a
-   tile. It is drawn into the carpet tile BELOW each wall (see bakeTiles in
-   render/bake.js) and it is the surface the door is painted on. */
-export const WALL_FACE = TILE*0.46;
+/* The lit face of a wall: how tall the wallpaper band is, in pixels. It is drawn
+   into the bottom of the wall tile itself (see bakeTiles in render/bake.js), so
+   it can never be taller than TILE. It never covers floor, which is why the
+   plumber cannot stand "on" it. It is the surface the door and the pipes are
+   painted on. */
+export const WALL_FACE = TILE*0.8;
 
 /* ---------- The door ---------- */
 export const DOOR_HOLD = 1.5;      // seconds standing at the door to cycle it

@@ -76,41 +76,15 @@ export function bakeTiles(level){
   {
     const g = level.wallsCtx;
     g.setTransform(1,0,0,1,0,0);
-    /* ---------- Wall faces and contact shadow ----------
-       The face is the vertical side of a partition, drawn into the floor tile
-       below the wall. A soft shadow on the carpet under it sells the height, and
-       is what makes a top-down maze look like a photographed room and not a
-       colour-coded grid. */
-    const FACE = WALL_FACE;
-    const { grid } = level;
-    for (let y=0;y<MAP_H;y++) for (let x=0;x<MAP_W;x++){
-      if (grid[y*MAP_W+x]!==WALL) continue;
-      if (y+1>=MAP_H || grid[(y+1)*MAP_W+x]!==FLOOR) continue;
-      const fx=x*TILE, fy=(y+1)*TILE;
-
-      // Shadow cast onto the carpet
-      const sh=g.createLinearGradient(0, fy, 0, fy+TILE*0.5);
-      sh.addColorStop(0,'rgba(12,10,4,0.30)');
-      sh.addColorStop(1,'rgba(12,10,4,0)');
-      g.fillStyle=sh;
-      g.fillRect(fx, fy, TILE, TILE*0.5);
-
-      // The wallpapered face
-      g.fillStyle = wallPat;
-      g.fillRect(fx, fy, TILE, FACE);
-      // A hard line where the face meets the ceiling
-      g.fillStyle='rgba(40,38,24,0.55)';
-      g.fillRect(fx, fy, TILE, 2);
-      // A skirting shadow at the base
-      g.fillStyle='rgba(48,46,30,0.42)';
-      g.fillRect(fx, fy+FACE-2, TILE, 2);
-    }
-
     /* ---------- Wall tops ----------
        Seen from directly above, so they are cooler and clearly darker than the
        carpet. There is no banding on each tile: a lip, edge and seam on every tile
        made a solid wall block look like decking. Edges are only drawn where the
-       wall actually meets carpet. */
+       wall actually meets carpet. The south edge is left out where a face is
+       painted, because the face has its own skirting line. */
+    const FACE = WALL_FACE;
+    const { grid } = level;
+    const hasFace = (x, y)=> grid[y*MAP_W+x]===WALL && y+1<MAP_H && grid[(y+1)*MAP_W+x]===FLOOR;
     for (let y=0;y<MAP_H;y++) for (let x=0;x<MAP_W;x++){
       if (grid[y*MAP_W+x]!==WALL) continue;
       g.fillStyle = ceilPat;
@@ -119,12 +93,39 @@ export function bakeTiles(level){
     g.fillStyle='rgba(28,26,16,0.55)';
     for (let y=0;y<MAP_H;y++) for (let x=0;x<MAP_W;x++){
       if (grid[y*MAP_W+x]!==WALL) continue;
-      const below = (y+1<MAP_H && grid[(y+1)*MAP_W+x]===FLOOR);
-      if (below){ g.fillRect(x*TILE, y*TILE+TILE-2, TILE, 2); }
       if (x>0      && grid[y*MAP_W+x-1]===FLOOR) g.fillRect(x*TILE, y*TILE, 2, TILE);
       if (x<MAP_W-1 && grid[y*MAP_W+x+1]===FLOOR) g.fillRect(x*TILE+TILE-2, y*TILE, 2, TILE);
       if (y>0      && grid[(y-1)*MAP_W+x]===FLOOR) g.fillRect(x*TILE, y*TILE, TILE, 2);
-      if (y<MAP_H-1 && grid[(y+1)*MAP_W+x]===FLOOR) g.fillRect(x*TILE, y*TILE+TILE-2, TILE, 2);
+    }
+
+    /* ---------- Wall faces and contact shadow ----------
+       The face is the vertical side of a partition. It is drawn into the BOTTOM
+       of the wall tile (the strip above it stays as the ceiling), and
+       never into the floor tile below, so the plumber's feet are always on
+       carpet. A soft shadow on the carpet under it sells the height, and is what
+       makes a top-down maze look like a photographed room and not a
+       colour-coded grid. */
+    for (let y=0;y<MAP_H;y++) for (let x=0;x<MAP_W;x++){
+      if (!hasFace(x, y)) continue;
+      const wx=x*TILE, wy=(y+1)*TILE - FACE;     // top-left of the face
+      const fy=(y+1)*TILE;                       // the carpet tile below starts here
+
+      // Shadow cast onto the carpet
+      const sh=g.createLinearGradient(0, fy, 0, fy+TILE*0.5);
+      sh.addColorStop(0,'rgba(12,10,4,0.30)');
+      sh.addColorStop(1,'rgba(12,10,4,0)');
+      g.fillStyle=sh;
+      g.fillRect(wx, fy, TILE, TILE*0.5);
+
+      // The wallpapered face
+      g.fillStyle = wallPat;
+      g.fillRect(wx, wy, TILE, FACE);
+      // A hard line where the face meets the ceiling
+      g.fillStyle='rgba(40,38,24,0.55)';
+      g.fillRect(wx, wy, TILE, 2);
+      // A skirting shadow at the base
+      g.fillStyle='rgba(48,46,30,0.42)';
+      g.fillRect(wx, fy-2, TILE, 2);
     }
   }
 }

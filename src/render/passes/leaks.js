@@ -1,11 +1,11 @@
-import { MAP_W, TILE } from '../../config/constants.js';
+import { MAP_W, TILE, WALL_FACE } from '../../config/constants.js';
 import { WATER_TINTS } from '../../config/presets.js';
 import { REPAIR_TIME } from '../../config/tuning.js';
 import { SETTINGS } from '../../settings/store.js';
 import { G } from '../../sim/state.js';
 import { hash2 } from '../../util/hash.js';
 import { ctx, SCALE } from '../canvas.js';
-import { dropAt, pipeFlipped, pipeLayout, waterCss } from '../pipe-layout.js';
+import { dropAt, LAND_Y, pipeFlipped, pipeLayout, waterCss } from '../pipe-layout.js';
 
 /* The pipe's colours: greys with the green cast of the wallpaper, so it sits on the
    wall and not on top of it. The collars are a shade darker, and each has a darker
@@ -96,7 +96,7 @@ function drawPuddle(P, ox, oy, U, deep){
 function drawDrop(P, ox, oy, U, deep, phase){
   const d = dropAt(phase), x = ox + P.dropFrom.x*U, y = oy + d.y*U, r = d.r*U;
   if (d.ripple > 0){
-    const lx = ox + P.dropFrom.x*U, ly = oy + 0.72*U;
+    const lx = ox + P.dropFrom.x*U, ly = oy + LAND_Y*U;
     ctx.strokeStyle = waterCss(deep, 0.85, 0.7*(1 - d.ripple)); ctx.lineWidth = Math.max(1, U*0.012);
     ctx.beginPath(); ctx.ellipse(lx, ly, U*(0.02 + 0.07*d.ripple), U*(0.008 + 0.025*d.ripple), 0, 0, 6.283); ctx.stroke();
   }
@@ -128,8 +128,9 @@ export function leaks(rc){
      battery, and does nothing from two rooms away.
 
      WHERE: a pipe is on the SOUTH face of its wall tile, the wallpaper band the
-     bake paints into the top of the floor tile below it, the only wall face the
-     player ever sees. The level places pipes only on such walls (see genLevel), and
+     bake paints into the bottom of that wall tile, the only wall face the
+     player ever sees. The puddle and the drop's landing are below the band, on the
+     carpet of the standing spot. The level places pipes only on such walls (see genLevel), and
      pipe-layout.js has the geometry. */
   for (const L of G.leaks){
     /* DEVICE space, not world space. This pass runs after ctx.restore(), so the
@@ -139,7 +140,7 @@ export function leaks(rc){
     const lt = L.y*MAP_W + L.x;
     if (!G.wetArr || G.maskArr[lt] <= 0.02) continue;
     const U  = TILE*SCALE;                 // one tile, in device pixels
-    const ox = w2sx(L.x), oy = w2sy(L.y+1); // top-left of the wall face band
+    const ox = w2sx(L.x), oy = w2sy(L.y+1) - WALL_FACE*SCALE; // top-left of the wall face band
     const vis = G.maskArr[lt];
     const P = pipeLayout(pipeFlipped(L.x, L.y));
     const deep = (WATER_TINTS[SETTINGS.waterHue] || WATER_TINTS.slate).deep;

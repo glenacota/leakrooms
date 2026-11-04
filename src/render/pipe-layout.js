@@ -2,10 +2,10 @@
    canvas, so the geometry can be tested without drawing anything.
 
    A pipe is painted on the SOUTH wall face of its wall tile: the wallpaper band
-   the bake lays into the top of the floor tile below the wall (WALL_FACE tall).
+   the bake lays into the bottom of the wall tile (WALL_FACE tall).
    Everything here is in TILE FRACTIONS measured from the top-left of that band:
    x runs 0..1 across the tile, y runs down from the band's top edge, so the band
-   is 0..FACE and the carpet below it is FACE..1.
+   is 0..FACE and the carpet of the floor tile below it starts at FACE.
 
    The shape is a riser that comes down out of the ceiling line and turns through
    an elbow into a run along the wall. */
@@ -36,14 +36,19 @@ const CRACK = [
 /* Where the drop forms: the lowest point of the split. */
 const DROP_FROM = { x:0.592, y:0.335 };
 
+/* How far below the wall's base the puddle sits, in tile fractions. The pool is
+   on the carpet, so every y below is FACE plus an offset and the puddle stays the
+   same distance from the wall however tall the face is. */
+const PUDDLE_DROP = 0.275;
+
 /* The puddle on the carpet below, one big pool and two small blobs: [cx, cy, rx, ry]. */
 const PUDDLE = [
-  [0.585, 0.735, 0.300, 0.085],
-  [0.330, 0.765, 0.115, 0.038],
-  [0.885, 0.800, 0.070, 0.024],
+  [0.585, FACE + PUDDLE_DROP,         0.300, 0.085],
+  [0.330, FACE + PUDDLE_DROP + 0.030, 0.115, 0.038],
+  [0.885, FACE + PUDDLE_DROP + 0.065, 0.070, 0.024],
 ];
 /* The glint on the big pool: [cx, cy, rx, ry]. */
-const GLINT = [0.500, 0.710, 0.130, 0.020];
+const GLINT = [0.500, FACE + PUDDLE_DROP - 0.025, 0.130, 0.020];
 
 const mx  = (x)=> 1 - x;
 const mxr = (r)=> ({ x: 1 - r.x - r.w, y:r.y, w:r.w, h:r.h });
@@ -76,7 +81,7 @@ export function pipeLayout(flip){
 }
 
 export const HANG = 0.34;
-export const LAND_Y = 0.72;
+export const LAND_Y = FACE + PUDDLE_DROP - 0.015;   // where the drop meets the pool
 /**
  * Where the drop is, as a looping cycle: it swells at the split (0 to HANG of the
  * cycle), then falls onto the puddle with gravity, and the puddle ripples as it

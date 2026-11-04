@@ -16,6 +16,24 @@ test('FACE is positive and less than 1 (band is smaller than a full tile)', () =
   assert.ok(FACE > 0 && FACE < 1, `FACE=${FACE}`);
 });
 
+test('FACE fits inside one wall tile, so the face never covers floor', () => {
+  assert.ok(FACE <= 1, `FACE=${FACE}`);
+});
+
+// ── the carpet below the face ─────────────────────────────────────────────────
+for (const flip of [false, true]){
+  test(`puddle, glint and landing sit on the carpet below the face (flip=${flip})`, () => {
+    const L = pipeLayout(flip);
+    for (const [, cy, , ry] of [...L.puddle, L.glint]){
+      assert.ok(cy - ry >= FACE - 1e-9, `blob top ${cy - ry} is above the face base ${FACE}`);
+    }
+    assert.ok(LAND_Y > FACE, `LAND_Y=${LAND_Y} is not below the face base ${FACE}`);
+    // the wet streak runs down the wallpaper and stops at its base
+    const s = L.rects.streak;
+    assert.ok(Math.abs(s.y + s.h - FACE) < 1e-9, `streak ends at ${s.y + s.h}, face base is ${FACE}`);
+  });
+}
+
 // ── pipeFlipped ───────────────────────────────────────────────────────────────
 test('pipeFlipped returns a boolean for any integer tile coords', () => {
   for (let x = 0; x < 5; x++) for (let y = 0; y < 5; y++){

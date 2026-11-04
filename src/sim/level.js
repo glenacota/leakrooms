@@ -36,7 +36,7 @@ export function genLevel(rng, floorNum=0){
 
   /* A slot for the door is a wall tile with floor directly SOUTH of it. This is
      a rendering rule and not a style choice: the bake paints one wall face per
-     wall tile, the south one, into the floor tile below it. A door anywhere
+     wall tile, the south one, into the bottom of that wall tile. A door anywhere
      else would stand on a dark ceiling top with no lit wall behind it, and
      look like a frame painted on the floor. Touching floor on any side is not
      enough: a wall on the east side of a room touches floor but has no face. */
