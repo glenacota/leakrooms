@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RUN tab — 5 improvement concepts</title>
+<style>
+  /* ============================================================
+     Leakrooms design tokens (mirrors css/tokens.css so the concepts
+     read in the game's actual voice).
+     ============================================================ */
+  :root{
+    --carpet:      #c3cb6e;
+    --yellow:      #e4e6a8;
+    --yellow-dim:  #c3cb6e;
+    --yellow-deep: #8f9445;
+    --ink:         #1c1a14;
+    --danger:      #d8503c;
+    --water:       #8fc4cc;
+    --mono:        "Courier New", "Courier", monospace;
+    --bg:          #000;
+    --ticket:      #0c0a06;
+    --line:        rgba(228,230,168,.2);
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  html,body{
+    width:100%; height:100%; background:var(--bg);
+    overflow:hidden; font-family:var(--mono); color:var(--yellow);
+    cursor:none; -webkit-font-smoothing:antialiased;
+  }
+  body{ display:flex; align-items:center; justify-content:center; padding:24px; }
+
+  /* outer frame mimics the game's CRT wrapper */
+  .frame{
+    width:min(760px, 100%);
+    max-height:calc(100vh - 48px);
+    overflow-y:auto;
+    padding:18px 22px 26px;
+    background:var(--ticket);
+    border:1px solid var(--line);
+    box-shadow:0 0 40px rgba(0,0,0,.7);
+  }
+
+  /* ticket paper look (same as .order.perf) */
+  .ticket{
+    background-image:
+      radial-gradient(circle at 0 8px,#000 0 2.5px,transparent 2.6px),
+      radial-gradient(circle at 100% 8px,#000 0 2.5px,transparent 2.6px),
+      repeating-linear-gradient(0deg,rgba(0,0,0,.14) 0 2px,transparent 2px 4px),
+      rgba(12,10,6,.96);
+    background-size:100% 16px,100% 16px,auto,auto;
+    background-position:left top,right top,0 0,0 0;
+    background-repeat:repeat-y,repeat-y,repeat,no-repeat;
+    padding:22px 26px 20px;
+  }
+
+  h1{ font-size:30px; letter-spacing:.22em; font-weight:400; margin:0 0 2px; text-shadow:2px 0 0 rgba(216,80,60,.45), -2px 0 0 rgba(80,150,216,.3); }
+  .sub{ font-size:13px; letter-spacing:.18em; color:var(--yellow-deep); font-weight:900; margin-bottom:18px; }
+
+  /* section divider used between concepts */
+  hr.sep{ border:none; border-top:1px solid var(--line); margin:34px 0 24px; }
+
+  /* ---------- baseline: current minimal tab ---------- */
+  .baseline{ margin-bottom:8px; }
+  .badge{ display:inline-block; font-size:10px; letter-spacing:.3em; color:var(--yellow-deep); font-weight:900; margin-bottom:8px; }
+  .baseline h2{ font-size:22px; letter-spacing:.16em; font-weight:400; margin-bottom:10px; }
+  .run-stats{ display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:12px 18px; margin:4px 0 6px; }
+  .stat{ }
+  .stat small{ display:block; font-size:11px; letter-spacing:.2em; color:var(--yellow-dim); font-weight:900; margin-bottom:2px; }
+  .stat b{ font-size:22px; letter-spacing:.1em; color:var(--water); font-weight:400; }
+  .stat.lives b{ color:var(--danger); letter-spacing:.3em; }
+  .stat.lives .gone{ opacity:.18; }
+
+  /* ---------- concept card ---------- */
+  .concept{ margin-top:30px; border:1px solid var(--line); padding:16px 18px 14px; }
+  .concept:first-child{ margin-top:0; }
+  .concept-head{ display:flex; align-items:baseline; gap:10px; margin-bottom:10px; }
+  .concept h3{ font-size:17px; letter-spacing:.22em; font-weight:400; color:var(--yellow); }
+  .concept .num{ font-size:11px; letter-spacing:.4em; color:var(--yellow-deep); font-weight:900; padding:2px 8px; border:1px solid var(--yellow-deep); }
+  .concept .job{ font-size:11.5px; letter-spacing:.16em; color:var(--yellow-dim); font-weight:900; margin-bottom:8px; }
+
+  .concept .surfaces{ font-size:10px; letter-spacing:.14em; color:var(--yellow-deep); margin-bottom:10px; padding-left:14px; border-left:2px solid var(--yellow-deep); }
+  .surfaces b{ color:var(--ink); background:var(--yellow); padding:0 4px; }
+
+  /* shared stat list inside concepts */
+  .kv{ margin:0; padding:0; list-style:none; }
+  .kv li{ display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid rgba(228,230,168,.12); font-size:14px; }
+  .kv li:last-child{ border-bottom:none; }
+  .kv .k{ color:var(--yellow-dim); letter-spacing:.16em; font-weight:900; }
+  .kv .v{ color:var(--water); font-weight:400; letter-spacing:.08em; }
+  .kv .v.warn{ color:var(--danger); }
+  .kv .v.ok{ color:var(--carpet); }
+
+  /* concept 1 ledger: two column */
+  .ledger{ display:grid; grid-template-columns:1fr 1fr; gap:14px 26px; margin-top:8px; }
+  .ledger .col{ }
+  .ledger .col h4{ font-size:11px; letter-spacing:.3em; color:var(--yellow-deep); font-weight:900; margin-bottom:6px; padding-bottom:4px; border-bottom:1px solid var(--line); }
+
+  /* concept 2 situation report: severity pills */
+  .situation{ display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-top:8px; }
+  .gauge{ border:1px solid var(--line); padding:10px 12px; }
+  .gauge .g-label{ font-size:10px; letter-spacing:.3em; color:var(--yellow-deep); font-weight:900; margin-bottom:4px; }
+  .gauge .g-val{ font-size:20px; letter-spacing:.05em; }
+  .gauge .g-sub{ font-size:9.5px; letter-spacing:.14em; color:var(--yellow-dim); margin-top:3px; }
+  .gauge.bad .g-val{ color:var(--danger); }
+  .gauge.ok .g-val{ color:var(--carpet); }
+  .gauge.mid .g-val{ color:var(--yellow); }
+
+  /* concept 3 timeline: vertical */
+  .timeline{ margin-top:8px; position:relative; padding-left:22px; }
+  .timeline::before{ content:""; position:absolute; left:8px; top:10px; bottom:10px; width:1px; background:var(--line); }
+  .t-event{ position:relative; padding:7px 0 7px 16px; border-left:2px solid transparent; margin-bottom:10px; }
+  .t-event::before{ content:""; position:absolute; left:-6px; top:50%; transform:translateY(-50%); width:10px; height:10px; border:1px solid var(--yellow); background:var(--ticket); border-radius:50%; }
+  .t-event.done::before{ background:var(--carpet); border-color:var(--carpet); }
+  .t-event.dead::before{ background:var(--danger); border-color:var(--danger); }
+  .t-time{ position:absolute; left:-56px; top:8px; font-size:10px; letter-spacing:.2em; color:var(--yellow-deep); font-weight:900; text-align:right; width:48px; }
+  .t-event .t-floor{ color:var(--yellow); font-weight:900; letter-spacing:.1em; }
+  .t-event .t-note{ color:var(--yellow-dim); font-size:13px; letter-spacing:.05em; }
+
+  /* concept 4 checklist */
+  .checklist{ margin-top:8px; }
+  .checklist li{ display:flex; align-items:center; gap:10px; padding:6px 0; font-size:14px; border-bottom:1px solid rgba(228,230,168,.12); }
+  .checklist li:last-child{ border-bottom:none; }
+  .chip{ flex:none; width:16px; height:16px; border:1px solid var(--line); color:var(--yellow-deep); font-size:10px; font-weight:900; display:grid; place-items:center; }
+  .chip.sealed{ background:var(--carpet); color:var(--ink); border-color:var(--carpet); }
+  .chip.open{ background:transparent; color:var(--danger); border-color:var(--danger); }
+  .cl-label{ color:var(--yellow-dim); letter-spacing:.1em; font-weight:900; }
+  .cl-loc{ color:var(--water); font-size:12px; letter-spacing:.05em; margin-left:auto; }
+
+  /* concept 5 field note */
+  .fieldnote{ margin-top:8px; border:1px solid var(--line); background:rgba(228,230,168,.04); padding:12px 14px; }
+  .fieldnote p{ font-size:14px; letter-spacing:.04em; color:var(--yellow-dim); line-height:1.6; margin-bottom:10px; }
+  .bottomline{ display:flex; align-items:baseline; gap:8px; font-size:15px; letter-spacing:.1em; color:var(--yellow); font-weight:400; }
+  .bottomline b{ color:var(--water); font-weight:900; }
+
+  /* resume hint shared across concepts */
+  .hint{ margin-top:14px; font-size:11px; letter-spacing:.28em; color:var(--yellow-deep); font-weight:900; text-align:right; }
+  .hint b{ color:var(--yellow); }
+
+  @media (max-width:560px){
+    .frame{ padding:12px 14px 16px; }
+    .ticket{ padding:14px 16px 12px; }
+    .ledger{ grid-template-columns:1fr; }
+    .t-time{ position:static; display:block; width:auto; text-align:left; margin-bottom:2px; font-size:10px; }
+    .timeline{ padding-left:0; }
+    .timeline::before{ display:none; }
+    .t-event::before{ display:none; }
+  }
+</style>
+<body>
+  <div class="frame">
+    <div class="ticket">
+      <h1>SHIFT PAUSED</h1>
+      <p class="sub">RUN TAB &mdash; FIVE IMPROVEMENT CONCEPTS</p>
+
+      <!-- baseline: what exists today -->
+      <div class="baseline">
+        <div class="badge">today &mdash; read-only bearings</div>
+        <h2>Shift paused</h2>
+        <div class="run-stats">
+          <div class="stat"><small>on the clock</small><b>3:00</b></div>
+          <div class="stat"><small>floor</small><b>1/5</b></div>
+          <div class="stat"><small>leaks sealed</small><b>0/1</b></div>
+          <div class="stat lives"><small>lives</small><b>&#9679;&#9679;&#9679;</b></div>
+          <div class="stat"><small>terms</small><b>NORMAL</b></div>
+        </div>
+        <p class="hint">resume <b>ESC / ENTER</b></p>
+      </div>
+
+      <hr class="sep">
+
+      <!-- Concept 1: Ledger -->
+      <section class="concept">
+        <div class="concept-head">
+          <div class="num">01</div>
+          <h3>The Ledger</h3>
+        </div>
+        <div class="job">Shows how the whole run is going, not just this floor</div>
+        <div class="surfaces">Surfaces <b>run-wide totals</b> that live in <i>runStat</i> and are never shown elsewhere: noises made, deaths, leaks sealed across every floor.</div>
+        <div class="ledger">
+          <div class="col">
+            <h4>this floor</h4>
+            <ul class="kv">
+              <li><span class="k">clock</span><span class="v">3:00</span></li>
+              <li><span class="k">floor</span><span class="v">1 / 5</span></li>
+              <li><span class="k">leaks sealed</span><span class="v">0 / 1</span></li>
+              <li><span class="k">lives</span><span class="v">&#9679;&#9679;&#9679;</span></li>
+            </ul>
+          </div>
+          <div class="col">
+            <h4>whole run</h4>
+            <ul class="kv">
+              <li><span class="k">noises made</span><span class="v">11</span></li>
+              <li><span class="k">deaths</span><span class="v warn">2</span></li>
+              <li><span class="k">leaks sealed</span><span class="v">4 / 9</span></li>
+              <li><span class="k">run time</span><span class="v">18:42</span></li>
+            </ul>
+          </div>
+        </div>
+        <p class="hint">resume <b>ESC / ENTER</b></p>
+      </section>
+
+      <!-- Concept 2: Situation report -->
+      <section class="concept">
+        <div class="concept-head">
+          <div class="num">02</div>
+          <h3>Situation Report</h3>
+        </div>
+        <div class="job">Stealth clarity &mdash; how exposed you are right now</div>
+        <div class="surfaces">Surfaces <b>situational reads</b> from <i>G</i>: radar battery, self noise, nearest lifeform distance, flood coverage. Each is colour-coded so a glance tells you whether to push or hold still.</div>
+        <div class="situation">
+          <div class="gauge bad">
+            <div class="g-label">radar battery</div><div class="g-val">14%</div>
+            <div class="g-sub">low &mdash; radar cuts out soon</div>
+          </div>
+          <div class="gauge bad">
+            <div class="g-label">self noise</div><div class="g-val">loud</div>
+            <div class="g-sub">above LOUD &mdash; sleepers wake</div>
+          </div>
+          <div class="gauge mid">
+            <div class="g-label">nearest lifeform</div><div class="g-val">12 m</div>
+            <div class="g-sub">within sight range</div>
+          </div>
+          <div class="gauge ok">
+            <div class="g-label">flood cover</div><div class="g-val">3%</div>
+            <div class="g-sub">mostly dry floor</div>
+          </div>
+        </div>
+        <p class="hint">resume <b>ESC / ENTER</b></p>
+      </section>
+
+      <!-- Concept 3: Timeline -->
+      <section class="concept">
+        <div class="concept-head">
+          <div class="num">03</div>
+          <h3>Timeline</h3>
+        </div>
+        <div class="job">The arc of the attempt &mdash; what happened on each floor</div>
+        <div class="surfaces">Surfaces <b>per-floor history</b> (floors cleared, leaks sealed, deaths, time left) so the player can read the run's arc at a glance instead of remembering it.</div>
+        <div class="timeline">
+          <div class="t-event done">
+            <div class="t-time">floor 1</div>
+            <span class="t-floor">sealed 1 / 1</span> <span class="t-note">left with 2:11 on the clock</span>
+          </div>
+          <div class="t-event dead">
+            <div class="t-time">floor 2</div>
+            <span class="t-floor">died</span> <span class="t-note">caught, 0:00 left</span>
+          </div>
+          <div class="t-event done">
+            <div class="t-time">floor 2 (retry)</div>
+            <span class="t-floor">sealed 2 / 2</span> <span class="t-note">left with 1:48</span>
+          </div>
+          <div class="t-event">
+            <div class="t-time">floor 3</div>
+            <span class="t-floor">in progress</span> <span class="t-note">0 / 3 leaks sealed</span>
+          </div>
+        </div>
+        <p class="hint">resume <b>ESC / ENTER</b></p>
+      </section>
+
+      <!-- Concept 4: Leak checklist -->
+      <section class="concept">
+        <div class="concept-head">
+          <div class="num">04</div>
+          <h3>Leak Checklist</h3>
+        </div>
+        <div class="job">Task clarity &mdash; what remains to seal and where</div>
+        <div class="surfaces">Surfaces <b>each open leak</b> with its standing spot and floor, so the player knows exactly what's left and can follow the water to the next one.</div>
+        <ul class="checklist">
+          <li><span class="chip open">O</span><span class="cl-label">kitchen, floor 3</span><span class="cl-loc">standing spot B-7</span></li>
+          <li><span class="chip open">O</span><span class="cl-label">corridor, floor 3</span><span class="cl-loc">standing spot C-2</span></li>
+          <li><span class="chip sealed">&#10003;</span><span class="cl-label">archive, floor 2</span><span class="cl-loc">sealed</span></li>
+          <li><span class="chip sealed">&#10003;</span><span class="cl-label">lobby, floor 1</span><span class="cl-loc">sealed</span></li>
+        </ul>
+        <p class="hint">resume <b>ESC / ENTER</b></p>
+      </section>
+
+      <!-- Concept 5: Field note -->
+      <section class="concept">
+        <div class="concept-head">
+          <div class="num">05</div>
+          <h3>Field Note</h3>
+        </div>
+        <div class="job">Voice &mdash; one mission summary in the game's tone</div>
+        <div class="surfaces">Surfaces <b>the bottom line</b> in plain words: progress, exposure, and what to do next. Minimal data, maximum character &mdash; no new chrome.</div>
+        <div class="fieldnote">
+          <p>Floor 3 of 5. One leak sealed, two still open. You've made noise eleven times this run and died once. Radar battery is low. The water leads to the kitchen &mdash; seal it, then move quiet.</p>
+          <div class="bottomline"><b>Bottom line:</b> <b>2 of 3 leaks left &middot; floor 3 / 5 &middot; resume ESC / ENTER</b></div>
+        </div>
+        <p class="hint">resume <b>ESC / ENTER</b></p>
+      </section>
+
+    </div>
+  </div>
+</body>
+</html>

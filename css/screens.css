@@ -62,6 +62,28 @@
 .run-stats .lives-row{ color:var(--danger); letter-spacing:.3em; }
 .run-stats .lives-row .gone{ opacity:.18; }
 
+/* ---------- The timeline: how each floor of the attempt went ---------- */
+
+.run-timeline{ margin-top:10px; border:1px solid rgba(228,230,168,.25); }
+.run-timeline-head{
+  display:grid; grid-template-columns:1fr 1fr 1fr 1fr;
+  padding:6px 10px; border-bottom:1px solid rgba(228,230,168,.2);
+  font-size:10px; letter-spacing:.3em; font-weight:900; color:var(--yellow-deep);
+}
+.run-timeline-row{
+  display:grid; grid-template-columns:1fr 1fr 1fr 1fr;
+  padding:6px 10px; font-size:13px; border-bottom:1px solid rgba(228,230,168,.12);
+  align-items:center;
+}
+.run-timeline-row:last-child{ border-bottom:none; }
+.run-timeline-row.now{ background:rgba(228,230,168,.06); }
+.run-timeline-floor{ color:var(--yellow); font-weight:900; letter-spacing:.1em; }
+.run-timeline-status.ok{ color:var(--carpet); font-weight:900; letter-spacing:.1em; }
+.run-timeline-status.bad{ color:var(--danger); font-weight:900; letter-spacing:.1em; }
+.run-timeline-status.now{ color:var(--yellow-dim); font-weight:900; letter-spacing:.1em; }
+.run-timeline-leaks{ color:var(--water); font-weight:400; letter-spacing:.08em; }
+.run-timeline-clock{ color:var(--yellow-dim); font-weight:900; letter-spacing:.08em; }
+
 /* The field manual: columns of short sections. */
 .manual-cols{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px 22px; margin-top:48px; }
 .manual-cols h3{

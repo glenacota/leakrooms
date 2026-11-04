@@ -84,6 +84,7 @@ html, body{ overscroll-behavior:none; }
 
   /* The pause pages scroll inside the ticket. The tab row and the button row
      are pinned, so they stay in reach while the controls move under them. */
+  .binder-page[data-binder-page="run"],
   .binder-page[data-binder-page="settings"],
   .binder-page[data-binder-page="manual"]{
     max-height:calc(100vh - var(--pause-chrome) - 8px);

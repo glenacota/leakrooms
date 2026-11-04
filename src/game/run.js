@@ -34,6 +34,10 @@ export let runLives = 3;
    run. They are cleared only when a run starts (startRun). */
 export let runStat = { noises:0, deaths:0, sealed:0 };
 
+/* One entry per floor attempt, in the order they finished. Cleared when a new
+   run starts, so the timeline on the pause page only ever shows this run. */
+export let runHistory = [];
+
 /* Starts a new building: new seed, a fresh floor 0, and a repainted title
    plan. The title screen must show the level the next run will really
    play, so this runs before the player sees it again (RUN IT AGAIN, RESET). */
@@ -100,6 +104,15 @@ export function transition(to){
 
 // Called when the door cycles: moves to the next floor, or ends the run.
 export function nextFloor(){
+  /* Record how this floor went before the floor is replaced. G still refers
+     to the floor just finished. */
+  runHistory.push({
+    floor: floorIdx,
+    sealed: G ? G.totalLeaks - G.openLeaks : 0,
+    total: G ? G.totalLeaks : 0,
+    clockLeft: G ? G.clock : FLOOR_CLOCK,
+    died: false,
+  });
   setFloorIdx(floorIdx+1);
   if (floorIdx >= FLOORS){ transition('win'); emit('win', { sealed: runStat.sealed, deaths: runStat.deaths, noises: runStat.noises, floors: FLOORS, time: runTime });
     return;
@@ -127,6 +140,15 @@ export const DEATH_CAUSE = Object.freeze({ CAUGHT: 'caught', CLOCK: 'clock' });
  */
 export function lose(cause){
   if (STATE!=='play') return;
+  /* Record how this floor attempt ended before G is replaced or the floor
+     is retried. */
+  runHistory.push({
+    floor: floorIdx,
+    sealed: G.totalLeaks - G.openLeaks,
+    total: G.totalLeaks,
+    clockLeft: G.clock,
+    died: true,
+  });
   /* Tell the floor first. This frame is still a simulation frame, and without
      G.ended the rest of update() would keep running. The worst case is the
      door cycling and building the next floor on the frame you died. */
@@ -204,6 +226,7 @@ export function startRun(){
   setLives(runLives); setFloorIdx(0); setRunTime(0);
   // A new run gets a new tally, so the win card never shows the previous run.
   setRunStat({ noises:0, deaths:0, sealed:0 });
+  runHistory = [];
   emit('lives');
   buildFloor(0, RUN_SEED);
   // A short grace period before lifeforms can notice you.
