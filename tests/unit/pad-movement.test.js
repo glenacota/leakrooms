@@ -66,8 +66,10 @@ function keyboardPath(){
   return { x: G.plumber.x, y: G.plumber.y, peak, sum };
 }
 
-/* Recorded by running keyboardPath() on main BEFORE tickMovement read the pad. */
-const EXPECTED = { x: 18.08336309447892, y: 29.241636905521055, peak: 0.7, sum: 76.50000000000016 };
+/* Recorded by running keyboardPath() on main BEFORE tickMovement read the pad.
+   Re-recorded when walls were limited to MIN_WALL: the layout moved the first
+   open 7x7 spot, so only the end position shifted. The walk and its noise did not. */
+const EXPECTED = { x: 42.08336309447892, y: 13.241636905521109, peak: 0.7, sum: 76.50000000000016 };
 
 test('[PAD] keyboard-only path is unchanged by the pad', () => {
   const r = keyboardPath();

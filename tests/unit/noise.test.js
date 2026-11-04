@@ -2,6 +2,7 @@ import test from 'node:test';
 import { softAssert } from '../helpers/soft-assert.js';
 import { loadGame } from '../helpers/harness.js';
 import { on, off } from '../../src/util/events.js';
+import { MIN_WALL } from '../../src/config/constants.js';
 
 const { A, G, els, calls } = await loadGame();
 const buildFloor = A.buildFloor;
@@ -302,10 +303,11 @@ test('walls muffle a sound, and a sprint still crosses one', () => {
       `a walk four tiles away in the open left the listener ${a.state} — and now nothing carries at all`);
   }
 
-  /* one wall is not cover from a sprint */
+  /* the thinnest wall in the maze is not cover from a sprint (it is MIN_WALL
+     tiles now, so a single-tile wall no longer exists to be crossed) */
   {
-    const one = findRun(1);
-    t.assert(!!one, 'no single-wall run on this floor — the scan is wrong');
+    const one = findRun(MIN_WALL);
+    t.assert(!!one, 'no thinnest-wall run on this floor — the scan is wrong');
     const a = put(one.ear, 'DORMANT');
     A.sustainedNoise(A.SPRINT_NOISE, one.src.x, one.src.y);
     t.assert(a.state!=='DORMANT',

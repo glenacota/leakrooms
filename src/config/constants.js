@@ -29,6 +29,11 @@ export const VIEW_ROWS_MIN = 12;
    painted on. */
 export const WALL_FACE = TILE*0.8;
 
+/* The thinnest any wall may be, in tiles, in both directions. A partition, rib
+   or stub of one tile reads as a hairline once its face takes most of the tile;
+   at two, a full tile of ceiling shows above the face. */
+export const MIN_WALL = 2;
+
 /* ---------- The door ---------- */
 export const DOOR_HOLD = 1.5;      // seconds standing at the door to cycle it
 export const DOOR_AJAR = 0.34;     // how far the door rests open once every leak is sealed

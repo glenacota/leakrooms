@@ -1,4 +1,4 @@
-import { MAP_W, MAP_H, WALL, FLOOR } from '../config/constants.js';
+import { MAP_W, MAP_H, WALL, FLOOR, MIN_WALL } from '../config/constants.js';
 
 /**
  * Generates the floor plan: rooms joined by short gates. Steps:
@@ -7,6 +7,7 @@ import { MAP_W, MAP_H, WALL, FLOOR } from '../config/constants.js';
  *   3. Punch gates through the walls between rooms
  *   4. Add small wall stubs inside rooms
  *   5. Make sure everything is one connected area
+ *   6. Remove any wall thinner than MIN_WALL
  *
  * @param {Function} rng - a seeded random number function (0 to 1).
  * @returns {{grid: Uint8Array, rooms: object[]}} grid has
@@ -122,25 +123,34 @@ export function genMaze(rng){
         const sx = L.rx + 1 + Math.floor(rng()*Math.max(1, L.rw-2));
         const len = 2 + Math.floor(rng()*Math.max(1, L.rh-3));
         const y0 = rng() < 0.5 ? L.ry : L.ry + L.rh - len;
-        const th2 = 1 + (rng() < 0.45 ? 1 : 0);
-        for (let y=y0; y<y0+len; y++){
-          if (y<L.ry || y>=L.ry+L.rh) continue;
-          if (Math.abs((y+0.5)-cym) < 1.6) continue;   // keep the middle clear, where the player may spawn
-          for (let k=0;k<th2;k++){
-            if (sx+k < L.rx+L.rw) grid[idx(sx+k,y)] = WALL;
-          }
+        rng();                                          // was the thickness roll; kept so the seeded sequence is unchanged
+        // Grow from the room wall the stub hangs off, and stop at the clear middle, so no loose piece is left behind.
+        const dir = y0 === L.ry ? 1 : -1;
+        const ys = [];
+        for (let n2=0, y=dir>0 ? y0 : y0+len-1; n2<len; n2++, y+=dir){
+          if (y<L.ry || y>=L.ry+L.rh) break;
+          if (Math.abs((y+0.5)-cym) < 1.6) break;   // keep the middle clear, where the player may spawn
+          ys.push(y);
+        }
+        if (ys.length < MIN_WALL) continue;
+        for (const y of ys) for (let k=0;k<MIN_WALL;k++){
+          if (sx+k < L.rx+L.rw) grid[idx(sx+k,y)] = WALL;
         }
       } else {
         const sy = L.ry + 1 + Math.floor(rng()*Math.max(1, L.rh-2));
         const len = 2 + Math.floor(rng()*Math.max(1, L.rw-3));
         const x0 = rng() < 0.5 ? L.rx : L.rx + L.rw - len;
-        const th3 = 1 + (rng() < 0.45 ? 1 : 0);
-        for (let x=x0; x<x0+len; x++){
-          if (x<L.rx || x>=L.rx+L.rw) continue;
-          if (Math.abs((x+0.5)-cxm) < 1.6) continue;
-          for (let k=0;k<th3;k++){
-            if (sy+k < L.ry+L.rh) grid[idx(x,sy+k)] = WALL;
-          }
+        rng();                                          // was the thickness roll
+        const dir = x0 === L.rx ? 1 : -1;
+        const xs = [];
+        for (let n2=0, x=dir>0 ? x0 : x0+len-1; n2<len; n2++, x+=dir){
+          if (x<L.rx || x>=L.rx+L.rw) break;
+          if (Math.abs((x+0.5)-cxm) < 1.6) break;
+          xs.push(x);
+        }
+        if (xs.length < MIN_WALL) continue;
+        for (const x of xs) for (let k=0;k<MIN_WALL;k++){
+          if (sy+k < L.ry+L.rh) grid[idx(x,sy+k)] = WALL;
         }
       }
     }
@@ -200,5 +210,36 @@ export function genMaze(rng){
     }
   }
 
+  thinWalls(grid);
+
   return { grid, rooms };
+}
+
+/**
+ * Removes every wall tile that belongs to a run thinner than MIN_WALL, in either
+ * direction, so a partition, rib or stub is never a hairline. A wall tile is
+ * kept only if its horizontal run and its vertical run are both long enough.
+ * The pass only ever turns wall into floor, so it cannot disconnect anything,
+ * and it repeats because deleting a tile can leave its neighbours thin. It uses
+ * no random numbers. The outer ring of the map is never touched.
+ *
+ * @param {Uint8Array} grid - modified in place.
+ */
+export function thinWalls(grid){
+  const at = (x,y)=> x<0||y<0||x>=MAP_W||y>=MAP_H ? FLOOR : grid[y*MAP_W+x];
+  const run = (x,y,dx,dy)=>{
+    let n = 1;
+    for (let i=1; at(x+dx*i,y+dy*i)===WALL; i++) n++;
+    for (let i=1; at(x-dx*i,y-dy*i)===WALL; i++) n++;
+    return n;
+  };
+  for (let changed=true; changed;){
+    changed = false;
+    const doomed = [];
+    for (let y=1; y<MAP_H-1; y++) for (let x=1; x<MAP_W-1; x++){
+      if (grid[y*MAP_W+x]!==WALL) continue;
+      if (run(x,y,1,0) < MIN_WALL || run(x,y,0,1) < MIN_WALL) doomed.push(y*MAP_W+x);
+    }
+    for (const i of doomed){ grid[i] = FLOOR; changed = true; }
+  }
 }

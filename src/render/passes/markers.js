@@ -54,7 +54,8 @@ export function markers(rc){
   /* ---------- 4. World markers: batteries and the door ---------- */
   for (const b of G.batteries){
     if (b.taken) continue;
-    const bx=(b.x+0.5)*TILE, by=(b.y+0.5)*TILE;
+    // Batteries are stored at the tile centre already, unlike the door's tile index.
+    const bx=b.x*TILE, by=b.y*TILE;
     ctx.save();
     ctx.translate(bx,by);
     ctx.scale(0.6,0.6);
