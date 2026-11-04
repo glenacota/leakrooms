@@ -1,4 +1,4 @@
-import { MAP_H, MAP_W, WET_DRAW, VISION_PENUMBRA_TILES } from '../config/constants.js';
+import { FACE_BACKLIGHT, FLOOR, MAP_H, MAP_W, VISION_PENUMBRA_TILES, WALL, WET_DRAW } from '../config/constants.js';
 import { WATER_TINTS } from '../config/presets.js';
 import { SETTINGS } from '../settings/store.js';
 import { G } from '../sim/state.js';
@@ -73,18 +73,27 @@ export function packMask(){
      crisp, and pure black stays pure black. Darkness bleeds into light, never
      the other way round, so the playable area keeps full brightness and the
      black area keeps full depth. */
+  const { grid } = G;
+  /* A wall face is the south side of a wall tile with floor below it. Wall
+     tiles without one are the inside of the block. Those are always dark, so
+     they must not dim the face you are looking at. They also get a share of the
+     face's light (FACE_BACKLIGHT), because the smoothed upscale would otherwise
+     blend the edge of the face toward black. */
+  const hasFace = (j, jy) => grid[j]===WALL && jy+1<MAP_H && grid[j+MAP_W]===FLOOR;
+  const interior = (j, jy) => grid[j]===WALL && !hasFace(j, jy);
   let i = 0;
   for (let y=0; y<MAP_H; y++){
     for (let x=0; x<MAP_W; x++, i++){
       const v = maskArr[i];
       let out = v;
+      const face = hasFace(i, y);
       if (v > 0){
         // Darkest orthogonal neighbour: only a darker neighbour can dim this tile.
         let nmin = v;
-        if (x > 0          && maskArr[i-1]   < nmin) nmin = maskArr[i-1];
-        if (x+1 < MAP_W    && maskArr[i+1]   < nmin) nmin = maskArr[i+1];
-        if (y > 0          && maskArr[i-MAP_W] < nmin) nmin = maskArr[i-MAP_W];
-        if (y+1 < MAP_H    && maskArr[i+MAP_W] < nmin) nmin = maskArr[i+MAP_W];
+        if (x > 0       && maskArr[i-1]     < nmin && !(face && interior(i-1, y)))     nmin = maskArr[i-1];
+        if (x+1 < MAP_W && maskArr[i+1]     < nmin && !(face && interior(i+1, y)))     nmin = maskArr[i+1];
+        if (y > 0       && maskArr[i-MAP_W] < nmin && !(face && interior(i-MAP_W, y-1))) nmin = maskArr[i-MAP_W];
+        if (y+1 < MAP_H && maskArr[i+MAP_W] < nmin) nmin = maskArr[i+MAP_W];
         if (nmin < v){
           const gap = v - nmin;                 // how much brighter than the darkest neighbour
           const s = gap*gap*(3 - 2*gap);        // smoothstep falloff across the penumbra
@@ -93,6 +102,13 @@ export function packMask(){
           // it is dimmed by up to half; a wider penumbra spreads that over more tiles.
           out = v * (1 - s * (0.5 / VISION_PENUMBRA_TILES));
         }
+      }
+      if (grid[i]===WALL && !face){
+        let lit = 0;
+        if (x > 0       && hasFace(i-1, y))     lit = Math.max(lit, maskArr[i-1]);
+        if (x+1 < MAP_W && hasFace(i+1, y))     lit = Math.max(lit, maskArr[i+1]);
+        if (y+1 < MAP_H && hasFace(i+MAP_W, y+1)) lit = Math.max(lit, maskArr[i+MAP_W]);
+        if (lit*FACE_BACKLIGHT > out) out = lit*FACE_BACKLIGHT;
       }
       const b = Math.min(255, out * 255);
       const k = i*4;

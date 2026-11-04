@@ -200,6 +200,12 @@ export const MASK_TAU = 0.055;
    pure black. Computed once at pack time in render/pack.js. */
 export const VISION_PENUMBRA_TILES = 1;
 
+/* The mask is drawn with bilinear smoothing, so the top of a lit wall face
+   blends toward the unlit tile behind it. That tile is packed at this fraction
+   of the face's value, which keeps the face above ~95% at its top edge while the
+   interior of the building stays dark. */
+export const FACE_BACKLIGHT = 0.85;
+
 /* The dimmest a lit surface can be. With darkness handled by the mask this is
    1.0: a visible surface shows the palette at full strength. The pools of light
    under the tubes come from the additive pass in the renderer, not from this
