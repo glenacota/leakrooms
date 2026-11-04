@@ -49,6 +49,25 @@ export function labelRegions(level) {
       }
     }
   }
+  /* ---------- Open spaces ----------
+     Rooms the generator left touching, and floor that cleanup opened up outside
+     any rectangle, are one open space to the eye. Two regions that share a 3x3
+     block of floor are merged, so such a space is lit as one room. A gate is only
+     2 wide, so it can never hold a 3x3 block and stays a separate region. The
+     lowest id wins, which keeps room indices stable. */
+  const parent = Array.from({ length: nRegions }, (_, i) => i);
+  const find = a => { while (parent[a] !== a) a = parent[a] = parent[parent[a]]; return a; };
+  for (let y = 1; y < MAP_H - 1; y++) for (let x = 1; x < MAP_W - 1; x++) {
+    let first = -1, open = true;
+    for (let dy = -1; dy <= 1 && open; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const r = regionOf[(y + dy) * MAP_W + x + dx];
+      if (r < 0) { open = false; break; }
+      if (first < 0) first = r;
+      else { const a = find(first), b = find(r); if (a !== b) parent[Math.max(a, b)] = Math.min(a, b); }
+    }
+  }
+  for (let i = 0; i < regionOf.length; i++) if (regionOf[i] >= 0) regionOf[i] = find(regionOf[i]);
+
   /* ---------- Adjacency ----------
      Two regions are neighbours when they share an edge of floor tiles. A room
      with two gates has two different neighbours, so the search needs the real
