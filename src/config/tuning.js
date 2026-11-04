@@ -13,6 +13,11 @@ import { LEVELS_N } from './levels.js';
 
 export const FLOORS = LEVELS_N;
 
+/* How maze-like every floor is, from 0 to 1. At 0 the rooms are wide and joined by
+   many loops. At 1 they are small, with many dead ends and few loops. This is not
+   a difficulty setting: see mazeParams() in sim/maze.js for what it drives. */
+export const MAZE_DENSITY = 0.6;
+
 /* How long you get on each level to seal every leak and walk back to the door
    you came in through. This is the pressure of a floor: the water is the
    excuse, and the walk back is what actually spends the time. */

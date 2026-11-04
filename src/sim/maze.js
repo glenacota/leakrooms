@@ -1,4 +1,34 @@
 import { MAP_W, MAP_H, WALL, FLOOR, MIN_WALL } from '../config/constants.js';
+import { MAZE_DENSITY } from '../config/tuning.js';
+
+/* The maze knob. Each lever runs from its value at density 0 (open rooms, many
+   loops) to its value at density 1 (small rooms, many dead ends). Density is
+   clamped to 0..1 and every lever is rounded, so a given density always gives
+   the same layout for a seed. */
+const LEVERS = Object.freeze({
+  maxRoom:   [12, 8],      // largest BSP cell; rooms never get wider than this
+  minRoom:   [6, 4],       // smallest room; below the cell size it leaves a partition between rooms
+  gate2:     [0.45, 0.10], // chance a partition gets a second gate
+  shortcuts: [6, 2],       // extra loop gates per floor
+  islandMin: [60, 30],     // smallest wall block a loop gate may cut off
+  openMax:   [12, 7],      // widest open square before it is partitioned
+});
+
+/**
+ * Resolves every lever at one density.
+ *
+ * @param {number} density - 0 (open) to 1 (tight).
+ * @returns {{maxRoom:number, minRoom:number, gate2:number, shortcuts:number, islandMin:number, openMax:number}}
+ */
+export function mazeParams(density){
+  const d = Math.max(0, Math.min(1, density));
+  const at = ([a, b]) => a + (b-a)*d;
+  return {
+    maxRoom: Math.round(at(LEVERS.maxRoom)), minRoom: Math.round(at(LEVERS.minRoom)),
+    gate2: at(LEVERS.gate2), shortcuts: Math.round(at(LEVERS.shortcuts)),
+    islandMin: Math.round(at(LEVERS.islandMin)), openMax: Math.round(at(LEVERS.openMax)),
+  };
+}
 
 /**
  * Generates the floor plan: rooms joined by short gates. Steps:
@@ -10,10 +40,12 @@ import { MAP_W, MAP_H, WALL, FLOOR, MIN_WALL } from '../config/constants.js';
  *   6. Remove any wall thinner than MIN_WALL
  *
  * @param {Function} rng - a seeded random number function (0 to 1).
- * @returns {{grid: Uint8Array, rooms: object[]}} grid has
+ * @param {number} [density] - 0 (open rooms, loops) to 1 (small rooms, dead ends); defaults to MAZE_DENSITY.
+ * @returns {{grid: Uint8Array, rooms: object[], shortcuts: number}} grid has
  *   WALL (0) or FLOOR (1) per tile, and rooms have rx, ry, rw, rh.
  */
-export function genMaze(rng){
+export function genMaze(rng, density=MAZE_DENSITY){
+  const P = mazeParams(density);
   const grid = new Uint8Array(MAP_W*MAP_H);       // 0 everywhere = solid
   const rooms = [];
   const doors = [];
@@ -26,7 +58,7 @@ export function genMaze(rng){
      splitting stops when a cell is too narrow to divide without making a
      closet. The longer axis is always cut, so cells converge toward the
      ceiling. */
-  const MAXROOM = 12, MINCUT = 6;
+  const MAXROOM = P.maxRoom, MINCUT = 6;
   (function split(x,y,w,h,depth){
     const tooNarrow = (w < MINCUT*2 && h < MINCUT*2);
     if (depth <= 0 || tooNarrow){
@@ -43,7 +75,7 @@ export function genMaze(rng){
       // A vertical partition at column x+cut: its gate is a pair of rows
       const gateRow = () => y + 1 + Math.floor(rng()*Math.max(1,h-2));
       doors.push({axis:'x', cut:x+cut, along:gateRow(), width:2});
-      if (rng() < 0.45) doors.push({axis:'x', cut:x+cut, along:gateRow(), width:2});
+      if (rng() < P.gate2) doors.push({axis:'x', cut:x+cut, along:gateRow(), width:2});
     } else {
       if (h < MINCUT*2){ leaves.push({x,y,w,h,id:leaves.length}); return; }
       if (w <= MAXROOM && h <= MAXROOM){ leaves.push({x,y,w,h,id:leaves.length}); return; }
@@ -54,7 +86,7 @@ export function genMaze(rng){
       // A horizontal partition at row y+cut: its gate is a pair of columns
       const gateCol = () => x + 1 + Math.floor(rng()*Math.max(1,w-2));
       doors.push({axis:'y', cut:y+cut, along:gateCol(), width:2});
-      if (rng() < 0.45) doors.push({axis:'y', cut:y+cut, along:gateCol(), width:2});
+      if (rng() < P.gate2) doors.push({axis:'y', cut:y+cut, along:gateCol(), width:2});
     }
   })(1,1,MAP_W-2,MAP_H-2,12);
 
@@ -62,7 +94,7 @@ export function genMaze(rng){
      Each room is inset unevenly in its cell, so the partitions look like
      temporary site walls and not a regular grid. The insets are capped so a
      small cell never produces a room wider than its cell. */
-  const MINROOM = 6;
+  const MINROOM = P.minRoom;
   const inset = span => 1 + Math.floor(rng()*Math.min(2, Math.max(1, Math.floor((span-MINROOM)/2))));
   for (const L of leaves){
     const ix1 = inset(L.w), ix2 = inset(L.w);
@@ -225,23 +257,21 @@ export function genMaze(rng){
   };
   settle();
   // Partitioning adds walls, which settle() may bridge or trim, so alternate until quiet.
-  for (let pass=0; pass<60 && splitHalls(grid); pass++) settle();
+  for (let pass=0; pass<60 && splitHalls(grid, P.openMax); pass++) settle();
 
   // Last: gates only add floor, and the final settle only deletes, so they survive.
-  const { made: shortcuts, keep } = addShortcuts(grid);
+  const { made: shortcuts, keep } = addShortcuts(grid, P.shortcuts, P.islandMin);
   for (let prev=''; grid.join('')!==prev;){ prev = grid.join(''); thinWalls(grid); joinIslands(grid, false, keep); }
 
   return { grid, rooms, shortcuts };
 }
 
-/* The smallest wall block a shortcut gate may leave cut off from the border. */
-export const ISLAND_MIN = 60;
+/* The smallest wall block a shortcut gate may leave cut off from the border, at density 0. */
+export const ISLAND_MIN = LEVERS.islandMin[0];
 /* A wall at most this thick is worth a gate. Thicker would be a long tunnel. */
 const GATE_MAX = 4;
 /* A gate must save at least this many steps of walking, or it is not a shortcut. */
 const SHORTCUT_MIN = 30;
-/* At most this many shortcut gates per floor. */
-const SHORTCUTS_MAX = 6;
 
 /**
  * Punches extra 2 wide gates through thin walls where they save the most
@@ -251,13 +281,15 @@ const SHORTCUTS_MAX = 6;
  * position), and stops when none saves SHORTCUT_MIN steps. No random numbers.
  *
  * @param {Uint8Array} grid - modified in place.
+ * @param {number} [maxGates] - at most this many gates.
+ * @param {number} [islandMin] - smallest block a gate may cut off.
  * A gate that closes a loop must wall in a block, so that block becomes an island.
  * That is allowed when the block has at least ISLAND_MIN tiles (a building, not a
  * stub); `keep` marks those tiles so island removal leaves them alone.
  *
  * @returns {{made:number, keep:Uint8Array}} gates punched, and the protected wall blocks.
  */
-export function addShortcuts(grid){
+export function addShortcuts(grid, maxGates=LEVERS.shortcuts[0], islandMin=ISLAND_MIN){
   const N = MAP_W*MAP_H;
   const dist = new Int16Array(N);
   const queue = new Int32Array(N);
@@ -319,7 +351,7 @@ export function addShortcuts(grid){
           if (set.delete(k)) st.push(k);
         }
       }
-      if (n < ISLAND_MIN) return false;
+      if (n < islandMin) return false;
     }
     return true;
   };
@@ -327,7 +359,7 @@ export function addShortcuts(grid){
   const LIMIT = 80;
   let made = 0;
   const keep = new Uint8Array(N);
-  for (; made<SHORTCUTS_MAX; made++){
+  for (; made<maxGates; made++){
     const cands = [];
     for (let y=2; y<MAP_H-3; y++) for (let x=2; x<MAP_W-3; x++){
       for (const [dx,dy] of [[1,0],[0,1]]){
@@ -376,22 +408,18 @@ export function addShortcuts(grid){
   return { made, keep };
 }
 
-/* Open floor never holds a square wider than this. Rooms that big make the
-   stealth game trivial (nothing to hide behind) and swallow the sound shadow
-   that walls give. */
-const OPEN_MAX = 8;
-
 /**
- * Cuts any all-floor square wider than OPEN_MAX with a MIN_WALL thick partition.
+ * Cuts any all-floor square wider than openMax with a MIN_WALL thick partition.
  * The partition runs along the square's middle, extends in both directions until
  * it meets a wall, and leaves a 2 wide gap at the middle so the floor stays one
  * area. Tries both axes; a square that cannot be cut without splitting the floor
  * is skipped. Splits one square per call. No random numbers are used.
  *
  * @param {Uint8Array} grid - modified in place.
+ * @param {number} [openMax] - the widest open square allowed.
  * @returns {boolean} true if a partition was added.
  */
-export function splitHalls(grid){
+export function splitHalls(grid, openMax=LEVERS.openMax[0]){
   const N = MAP_W*MAP_H;
   const d = new Int16Array(N);
   const squares = [];
@@ -399,7 +427,7 @@ export function splitHalls(grid){
     const i = y*MAP_W+x;
     if (grid[i]!==FLOOR) continue;
     d[i] = (x&&y) ? 1+Math.min(d[i-1], d[i-MAP_W], d[i-MAP_W-1]) : 1;
-    if (d[i] > OPEN_MAX) squares.push({ x0:x-d[i]+1, y0:y-d[i]+1, s:d[i] });
+    if (d[i] > openMax) squares.push({ x0:x-d[i]+1, y0:y-d[i]+1, s:d[i] });
   }
   squares.sort((a,b)=> b.s-a.s || a.y0-b.y0 || a.x0-b.x0);
 
