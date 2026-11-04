@@ -201,12 +201,12 @@ html[data-input=touch] #crt{ height:100dvh; }
    are the lines a player with a released stick needs. The transition on the
    quiet rule is the one used when the class arrives (a slow fade out); the one
    on the plain rule is used when it leaves (a quick return). */
-[data-input=touch] .crt-tl{ transition:opacity .15s ease; }
-[data-input=touch] .crt-tl.hud-quiet{ opacity:0; transition:opacity .6s ease; }
+[data-input=touch] .crt-c{ transition:opacity .15s ease; }
+[data-input=touch] .crt-c.hud-quiet{ opacity:0; transition:opacity .6s ease; }
 
 @media (prefers-reduced-motion:reduce){
-  [data-input=touch] .crt-tl,
-  [data-input=touch] .crt-tl.hud-quiet{ transition:none; }
+  [data-input=touch] .crt-c,
+  [data-input=touch] .crt-c.hud-quiet{ transition:none; }
 }
 
 /* ---------- Touch-only settings ---------- */

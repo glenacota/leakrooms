@@ -31,16 +31,16 @@ test('[24] the HUD — one glass panel in the corner, and it reserves nothing', 
     'the sidebar column is back — it gave the window 180 pixels and the map a wall');
   const panels = (hudHtml.match(/class="crt /g)||[]).length;
   t.assert(panels===1, `expected 1 instrument panel, found ${panels}`);
-  t.assert(/class="crt crt-tl"/.test(hudHtml), 'there is no top-left panel');
+  t.assert(/class="crt crt-c"/.test(hudHtml), 'there is no top-center panel');
   t.assert(!/crt-tr/.test(hudHtml) && !/\.crt-tr/.test(css),
     'the top-right panel is back — every reading belongs in the one panel');
 
   /* The panel is pinned to its corner. A panel that is only "somewhere
      at the top" drifts when the markup is edited, and a drifted panel is
      a panel that eventually sits on the player. */
-  const tl = css.match(/\.crt-tl\s*\{([^}]*)\}/);
+  const tl = css.match(/\.crt-c\s*\{([^}]*)\}/);
   t.assert(tl && /\btop\s*:/.test(tl[1]) && /\bleft\s*:/.test(tl[1]),
-    'the panel is not anchored to the top left');
+    'the panel is not anchored to the top center');
 
   /* --- and the panel takes NO width ----------------------------------
      The overlay spans the frame and the stage starts at the left edge, so
@@ -122,12 +122,10 @@ test('[24] the HUD — one glass panel in the corner, and it reserves nothing', 
   t.assert(!/class="[^"]*\bbar\b[^"]*"[^>]*id="val-leaks"/.test(hudHtml),
     'the leak row is a bar — a bar under a count invites reading the gradient as the number');
 
-  /* Lives and leaks share the row, so the panel is a row shorter. */
-  const livesRow = hudHtml.split('<div class="crt-row"').slice(1)
-    .find(s => s.includes('id="val-lives"'));
-  t.assert(livesRow && livesRow.includes('id="val-leaks"'),
-    'lives and the leak marks are not on the same row');
-
+  /* Lives and leaks are stacked in the stats cell, split by a hairline. */
+  t.assert(/class="crt-cell stats"[^>]*>[\s\S]*id="val-lives"[\s\S]*id="val-leaks"/.test(hudHtml),
+    'lives and leaks are not both inside the stats cell');
+  
   /* The open mark is water and the loud thing on the row; the sealed one is
      hollow, so a filled mark can never be mistaken for an open one. */
   const openPip = css.match(/\.crt-leaks span\.open\s*\{([^}]*)\}/);

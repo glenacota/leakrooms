@@ -65,10 +65,10 @@ test('[FIT] --safe-t/-r/-b/-l are defined once, and read through var() everywher
   const screen = leafRules(sheet.screens).find(r => r.sel === '.screen');
   assert.ok(screen && /padding\s*:\s*var\(--safe-t\)\s+var\(--safe-r\)\s+var\(--safe-b\)\s+var\(--safe-l\)/.test(screen.body),
     '.screen does not pad itself by the safe area');
-  const hud = strip(sheet.hud).match(/\.crt-tl\s*\{([^}]*)\}/);
-  assert.ok(hud && /top\s*:\s*max\(10px,\s*var\(--safe-t\)\)/.test(hud[1]) && /left\s*:\s*max\(12px,\s*var\(--safe-l\)\)/.test(hud[1]),
+  const hud = strip(sheet.hud).match(/\.crt-c\s*\{([^}]*)\}/);
+  assert.ok(hud && /top\s*:\s*max\(10px,\s*var\(--safe-t\)\)/.test(hud[1]) && /left\s*:\s*50%/.test(hud[1]),
     'the HUD anchor does not clear the notch');
-  assert.ok(/\.crt-tl\s*\{\s*left\s*:\s*max\(8px,\s*var\(--safe-l\)\)/.test(strip(sheet.base)), 'the narrow HUD override ignores the notch');
+  assert.ok(/\.crt-c\s*\{\s*transform\s*:\s*none;\s*left\s*:\s*max\(8px,\s*var\(--safe-l\)\)/.test(strip(sheet.base)), 'the narrow HUD override ignores the notch');
 });
 
 test('[FIT] a (max-height:520px) block exists and keeps the landscape ticket in two columns', () => {

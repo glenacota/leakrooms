@@ -49,7 +49,7 @@ let touchHudPrev = null;
 
 /** Updates touch-mode HUD visibility once per simulation frame. */
 export function tickTouchHud(){
-  if (!touchHudPanel) touchHudPanel = document.querySelector('.crt-tl');
+  if (!touchHudPanel) touchHudPanel = document.querySelector('.crt-c');
   const touch = document.documentElement && document.documentElement.dataset.input === 'touch';
   if (!touch || !G){
     hudFlag(touchHudPanel, 'touchQuiet', 'hud-quiet', false);

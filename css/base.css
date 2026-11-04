@@ -31,7 +31,7 @@ html, body{ overscroll-behavior:none; }
   .crt-lbl{ font-size:9px; letter-spacing:.12em; }
   .bar{ width:70px; height:7px; }
   .crt{ padding:6px 8px 7px; }
-  .crt-tl{ left:max(8px, var(--safe-l)); }
+  .crt-c{ transform:none; left:max(8px, var(--safe-l)); }
 }
 
 /* ---------- Compact tier: a phone held sideways ----------

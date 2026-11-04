@@ -38,7 +38,28 @@
      0   0   2px #100f07,
      0   0  10px rgba(228,230,168,.5);
 }
-.crt-tl{ top:max(10px, var(--safe-t)); left:max(12px, var(--safe-l)); }
+.crt-c{
+  top:max(10px, var(--safe-t));
+  left:50%;
+  transform:translateX(-50%);
+  display:flex;
+  gap:14px;
+  align-items:stretch;
+}
+.crt-cell.clock{
+  flex:1;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border-right:1px solid rgba(228,230,168,.35);
+  padding-right:14px;
+}
+.crt-cell.stats{
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  gap:6px;
+}
 
 /* The scanlines. Behind the content, over the glass. */
 .crt::before{
@@ -117,12 +138,12 @@
    level on its own. It changes colour but never size: a number that
    resizes would shift everything around it once a second. */
 .crt-clock{
-  line-height:1.2;
+  /* line-height:2; */
   letter-spacing:.06em;
   color:var(--yellow);
-  margin-bottom:9px;
+  /* margin-bottom:9px; */
 }
-#val-clock{ font-size:34px; }
+#val-clock{ font-size:52px; }
 /* Last 30 seconds: orange. */
 #clock.low #val-clock{ color:#e8a05a; }
 /* Last 10 seconds: red and blinking once a second. Anything faster would
