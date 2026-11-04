@@ -29,6 +29,13 @@ export const VIEW_ROWS_MIN = 12;
    painted on. */
 export const WALL_FACE = TILE*0.8;
 
+/* How far, in tiles, any body may sink into a wall on every side (face,
+   ceiling edge, left and right), so the sprite overlaps the wall instead of
+   stopping a full radius short of it. Collision treats the body as this much
+   smaller than its radius. Keep it well under the radius: the body's centre must
+   stay out of the wall, because vision, radar and door reach all read it. */
+export const WALL_OVERLAP = 0.15;
+
 /* The thinnest any wall may be, in tiles, in both directions. A partition, rib
    or stub of one tile reads as a hairline once its face takes most of the tile;
    at two, a full tile of ceiling shows above the face. */

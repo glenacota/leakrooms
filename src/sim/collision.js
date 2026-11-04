@@ -1,4 +1,4 @@
-import { MAP_W, MAP_H, WALL } from '../config/constants.js';
+import { MAP_W, MAP_H, WALL, WALL_OVERLAP } from '../config/constants.js';
 
 /* One collision object per grid. A grid never changes while its floor is
    alive, so plumber, lifeforms and noise can ask for it every frame and get
@@ -26,6 +26,7 @@ function buildCollision(grid) {
    * @returns {boolean} true if the circle is touching a wall.
    */
   function blocked(x, y, r) {
+    const er = r - WALL_OVERLAP;                 // the body may sink into a wall by WALL_OVERLAP
     const tx0 = Math.floor(x - r), tx1 = Math.floor(x + r);
     const ty0 = Math.floor(y - r), ty1 = Math.floor(y + r);
     for (let ty = ty0; ty <= ty1; ty++) {
@@ -34,7 +35,7 @@ function buildCollision(grid) {
         const px = x < tx   ? tx : (x > tx + 1 ? tx + 1 : x);
         const py = y < ty   ? ty : (y > ty + 1 ? ty + 1 : y);
         const dx = x - px, dy = y - py;
-        if (dx * dx + dy * dy < r * r) return true;
+        if (dx * dx + dy * dy < er * er) return true;
       }
     }
     return false;
