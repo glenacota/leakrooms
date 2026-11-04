@@ -210,9 +210,353 @@ export function genMaze(rng){
     }
   }
 
-  thinWalls(grid);
+  /* Thinning and island removal feed each other (deleting an island can leave a
+     neighbour thin, and thinning can cut a stub loose), so they repeat until
+     neither changes anything. The cap is a safety net, not an expected limit. */
+  const settle = ()=>{
+    for (let pass=0; pass<40; pass++){
+      const before = grid.join('');
+      thinWalls(grid);
+      joinIslands(grid);
+      if (grid.join('') === before) break;
+    }
+    // Bridging and thinning can undo each other; deleting only adds floor, so this settles.
+    for (let prev=''; grid.join('')!==prev;){ prev = grid.join(''); thinWalls(grid); joinIslands(grid, false); }
+  };
+  settle();
+  // Partitioning adds walls, which settle() may bridge or trim, so alternate until quiet.
+  for (let pass=0; pass<60 && splitHalls(grid); pass++) settle();
 
-  return { grid, rooms };
+  // Last: gates only add floor, and the final settle only deletes, so they survive.
+  const { made: shortcuts, keep } = addShortcuts(grid);
+  for (let prev=''; grid.join('')!==prev;){ prev = grid.join(''); thinWalls(grid); joinIslands(grid, false, keep); }
+
+  return { grid, rooms, shortcuts };
+}
+
+/* The smallest wall block a shortcut gate may leave cut off from the border. */
+export const ISLAND_MIN = 60;
+/* A wall at most this thick is worth a gate. Thicker would be a long tunnel. */
+const GATE_MAX = 4;
+/* A gate must save at least this many steps of walking, or it is not a shortcut. */
+const SHORTCUT_MIN = 30;
+/* At most this many shortcut gates per floor. */
+const SHORTCUTS_MAX = 6;
+
+/**
+ * Punches extra 2 wide gates through thin walls where they save the most
+ * walking. This turns the tree of rooms into a graph with loops, so a chased
+ * player has more than one way out. Each round picks the wall segment whose gate
+ * shortens the walk between its two sides the most (ties go to the lowest
+ * position), and stops when none saves SHORTCUT_MIN steps. No random numbers.
+ *
+ * @param {Uint8Array} grid - modified in place.
+ * A gate that closes a loop must wall in a block, so that block becomes an island.
+ * That is allowed when the block has at least ISLAND_MIN tiles (a building, not a
+ * stub); `keep` marks those tiles so island removal leaves them alone.
+ *
+ * @returns {{made:number, keep:Uint8Array}} gates punched, and the protected wall blocks.
+ */
+export function addShortcuts(grid){
+  const N = MAP_W*MAP_H;
+  const dist = new Int16Array(N);
+  const queue = new Int32Array(N);
+  const stamp = new Int32Array(N);
+  let tag = 0;
+  // Walking steps from a to b, or the limit if farther. Search stops at the limit.
+  const walk = (a, b, limit)=>{
+    tag++;
+    let head=0, tail=0;
+    queue[tail++] = a; stamp[a] = tag; dist[a] = 0;
+    while (head<tail){
+      const c = queue[head++];
+      if (c === b) return dist[c];
+      if (dist[c] >= limit) continue;
+      const x=c%MAP_W, y=(c/MAP_W)|0;
+      for (const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+        const nx=x+dx, ny=y+dy;
+        if (nx<0||ny<0||nx>=MAP_W||ny>=MAP_H) continue;
+        const k=ny*MAP_W+nx;
+        if (grid[k]===FLOOR && stamp[k]!==tag){ stamp[k]=tag; dist[k]=dist[c]+1; queue[tail++]=k; }
+      }
+    }
+    return limit;
+  };
+
+  // Wall tiles that no longer reach the border ring through wall tiles.
+  const strandedWalls = ()=>{
+    tag++;
+    let head=0, tail=0;
+    for (let i=0; i<N; i++){
+      if (grid[i]!==WALL) continue;
+      const x=i%MAP_W, y=(i/MAP_W)|0;
+      if (x===0||y===0||x===MAP_W-1||y===MAP_H-1){ stamp[i]=tag; queue[tail++]=i; }
+    }
+    while (head<tail){
+      const c = queue[head++], x=c%MAP_W, y=(c/MAP_W)|0;
+      for (const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+        const nx=x+dx, ny=y+dy;
+        if (nx<0||ny<0||nx>=MAP_W||ny>=MAP_H) continue;
+        const k=ny*MAP_W+nx;
+        if (grid[k]===WALL && stamp[k]!==tag){ stamp[k]=tag; queue[tail++]=k; }
+      }
+    }
+    const out = [];
+    for (let i=0; i<N; i++) if (grid[i]===WALL && stamp[i]!==tag) out.push(i);
+    return out;
+  };
+  // Every stranded piece must be a block of at least ISLAND_MIN tiles
+  const bigEnough = (tiles)=>{
+    const set = new Set(tiles);
+    while (set.size){
+      const first = set.values().next().value;
+      const st = [first]; set.delete(first); let n = 0;
+      while (st.length){
+        const c = st.pop(); n++;
+        const x=c%MAP_W, y=(c/MAP_W)|0;
+        for (const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+          const k=(y+dy)*MAP_W+x+dx;
+          if (set.delete(k)) st.push(k);
+        }
+      }
+      if (n < ISLAND_MIN) return false;
+    }
+    return true;
+  };
+
+  const LIMIT = 80;
+  let made = 0;
+  const keep = new Uint8Array(N);
+  for (; made<SHORTCUTS_MAX; made++){
+    const cands = [];
+    for (let y=2; y<MAP_H-3; y++) for (let x=2; x<MAP_W-3; x++){
+      for (const [dx,dy] of [[1,0],[0,1]]){
+        // px,py: the step to the parallel lane that makes the gate 2 wide
+        const px = dy, py = dx;
+        const a = y*MAP_W+x, a2 = (y+py)*MAP_W+x+px;
+        if (grid[a]!==FLOOR || grid[a2]!==FLOOR) continue;
+        let t = 0;
+        while (t<=GATE_MAX){
+          const i = (y+dy*(t+1))*MAP_W+x+dx*(t+1), j = i+py*MAP_W+px;
+          if (grid[i]!==WALL || grid[j]!==WALL) break;
+          t++;
+        }
+        if (t<1 || t>GATE_MAX) continue;
+        const ex = x+dx*(t+1), ey = y+dy*(t+1);
+        if (ex>=MAP_W-1 || ey>=MAP_H-1) continue;
+        // The wall must stay MIN_WALL thick on both sides of the gate, or thinWalls would eat it
+        let solid = true;
+        for (let k=1; k<=t && solid; k++) for (const o of [-2,-1,2,3]){
+          const wx = x+dx*k+px*o, wy = y+dy*k+py*o;
+          if (wx<0||wy<0||wx>=MAP_W||wy>=MAP_H || grid[wy*MAP_W+wx]!==WALL) solid = false;
+        }
+        if (!solid) continue;
+        const b = ey*MAP_W+ex, b2 = (ey+py)*MAP_W+ex+px;
+        if (grid[b]!==FLOOR || grid[b2]!==FLOOR) continue;
+        const d = walk(a, b, LIMIT);
+        if (d >= SHORTCUT_MIN) cands.push({ x, y, dx, dy, px, py, t, d });
+      }
+    }
+    cands.sort((u,v)=> v.d-u.d || u.y-v.y || u.x-v.x || u.dx-v.dx);
+    const carve = (c, to)=>{
+      for (let k=1; k<=c.t; k++){
+        grid[(c.y+c.dy*k)*MAP_W+c.x+c.dx*k] = to;
+        grid[(c.y+c.dy*k+c.py)*MAP_W+c.x+c.dx*k+c.px] = to;
+      }
+    };
+    let best = null;
+    for (const c of cands){
+      carve(c, FLOOR);
+      const stranded = strandedWalls();
+      if (bigEnough(stranded)){ best = c; for (const i of stranded) keep[i] = 1; break; }
+      carve(c, WALL);
+    }
+    if (!best) break;
+  }
+  return { made, keep };
+}
+
+/* Open floor never holds a square wider than this. Rooms that big make the
+   stealth game trivial (nothing to hide behind) and swallow the sound shadow
+   that walls give. */
+const OPEN_MAX = 8;
+
+/**
+ * Cuts any all-floor square wider than OPEN_MAX with a MIN_WALL thick partition.
+ * The partition runs along the square's middle, extends in both directions until
+ * it meets a wall, and leaves a 2 wide gap at the middle so the floor stays one
+ * area. Tries both axes; a square that cannot be cut without splitting the floor
+ * is skipped. Splits one square per call. No random numbers are used.
+ *
+ * @param {Uint8Array} grid - modified in place.
+ * @returns {boolean} true if a partition was added.
+ */
+export function splitHalls(grid){
+  const N = MAP_W*MAP_H;
+  const d = new Int16Array(N);
+  const squares = [];
+  for (let y=0; y<MAP_H; y++) for (let x=0; x<MAP_W; x++){
+    const i = y*MAP_W+x;
+    if (grid[i]!==FLOOR) continue;
+    d[i] = (x&&y) ? 1+Math.min(d[i-1], d[i-MAP_W], d[i-MAP_W-1]) : 1;
+    if (d[i] > OPEN_MAX) squares.push({ x0:x-d[i]+1, y0:y-d[i]+1, s:d[i] });
+  }
+  squares.sort((a,b)=> b.s-a.s || a.y0-b.y0 || a.x0-b.x0);
+
+  const parts = ()=>{
+    const seen = new Uint8Array(N); let n = 0;
+    for (let i=0; i<N; i++){
+      if (grid[i]!==FLOOR || seen[i]) continue;
+      n++; const st=[i]; seen[i]=1;
+      while (st.length){
+        const c=st.pop(), x=c%MAP_W, y=(c/MAP_W)|0;
+        for (const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+          const nx=x+dx, ny=y+dy;
+          if (nx<0||ny<0||nx>=MAP_W||ny>=MAP_H) continue;
+          const k=ny*MAP_W+nx;
+          if (grid[k]===FLOOR && !seen[k]){ seen[k]=1; st.push(k); }
+        }
+      }
+    }
+    return n;
+  };
+  const before = parts();
+
+  for (const { x0, y0, s } of squares){
+    for (const vertical of [true, false]){
+      const mid = Math.floor(s/2) - 1;
+      const line = [];
+      // a = along the partition, c = across it
+      const a0 = vertical ? y0 : x0, c0 = (vertical ? x0 : y0) + mid;
+      const at = (a,c)=> vertical ? (a<0||a>=MAP_H||c<0||c>=MAP_W ? -1 : a*MAP_W+c)
+                                  : (a<0||a>=MAP_W||c<0||c>=MAP_H ? -1 : c*MAP_W+a);
+      const open = (a)=> { for (let w=0; w<MIN_WALL; w++){ const i=at(a,c0+w); if (i<0 || grid[i]!==FLOOR) return false; } return true; };
+      let lo = a0, hi = a0+s-1;
+      while (open(lo-1)) lo--;
+      while (open(hi+1)) hi++;
+      const gap0 = a0 + mid;
+      for (let a=lo; a<=hi; a++){
+        if (a>=gap0 && a<gap0+2) continue;
+        for (let w=0; w<MIN_WALL; w++) line.push(at(a,c0+w));
+      }
+      if (line.some(i=> i<0)) continue;
+      for (const i of line) grid[i] = WALL;
+      if (parts() <= before) return true;
+      for (const i of line) grid[i] = FLOOR;
+    }
+  }
+  return false;
+}
+
+/* An island of at most this many tiles is a stub or a pillar: it is simply
+   deleted. A bigger one is a piece of partition, and deleting it would merge the
+   rooms around it into one huge hall, so it is bridged to the wall instead. */
+const ISLAND_SMALL = 0;
+/* The longest bridge, in tiles of floor to fill. A longer one would cut a room
+   in two, so the island is deleted instead. */
+const BRIDGE_MAX = 10;
+
+/**
+ * Removes "wall islands": groups of wall tiles that do not touch the outer wall
+ * through edge-adjacent wall tiles (a diagonal touch is not a link, since it
+ * reads as two separate blocks). Small islands are deleted. Large ones are joined
+ * to the nearest connected wall with a MIN_WALL thick bridge, unless that would
+ * split the floor or needs a long bridge, in which case they are deleted too.
+ * Deleting only ever adds floor, so it cannot disconnect anything. No random
+ * numbers are used.
+ *
+ * @param {Uint8Array} grid - modified in place.
+ * @param {boolean} [bridge=true] - false deletes every island instead of bridging it.
+ * @param {Uint8Array|null} [keep] - islands containing a marked tile are left alone.
+ */
+export function joinIslands(grid, bridge=true, keep=null){
+  const N = MAP_W*MAP_H;
+  const DIRS = [[1,0],[-1,0],[0,1],[0,-1]];
+  const onBorder = i => { const x=i%MAP_W, y=(i/MAP_W)|0; return x===0||y===0||x===MAP_W-1||y===MAP_H-1; };
+
+  // Flood the wall from the border; whatever it does not reach is an island.
+  const anchored = new Uint8Array(N);
+  const flood = (seeds, mark, stopAt=null)=>{
+    const out = [], stack = seeds.slice();
+    for (const s of seeds) mark[s] = 1;
+    while (stack.length){
+      const c = stack.pop(); out.push(c);
+      const x=c%MAP_W, y=(c/MAP_W)|0;
+      for (const [dx,dy] of DIRS){
+        const nx=x+dx, ny=y+dy;
+        if (nx<0||ny<0||nx>=MAP_W||ny>=MAP_H) continue;
+        const n=ny*MAP_W+nx;
+        if (grid[n]===WALL && !mark[n] && !(stopAt && stopAt[n])){ mark[n]=1; stack.push(n); }
+      }
+    }
+    return out;
+  };
+  const borderSeeds = [];
+  for (let i=0;i<N;i++) if (grid[i]===WALL && onBorder(i)) borderSeeds.push(i);
+  flood(borderSeeds, anchored);
+
+  const floorParts = ()=>{
+    const seen = new Uint8Array(N); let parts = 0;
+    for (let i=0;i<N;i++){
+      if (grid[i]!==FLOOR || seen[i]) continue;
+      parts++; const stack=[i]; seen[i]=1;
+      while (stack.length){
+        const c=stack.pop(), x=c%MAP_W, y=(c/MAP_W)|0;
+        for (const [dx,dy] of DIRS){
+          const nx=x+dx, ny=y+dy;
+          if (nx<0||ny<0||nx>=MAP_W||ny>=MAP_H) continue;
+          const n=ny*MAP_W+nx;
+          if (grid[n]===FLOOR && !seen[n]){ seen[n]=1; stack.push(n); }
+        }
+      }
+    }
+    return parts;
+  };
+
+  const claimed = new Uint8Array(N);
+  for (let i=0;i<N;i++){
+    if (grid[i]!==WALL || anchored[i] || claimed[i]) continue;
+    const island = flood([i], claimed, anchored);
+    if (keep && island.some(c=> keep[c])) continue;
+
+    let link = null;
+    if (bridge && island.length > ISLAND_SMALL){
+      const mine = new Set(island);
+      for (const c of island){
+        const x=c%MAP_W, y=(c/MAP_W)|0;
+        for (const [dx,dy] of DIRS){
+          let n=0, cx=x+dx, cy=y+dy;
+          while (n<=BRIDGE_MAX && cx>0 && cy>0 && cx<MAP_W-1 && cy<MAP_H-1 && grid[cy*MAP_W+cx]===FLOOR){ n++; cx+=dx; cy+=dy; }
+          if (n===0 || n>BRIDGE_MAX) continue;
+          const hit = cy*MAP_W+cx;
+          if (cx<0||cy<0||cx>=MAP_W||cy>=MAP_H || !anchored[hit] || mine.has(hit)) continue;
+          if (!link || n < link.n) link = { x, y, dx, dy, n };
+        }
+      }
+    }
+
+    if (link){
+      const parts = floorParts();
+      const filled = [];
+      for (let k=1; k<=link.n; k++){
+        // MIN_WALL wide: the bridge itself and the lines beside it
+        for (let w=0; w<MIN_WALL; w++){
+          const bx = link.x + link.dx*k + (link.dx===0 ? w : 0);
+          const by = link.y + link.dy*k + (link.dy===0 ? w : 0);
+          if (bx<1||by<1||bx>=MAP_W-1||by>=MAP_H-1) continue;
+          const bi = by*MAP_W+bx;
+          if (grid[bi]===FLOOR){ grid[bi]=WALL; filled.push(bi); }
+        }
+      }
+      if (floorParts() <= parts){
+        for (const c of island) anchored[c] = 1;
+        for (const bi of filled) anchored[bi] = 1;
+        continue;
+      }
+      for (const bi of filled) grid[bi] = FLOOR;
+    }
+    for (const c of island) grid[c] = FLOOR;
+  }
 }
 
 /**
