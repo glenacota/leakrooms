@@ -113,6 +113,21 @@ function drawDrop(P, ox, oy, U, deep, phase){
   ctx.fill();
 }
 
+/* How far below the wall tile's top its face band ends, in tiles. */
+const BAND_BOTTOM = 1.1;
+
+/* The puddles, in WORLD space and drawn before the actors, so the plumber walks
+   over the water and not under it. The lighting pass that follows dims them like
+   any other floor detail. */
+export function puddles(rc){
+  const deepOf = (WATER_TINTS[SETTINGS.waterHue] || WATER_TINTS.slate).deep;
+  for (const L of G.leaks){
+    if (L.fixed || !G.wetArr || G.maskArr[L.y*MAP_W + L.x] <= 0.02) continue;
+    const P = pipeLayout(pipeFlipped(L.x, L.y));
+    drawPuddle(P, L.x*TILE, (L.y + BAND_BOTTOM)*TILE - WALL_FACE, TILE, deepOf);
+  }
+}
+
 export function leaks(rc){
   const {t, w2sx, w2sy} = rc;
   /* ---------- 6b. The pipes ----------
@@ -140,7 +155,7 @@ export function leaks(rc){
     const lt = L.y*MAP_W + L.x;
     if (!G.wetArr || G.maskArr[lt] <= 0.02) continue;
     const U  = TILE*SCALE;                 // one tile, in device pixels
-    const ox = w2sx(L.x), oy = w2sy(L.y+1) - WALL_FACE*SCALE; // top-left of the wall face band
+    const ox = w2sx(L.x), oy = w2sy(L.y+BAND_BOTTOM) - WALL_FACE*SCALE; // top-left of the wall face band
     const vis = G.maskArr[lt];
     const P = pipeLayout(pipeFlipped(L.x, L.y));
     const deep = (WATER_TINTS[SETTINGS.waterHue] || WATER_TINTS.slate).deep;
@@ -148,7 +163,6 @@ export function leaks(rc){
     ctx.globalAlpha = vis;
 
     if (!L.fixed){
-      drawPuddle(P, ox, oy, U, deep);
       // The wet run down the wallpaper, from the split to the carpet
       const s = P.rects.streak;
       ctx.fillStyle = waterCss(deep, 0.1, 0.38);

@@ -70,12 +70,11 @@ export function drawDoor(e, t){
      the band's height. */
   const OW = TILE*0.40, OH = WALL_FACE*0.60;
   const hw = OW/2, hh = OH/2;
-  const cycling = G.descend>0.02 && G.descend<DOOR_HOLD;
-
+  
   const rot = 0;
 
   ctx.save();
-  ctx.translate((e.x+0.5)*TILE, (e.y+1)*TILE - WALL_FACE/2);
+  ctx.translate((e.x+0.5)*TILE, (e.y+1.1)*TILE - WALL_FACE/2);
   ctx.save();
   ctx.rotate(rot);
 

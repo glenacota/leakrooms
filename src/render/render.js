@@ -5,6 +5,7 @@
 
      ground    carpet, the flood and its shine, the walls
      markers   batteries and the door
+     puddles   the pools under burst pipes, so figures stand on them
      actors    the player and lifeforms, sorted by y, at their smoothed position
      lighting  the light bake, the visibility mask, the ceiling lights
      leaks     the burst pipes (not hidden by the cone)
@@ -20,7 +21,7 @@ import { G } from '../sim/state.js';
 import { cvs, ctx, SCALE } from './canvas.js';
 import { actors } from './passes/actors.js';
 import { ground } from './passes/ground.js';
-import { leaks, repairRing } from './passes/leaks.js';
+import { leaks, puddles, repairRing } from './passes/leaks.js';
 import { lighting } from './passes/lighting.js';
 import { markers } from './passes/markers.js';
 import { particles } from './passes/particles.js';
@@ -122,6 +123,7 @@ export function render(t){
 
   ground(rc);
   markers(rc);
+  puddles(rc);
   actors(rc);
   particles(rc);
   ctx.restore();

@@ -112,10 +112,10 @@ export function bakeTiles(level){
 
       // Shadow cast onto the carpet
       const sh=g.createLinearGradient(0, fy, 0, fy+TILE*0.5);
-      sh.addColorStop(0,'rgba(12,10,4,0.30)');
+      sh.addColorStop(0,'rgba(12,10,4,0.20)');
       sh.addColorStop(1,'rgba(12,10,4,0)');
       g.fillStyle=sh;
-      g.fillRect(wx, fy, TILE, TILE*0.5);
+      g.fillRect(wx, fy, TILE, TILE);
 
       // The wallpapered face
       g.fillStyle = wallPat;
@@ -124,8 +124,8 @@ export function bakeTiles(level){
       g.fillStyle='rgba(40,38,24,0.55)';
       g.fillRect(wx, wy, TILE, 2);
       // A skirting shadow at the base
-      g.fillStyle='rgba(48,46,30,0.42)';
-      g.fillRect(wx, fy-2, TILE, 2);
+      g.fillStyle='rgba(48,46,30,0.22)';
+      g.fillRect(wx, fy, TILE, 2);
     }
   }
 }
