@@ -109,7 +109,7 @@ const GLOBALS = new Set([
   'window', 'document', 'navigator', 'location', 'history', 'screen', 'frames',
   'self', 'top', 'parent', 'opener', 'name', 'length', 'closed', 'status',
   'origin', 'focus', 'blur', 'open', 'close', 'print', 'stop', 'find',
-  'scroll', 'scrollTo', 'scrollBy', 'alert', 'confirm', 'prompt',
+  'scroll', 'scrollTo', 'scrollBy', 'alert', 'confirm',
   'setTimeout', 'clearTimeout', 'setInterval', 'clearInterval',
   'requestAnimationFrame', 'cancelAnimationFrame',
   'localStorage', 'sessionStorage', 'indexedDB', 'crypto', 'performance',

@@ -6,7 +6,6 @@
    the noise and radar readings moved to diegetic rings above the plumber
    (see render/passes/diegetic.js). */
 
-import { REPAIR_TIME } from '../config/tuning.js';
 import { G } from '../sim/state.js';
 import { SETTINGS } from '../settings/store.js';
 import { clockText, lives, runLives } from '../game/run.js';
@@ -19,7 +18,6 @@ export const HUD = {
   clockWrap: document.getElementById('clock'),
   vLeaks: document.getElementById('val-leaks'),
   vLives: document.getElementById('val-lives'),
-  prompt: document.getElementById('prompt'),
   hud: document.getElementById('hud')
 };
 
@@ -86,7 +84,7 @@ export function hudFlag(el, key, cls, on){
 export function updateHUD(){
   if (!G) return;
   /* ---------- Leaks ----------
-     One mark per leak on the floor. The exact count is on the prompt line. */
+     One mark per leak on the floor. */
   hudSet(HUD.vLeaks, 'vLeaks', 'html', leaksHTML());
 
   /* ---------- Clock ---------- */
@@ -96,40 +94,6 @@ export function updateHUD(){
   /* innerHTML is used here because the pips are small HTML spans, and the
      cache above means it is only parsed when a life is lost. */
   hudSet(HUD.vLives, 'vLives', 'html', livesHTML());
-}
-
-/* The hint line near the bottom of the screen. It shows the first of five
-   messages that applies. The repair message comes first because it is the one
-   moment the player must NOT press a key, and this line is where they look
-   to find out what the game wants. */
-export function setPrompt(){
-  const el=HUD.prompt;
-  if (!G){ hudFlag(el, 'promptOn', 'on', false); return; }
-  let working = 0;
-  for (const L of G.leaks) if (!L.fixed && L.repair > 0.02) working++;
-  let msg;
-  if (working)              msg = 'SEALING \u2014 DO NOT MOVE';
-  else if (G.atLeak)        msg = `STAND STILL \u2014 ${REPAIR_TIME} SECONDS`;
-  else if (G.descend>0.02)  msg = 'STAY AT THE DOOR';
-  /* At the door with leaks still open: the door will not cycle until every
-     leak is sealed, so say so instead of sending the player back to the wet
-     floor they are already standing on. */
-  else if (G.openLeaks>0 && atDoor()) msg = `DOOR LOCKED \u2014 ${G.openLeaks} LEAK${G.openLeaks===1?'':'S'} OPEN`;
-  else if (G.openLeaks>0)   msg = `${G.openLeaks} LEAK${G.openLeaks===1?'':'S'} LEFT \u2014 FOLLOW THE WET FLOOR`;
-  else                      msg = 'ALL SEALED \u2014 BACK TO THE DOOR';
-  hudSet(el, 'prompt', 'text', msg);
-  hudFlag(el, 'promptOn', 'on', true);
-}
-
-/* True when the plumber is standing on the door tile (1.25 tiles, matching
-   the hold distance in sim/door.js), so a door in a one-tile alcove still
-   counts without pixel precision. */
-function atDoor(){
-  if (!G.plumber || !G.exitTiles) return false;
-  for (const e of G.exitTiles){
-    if (Math.hypot(e.x+0.5-G.plumber.x, e.y+0.5-G.plumber.y) < 1.25) return true;
-  }
-  return false;
 }
 
 // The life pips as HTML: one dot per life in the run, with spent ones marked "gone".

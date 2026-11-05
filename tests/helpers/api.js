@@ -1,63 +1,51 @@
 import { mulberry32 } from '../../src/util/rng.js';
-import { hash2 } from '../../src/util/hash.js';
 import { LEVELS, LEVELS_N } from '../../src/config/levels.js';
 import { DIFFICULTIES, WATER_TINTS } from '../../src/config/presets.js';
 import { SETTINGS_DEFAULTS, SETTINGS_SCHEMA, SETTINGS_KEY, settingsValid } from '../../src/settings/schema.js';
-import { FLOORS, FLOOR_CLOCK, REPAIR_TIME, HUNT_BASE, HUNT_STEP, applyDifficulty } from '../../src/config/tuning.js';
+import { FLOORS, FLOOR_CLOCK, REPAIR_TIME, HUNT_BASE, HUNT_STEP } from '../../src/config/tuning.js';
 import { Audio_ } from '../../src/audio/index.js';
 import { drawPlumber, drawLifeform, drawDoor, ENT } from '../../src/render/entities.js';
 import { drawPlumber as drawPlumberSprite } from '../../src/cast/plumber.js';
 import { drawLifeform as drawLifeformSprite } from '../../src/cast/lifeform.js';
 import { cvs, ctx, SCALE } from '../../src/render/canvas.js';
-import { G, installFloorState } from '../../src/sim/state.js';
+import { G } from '../../src/sim/state.js';
 import { keys } from '../../src/sim/keys.js';
-import { view } from '../../src/util/view.js';
-import { makeLos } from '../../src/util/grid.js';
 import { createCollision } from '../../src/sim/collision.js';
 import { hearRadius, alertLifeforms, emitNoise, sustainedNoise, tickNoiseDecay, brush, alert, wallSteps, MAX_WALL_STEPS } from '../../src/sim/noise.js';
 import { distanceField } from '../../src/sim/path.js';
 import { initFlood, seedSplash, wetAt, tickFlood, floodCover } from '../../src/sim/flood.js';
 import { tickBattery, tickMovement } from '../../src/sim/plumber.js';
-import { takeWetBox } from '../../src/util/repaint.js';
 import { tickLeakNoise, tickRepair, sealLeak, leakAt, leakReach } from '../../src/sim/leaks.js';
 import { tickClock } from '../../src/sim/clock.js';
 import { tickDoor } from '../../src/sim/door.js';
 import { tickRadarReveal } from '../../src/sim/radar.js';
 import { tickLifeforms, updateLifeform, randomFloorNear } from '../../src/sim/lifeforms.js';
-import { computeLightArr } from '../../src/sim/lightmap.js';
 import {
   castFan, traceViewCone, combineMask, scopeRoomLight,
   fadeRoomLight, smoothMask, snapMask, fixtureVis, onScreen,
 } from '../../src/sim/vision.js';
 import { genLevel } from '../../src/sim/level.js';
-import { spawnLifeforms } from '../../src/sim/spawn.js';
-import { update, tickAudio } from '../../src/sim/update.js';
+import { update } from '../../src/sim/update.js';
 import { buildFloor } from '../../src/game/floor.js';
 import {
-  STATE, lives, floorIdx, runTime, runLives, runStat, RUN_SEED,
+  STATE, lives, floorIdx, runLives, runStat, RUN_SEED,
   clearCard, resetArmed, clockText, nextFloor, dismissClear, rollRunSeed,
-  resetRun, disarmReset, armReset,
-  startRun, retryFloor, runAgain, bindRun,
-  setState, setLives, setFloorIdx, setRunTime, setRunStat, setRunSeed,
+  resetRun, 
+  setState, setLives, setFloorIdx, setRunTime, setRunSeed,
 } from '../../src/game/run.js';
-import { frame, setFrameHooks } from '../../src/game/loop.js';
+import { frame } from '../../src/game/loop.js';
 import { hideAll, SCREENS, show } from '../../src/ui/dom.js';
-import { flash, HUD, livesHTML, renderLives, updateHUD, setPrompt } from '../../src/ui/hud.js';
-import { activateMenu, beginShift, backSplash, syncAmbience, moveMenu, selectMenu, TITLE_MENU } from '../../src/ui/splash.js';
+import { HUD, updateHUD } from '../../src/ui/hud.js';
+import { activateMenu, beginShift, backSplash, moveMenu, selectMenu, TITLE_MENU } from '../../src/ui/splash.js';
 import { binderMode, binderTab, openBinder, setBinderTab, stepBinderTab } from '../../src/ui/binder.js';
 import { togglePause } from '../../src/ui/pause.js';
-import { buildSettingsUI, SEGMENTS, syncSettingsUI } from '../../src/ui/settings-panel.js';
-import { bindInput, MODAL_ACTION, toggleMute } from '../../src/ui/input.js';
-import { bindButtons } from '../../src/ui/buttons.js';
-import { applySettings, bindDom } from '../../src/ui/bind.js';
-import { attachFloorImages } from '../../src/render/bake.js';
+import { applySettings } from '../../src/ui/bind.js';
 import { packMask, packWet, setPixels } from '../../src/render/pack.js';
 import { paintSplashPlan } from '../../src/render/splash-plan.js';
-import { render, setSimAlpha } from '../../src/render/render.js';
+import { render } from '../../src/render/render.js';
 import { SETTINGS, loadSettings, saveSettings, resetSettings, setOption } from '../../src/settings/store.js';
-import { on, emit } from '../../src/util/events.js';
 import * as _C from '../../src/config/constants.js';
-const { BAKE_FLOOR, BATT_MAX, BRUSH_NOISE, CATCH_R, DARK_ROOM, DOOR_AJAR, DOOR_EASE, DOOR_HOLD, DOOR_NOISE, FLICKER_DEPTH, HAND_OFF, HOP_FALL, LEAK_HEADSTART, LEAK_LURE, LEAK_NOISE_BASE, LEAK_NOISE_GAIN, LEAK_RETREAT, LEAK_SPREAD, LIGHT_FADE, LIGHT_FADE_STEPS, LOUD, LS, MAP_H, MAP_W, MASK_TAU, NOISE, NOISE_FS, SOUND_POWERS, LEAK_FAR, LEAK_GAP, RADAR_DRAIN, RENDER_SCALES, REPAIR_DECAY, REPAIR_NOISE, REPAIR_REACH, SCALE_BAD_FRAMES, SCALE_DROP_MS, SCALE_GOOD_FRAMES, SCALE_RECOVER_MS, SHEEN_STEPS, SPRINT, SPRINT_NOISE, TILE, VHS_PASS, VIEW_DEG, VIEW_FADE_FAR, VIEW_FADE_NEAR, VIEW_HALF, VIEW_MID, VIEW_RANGE, VIEW_RAYS, VIEW_T, WALK, WALL, WALL_FACE, WET_DRAW, WET_EDGE, WET_FALL, WET_RISE, FLOOR } = _C;
+const { BRUSH_NOISE, DARK_ROOM, DOOR_NOISE, HAND_OFF, HOP_FALL, LEAK_HEADSTART, LEAK_LURE, LEAK_NOISE_BASE, LEAK_NOISE_GAIN, LEAK_RETREAT, LEAK_SPREAD, LOUD, NOISE, NOISE_FS, SOUND_POWERS, LEAK_GAP, RADAR_DRAIN, REPAIR_NOISE, REPAIR_REACH, SPRINT, SPRINT_NOISE, TILE, VIEW_FADE_FAR, VIEW_FADE_NEAR, VIEW_HALF, VIEW_RANGE, WALK, WET_DRAW, WET_FALL, WET_RISE, FLOOR } = _C;
 
 function setHeadless(px, vis){ setPixels(px); if (G) G.wantVision = vis; }
 
@@ -83,7 +71,7 @@ get VIEW_FADE_FAR(){ return VIEW_FADE_FAR; },
 get VIEW_HALF(){ return VIEW_HALF; },
 get VIEW_RANGE(){ return VIEW_RANGE; },
 get RADAR_DRAIN(){ return RADAR_DRAIN; },
-buildFloor, genLevel, render, emitNoise, setPrompt, drawPlumber,
+buildFloor, genLevel, render, emitNoise, drawPlumber,
 frame,
 updateReal: (dt) => { return update(G, dt); },
 /* Every test that is not about the clock holds it open.

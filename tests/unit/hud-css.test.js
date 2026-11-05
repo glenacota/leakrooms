@@ -1,12 +1,9 @@
 import test from 'node:test';
-import { fileURLToPath } from 'node:url';
-import { fakeAudioContext } from '../helpers/stubs.js';
 import { softAssert } from '../helpers/soft-assert.js';
 import { readCss, readHtml, readSrc } from '../helpers/src-text.js';
 import { loadGame } from '../helpers/harness.js';
 
-const __dirname = fileURLToPath(new URL('.', import.meta.url));
-const { A, G, els, calls, store, press } = await loadGame();
+const { A, els } = await loadGame();
 const buildFloor = A.buildFloor;
 
 
@@ -74,12 +71,11 @@ test('[24] the HUD — one glass panel in the corner, and it reserves nothing', 
     '#game is not filling #stage — it is sized against the window instead');
 
   /* --- and the map-relative text is centred on the MAP --------------
-     #prompt and #flashnote are positioned left:0; right:0. Outside #stage they
+     #flashnote is positioned left:0; right:0. Outside #stage they
      centre on the window, which is a whole panel wider than the play area on
      the left — both would sit visibly off the player they are describing. */
   const stageEnd = html.indexOf('<!-- ============ SCREENS');
   const stage = html.slice(html.indexOf('<div id="stage">'), stageEnd);
-  t.assert(stage.includes('id="prompt"'), '#prompt is not inside #stage — it centres on the window, not the map');
   t.assert(stage.includes('id="flashnote"'), '#flashnote is not inside #stage — it centres on the window, not the map');
 
   /* --- the readouts, and only the readouts ---------------------------

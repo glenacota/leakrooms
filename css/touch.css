@@ -197,8 +197,7 @@ html[data-input=touch] #crt{ height:100dvh; }
 
 /* src/ui/touch-hud-rules.js adds .hud-quiet when nothing needs reading. Opacity
    only: the panel keeps its place and size, so nothing shifts when it comes
-   back. The prompt line is not touched, because "stand still" and "do not move"
-   are the lines a player with a released stick needs. The transition on the
+   back. The transition on the
    quiet rule is the one used when the class arrives (a slow fade out); the one
    on the plain rule is used when it leaves (a quick return). */
 [data-input=touch] .crt-c{ transition:opacity .15s ease; }
@@ -285,8 +284,3 @@ html:not([data-input=touch]) .touch-only{ display:none !important; }
   [data-input=touch] .order-side .stub-note,
   [data-input=touch] .controls-big{ display:none; }
 }
-
-/* The screens' own padding keeps them clear of the notch (css/screens.css), and
-   the HUD panel anchors with max() (css/hud.css), so only the prompt needs a
-   touch rule: the home bar sits under it. */
-[data-input=touch] #prompt{ padding-bottom:calc(20px + var(--safe-b)); }

@@ -31,7 +31,7 @@ import { render, setSimAlpha } from './render/render.js';
 import { drawBatteryMeter } from './render/battery-meter.js';
 import { drawNoiseGlow, drawNoisePlumber, drawNoiseRipple } from './render/noise-visuals.js';
 import { glowAlpha, glowRadius, glowRgb, glowStops, isRedRing, maxRadius, ringAlpha, ringLife, ringRadius } from './render/passes/ripples.js';
-import { updateHUD, setPrompt, tickTouchHud } from './ui/hud.js';
+import { updateHUD, tickTouchHud } from './ui/hud.js';
 import { loadSettings } from './settings/store.js';
 import { RUN_SEED } from './game/run.js';
 import { frame } from './game/loop.js';
@@ -167,10 +167,10 @@ export function boot(){
   /* The loop does not know about rendering, the HUD or the resolution, so all
      three are passed in: `render` draws a frame, `simAlpha` tells the renderer
      how far into the next simulation step the picture is, `adaptive` decides
-     whether the machine is keeping up, and `afterUpdate` refreshes the HUD and
-     the prompt line after each simulation step. */
+     whether the machine is keeping up, and `afterUpdate` refreshes the HUD
+     after each simulation step. */
   setFrameHooks({ render, simAlpha: setSimAlpha, adaptive: adaptResolution,
-                  afterUpdate: ()=>{ updateHUD(); setPrompt(); tickLoudFlash(); tickTouchHud(); } });
+                  afterUpdate: ()=>{ updateHUD(); tickLoudFlash(); tickTouchHud(); } });
 
   requestAnimationFrame(frame);
 }
