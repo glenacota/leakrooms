@@ -169,8 +169,8 @@ export function makeEl(id, node){
 
     classList: {
       _s: classes,
-      add(c){ (Array.isArray(c) ? c : [c]).forEach(x => classes.add(x)); },
-      remove(c){ (Array.isArray(c) ? c : [c]).forEach(x => classes.delete(x)); },
+      add(...cs){ cs.forEach(c => classes.add(c)); },
+      remove(...cs){ cs.forEach(c => classes.delete(c)); },
       toggle(c, f){ f ? classes.add(c) : classes.delete(c); },
       contains(c){ return classes.has(c); },
       get value(){ return [...classes].join(' '); },

@@ -46,7 +46,7 @@ test('[HAPTICS] danger sounds buzz 25 ms and death buzzes 120 ms', () => {
 test('[HAPTICS] everything else is silent, including the splash and the HUD flash', () => {
   withVibrate(log => {
     for (const n of ['splash', 'step', 'wrench', 'seal', 'drip', 'drone', 'noiseFloor', 'leakBed']) emit('sfx', n, 1);
-    emit('flash', 'IT TOUCHED YOU');
+    emit('flash', { cat: 'danger', text: 'IT TOUCHED YOU' });
     assert.deepEqual(log, []);
   });
 });

@@ -47,7 +47,7 @@ function flashEl(){
 function draw(cue){
   const el = flashEl();
   if (!cue){
-    el.classList.remove('on');
+    el.classList.remove('on', 'icon');
     el.textContent = '';
     el.style.opacity = '';
     return;
