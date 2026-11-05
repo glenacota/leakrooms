@@ -157,11 +157,11 @@
   border-color:rgba(228,230,168,.12);
 }
 /* Category colour on the left rule; the icon stroke inherits text color. */
-#flashnote[data-cat="danger"]{ border-left-color:var(--danger); }
+#flashnote[data-cat="danger"]{ border-left-color:var(--danger); color:var(--danger) }
 #flashnote[data-cat="alert"]{ border-left-color:var(--yellow); }
-#flashnote[data-cat="guide"]{ border-left-color:var(--carpet); }
-#flashnote[data-cat="info"]{ border-left-color:#8fc4cc; }
-#flashnote[data-cat="lore"]{ border-left-color:var(--yellow-dim); }
+#flashnote[data-cat="guide"]{ border-left-color:var(--carpet); color:var(--carpet)}
+#flashnote[data-cat="info"]{ border-left-color:#8fc4cc; color:#8fc4cc}
+#flashnote[data-cat="lore"]{ border-left-color:#8fccaa; color:#8fccaa; font-style: italic; }
 
 #flashnote .ico{
   width:1em; height:1em;

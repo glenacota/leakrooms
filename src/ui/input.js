@@ -5,7 +5,6 @@ import { emit } from '../util/events.js';
 import { G } from '../sim/state.js';
 import { STATE, dismissClear, retryFloor, runAgain } from '../game/run.js';
 import { resize } from '../render/canvas.js';
-import { flash } from './hud.js';
 import { togglePause } from './pause.js';
 import { backSplash, beginShift, activateMenu, moveMenu } from './splash.js';
 import { binderTab, stepBinderTab } from './binder.js';
@@ -44,7 +43,7 @@ const keyOf = e => GAME_CODES[e.code] || e.key.toLowerCase();
 export function toggleRadar(){
   if (!(G && STATE==='play')) return;
   if (G.radar) G.radar = false;
-  else if (G.batt<=0) flash({ cat: 'alert', text: 'THE RADAR IS DEAD. LOOK FOR MORE BATTERIES' });
+  else if (G.batt<=0) emit('flash', { cat: 'alert', text: 'THE RADAR IS DEAD. LOOK FOR MORE BATTERIES' });
   else { G.radar = true; G.radarRattleT = 0; }
 }
 
@@ -194,7 +193,7 @@ function onKeyUp(e){
 export function toggleMute(){
   const next = !SETTINGS.muted;
   setOption('muted', next);
-  flash({ cat: 'info', text: next ? 'AUDIO MUTED' : 'AUDIO ON' });
+  emit('flash', { cat: 'info', text: next ? 'AUDIO MUTED' : 'AUDIO ON' });
   if (!next) Audio_.blip(true);
 }
 

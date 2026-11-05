@@ -2,8 +2,7 @@ import { LOUD } from '../config/constants.js';
 import { REPAIR_TIME } from '../config/tuning.js';
 import { STATE } from '../game/run.js';
 import { G } from '../sim/state.js';
-import { on } from '../util/events.js';
-import { flash } from './hud.js';
+import { emit, on } from '../util/events.js';
 
 const announced = new Set();
 
@@ -16,7 +15,7 @@ let doorLast = -1e9;    // performance.now() of the last DOOR LOCKED cue
 export function tickLoudFlash(){
   if (!announced.has('LOUD') && G && G.selfNoise >= LOUD){
     announced.add('LOUD');
-    flash({ cat: 'danger', text: 'YOU ARE LOUD — SOMETHING CAN HEAR THAT' });
+    emit('flash', { cat: 'danger', text: 'YOU ARE LOUD — SOMETHING CAN HEAR THAT' });
   }
 }
 
@@ -41,7 +40,7 @@ export function tickCues(){
     if (!doorSince) doorSince = now;
     if (now - doorSince >= 800 && now - doorLast >= 20000){
       doorLast = now;
-      flash({ cat: 'alert',
+      emit('flash', { cat: 'alert',
               text: `DOOR LOCKED — ${G.openLeaks} LEAK${G.openLeaks === 1 ? '' : 'S'} OPEN` });
     }
   } else {
@@ -55,19 +54,19 @@ export function tickCues(){
        20 s fallback catches a player who never walks into water. */
     if (!f1Wet && (G.wet > 0 || G.time >= 20)){
       f1Wet = true;
-      flash({ cat: 'guide', text: 'FOLLOW THE WET FLOOR TO FIND THE LEAK' });
+      emit('flash', { cat: 'guide', text: 'FOLLOW THE WET FLOOR TO FIND THE LEAK' });
     }
     /* The repair ring needs progress to appear, so the standing spot has no
        feedback until it is too late to learn what it is for. */
     if (!f1Stand && G.atLeak){
       f1Stand = true;
-      flash({ cat: 'guide', text: `STAND STILL — ${REPAIR_TIME} SECONDS` });
+      emit('flash', { cat: 'guide', text: `STAND STILL — ${REPAIR_TIME} SECONDS` });
     }
     /* The door hold only starts once every leak is sealed, so a first-time
        player has no reason to stand there until told. */
     if (!f1Door && G.descend > 0.02){
       f1Door = true;
-      flash({ cat: 'guide', text: 'STAND BY THE DOOR TO OPEN IT' });
+      emit('flash', { cat: 'guide', text: 'STAND BY THE DOOR TO OPEN IT' });
     }
   }
 }
@@ -89,7 +88,7 @@ export function bindHints(){
       : null;
     if (msg && !announced.has(to)){
       announced.add(to);
-      flash({ cat: 'danger', text: msg });
+      emit('flash', { cat: 'danger', text: msg });
     }
   });
 }

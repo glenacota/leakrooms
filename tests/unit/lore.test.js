@@ -1,13 +1,19 @@
 import test from 'node:test';
 import { strict as assert } from 'node:assert';
 import { loadGame } from '../helpers/harness.js';
-import { tickLore } from '../../src/sim/lore.js';
+import { emit } from '../../src/util/events.js';
+import { tickLore, loreReset } from '../../src/sim/lore.js';
 
 const { A, G } = await loadGame();
 const buildFloor = A.buildFloor;
 
+function freshFloor(seed){
+  loreReset();
+  buildFloor(0, seed);
+}
+
 test('lore: every floor carries unseen notes with text', () => {
-  buildFloor(0, 4242);
+  freshFloor(4242);
   assert.ok(Array.isArray(G.notes) && G.notes.length > 0, 'the floor has notes');
   for (const n of G.notes) {
     assert.equal(n.seen, false, 'every note starts unseen');
@@ -16,7 +22,7 @@ test('lore: every floor carries unseen notes with text', () => {
 });
 
 test('lore: reveals one unseen note per roll, once each, independent of the radar', () => {
-  buildFloor(0, 4242);
+  freshFloor(4242);
   const total = G.notes.length;
 
   // loreRng() === 0 rolls under LORE_CHANCE and picks index 0: reveals in order
@@ -34,7 +40,7 @@ test('lore: reveals one unseen note per roll, once each, independent of the rada
 });
 
 test('lore: a revealed note stays revealed for the floor', () => {
-  buildFloor(0, 9090);
+  freshFloor(9090);
   G.loreRng = () => 0;
   tickLore(G);
   assert.equal(G.notes.filter(n => n.seen).length, 1, 'one note revealed on the first roll');
@@ -45,4 +51,26 @@ test('lore: a revealed note stays revealed for the floor', () => {
   for (let i = 0; i < 20; i++) tickLore(G);
   assert.equal(G.notes.filter(n => n.seen).length, 1, 'no additional note revealed on a miss');
   assert.equal(G.notes.find(n => n.seen).text, revealedText, 'the same note stays the revealed one');
+});
+
+test('lore: a non-lore flash starts the 20s gap, blocking lore until it expires', () => {
+  freshFloor(3131);
+  G.loreRng = () => 0; // always roll under
+
+  // gate is open after loreReset: a note reveals immediately
+  tickLore(G);
+  assert.equal(G.notes.filter(n => n.seen).length, 1, 'lore reveals when the gap is open');
+
+  // a non-lore flash restarts the gap timer
+  emit('flash', { cat: 'danger', text: 'IT SEES YOU' });
+
+  // gate is closed: lore must not reveal even though the roll passes
+  const before = G.notes.filter(n => n.seen).length;
+  for (let i = 0; i < 10; i++) tickLore(G);
+  assert.equal(G.notes.filter(n => n.seen).length, before, 'lore is blocked while the gap is open');
+
+  // loreReset opens the gate again: lore reveals immediately
+  loreReset();
+  tickLore(G);
+  assert.equal(G.notes.filter(n => n.seen).length, before + 1, 'lore reveals once the gap is reset');
 });
