@@ -21,24 +21,117 @@ export const HUD = {
   hud: document.getElementById('hud')
 };
 
-/* Shows a short message in the middle of the screen for a few seconds.
-   Subscribed to the 'flash' event, so the simulation can announce things
-   without knowing about the DOM. */
-let flashT = 0;
-export function flash(text){
-  const el=document.getElementById('flashnote');
-  el.textContent = text;
-  /* The flash intensity is an inline opacity, not a class change. The class
-     still drives the fade-in transition (the CSS eases opacity toward 1 when
-     .on is present); the inline value caps where that fade lands, so a player
-     who finds the sudden bright text uncomfortable can dial it down without
-     losing the message entirely. It is cleared when the timeout hides the note,
-     so the next flash starts from a known state. */
+/* Flash cues with priority tiers. A higher tier replaces what is on screen;
+   an alert/guide/lore cue displaced by a higher one is held and re-shown when
+   the slot frees, if it is still true. Danger repeats its icon alone after the
+   first spoken instance. Info waits up to 1.5 s behind a higher cue. */
+const CAT = {
+  danger: { tier: 1, hold: 2800 },
+  alert:  { tier: 2, hold: 3400 },
+  guide:  { tier: 3, hold: 3400 },
+  info:   { tier: 4, hold: 2000, wait: 1500 },
+  lore:   { tier: 5, hold: 5200 },
+};
+const HOLDABLE = new Set(['alert', 'guide', 'lore']);
+let cur = null;
+let held = null;
+let waiting = null;   // { cue } info queued behind a higher cue
+let tmr = null;
+let wtmr = null;      // info expiry timer
+const dangerSaid = new Set();
+
+function flashEl(){
+  return document.getElementById('flashnote');
+}
+
+function draw(cue){
+  const el = flashEl();
+  if (!cue){
+    el.classList.remove('on');
+    el.textContent = '';
+    el.style.opacity = '';
+    return;
+  }
+  el.innerHTML = '<svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-'+cue.cat+'"/></svg><span class="txt"></span>';
+  const txt = el.querySelector('.txt');
+  if (txt) txt.textContent = cue.text;
+  else el.textContent = cue.text;
+  el.dataset.cat = cue.cat;
+  el.classList.toggle('icon', !!cue.icon);
+  el.classList.toggle('quiet', !SETTINGS.flash);
   el.style.opacity = SETTINGS.flash ? '1' : '0';
   el.classList.add('on');
-  clearTimeout(flashT);
-  flashT = setTimeout(()=>{ el.classList.remove('on'); el.style.opacity=''; }, 3400);
-  if (flashT.unref) flashT.unref();   // a browser returns a number
+}
+
+function start(cue){
+  cur = cue;
+  draw(cue);
+  clearTimeout(tmr);
+  tmr = setTimeout(done, CAT[cue.cat].hold);
+  if (tmr.unref) tmr.unref();
+}
+
+function done(){
+  clearTimeout(wtmr);
+  wtmr = null;
+  const h = held;
+  held = null;
+  const w = waiting;
+  waiting = null;
+  cur = null;
+  if (h && HOLDABLE.has(h.cat)){ start(h); return; }
+  if (w){ start(w.cue); return; }
+  draw(null);
+}
+
+function dropWaiting(){
+  waiting = null;
+  if (!cur) draw(null);
+}
+
+export function flashReset(){
+  clearTimeout(tmr);
+  clearTimeout(wtmr);
+  cur = null;
+  held = null;
+  waiting = null;
+  wtmr = null;
+  dangerSaid.clear();
+  draw(null);
+}
+
+export function flash(payload){
+  if (typeof payload === 'string') payload = { cat: 'info', text: payload };
+  const { cat, text } = payload;
+  const tier = CAT[cat].tier;
+  const ct = cur ? CAT[cur.cat].tier : 0;
+  let icon = false;
+  if (cat === 'danger'){
+    if (dangerSaid.has(text)) icon = true;
+    else dangerSaid.add(text);
+  }
+  const cue = { cat, text, icon };
+  if (!cur){ start(cue); return; }
+  if (tier <= ct){
+    /* Newer cue is higher or equal priority: interrupt what is on screen. The
+       displaced holdable cue goes into the single hold slot. */
+    if (tier < ct && HOLDABLE.has(cur.cat) && !cur.icon &&
+        (!held || CAT[cur.cat].tier < CAT[held.cat].tier)){
+      held = cur;
+    }
+    start(cue);
+  } else {
+    /* Newer cue is lower priority: it waits. Holdable cues are re-shown when
+       the slot frees; info waits up to its timeout, then drops. */
+    if (HOLDABLE.has(cat)){
+      if (!held || tier < CAT[held.cat].tier) held = cue;
+    } else if (cat === 'info'){
+      clearTimeout(wtmr);
+      waiting = { cue };
+      wtmr = setTimeout(dropWaiting, CAT[cat].wait);
+      if (wtmr.unref) wtmr.unref();
+    }
+  }
 }
 
 

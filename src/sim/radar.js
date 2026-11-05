@@ -28,6 +28,6 @@ export function tickRadarReveal(radarState){
   for (const gr of radarState.graffiti){
     if (gr.seen) continue;
     if (!onScreen(gr.x+0.5, gr.y+0.5, radarState.plumber)) continue;
-    gr.seen=true; emit('flash', gr.text);
+    gr.seen=true; emit('flash', { cat: 'lore', text: gr.text });
   }
 }

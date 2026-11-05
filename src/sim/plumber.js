@@ -44,7 +44,7 @@ export function tickBattery(plumberMeta, plumber, batteries, dt){
   plumberMeta.battPulseT = Math.max(0, plumberMeta.battPulseT - dt);
   if (plumberMeta.radar){
     plumberMeta.batt -= RADAR_DRAIN*dt;
-    if (plumberMeta.batt<=0){ plumberMeta.batt=0; plumberMeta.radar=false; emit('flash', 'NO POWER — THE RADAR IS DEAD'); }
+    if (plumberMeta.batt<=0){ plumberMeta.batt=0; plumberMeta.radar=false; emit('flash', { cat: 'alert', text: 'NO POWER — THE RADAR IS DEAD' }); }
     plumberMeta.radarRattleT = (plumberMeta.radarRattleT||0) - dt;
     if (plumberMeta.radarRattleT <= 0){ emit('sfx', 'clink', 0.4); plumberMeta.radarRattleT = 0.6; }
   } else {
@@ -52,7 +52,7 @@ export function tickBattery(plumberMeta, plumber, batteries, dt){
   }
   for (const b of batteries){
     if (b.taken) continue;
-    if (Math.hypot(b.x-plumber.x,b.y-plumber.y)<0.85){ b.taken=true; plumberMeta.batt=Math.min(BATT_MAX,plumberMeta.batt+20); emit('flash', '+20% BATTERY'); plumberMeta.battPulseT = PULSE_FOR; }
+    if (Math.hypot(b.x-plumber.x,b.y-plumber.y)<0.85){ b.taken=true; plumberMeta.batt=Math.min(BATT_MAX,plumberMeta.batt+20); emit('flash', { cat: 'info', text: '+20% BATTERY' }); plumberMeta.battPulseT = PULSE_FOR; }
   }
 }
 

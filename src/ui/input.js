@@ -44,7 +44,7 @@ const keyOf = e => GAME_CODES[e.code] || e.key.toLowerCase();
 export function toggleRadar(){
   if (!(G && STATE==='play')) return;
   if (G.radar) G.radar = false;
-  else if (G.batt<=0) flash('NO POWER — THE RADAR IS DEAD');
+  else if (G.batt<=0) flash({ cat: 'alert', text: 'NO POWER — THE RADAR IS DEAD' });
   else { G.radar = true; G.radarRattleT = 0; }
 }
 
@@ -194,7 +194,7 @@ function onKeyUp(e){
 export function toggleMute(){
   const next = !SETTINGS.muted;
   setOption('muted', next);
-  flash(next ? 'AUDIO MUTED' : 'AUDIO ON');
+  flash({ cat: 'info', text: next ? 'AUDIO MUTED' : 'AUDIO ON' });
   if (!next) Audio_.blip(true);
 }
 

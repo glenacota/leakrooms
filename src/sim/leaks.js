@@ -54,8 +54,8 @@ export function sealLeak(L, leakState){
   leakState.openLeaks = Math.max(0, leakState.openLeaks-1);
   emit('sfx', 'seal');
   emit('flash', leakState.openLeaks
-    ? `LEAK SEALED \u2014 ${leakState.openLeaks} STILL OPEN`
-    : 'EVERY LEAK SEALED \u2014 GET BACK TO THE DOOR');
+    ? { cat: 'info', text: `LEAK SEALED \u2014 ${leakState.openLeaks} STILL OPEN` }
+    : { cat: 'guide', text: 'EVERY LEAK SEALED \u2014 GET BACK TO THE DOOR' });
   leakState.stat.sealed++;
   emit('stat', 'sealed');
   /* The recession uses the existing distance field. Building a new field from

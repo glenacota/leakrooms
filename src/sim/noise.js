@@ -174,6 +174,6 @@ export function brush(lf, p, noiseState){
   lf.state='HUNT'; lf.target={x:p.x, y:p.y}; lf.t=0;
   lf.rise=Math.max(lf.rise, 0.85);
   emitNoise(noiseState, NOISE.BRUSH, p.x, p.y);
-  emit('flash', 'IT TOUCHED YOU');
+  emit('flash', { cat: 'danger', text: 'IT TOUCHED YOU' });
   emit('sfx', 'rattle', 1);
 }

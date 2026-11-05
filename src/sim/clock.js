@@ -42,7 +42,7 @@ export function tickClock(clockState, dt){
     const msg = clockState.openLeaks > 0
       ? 'THIRTY SECONDS \u2014 SEAL THE LEAK, THEN THE DOOR'
       : 'THIRTY SECONDS \u2014 GET TO THE DOOR';
-    emit('flash', msg);
+    emit('flash', { cat: 'alert', text: msg });
     emit('sfx', 'sting');
   }
   return true;

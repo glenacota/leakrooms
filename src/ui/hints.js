@@ -10,7 +10,7 @@ const announced = new Set();
 export function tickLoudFlash(){
   if (!announced.has('LOUD') && G && G.selfNoise >= LOUD){
     announced.add('LOUD');
-    flash('LOUD — IT CAN HEAR THAT');
+    flash({ cat: 'danger', text: 'LOUD — IT CAN HEAR THAT' });
   }
 }
 
@@ -24,7 +24,7 @@ export function bindHints(){
       : null;
     if (msg && !announced.has(to)){
       announced.add(to);
-      flash(msg);
+      flash({ cat: 'danger', text: msg });
     }
   });
 }
