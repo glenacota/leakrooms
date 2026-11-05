@@ -13,7 +13,7 @@ import { hash2 } from '../util/hash.js';
  * @param {Function} rng - seeded random function (0 to 1).
  * @param {number} [floorNum] - 0-based floor index; picks the row in LEVELS.
  * @returns {object} grid, rooms, spawn, exit (the door), leaks, fixtures,
- *   batteries, graffiti, spec (the LEVELS row) and rng.
+ *   batteries, notes, spec (the LEVELS row) and rng.
  */
 export function genLevel(rng, floorNum=0){
   const maze = genMaze(rng);
@@ -264,17 +264,16 @@ export function genLevel(rng, floorNum=0){
   }
 
   /* ---------- Notes on the carpet ----------
-     Short scrawled messages (see config/notes.js), read when the radar puts
-     them on screen. */
-  const graffiti = [];
+     Short scrawled messages (see config/notes.js), read by the lore ticker. */
+  const notes = [];
   for (let i=0;i<9+floorNum*2;i++){
     const r = maze.rooms[(rng()*maze.rooms.length)|0];
     if (!r || r.rw<5||r.rh<5) continue;
     const sp = floorTileIn(r);
-    graffiti.push({ x: sp.x+0.5, y: sp.y+0.5,
-                    text:NOTES[(rng()*NOTES.length)|0], seen:false });
+    notes.push({ x: sp.x+0.5, y: sp.y+0.5,
+                 text:NOTES[(rng()*NOTES.length)|0], seen:false });
   }
 
   return { grid, rooms: maze.rooms, spawn, exit: exitTiles,
-           leaks, fixtures, batteries, graffiti, spec };
+           leaks, fixtures, batteries, notes, spec };
 }

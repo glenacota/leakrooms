@@ -188,7 +188,7 @@ test('rooms stay small and link to each other through 2-tile gates', () => {
 });
 
 /* genLevel is the pure stage that decides the whole geometry: door, leaks,
-   fixtures, pickups, graffiti. It is checked here without building a floor,
+   fixtures, pickups, notes. It is checked here without building a floor,
    over twenty seeds, plus the determinism claim that one seed gives one level. */
 test('genLevel is pure and produces a well-formed level', () => {
   const t = softAssert();
@@ -249,13 +249,13 @@ test('genLevel is pure and produces a well-formed level', () => {
       t.assert(f.x>=0 && f.y>=0 && f.x<W && f.y<W, `${tag}: fixture off the map`);
     }
 
-    // batteries and graffiti: placed, not taken
+    // batteries and notes: placed, not taken
     t.assert(level.batteries.length > 0, `${tag}: no battery pickups`);
     for (const b of level.batteries)
       t.assert(b.taken === false && b.x>=0 && b.y>=0 && b.x<W && b.y<W, `${tag}: bad battery cell`);
-    t.assert(level.graffiti.length > 0, `${tag}: no graffiti`);
-    for (const gr of level.graffiti)
-      t.assert(gr.seen === false && typeof gr.text === 'string' && gr.text.length > 0, `${tag}: bad graffiti`);
+    t.assert(level.notes.length > 0, `${tag}: no notes`);
+    for (const gr of level.notes)
+      t.assert(gr.seen === false && typeof gr.text === 'string' && gr.text.length > 0, `${tag}: bad notes`);
 
     // purity: same seed, same level
     const again = A.genLevel(A.mulberry32(seed));
@@ -268,11 +268,11 @@ test('genLevel is pure and produces a well-formed level', () => {
        passes on every build and says nothing about whether two builds agree.
        Field by field is the claim that matters: the same seed has to be the
        same building, down to which panel flickers and how fast. */
-    for (const part of ['fixtures','batteries','graffiti'])
+    for (const part of ['fixtures','batteries','notes'])
       t.assert(JSON.stringify(again[part]) === JSON.stringify(level[part]),
         `${tag}: ${part} differ between two identical seeds — the level is not reproducible`);
   }
-  console.log('  20 seeds, no buildFloor: door, leaks, fixtures, pickups, graffiti all well-formed');
+  console.log('  20 seeds, no buildFloor: door, leaks, fixtures, pickups, notes all well-formed');
   console.log('  ...and every one of them byte-identical across two builds of the same seed');;
 });
 /* These assertions are on the door fields the renderer actually reads: the leaf
@@ -391,9 +391,9 @@ test('the same seed builds the same cast ten seconds in', () => {
   /* And the layout did not move to pay for it: same seed, same floor, down to
      the panel that flickers and the scrap of paper on the carpet. */
   A.buildFloor(0, 4242);
-  const layout = JSON.stringify([G.grid, G.leaks, G.exitTiles, G.fixtures, G.batteries, G.graffiti]);
+  const layout = JSON.stringify([G.grid, G.leaks, G.exitTiles, G.fixtures, G.batteries, G.notes]);
   A.buildFloor(0, 4242);
-  t.assert(layout === JSON.stringify([G.grid, G.leaks, G.exitTiles, G.fixtures, G.batteries, G.graffiti]),
+  t.assert(layout === JSON.stringify([G.grid, G.leaks, G.exitTiles, G.fixtures, G.batteries, G.notes]),
     'the level itself is not identical across two builds of one seed');
 
   console.log(`  ${G.lifeforms.length} agents, 600 steps, identical both times`);;
@@ -415,7 +415,7 @@ test('the static bake is cached and a played floor leaves no mark', () => {
   /* Play it: seal the first leak and take the first battery. */
   G.leaks[0].fixed = true;
   G.batteries[0].taken = true;
-  G.graffiti[0].seen = true;
+  G.notes[0].seen = true;
   exits[0].used = true;
 
   buildFloor(1, 7);
@@ -424,7 +424,7 @@ test('the static bake is cached and a played floor leaves no mark', () => {
     'a retry came back with the leak still sealed — the cached level was handed out instead of a copy');
   t.assert(G.batteries[0].taken === false,
     'a retry came back with the battery already taken');
-  t.assert(G.graffiti[0].seen === false,
+  t.assert(G.notes[0].seen === false,
     'a retry came back with a note already read');
   t.assert(G.exitTiles[0].used === undefined,
     'a retry came back with the door already cycled');

@@ -7,6 +7,7 @@ import { tickLifeforms } from './lifeforms.js';
 import { tickClock } from './clock.js';
 import { combineMask, fadeRoomLight, scopeRoomLight, smoothMask, traceViewCone } from './vision.js';
 import { tickRadarReveal } from './radar.js';
+import { tickLore } from './lore.js';
 import { tickBattery, tickMovement } from './plumber.js';
 
 /* The mix. Sends the audio levels for this frame: the lifeform drone, the noise
@@ -90,6 +91,7 @@ export function update(state, dt){
      step for the same reason. */
   if (state.ended) return;
   tickRadarReveal(state);
+  tickLore(state);
   if (!tickDoor(state, dt)) return;
   tickAudio(state);
 }

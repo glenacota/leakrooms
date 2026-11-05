@@ -21,7 +21,7 @@ let domains = null;
 const OWNER = {
   /* LevelState */
   floor: 'level', seed: 'level', grid: 'level', at: 'level', inB: 'level', los: 'level',
-  rooms: 'level', exitTiles: 'level', fixtures: 'level', batteries: 'level', graffiti: 'level',
+  rooms: 'level', exitTiles: 'level', fixtures: 'level', batteries: 'level', notes: 'level', loreRng: 'level',
   lightArr: 'level', lightCv: 'level', lightCtx: 'level', lightImg: 'level',
   wallIdx: 'level', tilesCv: 'level', tilesCtx: 'level', wallsCv: 'level', wallsCtx: 'level',
   regionOf: 'level', regionAdj: 'level', regionCount: 'level',
@@ -63,7 +63,7 @@ const OWNER = {
 /* The exact key order from the original flat object (pinned by tests/unit/state.test.js). */
 const KEY_ORDER = [
   'floor', 'seed', 'grid', 'at', 'inB', 'los', 'rooms', 'exitTiles', 'leaks', 'fixtures',
-  'batteries', 'graffiti', 'openLeaks', 'totalLeaks', 'lightArr', 'lightCv', 'lightCtx', 'lightImg',
+  'batteries', 'notes', 'loreRng', 'openLeaks', 'totalLeaks', 'lightArr', 'lightCv', 'lightCtx', 'lightImg',
   'visArr', 'visFrom', 'visTgt', 'visScratch', 'maskArr', 'maskTgt', 'coneArr', 'maskCv',
   'maskCtx', 'maskImg', 'wallIdx', 'tilesCv', 'tilesCtx', 'wallsCv', 'wallsCtx', 'regionOf',
   'regionAdj', 'regionCount', 'visRegion', 'visStep', 'visFadeT', 'coneX', 'coneY', 'coneFace',
