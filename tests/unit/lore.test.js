@@ -24,17 +24,19 @@ test('lore: every floor carries unseen notes with text', () => {
 test('lore: reveals one unseen note per roll, once each, independent of the radar', () => {
   freshFloor(4242);
   const total = G.notes.length;
-
-  // loreRng() === 0 rolls under LORE_CHANCE and picks index 0: reveals in order
-  G.loreRng = () => 0;
-  G.radar = false; // lore must not depend on the radar being on
-  for (let i = 0; i < total + 2; i++) tickLore(G);
+  G.loreRng = () => 0;   // always roll under
+  G.radar = false;        // lore must not depend on the radar being on
+  for (let i = 0; i < total; i++) {
+    loreReset();          // reopen the gap between reveals for the test
+    tickLore(G);
+  }
   const seen = G.notes.filter(n => n.seen).length;
   assert.equal(seen, total, 'every note revealed exactly once');
 
   // a roll at or above the chance reveals nothing
   G.loreRng = () => 1;
   const before = G.notes.map(n => n.seen);
+  loreReset();
   for (let i = 0; i < 5; i++) tickLore(G);
   assert.deepEqual(G.notes.map(n => n.seen), before, 'nothing revealed when the roll misses');
 });

@@ -6,9 +6,9 @@ export const LORE_GAP = 20000; // ms between any flash and the next lore note
 
 let lastFlash = 0;
 
-/* Any non-lore flash emission restarts the gap timer so lore cannot follow too
-   close on a danger, alert, guide or info cue. Lore's own emissions don't count. */
-on('flash', ({ cat }) => { if (cat !== 'lore') lastFlash = performance.now(); });
+/* Any flash emission restarts the gap timer so lore cannot follow too close on
+   a danger, alert, guide or info cue — and so lore cannot chain with itself. */
+on('flash', () => { lastFlash = performance.now(); });
 
 export function tickLore(state){
   const { loreRng, notes } = state;
