@@ -83,6 +83,15 @@ test('a window drag is one resize, and a lost context is rebuilt', async () => {
   assert.equal(G.dirty.water, true, 'the packed flood image was not marked stale after a rebuild');
   assert.equal(G.dirty.mask, true, 'the visibility mask was not marked stale after a rebuild');
 
+  const restored = { light: G.lightCv, tiles: G.tilesCv };
+  A.buildFloor(G.floor, G.seed);
+  assert.ok(G.lightCv !== restored.light,
+    'the next floor build did not synchronize the light bake with the cached floor');
+  assert.ok(G.tilesCv !== restored.tiles,
+    'the next floor build did not synchronize the tile bake with the cached floor');
+  assert.ok(G.lightCv.width > 0 && G.tilesCv.width > 0,
+    'the next floor build restored canvases without pixels');
+
   console.log(`  50 events -> ${built} screen-sized canvas(es); light bake and tiles rebuilt on restore`);
 });
 

@@ -14,7 +14,7 @@ import { bindHints, tickLoudFlash, tickCues } from './ui/hints.js';
 import { buildSettingsUI, syncSettingsUI } from './ui/settings-panel.js';
 import { Audio_ } from './audio/index.js';
 import { syncAmbience } from './ui/splash.js';
-import { buildFloor } from './game/floor.js';
+import { bindFloorLifecycle, buildFloor } from './game/floor.js';
 import { paintSplashPlan } from './render/splash-plan.js';
 import { bindRun } from './game/run.js';
 import { bindInput } from './ui/input.js';
@@ -121,6 +121,7 @@ export function boot(){
        7. initFullscreen  fullscreen on the first tap, and the home-screen tip */
   bindRun();
   bindDom();
+  bindFloorLifecycle();
   bindCards();
   bindHints();
   bindInput();

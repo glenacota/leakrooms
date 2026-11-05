@@ -6,7 +6,6 @@ import { repaintDirty } from '../util/repaint.js';
 import { G } from '../sim/state.js';
 import { STATE } from '../game/run.js';
 import { paintSplashPlan } from '../render/splash-plan.js';
-import { attachFloorImages } from '../render/bake.js';
 import { buildGrainFull, buildPatterns } from '../render/textures.js';
 import { hideAll, show } from './dom.js';
 import { flash, renderLives } from './hud.js';
@@ -44,9 +43,6 @@ export function bindDom(){
   on('contextrestored', () => {
     buildPatterns();
     buildGrainFull();
-    attachFloorImages(G);
-    repaintDirty.water = true;
-    repaintDirty.mask = true;
   });
   on('state', () => {
     syncAmbience();

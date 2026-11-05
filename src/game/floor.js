@@ -19,9 +19,9 @@ import { computeLightArr } from '../sim/lightmap.js';
 import { scopeRoomLight, snapMask } from '../sim/vision.js';
 import { initFlood } from '../sim/flood.js';
 import { G, createGameState, installFloorState } from '../sim/state.js';
-import { emit } from '../util/events.js';
+import { emit, on } from '../util/events.js';
 import { attachFloorImages, createPerFloorCanvases, releaseCanvases, areStaticCanvasesStale, refreshStaticCanvases } from '../render/bake.js';
-import { resetRepaint } from '../util/repaint.js';
+import { repaintDirty, resetRepaint } from '../util/repaint.js';
 
 /* Every canvas a floor owns, and the subset the cache keeps. The carpet, the
    walls and the light bake are the same pixels for the same building, so a
@@ -104,8 +104,7 @@ export function makeFloorState(level, floorNum, seed){
   createPerFloorCanvases();
 
   /* A graphics context loss replaces the canvases without changing the level
-     (see ui/bind.js), so the cached ones can be dead while the key still
-     matches. buildFloor re-bakes them and hands the fresh ones back. */
+     so the cached ones can be dead while the key still matches. */
 
   // Light the room the plumber starts in. From here on the lit room follows them.
   scopeRoomLight(G, G.plumber, G.radar, true);
@@ -113,6 +112,15 @@ export function makeFloorState(level, floorNum, seed){
 
   initFlood(G, G.plumber);
   resetRepaint();
+}
+
+/** Keeps active-floor graphics recovery with the floor lifecycle. */
+export function bindFloorLifecycle(){
+  on('contextrestored', () => {
+    attachFloorImages(G);
+    repaintDirty.water = true;
+    repaintDirty.mask = true;
+  });
 }
 
 /**
@@ -139,9 +147,8 @@ export function buildFloor(floorNum, seed){
   makeFloorState(getStaticLevel(seed, floorNum), floorNum, seed);
 
   /* The level is the same one the cache holds, but its pixels are not: a
-     graphics context loss replaced them (see ui/bind.js). Bake again and put
-     the fresh canvases back in the cache, so restoring the dead ones is not
-     what the NEXT retry gets either. */
+     graphics context loss replaced them. Bake again and put the fresh canvases back in the cache, 
+     so restoring the dead ones is not what the NEXT retry gets either. */
   if (staleImages){
     refreshStaticCanvases(cached);
   }
