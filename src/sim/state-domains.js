@@ -1,8 +1,6 @@
 /* ============================================================
    STATE DOMAINS
-   One factory per domain object behind the G facade (see state.js, which owns
-   the key ownership map). Each factory builds a plain object and touches no
-   canvas.
+   One factory per domain object behind the G facade.
    ============================================================ */
 
 import { BATT_MAX, DARK_ROOM, MAP_H, MAP_W, WALL } from '../config/constants.js';

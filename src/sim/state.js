@@ -7,58 +7,10 @@ import { repaintDirty } from '../util/repaint.js';
 /* All the state of the current floor lives behind G. No state exists until
    the first buildFloor() call, and buildFloor() replaces it completely, so
    nothing that belongs to a floor can outlive that floor. Every module reads
-   the floor through G.
-
-   G is a facade, not the state itself. Every G.<field> read or write is
-   forwarded to the domain object behind it, so a retry can install a whole new
-   floor while every reader keeps the same G reference. The facade also keeps
-   the floor's keys enumerable, so Object.keys(G) still lists exactly what a
-   built floor owns. */
+   the floor through G. */
 
 let domains = null;
-
-/* Ownership map: which domain owns which key. */
-const OWNER = {
-  /* LevelState */
-  floor: 'level', seed: 'level', grid: 'level', at: 'level', inB: 'level', los: 'level',
-  rooms: 'level', exitTiles: 'level', fixtures: 'level', batteries: 'level', notes: 'level', loreRng: 'level',
-  lightArr: 'level', lightCv: 'level', lightCtx: 'level', lightImg: 'level',
-  wallIdx: 'level', tilesCv: 'level', tilesCtx: 'level', wallsCv: 'level', wallsCtx: 'level',
-  regionOf: 'level', regionAdj: 'level', regionCount: 'level',
-
-  /* LeakState */
-  leaks: 'leak', openLeaks: 'leak', totalLeaks: 'leak',
-
-  /* PlumberState */
-  plumber: 'plumber', batt: 'plumber', radar: 'plumber', radarRattleT: 'plumber', battPulseT: 'plumber',
-
-  /* LifeformState */
-  lifeforms: 'lifeform', seenBy: 'lifeform', nearest: 'lifeform', arng: 'lifeform',
-
-  /* FloodState */
-  wetArr: 'flood', waterDist: 'flood', wetByDist: 'flood', wetFront: 'flood',
-  wetMaxDist: 'flood', wetSum: 'flood', wetEdgeD: 'flood', wetIndexAtDist: 'flood',
-  wetCv: 'flood', wetCtx: 'flood', wetImg: 'flood', wetFloor: 'flood',
-  floodCover: 'flood',
-
-  /* VisionState */
-  visArr: 'vision', visFrom: 'vision', visTgt: 'vision', visScratch: 'vision',
-  maskArr: 'vision', maskTgt: 'vision', coneArr: 'vision',
-  maskCv: 'vision', maskCtx: 'vision', maskImg: 'vision',
-  visRegion: 'vision', visStep: 'vision', visFadeT: 'vision',
-  coneX: 'vision', coneY: 'vision', coneFace: 'vision', coneRadar: 'vision',
-  scopeDirty: 'vision', wantVision: 'vision',
-
-  /* NoiseState */
-  noise: 'noise', noisePeak: 'noise', selfNoise: 'noise', ambientNoise: 'noise', stat: 'noise',
-
-  /* ClockState */
-  time: 'clock', clock: 'clock', clockAnnounced: 'clock',
-
-  /* DoorState */
-  descend: 'door', ended: 'door', wet: 'door', atLeak: 'door',
-  leakPower: 'door', leakTotal: 'door', leakDist: 'door',
-};
+let owners = null;
 
 /* The exact key order from the original flat object (pinned by tests/unit/state.test.js). */
 const KEY_ORDER = [
@@ -74,18 +26,59 @@ const KEY_ORDER = [
   'wetFloor', 'wet', 'floodCover', 'atLeak', 'leakPower', 'leakTotal', 'leakDist', 'gfx',
 ];
 
+/* Internal domain fields stay addressable through G but out of its key list. */
+const INTERNAL_KEYS = new Set(['clockAnnounced']);
+
 /* Keys that exist on the facade but are computed/assembled (not owned by a single domain). */
 const COMPUTED_KEYS = new Set(['gfx', 'dirty']);
 
 function getTarget(k) {
   if (!domains) return null;
-  const owner = OWNER[k];
+  const owner = owners.get(k);
   return owner ? domains[owner] : null;
 }
 
 function hasKey(k) {
   if (!domains) return false;
-  return OWNER.hasOwnProperty(k) || COMPUTED_KEYS.has(k);
+  return owners.has(k) || COMPUTED_KEYS.has(k);
+}
+
+function createOwners(nextDomains) {
+  const nextOwners = new Map();
+  for (const [domainName, domain] of Object.entries(nextDomains)) {
+    for (const key of Object.keys(domain)) {
+      if (COMPUTED_KEYS.has(key)) {
+        throw new Error(`State domain "${domainName}" claims computed G key "${key}"`);
+      }
+      if (nextOwners.has(key)) {
+        throw new Error(`State key "${key}" has multiple domain owners`);
+      }
+      nextOwners.set(key, domainName);
+    }
+  }
+
+  const keys = new Set(KEY_ORDER);
+  if (keys.size !== KEY_ORDER.length) {
+    throw new Error('G key order contains duplicate keys');
+  }
+
+  for (const key of INTERNAL_KEYS) {
+    if (keys.has(key) || COMPUTED_KEYS.has(key)) {
+      throw new Error(`Internal state key "${key}" must not be a public or computed G key`);
+    }
+  }
+
+  const expected = new Set([...nextOwners.keys(), ...COMPUTED_KEYS]);
+  const allowed = new Set([...keys, ...INTERNAL_KEYS]);
+  const missing = [...expected].filter(key => !allowed.has(key));
+  const unexpected = [...allowed].filter(key => !expected.has(key));
+  if (missing.length || unexpected.length) {
+    throw new Error(
+      `G state keys do not match domains (missing: ${missing.join(', ') || 'none'}; ` +
+      `unexpected: ${unexpected.join(', ') || 'none'})`,
+    );
+  }
+  return nextOwners;
 }
 
 function assembleGfx(d) {
@@ -98,6 +91,11 @@ function assembleGfx(d) {
   };
 }
 
+/* G is a facade, not the state itself. Every G.<field> read or write is
+   forwarded to the domain object behind it, so a retry can install a whole new
+   floor while every reader keeps the same G reference. The facade also keeps
+   the floor's keys enumerable, so Object.keys(G) still lists exactly what a
+   built floor owns. */
 export const G = new Proxy({}, {
   get(_, k) {
     if (!domains) return undefined;
@@ -111,7 +109,8 @@ export const G = new Proxy({}, {
   set(_, k, v) {
     if (!domains) return true;
     const target = getTarget(k);
-    if (target) target[k] = v;
+    if (!target) throw new Error(`Cannot assign unowned or computed G key "${String(k)}"`);
+    target[k] = v;
     return true;
   },
   has(_, k) {
@@ -122,7 +121,12 @@ export const G = new Proxy({}, {
   },
   getOwnPropertyDescriptor(_, k) {
     if (!hasKey(k)) return undefined;
-    return { configurable: true, enumerable: true, writable: true, value: G[k] };
+    return {
+      configurable: true,
+      enumerable: KEY_ORDER.includes(k),
+      writable: owners.has(k),
+      value: G[k],
+    };
   },
 });
 
@@ -154,4 +158,8 @@ export function createGameState(level, floorNum, seed){
 }
 
 /* Installs a floor's state (from createGameState) behind the facade. */
-export function installFloorState(d){ domains = d; }
+export function installFloorState(d){
+  const nextOwners = createOwners(d);
+  domains = d;
+  owners = nextOwners;
+}

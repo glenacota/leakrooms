@@ -1,7 +1,7 @@
 import test from 'node:test';
 import { strict as assert } from 'node:assert';
 import { loadGame } from '../helpers/harness.js';
-import { G } from '../../src/sim/state.js';
+import { G, installFloorState } from '../../src/sim/state.js';
 
 const { A } = await loadGame();
 
@@ -22,4 +22,35 @@ test('a built floor exposes exactly the state G owns', () => {
     'selfNoise', 'ambientNoise', 'descend', 'clock', 'time', 'seenBy', 'nearest', 'stat',
     'wetFloor', 'wet', 'floodCover', 'atLeak', 'leakPower', 'leakTotal', 'leakDist', 'gfx',
   ]);
+});
+
+test('state installation rejects keys without one matching domain owner', () => {
+  A.buildFloor(0, 1234);
+  const previousFloor = G.floor;
+
+  assert.throws(
+    () => installFloorState({ level: { floor: 1, extra: true } }),
+    /G state keys do not match domains/,
+  );
+  assert.equal(G.floor, previousFloor, 'invalid state replaced the installed floor');
+
+  assert.throws(
+    () => installFloorState({ first: { field: 1 }, second: { field: 2 } }),
+    /State key "field" has multiple domain owners/,
+  );
+  assert.equal(G.floor, previousFloor, 'duplicate ownership replaced the installed floor');
+});
+
+test('internal state fields stay owned but out of the flat key list', () => {
+  A.buildFloor(0, 1234);
+  assert.equal(typeof G.clockAnnounced, 'boolean');
+  assert.equal('clockAnnounced' in G, true);
+  assert.equal(Object.keys(G).includes('clockAnnounced'), false);
+  assert.equal(Object.getOwnPropertyDescriptor(G, 'clockAnnounced').enumerable, false);
+});
+
+test('the flat facade rejects writes to keys without a domain owner', () => {
+  A.buildFloor(0, 1234);
+  assert.throws(() => { G.unowned = true; }, /unowned or computed G key "unowned"/);
+  assert.throws(() => { G.gfx = {}; }, /unowned or computed G key "gfx"/);
 });
