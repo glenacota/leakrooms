@@ -16,7 +16,7 @@ let doorLast = -1e9;    // performance.now() of the last DOOR LOCKED cue
 export function tickLoudFlash(){
   if (!announced.has('LOUD') && G && G.selfNoise >= LOUD){
     announced.add('LOUD');
-    flash({ cat: 'danger', text: 'LOUD — IT CAN HEAR THAT' });
+    flash({ cat: 'danger', text: 'YOU ARE LOUD — SOMETHING CAN HEAR THAT' });
   }
 }
 
@@ -55,7 +55,7 @@ export function tickCues(){
        20 s fallback catches a player who never walks into water. */
     if (!f1Wet && (G.wet > 0 || G.time >= 20)){
       f1Wet = true;
-      flash({ cat: 'guide', text: 'FOLLOW THE WET FLOOR' });
+      flash({ cat: 'guide', text: 'FOLLOW THE WET FLOOR TO FIND THE LEAK' });
     }
     /* The repair ring needs progress to appear, so the standing spot has no
        feedback until it is too late to learn what it is for. */
@@ -67,7 +67,7 @@ export function tickCues(){
        player has no reason to stand there until told. */
     if (!f1Door && G.descend > 0.02){
       f1Door = true;
-      flash({ cat: 'guide', text: 'STAY AT THE DOOR' });
+      flash({ cat: 'guide', text: 'STAND BY THE DOOR TO OPEN IT' });
     }
   }
 }
@@ -84,8 +84,8 @@ export function bindHints(){
   });
   on('heard', ({ to }) => {
     const msg = to === 'RISING' ? 'SOMETHING WOKE UP'
-      : to === 'SEARCH' ? 'IT HEARD THAT'
-      : to === 'HUNT' ? "IT'S COMING"
+      : to === 'SEARCH' ? 'SOMETHING HEARD YOU'
+      : to === 'HUNT' ? "SOMETHING IT'S AFTER YOU"
       : null;
     if (msg && !announced.has(to)){
       announced.add(to);

@@ -164,7 +164,7 @@ test('[TOUCH] the radar button toggles G.radar through toggleRadar', () => {
   fire('pointerdown', ev(1, 900, 500, { target: button('radar') }));
   assert.equal(G.radar, false);
   const flashEl = document.getElementById('flashnote');
-  assert.equal(flashEl.textContent, 'NO POWER — THE RADAR IS DEAD');
+  assert.equal(flashEl.textContent, 'THE RADAR IS DEAD. LOOK FOR MORE BATTERIES');
   assert.equal(flashEl.dataset.cat, 'alert', 'the dead-radar flash is an alert payload');
   fire('pointerup', ev(1, 900, 500));
 });

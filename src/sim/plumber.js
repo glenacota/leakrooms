@@ -44,7 +44,7 @@ export function tickBattery(plumberMeta, plumber, batteries, dt){
   plumberMeta.battPulseT = Math.max(0, plumberMeta.battPulseT - dt);
   if (plumberMeta.radar){
     plumberMeta.batt -= RADAR_DRAIN*dt;
-    if (plumberMeta.batt<=0){ plumberMeta.batt=0; plumberMeta.radar=false; emit('flash', { cat: 'alert', text: 'NO POWER — THE RADAR IS DEAD' }); }
+    if (plumberMeta.batt<=0){ plumberMeta.batt=0; plumberMeta.radar=false; emit('flash', { cat: 'alert', text: 'THE RADAR IS DEAD. LOOK FOR MORE BATTERIES' }); }
     plumberMeta.radarRattleT = (plumberMeta.radarRattleT||0) - dt;
     if (plumberMeta.radarRattleT <= 0){ emit('sfx', 'clink', 0.4); plumberMeta.radarRattleT = 0.6; }
   } else {

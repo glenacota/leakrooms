@@ -44,7 +44,7 @@ const keyOf = e => GAME_CODES[e.code] || e.key.toLowerCase();
 export function toggleRadar(){
   if (!(G && STATE==='play')) return;
   if (G.radar) G.radar = false;
-  else if (G.batt<=0) flash({ cat: 'alert', text: 'NO POWER — THE RADAR IS DEAD' });
+  else if (G.batt<=0) flash({ cat: 'alert', text: 'THE RADAR IS DEAD. LOOK FOR MORE BATTERIES' });
   else { G.radar = true; G.radarRattleT = 0; }
 }
 
