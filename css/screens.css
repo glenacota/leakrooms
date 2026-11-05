@@ -113,23 +113,101 @@
 
 /* ---------- In-game text over the map ---------- */
 
-/* Short messages such as "PIPE SEALED" and the notes found on the carpet. */
+/* ---------- Flash cue ----------
+
+   A camcorder status line, typed on when it appears, with a blinking category icon. 
+   Only DANGER glitches. When SETTINGS.flash is off the same cues render as a quiet
+   static caption: no typing, no glitch, no glow, lower contrast. Icon-only
+   cues (repeated dangers) drop the panel and just pulse the icon. */
+
 #flashnote{
   position:absolute;
+  top:calc(max(10px, var(--safe-t)) + var(--hud-h) + 8px);
   left:0; right:0;
-  top:34%;
-  padding:0 var(--safe-r) 0 var(--safe-l);
-  text-align:center;
-  font-size:15px;
-  line-height:1.9;
-  letter-spacing:.1em;
-  font-style:italic;
+  margin:0 auto;
+  width:fit-content;
+  max-width:44%;
+  padding:5px 9px 5px 11px;
+  text-align:left;
+  font:12px var(--mono);
+  font-weight: 800;
+  letter-spacing:.15em;
+  text-transform:uppercase;
+  line-height:1.4;
   opacity:0;
   pointer-events:none;
-  color:#e1e2bb;
-  text-shadow:0 0 18px rgba(0,0,0,1), 0 0 40px rgba(0,0,0,1);
+  color:var(--yellow);
+  background:rgba(0,0,0,.5);
+  border:1px solid rgba(228,230,168,.16);
+  border-left:2px solid var(--danger);
+  border-radius:2px;
+  box-shadow:0 0 16px rgba(0,0,0,.55);
 }
-#flashnote.on{ opacity:1; }
+#flashnote.on:not(.quiet){
+  animation:typeon .5s steps(16) both;
+}
+#flashnote[data-cat="danger"].on:not(.quiet){
+  animation:typeon .5s steps(16) both, jit 1.3s steps(1) .5s 2;
+}
+#flashnote.quiet{
+  animation:none;
+  box-shadow:none;
+  text-shadow:none;
+  background:rgba(0,0,0,.35);
+  border-color:rgba(228,230,168,.12);
+}
+/* Category colour on the left rule; the icon stroke inherits text color. */
+#flashnote[data-cat="danger"]{ border-left-color:var(--danger); }
+#flashnote[data-cat="alert"]{ border-left-color:var(--yellow); }
+#flashnote[data-cat="guide"]{ border-left-color:var(--carpet); }
+#flashnote[data-cat="info"]{ border-left-color:#8fc4cc; }
+#flashnote[data-cat="lore"]{ border-left-color:var(--yellow-dim); }
+
+#flashnote .ico{
+  width:1em; height:1em;
+  flex:none; margin-right:6px;
+  /* The symbol paths are outlines with no fill attribute, and SVG fills black
+     by default. Without this the icon renders as a black blob with a coloured
+     edge — invisible on the panel, obvious over the map in icon-only mode. */
+  fill:none;
+  stroke:currentColor; stroke-width:1.4;
+  vertical-align:-0.12em;
+  animation:blink 1s steps(2) infinite;
+}
+#flashnote.quiet .ico{ animation:none; opacity:1; }
+#flashnote.icon{
+  background:none; border:none; box-shadow:none;
+  padding:0; width:auto; max-width:none; text-align:center;
+}
+#flashnote.icon .ico{
+  width:1.7em; height:1.7em; margin-right:0;
+  animation:pulse 1.4s ease-out both;
+}
+
+@keyframes typeon{
+  from{ clip-path:inset(0 100% 0 0); }
+  to{ clip-path:inset(0 0 0 0); }
+}
+@keyframes jit{
+  0%,70%{ transform:none; }
+  72%{ transform:translateX(4px); }
+  78%{ transform:translateX(-6px); }
+  84%{ transform:translateX(2px); }
+  90%{ transform:translateX(-2px); }
+  100%{ transform:none; }
+}
+@keyframes blink{ 50%{ opacity:.15; } }
+@keyframes pulse{
+  0%{ transform:scale(.5); opacity:0; }
+  25%{ transform:scale(1.15); opacity:1; }
+  100%{ transform:scale(1); opacity:0; }
+}
+@media (prefers-reduced-motion:reduce){
+  #flashnote.on:not(.quiet),
+  #flashnote[data-cat="danger"].on:not(.quiet),
+  #flashnote .ico,
+  #flashnote.icon .ico{ animation:none; }
+}
 
 /* ---------- The ticket (work order and pause screen) ---------- */
 

@@ -24,6 +24,7 @@ html, body{ overscroll-behavior:none; }
   .crt-lbl{ font-size:10px; }
   .bar{ width:96px; height:8px; }
   .crt{ padding:8px 10px 9px; }
+  :root{ --hud-h:63px; }
 }
 @media (max-width:680px){
   .crt-clock, #val-clock{ font-size:21px; }
@@ -32,6 +33,7 @@ html, body{ overscroll-behavior:none; }
   .bar{ width:70px; height:7px; }
   .crt{ padding:6px 8px 7px; }
   .crt-c{ transform:none; left:max(8px, var(--safe-l)); }
+  :root{ --hud-h:55px; }
 }
 
 /* ---------- Compact tier: a phone held sideways ----------
@@ -46,7 +48,7 @@ html, body{ overscroll-behavior:none; }
    a browser (the audit in the p8 report) and has to be re-measured if any of
    those change. */
 @media (max-height:520px){
-  :root{ --pause-chrome:112px; }
+  :root{ --pause-chrome:112px; --hud-h:55px; }
 
   .order-wrap{
     width:min(960px, calc(100% - 16px));

@@ -38,6 +38,12 @@
      0   0   2px #100f07,
      0   0  10px rgba(228,230,168,.5);
 }
+/* Height of the HUD panel (.crt-c), shared with #flashnote in screens.css
+   so the flash cue sits directly below the panel on every tier. Measured
+   from panel padding plus tallest cell; overridden per breakpoint in
+   base.css. Desktop: 10 px top + ~58 px clock line + 12 px bottom = 82 px. */
+:root{ --hud-h:82px; }
+
 .crt-c{
   top:max(10px, var(--safe-t));
   left:50%;

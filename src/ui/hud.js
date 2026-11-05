@@ -59,7 +59,7 @@ function draw(cue){
   el.dataset.cat = cue.cat;
   el.classList.toggle('icon', !!cue.icon);
   el.classList.toggle('quiet', !SETTINGS.flash);
-  el.style.opacity = SETTINGS.flash ? '1' : '0';
+  el.style.opacity = '1';
   el.classList.add('on');
 }
 
