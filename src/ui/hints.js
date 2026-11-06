@@ -8,6 +8,9 @@ const announced = new Set();
 
 /* Floor-1 teaching flags. Module state, not floor's. */
 let f1Wet = false, f1Stand = false, f1Door = false;
+/* The first time the radar is switched on in a run. Reset on splash so a new
+   run can announce it again. */
+let radarAnnounced = false;
 let doorSince = 0;      // performance.now() the plumber arrived at a locked door
 let doorLast = -1e9;    // performance.now() of the last DOOR LOCKED cue
 
@@ -15,7 +18,7 @@ let doorLast = -1e9;    // performance.now() of the last DOOR LOCKED cue
 export function tickLoudFlash(){
   if (!announced.has('LOUD') && G && G.selfNoise >= LOUD){
     announced.add('LOUD');
-    emit('flash', { cat: 'danger', text: 'YOU ARE LOUD — SOMETHING CAN HEAR THAT' });
+    emit('flash', { cat: 'danger', text: 'YOU ARE LOUD — SOMETHING CAN HEAR YOU' });
   }
 }
 
@@ -69,6 +72,14 @@ export function tickCues(){
       emit('flash', { cat: 'guide', text: 'STAND BY THE DOOR TO OPEN IT' });
     }
   }
+
+  /* The radar pings the whole floor every frame it is on — loud enough to
+     wake sleepers and pull hunters. Tell the player once per run, the first
+     time they switch it on. */
+  if (!radarAnnounced && G.radar){
+    radarAnnounced = true;
+    emit('flash', { cat: 'danger', text: 'THE RADAR IS LOUD!' });
+  }
 }
 
 /** Wires the stealth hints and resets their once-per-run announcements. */
@@ -77,6 +88,7 @@ export function bindHints(){
     if (STATE === 'splash'){
       announced.clear();
       f1Wet = f1Stand = f1Door = false;
+      radarAnnounced = false;
       doorSince = 0;
       doorLast = -1e9;
     }
