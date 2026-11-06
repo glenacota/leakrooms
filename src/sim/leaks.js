@@ -16,7 +16,7 @@ import { repaintDirty } from '../util/repaint.js';
  *   leakTotal: number,
  *   leakDist: number,
  *   stat: {noises:number, deaths:number, sealed:number},
- *   noiseState: {noise:number, noisePeak:number, selfNoise:number, ambientNoise:number, stat:{noises:number, deaths:number, sealed:number}, lifeforms:Array, leaks:Array, openLeaks:number, grid:Uint8Array, floodCover:number, leakTotal:number, leakDist:number, leakPower:number, atLeak:boolean}
+ *   atLeak: boolean
  * }} LeakState
  */
 

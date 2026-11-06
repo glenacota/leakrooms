@@ -11,20 +11,10 @@ import { repaintDirty } from '../util/repaint.js';
 
 let domains = null;
 let owners = null;
-
-/* The exact key order from the original flat object (pinned by tests/unit/state.test.js). */
-const KEY_ORDER = [
-  'floor', 'seed', 'grid', 'at', 'inB', 'los', 'rooms', 'exitTiles', 'leaks', 'fixtures',
-  'batteries', 'notes', 'loreRng', 'openLeaks', 'totalLeaks', 'lightArr', 'lightCv', 'lightCtx', 'lightImg',
-  'visArr', 'visFrom', 'visTgt', 'visScratch', 'maskArr', 'maskTgt', 'coneArr', 'maskCv',
-  'maskCtx', 'maskImg', 'wallIdx', 'tilesCv', 'tilesCtx', 'wallsCv', 'wallsCtx', 'regionOf',
-  'regionAdj', 'regionCount', 'visRegion', 'visStep', 'visFadeT', 'coneX', 'coneY', 'coneFace',
-  'coneRadar', 'scopeDirty', 'wantVision', 'wetArr', 'waterDist', 'wetByDist', 'wetFront', 'wetMaxDist',
-  'wetSum', 'wetEdgeD', 'wetIndexAtDist', 'wetCv', 'wetCtx', 'wetImg', 'ended', 'arng',
-  'dirty', 'lifeforms', 'plumber', 'batt', 'radar', 'radarRattleT', 'battPulseT', 'noise', 'noisePeak',
-  'selfNoise', 'ambientNoise', 'descend', 'clock', 'time', 'seenBy', 'nearest', 'stat',
-  'wetFloor', 'wet', 'floodCover', 'atLeak', 'leakPower', 'leakTotal', 'leakDist', 'gfx',
-];
+/* The public keys of the installed floor, in domain order. Derived once per
+   install from the domain objects, so a new field needs no second list. */
+let publicKeys = null;
+let publicKeySet = null;
 
 /* Internal domain fields stay addressable through G but out of its key list. */
 const INTERNAL_KEYS = new Set(['clockAnnounced']);
@@ -57,28 +47,15 @@ function createOwners(nextDomains) {
     }
   }
 
-  const keys = new Set(KEY_ORDER);
-  if (keys.size !== KEY_ORDER.length) {
-    throw new Error('G key order contains duplicate keys');
-  }
-
-  for (const key of INTERNAL_KEYS) {
-    if (keys.has(key) || COMPUTED_KEYS.has(key)) {
-      throw new Error(`Internal state key "${key}" must not be a public or computed G key`);
-    }
-  }
-
-  const expected = new Set([...nextOwners.keys(), ...COMPUTED_KEYS]);
-  const allowed = new Set([...keys, ...INTERNAL_KEYS]);
-  const missing = [...expected].filter(key => !allowed.has(key));
-  const unexpected = [...allowed].filter(key => !expected.has(key));
-  if (missing.length || unexpected.length) {
-    throw new Error(
-      `G state keys do not match domains (missing: ${missing.join(', ') || 'none'}; ` +
-      `unexpected: ${unexpected.join(', ') || 'none'})`,
-    );
-  }
   return nextOwners;
+}
+
+/* The public key list: every owned field except the internal ones, then the
+   computed keys. Reading it from the owners keeps the list and the ownership
+   map from drifting apart. */
+function listPublicKeys(nextOwners) {
+  const keys = [...nextOwners.keys()].filter(key => !INTERNAL_KEYS.has(key));
+  return [...keys, ...COMPUTED_KEYS];
 }
 
 function assembleGfx(d) {
@@ -117,13 +94,13 @@ export const G = new Proxy({}, {
     return hasKey(k);
   },
   ownKeys() {
-    return domains ? KEY_ORDER : [];
+    return domains ? publicKeys : [];
   },
   getOwnPropertyDescriptor(_, k) {
     if (!hasKey(k)) return undefined;
     return {
       configurable: true,
-      enumerable: KEY_ORDER.includes(k),
+      enumerable: publicKeySet.has(k),
       writable: owners.has(k),
       value: G[k],
     };
@@ -160,6 +137,9 @@ export function createGameState(level, floorNum, seed){
 /* Installs a floor's state (from createGameState) behind the facade. */
 export function installFloorState(d){
   const nextOwners = createOwners(d);
+  const nextKeys = listPublicKeys(nextOwners);
   domains = d;
   owners = nextOwners;
+  publicKeys = nextKeys;
+  publicKeySet = new Set(nextKeys);
 }

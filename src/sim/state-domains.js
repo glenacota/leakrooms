@@ -10,8 +10,10 @@ import { mulberry32 } from '../util/rng.js';
 import { spawnLifeforms } from './spawn.js';
 
 /**
- * LevelState — static geometry + region data + floor/seed.
- * Never changes after the floor is built.
+ * LevelState — geometry and region data that the layout fixes, plus floor/seed.
+ * The grid, rooms and regions are shared with the level cache and never change.
+ * exitTiles, batteries and notes are cloned so each floor can open, take or read
+ * them without touching the cached level.
  */
 export function createLevelState(level, floorNum, seed) {
   const grid = level.grid;
@@ -52,8 +54,10 @@ export function createLevelState(level, floorNum, seed) {
 }
 
 /**
- * LeakState — per-pipe mutable fields.
+ * LeakState — per-pipe mutable fields and the noise the leaks make.
  * The leaks array is cloned from the level so each floor owns its copy.
+ * leakPower, leakTotal and leakDist are recomputed each step by sim/leaks.js;
+ * atLeak says whether the plumber is standing at a standing spot.
  */
 export function createLeakState(level) {
   const leaks = level.leaks.map(L => ({ ...L }));
@@ -61,11 +65,16 @@ export function createLeakState(level) {
     leaks,
     openLeaks: level.leaks.length,
     totalLeaks: level.leaks.length,
+    atLeak: false,
+    leakPower: 0,
+    leakTotal: 0,
+    leakDist: 99,
   };
 }
 
 /**
- * PlumberState — plumber, batt, radar, radarRattleT.
+ * PlumberState — the plumber's position and motion, the battery and radar,
+ * and the plumber's last-tile wetness (wet, read by the HUD hints).
  */
 export function createPlumberState(level) {
   return {
@@ -74,6 +83,7 @@ export function createPlumberState(level) {
     radar: false,
     radarRattleT: 0,
     battPulseT: 0,
+    wet: 0,
   };
 }
 
@@ -168,16 +178,13 @@ export function createClockState() {
 }
 
 /**
- * DoorState — descend/ended/wet/atLeak/leakPower/Total/Dist.
+ * DoorState — the exit's hold timer and whether the run has ended.
+ * ended is set by run.js when a floor attempt finishes, and cleared at the
+ * start of every update step.
  */
 export function createDoorState() {
   return {
     descend: 0,
     ended: false,
-    wet: 0,
-    atLeak: false,
-    leakPower: 0,
-    leakTotal: 0,
-    leakDist: 99,
   };
 }

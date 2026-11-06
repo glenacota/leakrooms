@@ -23,11 +23,7 @@ import { walkLine } from '../util/line.js';
  *   leaks: Array<{x:number,y:number,sx:number,sy:number,fixed:boolean}>,
  *   openLeaks: number,
  *   grid: Uint8Array,
- *   floodCover: number,
- *   leakTotal: number,
- *   leakDist: number,
- *   leakPower: number,
- *   atLeak: boolean
+ *   floodCover: number
  * }} NoiseState
  */
 
