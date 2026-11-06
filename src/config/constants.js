@@ -137,14 +137,14 @@ export const LEAK_RETREAT = 0.5;
    separate from how fast the front moves.
 
    Together with the front speeds, these decide the width of the damp band
-   between dry carpet and open flood:
+   between dry carpet and open flood. e.g.
      coming in:  WET_RISE / LEAK_SPREAD  = 14 / 3.2 = about 4.4 tiles
-     going out:  WET_FALL / LEAK_RETREAT = 5 / 0.5  = 10 tiles
+     going out:  WET_FALL / LEAK_RETREAT = 2 / 0.5  = 4 tiles
    The band going out must not be narrower than the band coming in, or the
    last tiles jump from flooded to dry and the shoreline looks like a hard
    edge. The test suite checks this. */
 export const WET_RISE     = 14.0;   // seconds for a soaked tile to go from 0 to 1
-export const WET_FALL     = 5.0;    // seconds for an abandoned tile to go from 1 to 0
+export const WET_FALL     = 2.0;    // seconds for an abandoned tile to go from 1 to 0
 
 export const LEAK_NOISE_BASE = 0.16;   // a quiet drip, heard about 6 tiles away
 export const LEAK_NOISE_GAIN = 0.26;   // added as the floor floods; the total stays under LOUD
