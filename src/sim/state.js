@@ -76,10 +76,8 @@ function assembleGfx(d) {
 export const G = new Proxy({}, {
   get(_, k) {
     if (!domains) return undefined;
-    if (COMPUTED_KEYS.has(k)) {
-      if (k === 'gfx') return assembleGfx(domains);
-      if (k === 'dirty') return repaintDirty;
-    }
+    if (k === 'gfx') return assembleGfx(domains);
+    if (k === 'dirty') return repaintDirty;
     const target = getTarget(k);
     return target ? target[k] : undefined;
   },
@@ -111,26 +109,16 @@ export const G = new Proxy({}, {
    mutable parts, and touches no canvas. The canvases and the G-dependent
    ticks are finished by game/floor.js, which owns the render side. */
 export function createGameState(level, floorNum, seed){
-  const levelState = createLevelState(level, floorNum, seed);
-  const leakState = createLeakState(level);
-  const plumberState = createPlumberState(level);
-  const lifeformState = createLifeformState(level, seed, floorNum);
-  const floodState = createFloodState();
-  const visionState = createVisionState();
-  const noiseState = createNoiseState();
-  const clockState = createClockState();
-  const doorState = createDoorState();
-
   return {
-    level: levelState,
-    leak: leakState,
-    plumber: plumberState,
-    lifeform: lifeformState,
-    flood: floodState,
-    vision: visionState,
-    noise: noiseState,
-    clock: clockState,
-    door: doorState,
+    level: createLevelState(level, floorNum, seed),
+    leak: createLeakState(level),
+    plumber: createPlumberState(level),
+    lifeform: createLifeformState(level, seed, floorNum),
+    flood: createFloodState(),
+    vision: createVisionState(),
+    noise: createNoiseState(),
+    clock: createClockState(),
+    door: createDoorState(),
   };
 }
 
