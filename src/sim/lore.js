@@ -21,7 +21,7 @@ export function tickLore(state){
      loses one to the cue manager's single hold slot. */
   const n = unseen[(loreRng() * unseen.length)|0];
   n.seen = true;
-  emit('flash', { cat: 'lore', text: n.text });
+  emit('flash', { cat: 'lore', text: `"${n.text}"` });
 }
 
 /* Resets the gap timer so lore can fire immediately. Tests only. */
