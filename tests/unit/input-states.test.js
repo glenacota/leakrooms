@@ -137,6 +137,24 @@ console.log('[UI] a shortcut the browser owns is not also a game key');
   t.done();
 });
 
+test('[UI] the F key goes through the shared fullscreen toggle and is consumed', () => {
+  const t = softAssert();
+console.log('[UI] the F key goes through the shared fullscreen toggle and is consumed');
+{
+  A.buildFloor(0, 4242);
+  A.hideAll(); A.STATE = 'play';
+
+  let err = null;
+  try { pressCode('f', 'KeyF'); } catch (e){ err = e; }
+  t.assert(!err, `pressing F threw: ${err && err.message}`);
+  /* handleKey returns true for F, so it must never be held — a held F cannot
+     walk the player into a run or carry into the next screen. */
+  t.assert(!A.keys['f'], 'F stayed held after the press — the key was not consumed');
+  console.log('  F: no throw, key consumed, the shared toggle ran instead of document');
+}
+  t.done();
+});
+
 test('[UI] pagehide pauses a running game once and zeroes keys and pad', () => {
   const t = softAssert();
 console.log('[UI] pagehide pauses a running game once and zeroes keys and pad');

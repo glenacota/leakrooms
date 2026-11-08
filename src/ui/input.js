@@ -6,6 +6,7 @@ import { G } from '../sim/state.js';
 import { STATE, dismissClear, retryFloor, runAgain } from '../game/run.js';
 import { resize } from '../render/canvas.js';
 import { togglePause } from './pause.js';
+import { toggleFullscreen } from './fullscreen.js';
 import { backSplash, beginShift, activateMenu, moveMenu } from './splash.js';
 import { binderTab, stepBinderTab } from './binder.js';
 import { handleTermsKey } from './terms.js';
@@ -195,16 +196,6 @@ export function toggleMute(){
   setOption('muted', next);
   emit('flash', { cat: 'info', text: next ? 'AUDIO MUTED' : 'AUDIO ON' });
   if (!next) Audio_.blip(true);
-}
-
-/* Toggles fullscreen (the F key). iOS has no requestFullscreen, and elsewhere
-   the request can be refused with a rejected promise; neither is worth an error. */
-export function toggleFullscreen(){
-  if (!document.fullscreenElement) {
-    document.documentElement.requestFullscreen?.()?.catch(()=>{});
-  } else {
-    document.exitFullscreen?.()?.catch(()=>{});
-  }
 }
 
 // Attaches the keyboard and focus listeners. Called once from boot().
