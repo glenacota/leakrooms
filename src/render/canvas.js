@@ -1,5 +1,4 @@
 import { emit } from '../util/events.js';
-import { view } from '../util/view.js';
 import { RENDER_SCALES, VIEW_T, TILE, VIEW_ROWS_MIN } from '../config/constants.js';
 
 /**
@@ -51,7 +50,6 @@ export function resize(){
   cvs.width = Math.floor(VW * DPR);
   cvs.height = Math.floor(VH * DPR);
   SCALE = viewScale(VW, VH) * DPR;
-  view.w = cvs.width; view.h = cvs.height; view.scale = SCALE;
   if (cvs.width > 0 && cvs.height > 0) emit('resize');
 }
 

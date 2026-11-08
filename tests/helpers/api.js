@@ -22,7 +22,7 @@ import { tickRadarReveal } from '../../src/sim/radar.js';
 import { tickLifeforms, updateLifeform, randomFloorNear } from '../../src/sim/lifeforms.js';
 import {
   castFan, traceViewCone, combineMask, scopeRoomLight,
-  fadeRoomLight, smoothMask, snapMask, fixtureVis, onScreen,
+  fadeRoomLight, smoothMask, snapMask, fixtureVis,
 } from '../../src/sim/vision.js';
 import { genLevel } from '../../src/sim/level.js';
 import { update } from '../../src/sim/update.js';
@@ -81,7 +81,7 @@ updateReal: (dt) => { return update(G, dt); },
    clock (the playthrough's headroom check, and run-rules) call updateReal. */
 update(dt){ if (G) G.clock = 1e6; return update(G, dt); },
 scopeRoomLight, traceViewCone, packMask, snapMask, combineMask,
-smoothMask, onScreen, setHeadless,
+smoothMask, setHeadless,
 tickBattery, tickMovement,
 tickLifeforms, updateLifeform, randomFloorNear,
 tickClock,

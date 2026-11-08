@@ -20,10 +20,9 @@
 
 import {
   DARK_ROOM, FLOOR, HAND_OFF, LIGHT_FADE, LIGHT_FADE_STEPS, MAP_H, MAP_W,
-  MASK_TAU, TILE, VIEW_FADE_FAR, VIEW_FADE_NEAR, VIEW_HALF, VIEW_MID,
+  MASK_TAU, VIEW_FADE_FAR, VIEW_FADE_NEAR, VIEW_HALF, VIEW_MID,
   VIEW_RANGE, VIEW_RAYS, WALL,
 } from '../config/constants.js';
-import { view } from '../util/view.js';
 import { scopeFor, regionAt } from './regions.js';
 import { repaintDirty } from '../util/repaint.js';
 
@@ -57,28 +56,6 @@ import { repaintDirty } from '../util/repaint.js';
  * Plumber state for vision.
  * @typedef {{x:number, y:number, face:number, radar:boolean}} VisionPlumberState
  */
-
-/**
- * Is this world point inside the rectangle the renderer draws?
- * It is worked out from the PLUMBER's position and not from the renderer's
- * camera, because update() must not read the renderer's state: the tests run
- * update() with no renderer, and the result would silently depend on whether a
- * frame had been drawn. The camera clamp at the map edges is repeated here for
- * the same reason.
- *
- * @param {number} wx - world position, in tiles.
- * @param {number} wy
- * @param {VisionPlumberState} plumber
- * @returns {boolean}
- */
-export function onScreen(wx, wy, plumber){
-  const T = TILE*view.scale;
-  const halfW = view.w /(2*T), halfH = view.h /(2*T);
-  let cx = plumber.x, cy = plumber.y;
-  if (MAP_W > halfW*2) cx = Math.max(halfW, Math.min(MAP_W-halfW, cx));
-  if (MAP_H > halfH*2) cy = Math.max(halfH, Math.min(MAP_H-halfH, cy));
-  return Math.abs(wx-cx) <= halfW && Math.abs(wy-cy) <= halfH;
-}
 
 /* How visible a ceiling light is: the mask value of the tile it hangs over.
    It reads the current mask, so a light fades in smoothly as you turn and does
