@@ -86,7 +86,7 @@ window.addEventListener('orientationchange', onWindowResize);
    with it, and the game would keep drawing from blank canvases. Calling
    preventDefault() on 'contextlost' is what makes the browser promise to send
    'contextrestored' later. The rebuilding is done by whoever owns the bitmaps,
-   so this only announces the events. The listeners are in ui/bind.js. */
+   so this only announces the events. */
 cvs.addEventListener('contextlost', e => {
   if (e && e.preventDefault) e.preventDefault();
 });

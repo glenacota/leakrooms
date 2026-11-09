@@ -23,7 +23,7 @@ export const VIEW_T = 27;                // tiles across the viewport
 export const VIEW_ROWS_MIN = 12;
 
 /* The lit face of a wall: how tall the wallpaper band is, in pixels. It is drawn
-   into the bottom of the wall tile itself (see bakeTiles in render/bake.js), so
+   into the bottom of the wall tile itself, so
    it can never be taller than TILE. It never covers floor, which is why the
    plumber cannot stand "on" it. It is the surface the door and the pipes are
    painted on. */
@@ -209,7 +209,7 @@ export const MASK_TAU = 0.055;
 
 /* Width of the soft feathered edge of the vision mask, in tiles. One-sided:
    darkness bleeds into light; lit surfaces stay crisp and pure black stays
-   pure black. Computed once at pack time in render/pack.js. */
+   pure black. */
 export const VISION_PENUMBRA_TILES = 1;
 
 /* The mask is drawn with bilinear smoothing, so the top of a lit wall face

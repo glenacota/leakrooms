@@ -5,17 +5,16 @@
  */
 import { MAP_W, MAP_H } from '../config/constants.js';
 
-/* ---------- Dirty flags (read by pack.js) ---------- */
+/* ---------- Dirty flags ---------- */
 export const repaintDirty = {
   water: true,
   mask: true,
 };
 
-/* ---------- Flood dirty box (module-level, shared with flood.js) ----------
-   packWet() turns wetArr into an image. The water only changes in a band, so
-   the code records the bounding box of the tiles that changed since the last
-   pack, and packWet() rewrites and uploads just that rectangle.
-   rewrites and uploads just that rectangle.
+/* ---------- Flood dirty box (module-level,) ----------
+   The water packer turns wetArr into an image. The water only changes in a band,
+   so the code records the bounding box of the tiles that changed since the last
+   pack, and the packer rewrites and uploads just that rectangle.
 
    An empty box (-1) means "repack everything". That is what a new floor, a
    tint change and the first frame after a build ask for. */

@@ -7,7 +7,7 @@
      deep  the colour that wins as the water gets deep
 
    The values were chosen by working out what the finished tile looks like when
-   drawn over the carpet (see packWet in render/pack.js), not by picking a
+   drawn over the carpet, not by picking a
    colour that looks like water on its own. Two earlier attempts failed that
    way: one looked like glowing ice, the other was as dark as an unlit floor.
 
