@@ -10,8 +10,8 @@ A.setHeadless(false, false);
 
 /* ============ TEST 16: the repair ===============================
    Five seconds, standing still. The failure modes are all about the bar: it
-   filling while you walk away, filling without you, filling without noise, or
-   completing twice. Each of those makes the mechanic free or broken. With
+   filling while you walk away, losing saved progress on interruption, filling
+   without noise, or completing twice. Each of those makes the mechanic free or broken. With
    several leaks on a level there are two more: sealing the one you are at
    while another is still open, and double-counting the tallies. */
 test('[16] the repair — five seconds, standing still', () => {
@@ -86,33 +86,57 @@ console.log('[16] the repair — five seconds, standing still');
     console.log('  a sealed riser cannot be re-wrenched; the open ones keep dripping');
   }
 
-  /* --- MOVING decays the bar, and does not reset it to zero --- */
+  /* --- Breaking contact pauses repair but preserves progress per leak --- */
   {
     buildFloor(1, 31415);
     const L = standAt();
-    for (let i=0;i<180;i++){
-      G.plumber.x = L.sx+0.5; G.plumber.y = L.sy+0.5;
-      update(1/60);
-    }
+    A.tickRepair(1, false, false);
     const partial = L.repair;
-    sa.assert(partial > 0.5 && partial < A.REPAIR_TIME, `progress after 3s is ${partial}`);
-    // now walk away
-    L.repair = 3.0;
-    for (let i=0;i<30;i++){ keys['d']=true; update(1/60); }
-    keys['d']=false;
-    sa.assert(L.repair < 3.0,
-      `walking off the leak did not decay the bar (still ${L.repair})`);
-    console.log(`  leaving after 3s decays to ${L.repair.toFixed(2)} — the mistake costs`);
+    sa.assert(partial > 0 && partial < A.REPAIR_TIME, `progress after one second is ${partial}`);
+    sa.assert(L.repairing, 'repair was not marked active while the plumber stood still');
+    const wrenchDelay = L.wrenchT;
+
+    G.noise = G.selfNoise = 0;
+    A.tickRepair(1/60, true, false);
+    sa.assert(L.repair===partial, `moving changed saved progress from ${partial} to ${L.repair}`);
+    sa.assert(!L.repairing, 'repair remained active while the plumber moved');
+    sa.assert(G.noise===0 && G.selfNoise===0, 'interrupted repair emitted repair noise');
+    sa.assert(L.wrenchT===wrenchDelay, 'moving advanced the wrench sound timer while repair was paused');
+
+    A.tickRepair(1/60, false, true);
+    sa.assert(L.repair===partial, `a wall bump changed saved progress from ${partial} to ${L.repair}`);
+    sa.assert(!L.repairing, 'repair remained active after a wall bump');
+
+    G.plumber.x = L.sx + A.REPAIR_REACH + 1;
+    G.plumber.y = L.sy + 0.5;
+    A.tickRepair(1/60, false, false);
+    sa.assert(L.repair===partial, `leaving reach changed saved progress from ${partial} to ${L.repair}`);
+    sa.assert(!L.repairing, 'repair remained active after leaving reach');
+    sa.assert(L.wrenchT===wrenchDelay, 'leaving reach advanced the wrench sound timer');
+
+    standAt(L);
+    A.tickRepair(1/60, false, false);
+    sa.assert(L.repair > partial, 'repair did not resume from its saved progress');
+    sa.assert(L.repairing, 'repair was not marked active after resuming');
+    sa.assert(L.wrenchT < wrenchDelay, 'resuming repair did not continue the wrench sound timer');
+    console.log(`  interruption preserves ${partial.toFixed(2)}s of progress and repair resumes`);
   }
 
-  /* --- and the bar decays to ZERO within a second, so hesitating is not a
-         strategy --- */
+  /* --- progress on one leak is independent of work on another --- */
   {
-    const L = firstOpen();
-    L.repair = A.REPAIR_TIME;
-    for (let i=0;i<120;i++) update(1/60);      // 2s of standing somewhere else
-    sa.assert(L.repair===0, `the bar is still at ${L.repair} after 2s away`);
-    console.log('  a full bar is lost in under two seconds away from the leak');
+    buildFloor(A.LEVELS_N-1, 31416);
+    const [first, second] = G.leaks.filter(leak=>!leak.fixed);
+    sa.assert(first && second, 'the last floor needs two open leaks for the independence check');
+    if (first && second){
+      standAt(first);
+      A.tickRepair(0.5, false, false);
+      const firstProgress = first.repair;
+      standAt(second);
+      A.tickRepair(0.5, false, false);
+      sa.assert(first.repair===firstProgress, 'working on another leak changed the first leak progress');
+      sa.assert(second.repair===0.5, `second leak progress is ${second.repair}, expected 0.5`);
+      sa.assert(!first.repairing && second.repairing, 'the active repair marker is on the wrong leak');
+    }
   }
 
   /* --- the wrench is LOUD, and loud enough to wake a dormant lifeform --- */

@@ -1,4 +1,4 @@
-import { LEAK_NOISE_BASE, LEAK_NOISE_GAIN, LOUD, REPAIR_DECAY, REPAIR_NOISE, REPAIR_REACH } from '../config/constants.js';
+import { LEAK_NOISE_BASE, LEAK_NOISE_GAIN, LOUD, REPAIR_NOISE, REPAIR_REACH } from '../config/constants.js';
 import { REPAIR_TIME } from '../config/tuning.js';
 import { emit } from '../util/events.js';
 import { sustainedNoise } from './noise.js';
@@ -7,7 +7,7 @@ import { repaintDirty } from '../util/repaint.js';
 /**
  * Leak state bundle passed by reference.
  * @typedef {{
- *   leaks: Array<{x:number,y:number,sx:number,sy:number,fixed:boolean,repair:number,fixedAt:number,wrenchT:number}>,
+ *   leaks: Array<{x:number,y:number,sx:number,sy:number,fixed:boolean,repair:number,repairing?:boolean,fixedAt:number,wrenchT:number}>,
  *   openLeaks: number,
  *   plumber: {x:number,y:number},
  *   time: number,
@@ -51,6 +51,7 @@ export function sealLeak(L, leakState){
   L.fixedAt = leakState.time;
   // Clear the progress bar, so a number that means "work in progress" does not sit at 100% forever.
   L.repair = 0;
+  L.repairing = false;
   leakState.openLeaks = Math.max(0, leakState.openLeaks-1);
   emit('sfx', 'seal');
   emit('flash', leakState.openLeaks
@@ -122,10 +123,9 @@ export function tickLeakNoise(leakState, dt){
 }
 
 /* ---------- The repair ----------
-   Stand still next to an open leak for REPAIR_TIME seconds. Moving drains the
-   bar quickly instead of freezing it, so a panic step costs real progress. If
-   a mistake cost nothing, the five seconds would be free and the mechanic
-   would be a formality.
+   Stand still next to an open leak for REPAIR_TIME seconds. Breaking contact
+   pauses the work but preserves progress on that leak, so a panic step costs
+   time and exposes the plumber without erasing work already done.
 
    The wrench is loud on purpose: you are choosing to stand still and announce
    yourself next to the noisiest thing on the floor.
@@ -136,8 +136,10 @@ export function tickRepair(leakState, dt, moving, bumped){
   const p = leakState.plumber;
   const L = leakAt(leakState.leaks, p.x, p.y);
   leakState.atLeak = !!L;
+  for (const leak of leakState.leaks) leak.repairing = false;
   if (L){
     if (!moving && !bumped){
+      L.repairing = true;
       if (L.repair === 0) L.wrenchT = 0;
       L.wrenchT = (L.wrenchT||0) - dt;
       if (L.wrenchT <= 0){ emit('sfx', 'wrench', REPAIR_NOISE); L.wrenchT = 1; }
@@ -146,19 +148,7 @@ export function tickRepair(leakState, dt, moving, bumped){
       if (L.repair >= REPAIR_TIME){
         sealLeak(L, leakState);
       }
-    } else {
-      /* The bar drains at REPAIR_DECAY whole bars per second. At 2.6 a full bar
-         is gone in under half a second. Hesitating at the leak is not a
-         strategy, it is a mistake you pay for. */
-      L.repair = Math.max(0, L.repair - dt*REPAIR_DECAY*REPAIR_TIME);
-      if (L.repair > 0 && L.repair <= 0.001) L.repair = 0;
     }
     if (L.repair > 0) p.stepT = Math.min(p.stepT, dt);
-  } else {
-    // Away from every leak: any progress still on a leak drains.
-    for (const o of leakState.leaks){
-      if (o.fixed || o.repair <= 0) continue;
-      o.repair = Math.max(0, o.repair - dt*REPAIR_DECAY*REPAIR_TIME);
-    }
   }
 }

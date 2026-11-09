@@ -119,7 +119,7 @@ test('[PAD] pad sprint with the stick centred does not sprint', () => {
   assert.equal(r.peak, 0);
 });
 
-test('[PAD] released stick repairs, a pushed stick drains', () => {
+test('[PAD] released stick repairs, a pushed stick pauses without losing progress', () => {
   A.buildFloor(1, 77777);
   clearInput();
   const L = G.leaks.find(l => !l.fixed);
@@ -130,5 +130,6 @@ test('[PAD] released stick repairs, a pushed stick drains', () => {
   pad.x = 1;
   for (let i = 0; i < 6; i++){ stand(); A.update(DT); }
   clearInput();
-  assert.ok(L.repair < built, `pushing the stick left repair at ${L.repair}, was ${built}`);
+  assert.equal(L.repair, built, `pushing the stick changed repair from ${built} to ${L.repair}`);
+  assert.equal(L.repairing, false, 'pushing the stick left repair active');
 });

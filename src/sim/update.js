@@ -31,7 +31,7 @@ export function tickAudio(state){
  *   2. battery
  *   3. movement
  *   4. everything that reads what movement produced: the visible area, the flood
- *      you are standing in, the repair bar (which drains if you moved), the
+ *      you are standing in, the repair bar (which pauses if you moved), the
  *      lifeforms that noticed you, and the door you are cycling
  * Each step is a function in its own file; this is only the sequence.
  *
