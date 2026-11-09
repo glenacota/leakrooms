@@ -42,7 +42,7 @@ export const WALL_OVERLAP = 0.15;
 export const MIN_WALL = 2;
 
 /* ---------- The door ---------- */
-export const DOOR_HOLD = 1.5;      // seconds standing at the door to cycle it
+export const DOOR_HOLD = 0.5;      // seconds standing at the door to cycle it
 export const DOOR_AJAR = 0.34;     // how far the door rests open once every leak is sealed
 export const DOOR_EASE = 6;        // how quickly the door leaf moves toward its target, per second
 
