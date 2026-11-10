@@ -122,24 +122,24 @@
 
 #flashnote{
   position:absolute;
-  top:calc(max(10px, var(--safe-t)) + var(--hud-h) + 8px);
+  top:calc(max(20px, var(--safe-t)) + var(--hud-h) + 8px);
   left:0; right:0;
   margin:0 auto;
   width:fit-content;
-  max-width:44%;
-  padding:5px 9px 5px 11px;
+  max-width:50%;
+  padding:10px 19px 10px 21px;
   text-align:left;
-  font:12px var(--mono);
-  font-weight: 800;
+  font:16px var(--mono);
+  font-weight: 900;
   letter-spacing:.15em;
   text-transform:uppercase;
   line-height:1.4;
   opacity:0;
   pointer-events:none;
   color:var(--yellow);
-  background:rgba(0,0,0,.6);
-  border:1px solid rgba(228,230,168,.16);
-  border-left:2px solid var(--danger);
+  background:rgba(0,0,0,.7);
+  border:1px solid rgba(228,230,168,.25);
+  border-left:4px solid var(--danger);
   border-radius:2px;
   box-shadow:0 0 16px rgba(0,0,0,.55);
 }
@@ -157,25 +157,25 @@
   border-color:rgba(228,230,168,.12);
 }
 /* Category colour on the left rule; the icon stroke inherits text color. */
-#flashnote[data-cat="danger"]{ border-left-color:var(--danger); color:var(--danger) }
-#flashnote[data-cat="alert"]{ border-left-color:var(--yellow); }
-#flashnote[data-cat="guide"]{ border-left-color:var(--carpet); color:var(--carpet)}
-#flashnote[data-cat="info"]{ border-left-color:#8fc4cc; color:#8fc4cc}
+#flashnote[data-cat="danger"]{ border-color: rgba(216, 80, 60, 0.25); border-left-color:var(--danger); color:var(--danger) }
+#flashnote[data-cat="alert"]{ border-color: rgba(228, 230, 168, 0.25); border-left-color:var(--yellow)}
+#flashnote[data-cat="guide"]{ border-color: rgba(195, 203, 110, 0.25); border-left-color:var(--carpet); color:var(--carpet)}
+#flashnote[data-cat="info"]{ border-color:rgba(143, 196, 204, 0.25); border-left-color:#8fc4cc; color:#8fc4cc}
 #flashnote[data-cat="lore"]{ 
-  border-left-color:#8fccaa; color:#8fccaa; 
+  border-color:rgba(143, 204, 170, 0.25); border-left-color:#8fccaa;color:#8fccaa; 
   font-style: italic; text-transform: none; 
   text-shadow: 0 0 2px #100f07;
 }
 
 #flashnote .ico{
-  width:1em; height:1em;
-  flex:none; margin-right:6px;
+  width:1.5em; height:1.5em;
+  flex:none; margin-right:1em;
   /* The symbol paths are outlines with no fill attribute, and SVG fills black
      by default. Without this the icon renders as a black blob with a coloured
      edge — invisible on the panel, obvious over the map in icon-only mode. */
   fill:none;
   stroke:currentColor; stroke-width:1.4;
-  vertical-align:-0.12em;
+  vertical-align:-0.4em;
   animation:blink 1s steps(2) infinite;
 }
 #flashnote.quiet .ico{ animation:none; opacity:1; }
