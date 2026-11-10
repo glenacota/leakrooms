@@ -61,6 +61,22 @@ Do not change these without asking first.
 - Simulation randomness comes from seeded streams. A floor is built from `mulberry32(seed + floorNum * 7919)`. Lifeforms use their own streams. Visual-only code may use `Math.random`; simulation code may not.
 - `tests/fixtures/render-trace.json` is a golden file. Do not regenerate it.
 
+## Conventions
+
+- Files are kebab-case. Frozen constants are `SCREAMING_SNAKE_CASE`. Mutable module state is module-scoped `let`.
+- Prefer named exports. Use JSDoc for public exports.
+- Name functions by phase. The verb says when the function runs:
+  - `build*` creates resources or state (`buildPatterns`, `buildFloor`).
+  - `bind*` connects listeners to events, once at boot (`bindRun`, `bindInput`).
+  - `init*` sets up a feature once (`initTouch`, `initPerf`).
+  - `sync*` pushes current state to the screen (`syncSettingsUI`, `syncSurfaces`).
+  - `tick*` advances state each simulation step or frame (`tickClock`, `tickDoor`).
+  - `paint*` draws once (`paintSplashPlan`).
+  - `apply*` sets values from settings or config (`applySettings`, `applyDifficulty`).
+  Do not use `install*`, `setup*` or `make*` for these phases. Use a `make*` name only for a function that returns a new object and keeps no module state.
+- Comments are plain English. Explain why, not what. Keep them short. Give every tuning number a reason. Avoid filler such as "seamlessly", "robust" or "leverage".
+- Before renaming an export, grep for every import and every test that uses it.
+
 ## Core terms
 
 Full definitions and the words to avoid are in `docs/GLOSSARY.md`.
