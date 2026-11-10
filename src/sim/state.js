@@ -2,8 +2,6 @@ import {
   createLevelState, createLeakState, createPlumberState, createLifeformState,
   createFloodState, createVisionState, createNoiseState, createClockState, createDoorState,
 } from './state-domains.js';
-import { repaintDirty } from '../util/repaint.js';
-
 /* All the state of the current floor lives behind G. No state exists until
    the first buildFloor() call, and buildFloor() replaces it completely, so
    nothing that belongs to a floor can outlive that floor. Every module reads
@@ -20,7 +18,7 @@ let publicKeySet = null;
 const INTERNAL_KEYS = new Set(['clockAnnounced']);
 
 /* Keys that exist on the facade but are computed/assembled (not owned by a single domain). */
-const COMPUTED_KEYS = new Set(['dirty']);
+const COMPUTED_KEYS = new Set();
 
 function getTarget(k) {
   if (!domains) return null;
@@ -66,7 +64,6 @@ function listPublicKeys(nextOwners) {
 export const G = new Proxy({}, {
   get(_, k) {
     if (!domains) return undefined;
-    if (k === 'dirty') return repaintDirty;
     const target = getTarget(k);
     return target ? target[k] : undefined;
   },

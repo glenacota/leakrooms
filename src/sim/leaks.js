@@ -2,7 +2,6 @@ import { LEAK_NOISE_BASE, LEAK_NOISE_GAIN, LOUD, REPAIR_NOISE, REPAIR_REACH } fr
 import { REPAIR_TIME } from '../config/tuning.js';
 import { emit } from '../util/events.js';
 import { sustainedNoise } from './noise.js';
-import { repaintDirty } from '../util/repaint.js';
 
 /**
  * Leak state bundle passed by reference.
@@ -63,7 +62,7 @@ export function sealLeak(L, leakState){
      the seal point would reset the water front and snap the level from flooded
      to dry in a single frame. The existing field already describes the right
      answer: water recedes from where it spread. */
-  repaintDirty.water = true;
+  emit('waterChanged');
 }
 
 /* ---------- Noise from open leaks ----------

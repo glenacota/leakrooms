@@ -12,7 +12,7 @@ const { A } = await loadGame();
    factories, so only membership is a contract, and a reorder should not fail. */
 const PINNED_KEYS = [
   'arng', 'at', 'ambientNoise', 'batt', 'batteries', 'battPulseT', 'clock', 'coneArr', 'coneFace',
-  'coneRadar', 'coneX', 'coneY', 'descend', 'dirty', 'ended', 'exitTiles', 'fixtures', 'floodCover', 'floor',
+  'coneRadar', 'coneX', 'coneY', 'descend', 'ended', 'exitTiles', 'fixtures', 'floodCover', 'floor',
   'grid', 'inB', 'leakDist', 'leakPower', 'leakTotal', 'leaks', 'lifeforms', 'lightArr',
   'loreRng', 'los', 'maskArr', 'maskTgt', 'nearest', 'noise', 'noisePeak', 'notes', 'openLeaks', 'plumber', 'radar',
   'radarRattleT', 'regionAdj', 'regionCount', 'regionOf', 'rooms', 'scopeDirty', 'seed', 'seenBy',

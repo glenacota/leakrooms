@@ -6,6 +6,7 @@ import test from 'node:test';
 import { strict as assert } from 'node:assert';
 import { loadGame } from '../helpers/harness.js';
 import { on } from '../../src/util/events.js';
+import { repaintDirty } from '../../src/util/repaint.js';
 
 const { A, G, els } = await loadGame();
 const { surfaces } = await import('../../src/render/floor-surfaces.js');
@@ -81,8 +82,8 @@ test('a window drag is one resize, and a lost context is rebuilt', async () => {
     'the light bake was not rebuilt after a context loss — the floor is drawing from a canvas with no pixels in it');
   assert.ok(surfaces.tiles !== before.tiles,
     'the static tile layer was not rebuilt after a context loss');
-  assert.equal(G.dirty.water, true, 'the packed flood image was not marked stale after a rebuild');
-  assert.equal(G.dirty.mask, true, 'the visibility mask was not marked stale after a rebuild');
+  assert.equal(repaintDirty.water, true, 'the packed flood image was not marked stale after a rebuild');
+  assert.equal(repaintDirty.mask, true, 'the visibility mask was not marked stale after a rebuild');
 
   const restored = { light: surfaces.light, tiles: surfaces.tiles };
   A.buildFloor(G.floor, G.seed);

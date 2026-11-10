@@ -15,7 +15,7 @@
    ============================================================ */
 
 import { FLOOR, LEAK_HEADSTART, LEAK_RETREAT, LEAK_SPREAD, MAP_H, MAP_W, WET_EDGE, WET_FALL, WET_RISE } from '../config/constants.js';
-import { markWetTile, markWetAll } from '../util/repaint.js';
+import { emit } from '../util/events.js';
 import { distanceField } from './path.js';
 
 /**
@@ -90,7 +90,7 @@ export function initFlood(floodState, player) {
   }
 
   floodState.floodCover = floodState.wetFloor ? floodState.wetSum / floodState.wetFloor : 0;
-  markWetAll();
+  emit('waterChanged');
 }
 
 /* Drops a blob of water. Used to damp the spawn room, and to leave ripples
@@ -106,7 +106,7 @@ export function seedSplash(floodState, wx, wy, amount) {
     const w = Math.min(1, Math.max(0, amount * (1 - dd / 1.8)));
     if (w > floodState.wetArr[i]) {
       floodState.wetSum += w - floodState.wetArr[i]; floodState.wetArr[i] = w;
-      markWetTile(i);
+      emit('tileChanged', i);
       if (w > WET_EDGE && floodState.waterDist[i] > floodState.wetEdgeD) floodState.wetEdgeD = floodState.waterDist[i];
     }
   }
@@ -192,7 +192,7 @@ export function tickFlood(floodState, dt) {
       sum += snapped - cur;
       floodState.wetArr[i] = snapped;
       changed = true;
-      markWetTile(i);
+      emit('tileChanged', i);
     }
     if (floodState.wetArr[i] > WET_EDGE) edge = floodState.waterDist[i];
   }

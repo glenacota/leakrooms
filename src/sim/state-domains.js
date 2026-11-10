@@ -98,7 +98,6 @@ export function createLifeformState(level, seed, floorNum) {
 
 /**
  * FloodState — wet arrays + floodCover.
- * Dirty tracking lives in util/repaint.js.
  */
 export function createFloodState() {
   return {
