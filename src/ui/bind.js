@@ -6,7 +6,6 @@ import { repaintDirty } from '../util/repaint.js';
 import { G } from '../sim/state.js';
 import { STATE } from '../game/run.js';
 import { paintSplashPlan } from '../render/splash-plan.js';
-import { buildGrainFull, buildPatterns } from '../render/textures.js';
 import { hideAll, show } from './dom.js';
 import { flash, renderLives } from './hud.js';
 import { syncAmbience } from './splash.js';
@@ -39,10 +38,6 @@ export function bindDom(){
   on('splash:repaint', () => paintSplashPlan());
   on('resize', () => {
     if (G && (STATE === 'splash' || STATE === 'binder')) paintSplashPlan();
-  });
-  on('contextrestored', () => {
-    buildPatterns();
-    buildGrainFull();
   });
   on('state', () => {
     syncAmbience();

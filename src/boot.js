@@ -14,7 +14,8 @@ import { bindHints, tickLoudFlash, tickCues } from './ui/hints.js';
 import { buildSettingsUI, syncSettingsUI } from './ui/settings-panel.js';
 import { Audio_ } from './audio/index.js';
 import { syncAmbience } from './ui/splash.js';
-import { bindFloorLifecycle, buildFloor } from './game/floor.js';
+import { buildFloor } from './game/floor.js';
+import { bindFloorSurfaces } from './render/floor-surfaces.js';
 import { paintSplashPlan } from './render/splash-plan.js';
 import { bindRun } from './game/run.js';
 import { bindInput } from './ui/input.js';
@@ -110,18 +111,10 @@ export function boot(){
   resize();
   buildPatterns();
 
-  /* Connect the modules to each other through the event bus and the DOM.
-     The order is:
-       1. bindRun      the run reacts to what the simulation reports
-       2. bindDom      events are turned into on-screen changes
-       3. bindInput    keyboard handling
-       4. bindButtons  button and screen clicks
-       5. initTouch    the on-screen stick (shown only in touch mode)
-       6. initHaptics  short buzzes for danger sounds, where the device can
-       7. initFullscreen  fullscreen on the first tap, and the home-screen tip */
+  /* Connect the modules to each other through the event bus and the DOM. */
   bindRun();
   bindDom();
-  bindFloorLifecycle();
+  bindFloorSurfaces();
   bindCards();
   bindHints();
   bindInput();

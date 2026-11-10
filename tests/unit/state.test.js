@@ -1,7 +1,7 @@
 import test from 'node:test';
 import { strict as assert } from 'node:assert';
 import { loadGame } from '../helpers/harness.js';
-import { G, installFloorState } from '../../src/sim/state.js';
+import { G, setFloorState } from '../../src/sim/state.js';
 
 const { A } = await loadGame();
 
@@ -13,14 +13,13 @@ const { A } = await loadGame();
 const PINNED_KEYS = [
   'arng', 'at', 'ambientNoise', 'batt', 'batteries', 'battPulseT', 'clock', 'coneArr', 'coneFace',
   'coneRadar', 'coneX', 'coneY', 'descend', 'dirty', 'ended', 'exitTiles', 'fixtures', 'floodCover', 'floor',
-  'grid', 'gfx', 'inB', 'leakDist', 'leakPower', 'leakTotal', 'leaks', 'lifeforms', 'lightArr',
-  'lightCtx', 'lightCv', 'lightImg', 'loreRng', 'los', 'maskArr', 'maskCtx', 'maskCv', 'maskImg',
-  'maskTgt', 'nearest', 'noise', 'noisePeak', 'notes', 'openLeaks', 'plumber', 'radar',
+  'grid', 'inB', 'leakDist', 'leakPower', 'leakTotal', 'leaks', 'lifeforms', 'lightArr',
+  'loreRng', 'los', 'maskArr', 'maskTgt', 'nearest', 'noise', 'noisePeak', 'notes', 'openLeaks', 'plumber', 'radar',
   'radarRattleT', 'regionAdj', 'regionCount', 'regionOf', 'rooms', 'scopeDirty', 'seed', 'seenBy',
-  'selfNoise', 'stat', 'tilesCtx', 'tilesCv', 'time', 'totalLeaks', 'visArr', 'visFadeT', 'visFrom',
-  'visRegion', 'visScratch', 'visStep', 'visTgt', 'wallIdx', 'wallsCtx', 'wallsCv', 'wantVision',
-  'atLeak', 'wet', 'wetArr', 'wetByDist', 'wetCtx', 'wetCv', 'wetEdgeD', 'wetFloor', 'wetFront',
-  'wetImg', 'wetIndexAtDist', 'wetMaxDist', 'wetSum', 'waterDist',
+  'selfNoise', 'stat', 'time', 'totalLeaks', 'visArr', 'visFadeT', 'visFrom',
+  'visRegion', 'visScratch', 'visStep', 'visTgt', 'wallIdx', 'wantVision',
+  'atLeak', 'wet', 'wetArr', 'wetByDist', 'wetEdgeD', 'wetFloor', 'wetFront',
+  'wetIndexAtDist', 'wetMaxDist', 'wetSum', 'waterDist',
 ];
 
 test('a built floor exposes exactly the state G owns', () => {
@@ -33,7 +32,7 @@ test('state installation rejects a field claimed by two domains', () => {
   const previousFloor = G.floor;
 
   assert.throws(
-    () => installFloorState({ first: { field: 1 }, second: { field: 2 } }),
+    () => setFloorState({ first: { field: 1 }, second: { field: 2 } }),
     /State key "field" has multiple domain owners/,
   );
   assert.equal(G.floor, previousFloor, 'duplicate ownership replaced the installed floor');

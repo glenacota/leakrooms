@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { loadGame } from '../helpers/harness.js';
 
 const { A, G } = await loadGame();
+const { surfaces } = await import('../../src/render/floor-surfaces.js');
 A.setHeadless(true, true);
 
 const W = 76;
@@ -33,7 +34,8 @@ test('a wall face you look straight at is packed at full brightness', () => {
     A.snapMask();
     A.packMask();
 
-    const px = (x, y) => G.maskImg.data[(y*W + x)*4] / 255;
+    const data = surfaces.mask.getContext('2d').getImageData(0, 0, surfaces.mask.width, surfaces.mask.height).data;
+    const px = (x, y) => data[(y*W + x)*4] / 255;
     const faceY = s.y - 3, behindY = s.y - 4;
     const at = `at ${s.x},${s.y}`;
     const run = [s.x-1, s.x, s.x+1].map(x => A.internals.maskArr[faceY*W + x]);
@@ -60,5 +62,6 @@ test('a floor tile behind a thin wall is not lit by the face backlight', () => {
   A.snapMask();
   A.packMask();
   const behind = (spot.y - 3)*W + spot.x;
-  assert.equal(G.maskImg.data[behind*4], Math.min(255, A.internals.maskArr[behind]*255));
+  const maskData = surfaces.mask.getContext('2d').getImageData(0, 0, surfaces.mask.width, surfaces.mask.height).data;
+  assert.equal(maskData[behind*4], Math.min(255, A.internals.maskArr[behind]*255));
 });

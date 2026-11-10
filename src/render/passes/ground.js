@@ -1,6 +1,7 @@
 import { MAP_W, SHEEN_STEPS, TILE } from '../../config/constants.js';
 import { hash2 } from '../../util/hash.js';
 import { G } from '../../sim/state.js';
+import { surfaces } from '../floor-surfaces.js';
 import { ctx } from '../canvas.js';
 
 /* Scratch data for the water shine, one tile list per alpha bucket (SHEEN_STEPS,
@@ -23,7 +24,7 @@ export function ground(rc){
      visible part of each layer is copied with one drawImage. The source rectangle
      is the viewport in tiles on the map-sized canvas, and the destination is the
      same rectangle in world pixels, inside the camera transform. */
-  ctx.drawImage(G.tilesCv, x0*TILE, y0*TILE, vw*TILE, vh*TILE,
+  ctx.drawImage(surfaces.tiles, x0*TILE, y0*TILE, vw*TILE, vh*TILE,
                           x0*TILE, y0*TILE, vw*TILE, vh*TILE);
 
   /* ---------- 1b. The flood ----------
@@ -34,10 +35,10 @@ export function ground(rc){
      It is a single drawImage of a 76x76 image scaled up with smoothing. Per-tile
      fills would be slower (5776 draw calls) and would give hard, tile-aligned water
      edges on a feature whose whole job is a readable front. The image is refreshed
-     by syncImages() when the water changes, not here. */
+     by syncSurfaces() when the water changes, not here. */
   if (G.wetArr){
     ctx.globalAlpha = 1;
-    ctx.drawImage(G.wetCv, 0, 0, MAP_W*TILE, MAP_W*TILE);
+    ctx.drawImage(surfaces.wet, 0, 0, MAP_W*TILE, MAP_W*TILE);
 
     /* The shine on deep water. Without it a flooded room is a flat tinted area
        that looks like a blue filter, and the highlight is what makes it look like a
@@ -91,6 +92,6 @@ export function ground(rc){
      The second baked layer, drawn after the flood so a partition standing in a
      flooded room stays dry: the water lands on the carpet and the walls are painted
      over it. */
-  ctx.drawImage(G.wallsCv, x0*TILE, y0*TILE, vw*TILE, vh*TILE,
+  ctx.drawImage(surfaces.walls, x0*TILE, y0*TILE, vw*TILE, vh*TILE,
                            x0*TILE, y0*TILE, vw*TILE, vh*TILE);
 }

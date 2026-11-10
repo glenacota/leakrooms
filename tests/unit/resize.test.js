@@ -8,6 +8,7 @@ import { loadGame } from '../helpers/harness.js';
 import { on } from '../../src/util/events.js';
 
 const { A, G, els } = await loadGame();
+const { surfaces } = await import('../../src/render/floor-surfaces.js');
 
 /* canvas.js touches `document` at module load, which loadGame() has stubbed, so
    this dynamic import is safe here. */
@@ -67,8 +68,8 @@ test('a window drag is one resize, and a lost context is rebuilt', async () => {
 
   /* A lost context takes every bitmap with it. */
   const before = {
-    light: G.lightCv,
-    tiles: G.tilesCv,
+    light: surfaces.light,
+    tiles: surfaces.tiles,
   };
   let prevented = false;
   els.game._fire('contextlost', { preventDefault(){ prevented = true; } });
@@ -76,21 +77,21 @@ test('a window drag is one resize, and a lost context is rebuilt', async () => {
     "contextlost was not preventDefault()ed — the browser will not promise to give the context back");
 
   els.game._fire('contextrestored', {});
-  assert.ok(G.lightCv !== before.light,
+  assert.ok(surfaces.light !== before.light,
     'the light bake was not rebuilt after a context loss — the floor is drawing from a canvas with no pixels in it');
-  assert.ok(G.tilesCv !== before.tiles,
+  assert.ok(surfaces.tiles !== before.tiles,
     'the static tile layer was not rebuilt after a context loss');
   assert.equal(G.dirty.water, true, 'the packed flood image was not marked stale after a rebuild');
   assert.equal(G.dirty.mask, true, 'the visibility mask was not marked stale after a rebuild');
 
-  const restored = { light: G.lightCv, tiles: G.tilesCv };
+  const restored = { light: surfaces.light, tiles: surfaces.tiles };
   A.buildFloor(G.floor, G.seed);
-  assert.ok(G.lightCv !== restored.light,
-    'the next floor build did not synchronize the light bake with the cached floor');
-  assert.ok(G.tilesCv !== restored.tiles,
-    'the next floor build did not synchronize the tile bake with the cached floor');
-  assert.ok(G.lightCv.width > 0 && G.tilesCv.width > 0,
-    'the next floor build restored canvases without pixels');
+  assert.equal(surfaces.light, restored.light,
+    'a retry after a context loss replaced the restored light bake');
+  assert.equal(surfaces.tiles, restored.tiles,
+    'a retry after a context loss replaced the restored tile layer');
+  assert.ok(surfaces.light.width > 0 && surfaces.tiles.width > 0,
+    'the retry handed back restored canvases without pixels');
 
   console.log(`  50 events -> ${built} screen-sized canvas(es); light bake and tiles rebuilt on restore`);
 });

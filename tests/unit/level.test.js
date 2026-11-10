@@ -3,6 +3,7 @@ import { softAssert } from '../helpers/soft-assert.js';
 import { loadGame } from '../helpers/harness.js';
 
 const { A, G } = await loadGame();
+const { surfaces } = await import('../../src/render/floor-surfaces.js');
 const buildFloor = A.buildFloor;
 A.setHeadless(false, false);
 
@@ -351,8 +352,8 @@ test('the canvases of a replaced floor are released, not dropped', () => {
   const t = softAssert();
   buildFloor(0, 1);
   const old = {
-    tiles: G.tilesCv, walls: G.wallsCv,
-    light: G.lightCv, mask: G.maskCv, wet: G.wetCv,
+    tiles: surfaces.tiles, walls: surfaces.walls,
+    light: surfaces.light, mask: surfaces.mask, wet: surfaces.wet,
   };
   for (const [name, cv] of Object.entries(old))
     t.assert(cv && cv.width > 0 && cv.height > 0,
@@ -365,10 +366,10 @@ test('the canvases of a replaced floor are released, not dropped', () => {
       `the previous floor's ${name} canvas is still ${cv.width}x${cv.height} — buildFloor dropped it instead of releasing it`);
   /* The new floor must not be caught by its own cleanup: getting the order
      wrong disposes the floor being built rather than the one being replaced. */
-  t.assert(G.tilesCv.width > 0 && G.tilesCv.height > 0,
+  t.assert(surfaces.tiles.width > 0 && surfaces.tiles.height > 0,
     'the floor just built is already 0x0 — dispose ran after setG');
-  t.assert(G.tilesCv !== old.tiles, 'the tile layer was reused across floors instead of rebuilt');
-  console.log(`  5 canvases released on rebuild; the new floor is ${G.tilesCv.width}x${G.tilesCv.height}`);;
+  t.assert(surfaces.tiles !== old.tiles, 'the tile layer was reused across floors instead of rebuilt');
+  console.log(`  5 canvases released on rebuild; the new floor is ${surfaces.tiles.width}x${surfaces.tiles.height}`);;
 });
 
 /* genLevel is a pure function of its seed, and everything it builds came
@@ -408,7 +409,7 @@ test('the same seed builds the same cast ten seconds in', () => {
 test('the static bake is cached and a played floor leaves no mark', () => {
   const t = softAssert();
   buildFloor(1, 7);
-  const tiles = G.tilesCv, walls = G.wallsCv, light = G.lightCv;
+  const tiles = surfaces.tiles, walls = surfaces.walls, light = surfaces.light;
   const exits = G.exitTiles;
   t.assert(G.leaks[0].fixed === false, 'the fresh floor starts with an open leak, so the clone below means something');
 
@@ -431,16 +432,16 @@ test('the static bake is cached and a played floor leaves no mark', () => {
   t.assert(G.exitTiles !== exits, 'the exit tiles were shared with the cache rather than copied');
 
   /* ...and the bake really is the same one. */
-  t.assert(G.tilesCv === tiles, 'the tile layer was repainted for a retry — the cache did not hold');
-  t.assert(G.wallsCv === walls, 'the wall layer was repainted for a retry');
-  t.assert(G.lightCv === light, 'the light bake was rebuilt for a retry');
-  t.assert(G.tilesCv.width > 0,
-    `the cached tile layer came back at ${G.tilesCv.width}x${G.tilesCv.height} — it was released on the way past`);
+  t.assert(surfaces.tiles === tiles, 'the tile layer was repainted for a retry — the cache did not hold');
+  t.assert(surfaces.walls === walls, 'the wall layer was repainted for a retry');
+  t.assert(surfaces.light === light, 'the light bake was rebuilt for a retry');
+  t.assert(surfaces.tiles.width > 0,
+    `the cached tile layer came back at ${surfaces.tiles.width}x${surfaces.tiles.height} — it was released on the way past`);
 
   /* A different building is a different key: new pixels, and the old ones are
      released rather than left to the collector. */
   buildFloor(1, 8);
-  t.assert(G.tilesCv !== tiles, 'a new seed returned the old floor canvases');
+  t.assert(surfaces.tiles !== tiles, 'a new seed returned the old floor canvases');
   t.assert(tiles.width === 0 && tiles.height === 0,
     `the retired tile layer is still ${tiles.width}x${tiles.height} — the cache dropped it instead of releasing it`);
 

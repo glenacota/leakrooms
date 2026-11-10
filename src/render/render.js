@@ -29,7 +29,7 @@ import { diegetic } from './passes/diegetic.js';
 import { ripples } from './passes/ripples.js';
 import { post } from './passes/post.js';
 import { doorCrank } from './entities.js';
-import { syncImages } from './pack.js';
+import { syncSurfaces } from './floor-surfaces.js';
 
 /* ---------- Camera ----------
    One mapping is used everywhere:
@@ -47,7 +47,7 @@ export { setSimAlpha } from './passes/actors.js';
  */
 export function render(t){
   if (!G) return;
-  syncImages();
+  syncSurfaces(G);
   const p=G.plumber;
 
   /* The camera eases toward the player with a time constant against the wall

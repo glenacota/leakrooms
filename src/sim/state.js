@@ -20,7 +20,7 @@ let publicKeySet = null;
 const INTERNAL_KEYS = new Set(['clockAnnounced']);
 
 /* Keys that exist on the facade but are computed/assembled (not owned by a single domain). */
-const COMPUTED_KEYS = new Set(['gfx', 'dirty']);
+const COMPUTED_KEYS = new Set(['dirty']);
 
 function getTarget(k) {
   if (!domains) return null;
@@ -58,16 +58,6 @@ function listPublicKeys(nextOwners) {
   return [...keys, ...COMPUTED_KEYS];
 }
 
-function assembleGfx(d) {
-  return {
-    lightCv: d.level.lightCv, lightCtx: d.level.lightCtx, lightImg: d.level.lightImg,
-    maskCv: d.vision.maskCv, maskCtx: d.vision.maskCtx, maskImg: d.vision.maskImg,
-    tilesCv: d.level.tilesCv, tilesCtx: d.level.tilesCtx,
-    wallsCv: d.level.wallsCv, wallsCtx: d.level.wallsCtx,
-    wetCv: d.flood.wetCv, wetCtx: d.flood.wetCtx, wetImg: d.flood.wetImg,
-  };
-}
-
 /* G is a facade, not the state itself. Every G.<field> read or write is
    forwarded to the domain object behind it, so a retry can install a whole new
    floor while every reader keeps the same G reference. The facade also keeps
@@ -76,7 +66,6 @@ function assembleGfx(d) {
 export const G = new Proxy({}, {
   get(_, k) {
     if (!domains) return undefined;
-    if (k === 'gfx') return assembleGfx(domains);
     if (k === 'dirty') return repaintDirty;
     const target = getTarget(k);
     return target ? target[k] : undefined;
@@ -122,8 +111,8 @@ export function createGameState(level, floorNum, seed){
   };
 }
 
-/* Installs a floor's state (from createGameState) behind the facade. */
-export function installFloorState(d){
+/* Set a floor's state behind the facade. */
+export function setFloorState(d){
   const nextOwners = createOwners(d);
   const nextKeys = listPublicKeys(nextOwners);
   domains = d;

@@ -40,12 +40,26 @@ import { activateMenu, beginShift, backSplash, moveMenu, selectMenu, TITLE_MENU 
 import { binderMode, binderTab, openBinder, setBinderTab, stepBinderTab } from '../../src/ui/binder.js';
 import { togglePause } from '../../src/ui/pause.js';
 import { applySettings } from '../../src/ui/bind.js';
-import { packMask, packWet, setPixels } from '../../src/render/pack.js';
+import { setPixels, surfaces, syncSurfaces } from '../../src/render/floor-surfaces.js';
+import { markWetAll, repaintDirty } from '../../src/util/repaint.js';
 import { paintSplashPlan } from '../../src/render/splash-plan.js';
 import { render } from '../../src/render/render.js';
 import { SETTINGS, loadSettings, saveSettings, resetSettings, setOption } from '../../src/settings/store.js';
 import * as _C from '../../src/config/constants.js';
 const { BRUSH_NOISE, DARK_ROOM, DOOR_NOISE, HAND_OFF, HOP_FALL, LEAK_HEADSTART, LEAK_LURE, LEAK_NOISE_BASE, LEAK_NOISE_GAIN, LEAK_RETREAT, LEAK_SPREAD, LOUD, NOISE, NOISE_FS, SOUND_POWERS, LEAK_GAP, RADAR_DRAIN, REPAIR_NOISE, REPAIR_REACH, SPRINT, SPRINT_NOISE, TILE, VIEW_FADE_FAR, VIEW_FADE_NEAR, VIEW_HALF, VIEW_RANGE, WALK, WET_DRAW, WET_FALL, WET_RISE, FLOOR } = _C;
+
+/* The packers are internal to the surfaces. A test marks a layer dirty and runs the one sync. */
+/* Packs one layer and leaves the other layer's pending flag as it was. */
+function packOnly(layer, mark){
+  const others = Object.keys(repaintDirty).filter(k => k !== layer);
+  const saved = Object.fromEntries(others.map(k => [k, repaintDirty[k]]));
+  for (const k of others) repaintDirty[k] = false;
+  mark();
+  syncSurfaces(G);
+  Object.assign(repaintDirty, saved);
+}
+function packWet(){ packOnly('water', markWetAll); }
+function packMask(){ packOnly('mask', () => { repaintDirty.mask = true; }); }
 
 function setHeadless(px, vis){ setPixels(px); if (G) G.wantVision = vis; }
 
@@ -55,13 +69,13 @@ get G(){ return G; },
 /* A floor's scratch state, gathered in one object so tests read each buffer
    through the floor it belongs to instead of through a getter per array. */
 get internals(){ return {
-  lightArr: G.lightArr, lightCv: G.gfx.lightCv, lightImg: G.gfx.lightImg, lightCtx: G.gfx.lightCtx,
+  lightArr: G.lightArr, lightCv: surfaces.light,
   visArr: G.visArr, visTgt: G.visTgt, visFrom: G.visFrom, visScratch: G.visScratch,
-  maskArr: G.maskArr, maskTgt: G.maskTgt, coneArr: G.coneArr, maskCv: G.gfx.maskCv,
+  maskArr: G.maskArr, maskTgt: G.maskTgt, coneArr: G.coneArr, maskCv: surfaces.mask,
   regionOf: G.regionOf, regionAdj: G.regionAdj, visRegion: G.visRegion,
   wetArr: G.wetArr, waterDist: G.waterDist, wetFront: G.wetFront,
   wetByDist: G.wetByDist, wetMaxDist: G.wetMaxDist, wetEdgeD: G.wetEdgeD,
-  wetIndexAtDist: G.wetIndexAtDist, wetCv: G.gfx.wetCv,
+  wetIndexAtDist: G.wetIndexAtDist, wetCv: surfaces.wet,
   cvs, ctxRef: ctx, SCALE
 }; },
 get DARK_ROOM(){ return DARK_ROOM; },
