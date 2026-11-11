@@ -81,7 +81,7 @@
 .run-timeline-status.ok{ color:var(--carpet); font-weight:900; letter-spacing:.1em; }
 .run-timeline-status.bad{ color:var(--danger); font-weight:900; letter-spacing:.1em; }
 .run-timeline-status.now{ color:var(--yellow-dim); font-weight:900; letter-spacing:.1em; }
-.run-timeline-leaks{ color:var(--water); font-weight:400; letter-spacing:.08em; }
+.run-timeline-leaks{ color:#8fc4cc; font-weight:400; letter-spacing:.08em; }
 .run-timeline-clock{ color:var(--yellow-dim); font-weight:900; letter-spacing:.08em; }
 
 /* The field manual: columns of short sections. */
