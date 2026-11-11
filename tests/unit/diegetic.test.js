@@ -1,6 +1,8 @@
 import test from 'node:test';
 import { strict as assert } from 'node:assert';
 import { loadGame } from '../helpers/harness.js';
+import { SPRINT_STAMINA } from '../../src/config/constants.js';
+import { PAL } from '../../src/config/palette.js';
 
 const { A, G, calls } = await loadGame();
 const buildFloor = A.buildFloor;
@@ -303,4 +305,105 @@ test('the percentage is 10px bold with a dark 2px outline under the text', () =>
   assert.ok(calls.list.indexOf(s) < calls.list.indexOf(f), 'the outline is drawn over the fill');
   assert.ok(s[2] === f[2] && s[3] === f[3], 'the outline is not under the text');
   G.radar = false;
+});
+
+const STAMINA_SCALE = 0.75;
+const STAMINA_WIDTH = 14*STAMINA_SCALE;
+const STAMINA_HEIGHT = 42*STAMINA_SCALE;
+const STAMINA_GLYPH = 18*STAMINA_SCALE;
+const STAMINA_GAP = 6*STAMINA_SCALE;
+const STAMINA_PADDING = 3*STAMINA_SCALE;
+const STAMINA_CONTENT_HEIGHT = STAMINA_GLYPH + STAMINA_GAP + STAMINA_HEIGHT
+  + Math.tan(Math.PI/10)*STAMINA_WIDTH/2;
+function staminaBacking(){
+  return calls.list.find(c => c[0] === 'fillRect' &&
+    c[1] === (10 - SIDE)*TILE - STAMINA_GLYPH/2 - STAMINA_PADDING &&
+    c[3] === STAMINA_GLYPH + 2*STAMINA_PADDING &&
+    c[4] === STAMINA_CONTENT_HEIGHT + 2*STAMINA_PADDING);
+}
+
+test('stamina tread strip fills smoothly from the bottom and uses the running glyph', () => {
+  setup();
+  for (const [stamina, fraction] of [[0, 0], [1, 0.2], [2.5, 0.5], [4.5, 0.9]]){
+    G.plumber.stamina = stamina;
+    draw();
+    assert.ok(staminaBacking(), 'stamina backing missing beside plumber');
+    const clip = calls.list.findIndex(c => c[0] === 'clip');
+    const rect = calls.list[clip - 1];
+    assert.ok(clip > 0 && rect[0] === 'rect', 'stamina fill is not clipped');
+    assert.equal(rect[1], -STAMINA_WIDTH/2);
+    assert.equal(rect[3], STAMINA_WIDTH);
+    assert.ok(Math.abs(rect[2] - STAMINA_HEIGHT*(1 - fraction)) < 1e-9);
+    assert.ok(Math.abs(rect[4] - STAMINA_HEIGHT*fraction) < 1e-9);
+    const fills = calls.list.filter(c => c[0] === 'fill');
+    assert.ok(fills.some(c => c.style === UNLIT), 'unlit treads missing');
+    const colour = fraction < 0.3 ? DANGER : fraction < 0.5 ? PAL.bright : GREEN;
+    assert.ok(fills.some(c => c.style === colour), 'lit tread colour incorrect');
+    assert.ok(calls.list.some(c => c[0] === 'arc' && c[1] === 15.5 && c[2] === 4.5 && c[3] === 2),
+      'runner glyph missing');
+    assert.ok(!calls.list.some(c => c[0] === 'fillText' && /^\d+s$/.test(c[1])), 'old seconds label remains');
+  }
+});
+
+test('stamina tread colours change only below the 50% and 30% thresholds', () => {
+  setup();
+  for (const [fraction, colour] of [
+    [0.5001, GREEN], [0.5, GREEN], [0.4999, PAL.bright],
+    [0.3001, PAL.bright], [0.3, PAL.bright], [0.2999, DANGER], [0, DANGER]
+  ]){
+    G.plumber.stamina = fraction*SPRINT_STAMINA;
+    draw();
+    const clip = calls.list.findIndex(c => c[0] === 'clip');
+    const fill = calls.list.slice(clip + 1).find(c => c[0] === 'fill');
+    assert.equal(fill?.style, colour, `${fraction*100}% should draw ${colour}`);
+  }
+});
+
+test('stamina strip fades in when spent and fades out when full', () => {
+  setup();
+  draw();
+  assert.equal(staminaBacking(), undefined);
+  G.plumber.stamina = 4;
+  calls.list.length = 0;
+  render(clock);
+  assert.equal(staminaBacking(), undefined, 'stamina strip appeared without elapsed time');
+  calls.list.length = 0;
+  clock += 100;
+  render(clock);
+  assert.ok(staminaBacking()?.alpha > 0, 'stamina strip did not fade in');
+  draw();
+  G.plumber.stamina = 5;
+  calls.list.length = 0;
+  clock += 100;
+  render(clock);
+  assert.ok(staminaBacking()?.alpha > 0, 'stamina strip vanished before fading out');
+  draw();
+  assert.equal(staminaBacking(), undefined, 'stamina strip remained after recovery');
+});
+
+test('stamina strip and radar battery appear on opposite sides of the plumber', () => {
+  setup();
+  G.plumber.stamina = 2.5;
+  G.radar = true;
+  G.batt = 60;
+  draw();
+  const {bx, by} = battRingCentre(10, 10);
+  assert.equal(cellArcs(bx, by).length, CELLS);
+  assert.ok(staminaBacking());
+  G.radar = false;
+});
+
+test('stamina backing has equal padding around the glyph and slanted treads', () => {
+  setup();
+  G.plumber.stamina = 2.5;
+  draw();
+  const backing = staminaBacking();
+  assert.ok(backing);
+  const cx = (10 - SIDE)*TILE;
+  const cy = (10 - BATT_Y)*TILE;
+  const top = cy - STAMINA_CONTENT_HEIGHT/2;
+  assert.equal(cx - STAMINA_GLYPH/2 - backing[1], STAMINA_PADDING);
+  assert.equal(backing[1] + backing[3] - (cx + STAMINA_GLYPH/2), STAMINA_PADDING);
+  assert.equal(top - backing[2], STAMINA_PADDING);
+  assert.ok(Math.abs(backing[2] + backing[4] - (top + STAMINA_CONTENT_HEIGHT) - STAMINA_PADDING) < 1e-9);
 });

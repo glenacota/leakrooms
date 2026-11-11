@@ -6,6 +6,9 @@
    inside. Shows while the radar is on, or right after a battery pickup. 
    Green, red when low.
 
+   A vertical tread strip with a running glyph sits to the left. It drains
+   smoothly from the top and fades away when stamina is full.
+
    Drawn LAST, after the post-processing pass (see render.js), inside the world
    transform. Nothing darkens or tints it: not the light bake, not the radar's
    green, not the CRT effects, the vignette or the danger wash. It still
@@ -17,15 +20,23 @@ import { simAlpha } from './actors.js';
 import { ctx, SCALE } from '../canvas.js';
 import { TAU } from '../../cast/primitives.js';
 import { SPRINT_STAMINA, TILE } from '../../config/constants.js';
+import { PAL } from '../../config/palette.js';
 import { drawBatteryMeter } from '../battery-meter.js';
 
-const STAMINA_CELLS = 5;
-const STAMINA_RADIUS = 0.38;
 const STAMINA_DANGER = '#d8503c';
 const STAMINA_GREEN = '#8fd07a';
 const STAMINA_UNLIT = 'rgba(230,235,200,0.18)';
-const STAMINA_DISC = 'rgba(12,14,10,0.7)';
 const STAMINA_OUTLINE = 'rgba(12,14,10,0.9)';
+/* Scale the mockup together so its glyph and tread remain proportional. */
+const STAMINA_SCALE = 0.75;
+const STAMINA_WIDTH = 14 * STAMINA_SCALE;
+const STAMINA_HEIGHT = 42 * STAMINA_SCALE;
+const STAMINA_GLYPH = 18 * STAMINA_SCALE;
+const STAMINA_GAP = 6 * STAMINA_SCALE;
+const STAMINA_TREAD = 6 * STAMINA_SCALE;
+const STAMINA_SPACING = 9 * STAMINA_SCALE;
+const STAMINA_PADDING = 3 * STAMINA_SCALE;
+const STAMINA_SLOPE = -Math.tan(Math.PI/10);
 
 /* How far above the plumber's centre the battery ring sits, in tiles. */
 const BATT_Y = 0.3;
@@ -58,40 +69,57 @@ function fade(a, on, dt){
 }
 
 function drawStaminaMeter(cx, cy, stamina){
-  const r = STAMINA_RADIUS*TILE;
   const progress = Math.max(0, Math.min(1, stamina/SPRINT_STAMINA));
-  const lit = Math.ceil(progress*STAMINA_CELLS - 1e-9);
-  const color = stamina === 0 ? STAMINA_DANGER : STAMINA_GREEN;
-  const span = TAU/STAMINA_CELLS;
-  const trim = 3*Math.PI/180;
+  const color = progress < 0.3 ? STAMINA_DANGER : progress < 0.5 ? PAL.bright : STAMINA_GREEN;
+  const contentHeight = STAMINA_GLYPH + STAMINA_GAP + STAMINA_HEIGHT
+    + Math.abs(STAMINA_SLOPE)*STAMINA_WIDTH/2;
+  const top = cy - contentHeight/2;
 
-  ctx.fillStyle = STAMINA_DISC;
-  ctx.beginPath(); ctx.arc(cx, cy, r + 3, 0, TAU); ctx.fill();
-  ctx.lineWidth = 2;
-  for (let i = 0; i < STAMINA_CELLS; i++){
-    const a0 = -Math.PI/2 + i*span + trim;
-    ctx.strokeStyle = i < lit ? color : STAMINA_UNLIT;
-    ctx.beginPath();
-    ctx.arc(cx, cy, r, a0, a0 + span - 2*trim);
-    ctx.stroke();
-  }
+  ctx.fillStyle = 'rgba(12,14,10,0.7)';
+  ctx.fillRect(cx - STAMINA_GLYPH/2 - STAMINA_PADDING, top - STAMINA_PADDING,
+    STAMINA_GLYPH + 2*STAMINA_PADDING, contentHeight + 2*STAMINA_PADDING);
 
-  const label = `${Math.ceil(stamina)}s`;
+  /* The runner follows the 24-unit glyph in the approved mockup. */
   ctx.save();
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.font = 'bold 10px "Courier New", Courier, monospace';
+  ctx.translate(cx - STAMINA_GLYPH/2, top);
+  ctx.scale(STAMINA_GLYPH/24, STAMINA_GLYPH/24);
+  ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
-  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(15.5, 4.5, 2, 0, TAU);
+  ctx.moveTo(12, 9); ctx.lineTo(16, 7); ctx.lineTo(19, 10); ctx.lineTo(22, 11);
+  ctx.moveTo(12, 9); ctx.lineTo(9, 14); ctx.lineTo(13, 16); ctx.lineTo(15, 21);
+  ctx.moveTo(9, 14); ctx.lineTo(4, 16); ctx.lineTo(2, 20);
+  ctx.moveTo(9, 12); ctx.lineTo(14, 14);
   ctx.strokeStyle = STAMINA_OUTLINE;
-  ctx.strokeText(label, cx, cy);
+  ctx.lineWidth = 4;
+  ctx.stroke();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.8;
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.save();
+  ctx.transform(1, STAMINA_SLOPE, 0, 1, cx, top + STAMINA_GLYPH + STAMINA_GAP);
+  const drawTreads = () => {
+    ctx.beginPath();
+    for (let y = STAMINA_HEIGHT - STAMINA_TREAD; y >= 0; y -= STAMINA_SPACING){
+      ctx.rect(-STAMINA_WIDTH/2, y, STAMINA_WIDTH, STAMINA_TREAD);
+    }
+    ctx.fill();
+  };
+  ctx.fillStyle = STAMINA_UNLIT;
+  drawTreads();
+  ctx.beginPath();
+  ctx.rect(-STAMINA_WIDTH/2, STAMINA_HEIGHT*(1 - progress), STAMINA_WIDTH, STAMINA_HEIGHT*progress);
+  ctx.clip();
   ctx.fillStyle = color;
-  ctx.fillText(label, cx, cy);
+  drawTreads();
   ctx.restore();
 }
 
 /**
- * Draws the battery ring beside the plumber.
+ * Draws the battery and stamina meters beside the plumber.
  * Called once per frame from render(), inside the world transform.
  *
  * @param {object} rc - the render frame context.

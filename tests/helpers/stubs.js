@@ -28,7 +28,16 @@ export function fakeCtx(){
     },
     createLinearGradient: (...a)=>{ calls.gradient++; calls.list.push(['createLinearGradient',...a]); return grad; },
     createRadialGradient: (...a)=>{ calls.gradient++; calls.list.push(['createRadialGradient',...a]); return grad; },
-    fillRect(...a){ calls.list.push(['fillRect',...a]); },
+    fillRect(...a){
+      const e = ['fillRect',...a]; e.style = self.fillStyle; e.alpha = self.globalAlpha;
+      calls.list.push(e);
+    },
+    rect(...a){ calls.list.push(['rect',...a]); },
+    clip(...a){ calls.list.push(['clip',...a]); },
+    fill(...a){
+      const e = ['fill',...a]; e.style = self.fillStyle; e.alpha = self.globalAlpha;
+      calls.list.push(e);
+    },
     /* arc and stroke are recorded because the repair ring is drawn with them and
        nothing else, so they are the only way to find the ring's radius. */
     /* The stroke colour in force is kept on the call, so a test can tell a lit
