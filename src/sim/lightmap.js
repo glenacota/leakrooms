@@ -1,5 +1,6 @@
 import { BAKE_FLOOR, FLOOR, MAP_H, MAP_W, WALL } from '../config/constants.js';
 import { makeLos } from '../util/grid.js';
+import { wallNeighbourMax } from './walls.js';
 
 /**
  * Works out how bright each tile is under its own ceiling lights (the "bake").
@@ -13,7 +14,6 @@ import { makeLos } from '../util/grid.js';
 export function computeLightArr(level, los) {
   const grid = level.grid;
   const at = (x, y) => grid[y * MAP_W + x];
-  const inB = (x, y) => x >= 0 && y >= 0 && x < MAP_W && y < MAP_H;
   if (!los) los = makeLos(grid);
 
   const lightArr = new Float32Array(MAP_W * MAP_H);
@@ -63,13 +63,8 @@ export function computeLightArr(level, los) {
   for (let y = 0; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++) {
     const i = y * MAP_W + x;
     if (at(x, y) !== WALL) continue;
-    let m = 0;
-    if (inB(x + 1, y) && at(x + 1, y) === FLOOR) m = Math.max(m, wallSrc[i + 1]);
-    if (inB(x - 1, y) && at(x - 1, y) === FLOOR) m = Math.max(m, wallSrc[i - 1]);
-    if (inB(x, y + 1) && at(x, y + 1) === FLOOR) m = Math.max(m, wallSrc[i + MAP_W]);
-    if (inB(x, y - 1) && at(x, y - 1) === FLOOR) m = Math.max(m, wallSrc[i - MAP_W]);
     // A wall deep inside a block still gets a little bounce light from its room.
-    lightArr[i] = Math.max(m * 0.95, BAKE_FLOOR * 0.80);
+    lightArr[i] = Math.max(wallNeighbourMax(grid, wallSrc, i) * 0.95, BAKE_FLOOR * 0.80);
   }
   return lightArr;
 }

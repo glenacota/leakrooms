@@ -19,11 +19,12 @@
    ============================================================ */
 
 import {
-  DARK_ROOM, FLOOR, HAND_OFF, LIGHT_FADE, LIGHT_FADE_STEPS, MAP_H, MAP_W,
+  DARK_ROOM, HAND_OFF, LIGHT_FADE, LIGHT_FADE_STEPS, MAP_H, MAP_W,
   MASK_TAU, VIEW_FADE_FAR, VIEW_FADE_NEAR, VIEW_HALF, VIEW_MID,
   VIEW_RANGE, VIEW_RAYS, WALL,
 } from '../config/constants.js';
 import { scopeFor, regionAt } from './regions.js';
+import { wallNeighbourMax } from './walls.js';
 import { emit } from '../util/events.js';
 
 /**
@@ -172,24 +173,12 @@ export function traceViewCone(visionState, plumber, radar, force){
   // Always see the tile under the plumber, or backing into a corner (where every ray exits early) would draw the figure in a black hole.
   if (tx>=0&&ty>=0&&tx<MAP_W&&ty<MAP_H) visionState.coneArr[ty*MAP_W+tx]=1;
 
-  /* Walls: a wall whose face you can see is visible, and takes the brightest
-     floor tile it touches, with no dimming. A wall deep inside a block with
-     nothing lit around it stays black, so you cannot see the inside of the
-     building.
-
-     This walks visionState.wallIdx (the wall tiles only) and not the whole map.
-     The bounds checks stay, because a wall on the map edge has no neighbour on
-     one side and reading past it would wrap into the next row. */
-  const grid=visionState.grid, cone=visionState.coneArr, widx=visionState.wallIdx;
+  /* Walls take the brightest neighbouring floor value, with no dimming.
+     Walking wallIdx avoids scanning the whole map. */
+  const cone=visionState.coneArr, widx=visionState.wallIdx;
   for (let k=0;k<widx.length;k++){
     const i = widx[k];
-    const x = i % MAP_W, y = (i / MAP_W) | 0;
-    let m = 0;
-    if (x+1<MAP_W   && grid[i+1]===FLOOR)   m=Math.max(m, cone[i+1]);
-    if (x>0        && grid[i-1]===FLOOR)   m=Math.max(m, cone[i-1]);
-    if (y+1<MAP_H  && grid[i+MAP_W]===FLOOR) m=Math.max(m, cone[i+MAP_W]);
-    if (y>0        && grid[i-MAP_W]===FLOOR) m=Math.max(m, cone[i-MAP_W]);
-    cone[i] = Math.max(cone[i], m);
+    cone[i] = Math.max(cone[i], wallNeighbourMax(visionState.grid, cone, i));
   }
 
   combineMask(visionState, plumber, radar);
