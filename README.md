@@ -22,6 +22,8 @@ You are a **plumber**. A pipe has burst and the floor is flooding. Water flows d
 
 You view the space top-down with a 200° cone of vision. Anything outside your field of view or behind a wall is pitch black. Darkness isn't safety; unlit rooms still harbor whatever is hunting you. Activating the radar (`R`) overrides vision restrictions, instantly lighting the entire floor—including behind you—to reveal exits and warnings. However, the radar drains battery fast, so use it sparingly.
 
+Sprinting is fast but loud and uses stamina. You can sprint for five seconds from full stamina; recovering from empty takes five seconds when you stop requesting a sprint. At zero stamina, you walk until stamina recovers.
+
 Tall figures of coiled black wire live in the Complex. Dormant, they rest as a flat pile of loops on the carpet. They wake when they hear you, hunting ruthlessly by both sound and sight.
 
 ## 🕹️ Controls

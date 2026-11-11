@@ -87,6 +87,7 @@ Full definitions and the words to avoid are in `docs/GLOSSARY.md`.
 - **Standing spot**: the floor tile beside a leak where the plumber repairs (`sx`, `sy`).
 - **Repair and seal**: holding still at a standing spot fills `repair`. A full bar seals the leak (`fixed`). Do not say "fix" for this.
 - **Water and waterline**: wetness spreading from open leaks along walkable floor (`wetArr`, `wetFront`). The water is the main clue to where the leaks are.
+- **Stamina**: the plumber's sprint reserve (`plumber.stamina`). Sprinting drains it; it recovers when sprint is not requested. See `docs/GLOSSARY.md` for sprint and recovery behavior.
 - **Noise**: sound events with a power. `selfNoise` is the plumber's own noise. `leakTotal` is the leaks' noise. `LOUD` is the threshold that wakes sleepers and starts hunts.
 - **Lure**: an open leak's noise pulls SEARCHing lifeforms toward it.
 - **Floor**: one generated level map. `floorIdx` runs 0 to 4 and is shown as 1 to 5.

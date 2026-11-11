@@ -24,6 +24,16 @@ Avoid: "agent" (collides with AI agents), "monster", "enemy".
 - HUNT: chases the plumber or the source of a loud sound. Holds and turns for two seconds on arrival, then gives up after about eight seconds.
 Code: `state` field, values as above.
 
+## Movement and stamina
+
+**Sprint**
+Faster, loud movement requested by using the sprint control with movement input. At zero stamina, the plumber walks instead; requesting a sprint into a wall still consumes stamina.
+Code: `sprinting`, `sprintRequested`, `SPRINT`.
+
+**Stamina**
+The plumber's reserve for sprinting. Full stamina provides 5 seconds of sprinting, and recovery from empty takes 5 seconds. Stamina recovers when sprint is not requested, including when movement input stops.
+Code: `plumber.stamina`, `SPRINT_STAMINA`, `SPRINT_RECOVERY_SECONDS`.
+
 ## Leaks and water
 
 **Leak**
@@ -189,8 +199,12 @@ Code: `data-input` on `<html>`, `input:mode` event.
 On touch, the stick walks. Pushing it past a threshold sprints. The threshold is a setting (LIGHT, NORMAL, FIRM). It changes only when the stick sprints, not how loud sprinting is.
 Code: `pad`, `STICK.SPRINT_PRESETS`.
 
-**Diegetic ring**
+**Battery meter**
 The battery meter beside the plumber. It shows charge, and a radar scope when the radar is on. It appears while the radar is on or briefly after a battery pickup.
+Code: `render/passes/diegetic.js`.
+
+**Stamina meter**
+The running glyph and vertical tread strip beside the plumber. It fades away at full stamina, turns yellow below 50%, and turns red below 30%.
 Code: `render/passes/diegetic.js`.
 
 **Noise indicators**
