@@ -1,4 +1,4 @@
-import { LEAK_NOISE_BASE, LEAK_NOISE_GAIN, LOUD, REPAIR_NOISE, REPAIR_REACH } from '../config/constants.js';
+import { LEAK_NOISE_BASE, LEAK_NOISE_GAIN, LOUD, MAP_W, REPAIR_NOISE, REPAIR_REACH } from '../config/constants.js';
 import { REPAIR_TIME } from '../config/tuning.js';
 import { emit } from '../util/events.js';
 import { sustainedNoise } from './noise.js';
@@ -19,13 +19,57 @@ import { sustainedNoise } from './noise.js';
  * }} LeakState
  */
 
+/** Returns whether the stored open-leak count is positive. */
+export function hasOpenLeaks(state){
+  return state.openLeaks > 0;
+}
+
+/** Returns the standing tile indices of open leaks, in leak order. */
+export function openLeakSpots(state){
+  return state.leaks.filter(L => !L.fixed).map(L => L.sy*MAP_W + L.sx);
+}
+
+/** Returns the first open leak strictly within range of its standing spot. */
+export function firstOpenLeakWithin(state, x, y, maxDist){
+  for (const L of state.leaks){
+    if (!L.fixed && standingDistance(L, x, y) < maxDist) return L;
+  }
+  return null;
+}
+
+/** Returns the nearest open leak and its standing-spot distance, or null. */
+export function nearestOpenLeak(state, x, y){
+  let nearest = null, distance = Infinity;
+  for (const L of state.leaks){
+    if (L.fixed) continue;
+    const d = standingDistance(L, x, y);
+    if (d < distance){ nearest = L; distance = d; }
+  }
+  return nearest ? { leak: nearest, distance } : null;
+}
+
+function standingDistance(L, x, y){
+  return Math.hypot(x-(L.sx+0.5), y-(L.sy+0.5));
+}
+
+/** Restores sealed leaks after a same-seed floor rebuild, without emitting events. */
+export function restoreSealed(state, wasFixed){
+  state.leaks.forEach((L, i) => {
+    if (!wasFixed[i]) return;
+    L.fixed = true;
+    L.fixedAt = 0;
+    L.repair = 0;
+  });
+  state.openLeaks = state.leaks.filter(L => !L.fixed).length;
+}
+
 /* Returns the open leaks the player is close enough to work on, or null.
    Distance is measured to the standing spot, since the interaction is "put
    your hands on the pipe". */
 export function leakAt(leaks, x, y){
   for (const L of leaks){
     if (L.fixed) continue;
-    if (Math.hypot(L.sx+0.5-x, L.sy+0.5-y) < REPAIR_REACH) return L;
+    if (standingDistance(L, x, y) < REPAIR_REACH) return L;
   }
   return null;
 }
@@ -101,13 +145,9 @@ export function tickLeakNoise(leakState, dt){
        channel. It gets faster as you get closer, so "it is over there" and "it is
        here" sound different. Only the nearest open leak drips, because four at
        once would be a wall of sound with no direction in it. */
-    let ld = Infinity, near = null;
-    for (const L of leakState.leaks){
-      if (L.fixed) continue;
-      const d = Math.hypot(p.x-(L.x+0.5), p.y-(L.y+0.5));
-      if (d < ld){ ld = d; near = L; }
-    }
-    if (near && ld < 14){
+    const near = nearestOpenLeak(leakState, p.x, p.y);
+    if (near && near.distance < 14){
+      const ld = near.distance;
       leakState.leakDist = Math.min(leakState.leakDist, ld);
       p.dripT = (p.dripT||0) - dt;
       if (p.dripT <= 0){

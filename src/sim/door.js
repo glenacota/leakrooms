@@ -1,5 +1,6 @@
 import { DOOR_AJAR, DOOR_EASE, DOOR_HOLD, DOOR_NOISE } from '../config/constants.js';
 import { emit } from '../util/events.js';
+import { hasOpenLeaks } from './leaks.js';
 import { sustainedNoise } from './noise.js';
 
 /**
@@ -28,7 +29,7 @@ import { sustainedNoise } from './noise.js';
  */
 export function tickDoor(doorState, dt){
   const p = doorState.plumber;
-  const leakDone = doorState.openLeaks === 0;
+  const leakDone = !hasOpenLeaks(doorState);
   let onExit=false;
   if (leakDone){
     for (const e of doorState.exitTiles){

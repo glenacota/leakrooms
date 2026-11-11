@@ -13,6 +13,7 @@ import { LIFEFORM, CATCH_R, LEAK_LURE, MAP_W } from '../config/constants.js';
 import { HUNT_BASE } from '../config/tuning.js';
 import { emit } from '../util/events.js';
 import { createCollision } from './collision.js';
+import { firstOpenLeakWithin } from './leaks.js';
 import { brush } from './noise.js';
 import { distanceField, nextStep } from './path.js';
 
@@ -150,21 +151,17 @@ export function updateLifeform(lifeformState, lf, dt, p){
        toward a leak and not toward you, so the repair is done with a hunter
        coming from a known place.
 
-       With several leaks open, the nearest one takes the lifeform. A lifeform
-       standing at a leak you have not reached yet is a shield you do not have
-       yet, and it should not cross the building to a far leak.
+       Only a nearby leak can take the lifeform. A lifeform standing at a leak
+       you have not reached yet is a shield you do not have yet, and it should
+       not cross the building to a far leak.
 
        This applies to SEARCH only. A HUNT lifeform retargets only to LOUD
        sounds or the plumber's own noises (mine) — see noise.js alert().
        Quiet ambient sounds (leaks) do not pull a hunter off its chase; this
        preserves the sprint decision and the 8 s give-up timer. */
-    for (const L of lifeformState.leaks){
-      if (L.fixed) continue;
-      const ld = Math.hypot(lf.x-(L.sx+0.5), lf.y-(L.sy+0.5));
-      if (ld < LEAK_LURE && (!lf.target || Math.hypot(lf.x-lf.target.x,lf.y-lf.target.y)<0.6)){
-        lf.target = {x:L.sx+0.5, y:L.sy+0.5};
-        break;
-      }
+    if (!lf.target || Math.hypot(lf.x-lf.target.x,lf.y-lf.target.y)<0.6){
+      const L = firstOpenLeakWithin(lifeformState, lf.x, lf.y, LEAK_LURE);
+      if (L) lf.target = {x:L.sx+0.5, y:L.sy+0.5};
     }
     if (!lf.target || Math.hypot(lf.x-lf.target.x,lf.y-lf.target.y)<0.5){
       lf.target = randomFloorNear(lifeformState, lf.x,lf.y,7, blocked);

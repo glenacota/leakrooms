@@ -16,6 +16,7 @@
 
 import { FLOOR, LEAK_HEADSTART, LEAK_RETREAT, LEAK_SPREAD, MAP_H, MAP_W, WET_EDGE, WET_FALL, WET_RISE } from '../config/constants.js';
 import { emit } from '../util/events.js';
+import { hasOpenLeaks, openLeakSpots } from './leaks.js';
 import { distanceField } from './path.js';
 
 /**
@@ -45,7 +46,7 @@ import { distanceField } from './path.js';
 /* Sets up the flood for a new floor, and pre-warms it. Runs inside buildFloor. */
 export function initFlood(floodState, player) {
   floodState.wetArr = new Float32Array(MAP_W * MAP_H);
-  const sources = floodState.leaks.filter(L => !L.fixed).map(L => L.sy * MAP_W + L.sx);
+  const sources = openLeakSpots(floodState);
   const ff = distanceField(floodState.grid, sources);
   floodState.waterDist = ff.dist;
   floodState.wetByDist = ff.order;
@@ -155,7 +156,8 @@ export function tickFlood(floodState, dt) {
   if (!floodState.leaks.length || !floodState.wetArr) return;
 
   const prev = floodState.wetFront;
-  const front = floodState.openLeaks > 0
+  const open = hasOpenLeaks(floodState);
+  const front = open
     ? Math.min(floodState.wetMaxDist, prev + dt / LEAK_SPREAD)
     : Math.max(0, prev - dt / LEAK_RETREAT);
   floodState.wetFront = front;
@@ -169,7 +171,7 @@ export function tickFlood(floodState, dt) {
   const boundD = Math.max(floodState.wetEdgeD, Math.ceil(Math.max(prev, front)));
   const hi = floodState.wetIndexAtDist[Math.min(boundD + 1, floodState.wetIndexAtDist.length - 1)] - 1;
   if (hi < 0) return;
-  const tau = floodState.openLeaks > 0 ? WET_RISE : WET_FALL;
+  const tau = open ? WET_RISE : WET_FALL;
   const k = 1 - Math.exp(-dt / tau);
   /* With the front at zero there is no water at all, including on the pipe's
      own standing tile. "distance <= front" would say otherwise for distance 0. */

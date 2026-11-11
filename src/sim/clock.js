@@ -1,4 +1,5 @@
 import { emit } from '../util/events.js';
+import { hasOpenLeaks } from './leaks.js';
 import { tickNoiseDecay } from './noise.js';
 
 /**
@@ -39,7 +40,7 @@ export function tickClock(clockState, dt){
   if (clockState.clock <= 0){ emit('clock:out'); return false; }
   if (clockState.clock <= 30 && !clockState.clockAnnounced){
     clockState.clockAnnounced = true;
-    const msg = clockState.openLeaks > 0
+    const msg = hasOpenLeaks(clockState)
       ? 'THIRTY SECONDS \u2014 SEAL THE LEAK, THEN THE DOOR'
       : 'THIRTY SECONDS \u2014 GET TO THE DOOR';
     emit('flash', { cat: 'alert', text: msg });

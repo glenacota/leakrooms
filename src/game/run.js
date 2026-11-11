@@ -11,6 +11,7 @@ import { currentTerms } from '../settings/store.js';
 import { emit, on } from '../util/events.js';
 import { initFlood } from '../sim/flood.js';
 import { clearInput } from '../sim/keys.js';
+import { restoreSealed } from '../sim/leaks.js';
 import { G } from '../sim/state.js';
 import { buildFloor } from './floor.js';
 
@@ -243,15 +244,7 @@ export function retryFloor(){
      spreads from the leaks that are still open. */
   const wasFixed = G.leaks.map(L => L.fixed);
   buildFloor(floorIdx, RUN_SEED);
-  let fixedCount = 0;
-  G.leaks.forEach((L, i) => {
-    if (!wasFixed[i]) return;
-    L.fixed = true;
-    L.fixedAt = 0;
-    L.repair = 0;
-    fixedCount++;
-  });
-  G.openLeaks = Math.max(0, G.leaks.length - fixedCount);
+  restoreSealed(G, wasFixed);
   // Rebuild the flood now that the fixed flags are in place, so sealed leaks
   // stop being water sources.
   initFlood(G, G.plumber);
