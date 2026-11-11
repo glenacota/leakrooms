@@ -11,6 +11,16 @@ const { A, G, els, calls, store, press, askedIds } = await loadGame();
 const keys = A.keys;
 const buildFloor = A.buildFloor;
 
+test('the field manual illustrates and explains stamina', () => {
+  const html = readHtml();
+  assert.match(html, /<canvas id="manual-stamina"[^>]*width="54"[^>]*height="54"/);
+  assert.match(html, /Besides you while running \(go down\) or recovering \(go up\)\./);
+  assert.ok(calls.list.some(c => c[0] === 'rect' && c[1] === -3.5 && c[2] === 5.25 && c[3] === 7 && c[4] === 15.75),
+    'field manual stamina meter was not drawn at 75%');
+  assert.ok(calls.list.some(c => c[0] === 'stroke' && c.style === '#8fd07a' && c.width === 3.5),
+    'field manual stamina glyph was not drawn in green');
+});
+
 
 /* Two splash frames sit in front of the game, so the path a player walks to reach
    the first frame is part of the build: which screen is up, what each key does,

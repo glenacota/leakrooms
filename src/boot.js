@@ -30,13 +30,14 @@ import { setFatalHook, setFrameHooks } from './game/loop.js';
 import { adaptResolution } from './render/adaptive.js';
 import { render, setSimAlpha } from './render/render.js';
 import { drawBatteryMeter } from './render/battery-meter.js';
+import { drawStaminaMeter } from './render/stamina-meter.js';
 import { drawNoiseGlow, drawNoisePlumber, drawNoiseRipple } from './render/noise-visuals.js';
 import { glowAlpha, glowRadius, glowRgb, glowStops, isRedRing, maxRadius, ringAlpha, ringLife, ringRadius } from './render/passes/ripples.js';
 import { updateHUD, tickTouchHud } from './ui/hud.js';
 import { loadSettings } from './settings/store.js';
 import { RUN_SEED } from './game/run.js';
 import { frame } from './game/loop.js';
-import { NOISE_FS, REPAIR_NOISE, RENDER_START_IDX_HANDHELD, TILE } from './config/constants.js';
+import { NOISE_FS, REPAIR_NOISE, RENDER_START_IDX_HANDHELD, SPRINT_STAMINA, TILE } from './config/constants.js';
 
 /**
  * Shows the "SYSTEM FAULT" card when the game hits an error it cannot recover
@@ -76,6 +77,14 @@ export function boot(){
   meterCtx.globalAlpha = 0.75;
   drawBatteryMeter(meterCtx, 0, 0, 83, true, -Math.PI/3);
   meterCtx.restore();
+  const manualStamina = document.getElementById('manual-stamina');
+  const staminaCtx = manualStamina.getContext('2d');
+  if (!staminaCtx) throw new Error('2D canvas context unavailable for manual stamina meter');
+  staminaCtx.save();
+  staminaCtx.translate(27, 27);
+  staminaCtx.scale(1.3, 1.3);
+  drawStaminaMeter(staminaCtx, 0, 0, SPRINT_STAMINA * 0.75);
+  staminaCtx.restore();
   const manualNoise = document.getElementById('manual-noise');
   const noiseCtx = manualNoise.getContext('2d');
   if (!noiseCtx) throw new Error('2D canvas context unavailable for manual noise indicator');

@@ -216,7 +216,7 @@
                 <h3>CONTROLS</h3>
                 <div class="controls controls-big kbd-only">
                   <div><b>WASD / arrows</b><span>move</span></div>
-                  <div><b>SHIFT</b><span>sprint (loud; drains stamina)</span></div>
+                  <div><b>SHIFT</b><span>sprint</span></div>
                   <div><b>R</b><span>radar</span></div>
                   <div><b>M</b><span>mute</span></div>
                   <div><b>F</b><span>fullscreen</span></div>
@@ -224,7 +224,7 @@
                 </div>
                 <div class="controls controls-big touch-only">
                   <div><b>LEFT THUMB</b><span>drag to move</span></div>
-                  <div><b>TO THE EDGE</b><span>push to sprint (loud; drains stamina)</span></div>
+                  <div><b>TO THE EDGE</b><span>push to sprint</span></div>
                   <div><b>LIFT</b><span>hold still to seal</span></div>
                   <div><b>RADAR</b><span>corner button</span></div>
                   <div><b>II</b><span>pause</span></div>
@@ -237,6 +237,7 @@
                   <li><i class="lg lg-lives">&#9679;&#9679;&#9675;</i><span><b>LIVES</b> </span></li>
                   <li><i class="lg crt-leaks"><span class="done"></span><span class="open"></span></i><span><b>LEAKS SEALED</b></span></li>
                   <li><canvas id="manual-battery" class="lg-battery" width="54" height="54" aria-hidden="true"></canvas><span><b>RADAR BATTERY</b> Beside you while radar is on or after battery pickup.</span></li>
+                  <li><canvas id="manual-stamina" class="lg-stamina" width="54" height="54" aria-hidden="true"></canvas><span><b>STAMINA</b> Besides you while running (go down) or recovering (go up).</span></li>
                   <li><canvas id="manual-noise" class="lg-noise" width="54" height="54" aria-hidden="true"></canvas><span><b>NOISE CLUES</b> Red glow and wide ripples mean you're loud.</span></li>
                   <li><i class="lg lg-seen" aria-hidden="true"></i><span><b>RED SCREEN EDGES</b> A lifeform is hunting you.</span></li>
                 </ul>
@@ -253,7 +254,7 @@
                 <h3>STEALTH</h3>
                 <ul class="notes">
                   <li><b>Lifeforms hunt by sound.</b> Walking is quiet, but running, using the radar, and sealing attract them.</li>
-                  <li><b>The running gauge beside you shows stamina.</b> Release the sprint control to refill it.</li>
+                  <li><b>Sprinting drains stamina.</b> Stop or walk to recover.</li>
                   <li><b>They can see, too.</b> Up close, standing still won't hide you.</li>
                 </ul>
               </section>

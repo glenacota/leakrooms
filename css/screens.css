@@ -105,6 +105,7 @@
 }
 .lg-lives{ color:var(--danger); letter-spacing:.1em; }
 .lg-battery{ width:54px; height:54px; min-height:54px; border:0; background:none; }
+.lg-stamina{ display:block; width:54px; height:54px; min-width:54px; min-height:54px; border:0; background:none; }
 .lg-noise{ display:block; width:54px; height:54px; min-height:54px; border:0; background:none; }
 .lg-seen{
   width:54px; height:24px; border:0; background:
