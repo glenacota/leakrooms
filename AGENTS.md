@@ -108,13 +108,6 @@ Pick the smallest suite that covers your change.
 - New API accessors for tests go in `tests/helpers/api.js`. `loadGame()` in `harness.js` returns `A`, `G` and `els`.
 - The harness keeps one window listener per event type. Do not add window listeners in tests.
 
-## Conventions
-
-- Files are kebab-case. Frozen constants are `SCREAMING_SNAKE_CASE`. Mutable module state is module-scoped `let`.
-- Prefer named exports. Use JSDoc for public exports.
-- Comments are plain English. Explain why, not what. Keep them short. Give every tuning number a reason. Avoid filler such as "seamlessly", "robust" or "leverage".
-- Before renaming an export, grep for every import and every test that uses it.
-
 ## Cost and context budget
 
 - Keep this file under about 150 lines. Put detail in `docs/` and link to it. Read the linked file only when the task needs it.
