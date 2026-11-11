@@ -58,6 +58,7 @@ export function update(state, dt){
   if (!tickClock(state, dt)) return;
   tickBattery(state, state.plumber, state.batteries, dt);
   const mv = tickMovement(state.plumber, state.grid, state, dt);
+  if (mv.sprinting && dt > 0) emit('sprint', state.floor);
   state.wet = mv.wet;                  // the tile the plumber is standing on now
 
   /* Room-scoped light. It runs AFTER movement, so the room you just walked into

@@ -1,10 +1,11 @@
-import { LOUD } from '../config/constants.js';
+import { LOUD, SPRINT_STAMINA } from '../config/constants.js';
 import { REPAIR_TIME } from '../config/tuning.js';
 import { STATE } from '../game/run.js';
 import { G } from '../sim/state.js';
 import { emit, on } from '../util/events.js';
 
 const announced = new Set();
+const sprintFloors = new Set();
 
 /* Floor-1 teaching flags. Module state, not floor's. */
 let f1Wet = false, f1Stand = false, f1Door = false;
@@ -87,11 +88,18 @@ export function bindHints(){
   on('state', () => {
     if (STATE === 'splash'){
       announced.clear();
+      sprintFloors.clear();
       f1Wet = f1Stand = f1Door = false;
       radarAnnounced = false;
       doorSince = 0;
       doorLast = -1e9;
     }
+  });
+  on('run:start', () => sprintFloors.clear());
+  on('sprint', floor => {
+    if (sprintFloors.has(floor)) return;
+    sprintFloors.add(floor);
+    emit('flash', { cat: 'guide', text: `RUNNING DRAINS ENERGY (${SPRINT_STAMINA} SEC MAX). WALK TO RECOVER` });
   });
   on('heard', ({ to }) => {
     const msg = to === 'RISING' ? 'SOMETHING WOKE UP'

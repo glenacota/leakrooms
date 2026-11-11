@@ -223,6 +223,7 @@ export function resetRun(){
 export function startRun(){
   /* The seed is not rolled here: the plan behind the title has to be the level
      the player is about to play. A finished run rolls its own (see rollRunSeed). */
+  emit('run:start');
   setRunLives(currentTerms().lives);
   setLives(runLives); setFloorIdx(0); setRunTime(0);
   // A new run gets a new tally, so the win card never shows the previous run.
