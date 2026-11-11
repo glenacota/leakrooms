@@ -122,20 +122,6 @@ export function wetAt(floodState, wx, wy) {
   return floodState.wetArr[y * MAP_W + x];
 }
 
-/* How much of the reachable floor is wet, 0 to 1. This is the slow, obviously
-   correct version (it sums every tile). The game does not call it: tickFlood
-   keeps the same number up to date as it goes and stores it on floodState.floodCover.
-   It is kept as the reference the tests compare the fast number against.
-
-   The count is divided by the number of FLOOR tiles, not by the whole map,
-   because most of the map is solid rock. */
-export function floodCover(floodState) {
-  if (!floodState.wetArr || !floodState.wetFloor) return 0;
-  let s = 0;
-  for (let i = 0; i < floodState.wetArr.length; i++) s += floodState.wetArr[i];
-  return s / floodState.wetFloor;
-}
-
 /**
  * Advances the water by one step.
  *

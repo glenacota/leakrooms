@@ -13,7 +13,7 @@ import { keys } from '../../src/sim/keys.js';
 import { createCollision } from '../../src/sim/collision.js';
 import { hearRadius, alertLifeforms, emitNoise, sustainedNoise, tickNoiseDecay, brush, alert, wallSteps, MAX_WALL_STEPS } from '../../src/sim/noise.js';
 import { distanceField } from '../../src/sim/path.js';
-import { initFlood, seedSplash, wetAt, tickFlood, floodCover } from '../../src/sim/flood.js';
+import { initFlood, seedSplash, wetAt, tickFlood } from '../../src/sim/flood.js';
 import { tickBattery, tickMovement } from '../../src/sim/plumber.js';
 import { tickLeakNoise, tickRepair, sealLeak, leakAt, leakReach } from '../../src/sim/leaks.js';
 import { tickClock } from '../../src/sim/clock.js';
@@ -101,7 +101,7 @@ tickLifeforms, updateLifeform, randomFloorNear,
 tickClock,
 tickDoor,
 tickRadarReveal,
-tickFlood, wetAt, floodCover, sealLeak, leakReach, leakAt, initFlood, packWet,
+tickFlood, wetAt, sealLeak, leakReach, leakAt, initFlood, packWet,
 hearRadius, sustainedNoise,
 Audio_,
 get SETTINGS(){ return SETTINGS; },
@@ -174,7 +174,6 @@ initFlood: () => initFlood(G, G.plumber),
 seedSplash: (wx, wy, amount) => seedSplash(G, wx, wy, amount),
 wetAt: (wx, wy) => wetAt(G, wx, wy),
 tickFlood: (dt) => tickFlood(G, dt),
-floodCover: () => floodCover(G),
 
 /* Vision wrappers - G serves as VisionState */
 traceViewCone: (force) => { /* HAND_OFF */ return traceViewCone(G, G.plumber, G.radar, force); },

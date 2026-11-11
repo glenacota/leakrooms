@@ -104,13 +104,3 @@ export function nextStep(field, x, y){
   }
   return best;
 }
-
-/**
- * Counts how many tiles in the field were visited (value >= 0).
- * Useful for tests to assert the BFS visited at most MAP_W * MAP_H tiles.
- */
-export function visitedCount(field){
-  let n = 0;
-  for (let i = 0; i < field.length; i++) if (field[i] >= 0) n++;
-  return n;
-}
