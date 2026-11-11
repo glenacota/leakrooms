@@ -1,4 +1,4 @@
-import { BATT_MAX, NOISE, RADAR_DRAIN, PLUMBER, SPRINT, WALK } from '../config/constants.js';
+import { BATT_MAX, NOISE, RADAR_DRAIN, PLUMBER, SPRINT, SPRINT_RECOVERY_SECONDS, SPRINT_STAMINA, WALK } from '../config/constants.js';
 import { emit } from '../util/events.js';
 import { createCollision } from './collision.js';
 import { seedSplash, wetAt } from './flood.js';
@@ -18,6 +18,7 @@ const PULSE_FOR = 1;
  *   stepT: number,
  *   stepDur: number,
  *   moving: boolean,
+ *   stamina: number,
  *   px: number,
  *   py: number,
  *   rippleT?: number,
@@ -86,7 +87,14 @@ export function tickMovement(plumber, grid, floodState, dt){
      change a step after you leave the water.) */
   const preWet = wetAt(floodState, plumber.x, plumber.y);
 
-  const sprinting = (keys['shift'] || pad.sprint) && (ix||iy);
+  const sprintRequested = (keys['shift'] || pad.sprint) && (ix||iy);
+  const sprinting = sprintRequested && plumber.stamina > 0;
+  if (sprinting){
+    plumber.stamina = Math.max(0, plumber.stamina - dt);
+    if (plumber.stamina < 1e-9) plumber.stamina = 0;
+  } else if (!sprintRequested){
+    plumber.stamina = Math.min(SPRINT_STAMINA, plumber.stamina + dt * SPRINT_STAMINA / SPRINT_RECOVERY_SECONDS);
+  }
   const wade = preWet > 0.25 ? 0.80 : 1;       // knee-deep water costs you a fifth of your speed
   const spd = (sprinting ? SPRINT : WALK) * wade;
   let moving=false, bumped=false;

@@ -16,8 +16,16 @@ import { G } from '../../sim/state.js';
 import { simAlpha } from './actors.js';
 import { ctx, SCALE } from '../canvas.js';
 import { TAU } from '../../cast/primitives.js';
-import { TILE } from '../../config/constants.js';
+import { SPRINT_STAMINA, TILE } from '../../config/constants.js';
 import { drawBatteryMeter } from '../battery-meter.js';
+
+const STAMINA_CELLS = 5;
+const STAMINA_RADIUS = 0.38;
+const STAMINA_DANGER = '#d8503c';
+const STAMINA_GREEN = '#8fd07a';
+const STAMINA_UNLIT = 'rgba(230,235,200,0.18)';
+const STAMINA_DISC = 'rgba(12,14,10,0.7)';
+const STAMINA_OUTLINE = 'rgba(12,14,10,0.9)';
 
 /* How far above the plumber's centre the battery ring sits, in tiles. */
 const BATT_Y = 0.3;
@@ -34,6 +42,7 @@ const HUD_OPACITY = 0.75;
 
 /* How visible the battery ring is, 0 to 1. Render-only. */
 let battAlpha = 0;
+let staminaAlpha = 0;
 
 /* The radar scope inside the battery ring, drawn faint behind the label: a line that turns once every
    SCOPE_TURN seconds, dragging a fading trail SCOPE_TRAIL radians long behind
@@ -46,6 +55,39 @@ let scopeAngle = 0;
 // Moves a fade value toward its target at the fade-in or fade-out speed.
 function fade(a, on, dt){
   return on ? Math.min(1, a + dt/FADE_IN) : Math.max(0, a - dt/FADE_OUT);
+}
+
+function drawStaminaMeter(cx, cy, stamina){
+  const r = STAMINA_RADIUS*TILE;
+  const progress = Math.max(0, Math.min(1, stamina/SPRINT_STAMINA));
+  const lit = Math.ceil(progress*STAMINA_CELLS - 1e-9);
+  const color = stamina === 0 ? STAMINA_DANGER : STAMINA_GREEN;
+  const span = TAU/STAMINA_CELLS;
+  const trim = 3*Math.PI/180;
+
+  ctx.fillStyle = STAMINA_DISC;
+  ctx.beginPath(); ctx.arc(cx, cy, r + 3, 0, TAU); ctx.fill();
+  ctx.lineWidth = 2;
+  for (let i = 0; i < STAMINA_CELLS; i++){
+    const a0 = -Math.PI/2 + i*span + trim;
+    ctx.strokeStyle = i < lit ? color : STAMINA_UNLIT;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, a0, a0 + span - 2*trim);
+    ctx.stroke();
+  }
+
+  const label = `${Math.ceil(stamina)}s`;
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = 'bold 10px "Courier New", Courier, monospace';
+  ctx.lineJoin = 'round';
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = STAMINA_OUTLINE;
+  ctx.strokeText(label, cx, cy);
+  ctx.fillStyle = color;
+  ctx.fillText(label, cx, cy);
+  ctx.restore();
 }
 
 /**
@@ -61,13 +103,16 @@ export function diegetic(rc){
   const batt = G.batt || 0;
   const radar = !!G.radar;
   const pulse = (G.battPulseT || 0) > 0;
+  const stamina = G.plumber.stamina;
+  const showStamina = stamina < SPRINT_STAMINA;
 
   battAlpha = fade(battAlpha, radar || pulse, rc.dt);
+  staminaAlpha = fade(staminaAlpha, showStamina, rc.dt);
 
   // The scope's line only turns while the radar is on.
   if (radar) scopeAngle = (scopeAngle + rc.dt*TAU/SCOPE_TURN) % TAU;
 
-  if (battAlpha <= 0) return;
+  if (battAlpha <= 0 && staminaAlpha <= 0) return;
 
   /* Smoothed position, the same interpolation the actors pass uses, so the
      ring stays locked to the plumber's drawn figure rather than snapping. */
@@ -84,7 +129,13 @@ export function diegetic(rc){
   ctx.setTransform(SCALE,0,0,SCALE,0,0);
   ctx.translate(rc.tx, rc.ty);
   ctx.globalCompositeOperation = 'source-over';
-  ctx.globalAlpha = battAlpha * HUD_OPACITY;
-  drawBatteryMeter(ctx, bx, by, batt, radar, scopeAngle);
+  if (battAlpha > 0){
+    ctx.globalAlpha = battAlpha * HUD_OPACITY;
+    drawBatteryMeter(ctx, bx, by, batt, radar, scopeAngle);
+  }
+  if (staminaAlpha > 0){
+    ctx.globalAlpha = staminaAlpha * HUD_OPACITY;
+    drawStaminaMeter((px - SIDE)*TILE, by, stamina);
+  }
   ctx.restore();
 }

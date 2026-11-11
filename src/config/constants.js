@@ -49,6 +49,8 @@ export const DOOR_EASE = 6;        // how quickly the door leaf moves toward its
 /* ---------- Movement and bodies ---------- */
 export const WALK   = 3.3;               // tiles per second
 export const SPRINT = 6.0;
+export const SPRINT_STAMINA = 5;        // seconds of uninterrupted sprint
+export const SPRINT_RECOVERY_SECONDS = 5; // seconds to refill from empty without sprint input
 
 /* The on-screen stick (touch). First-guess numbers: tune them on a real device. */
 export const STICK = Object.freeze({

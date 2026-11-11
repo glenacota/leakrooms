@@ -3,7 +3,7 @@
    One factory per domain object behind the G facade.
    ============================================================ */
 
-import { BATT_MAX, DARK_ROOM, MAP_H, MAP_W, WALL } from '../config/constants.js';
+import { BATT_MAX, DARK_ROOM, MAP_H, MAP_W, SPRINT_STAMINA, WALL } from '../config/constants.js';
 import { FLOOR_CLOCK } from '../config/tuning.js';
 import { makeLos } from '../util/grid.js';
 import { mulberry32 } from '../util/rng.js';
@@ -71,7 +71,7 @@ export function createLeakState(level) {
  */
 export function createPlumberState(level) {
   return {
-    plumber: { x: level.spawn.x, y: level.spawn.y, face: -Math.PI / 2, stepT: 0, stepDur: 0.46, moving: false },
+    plumber: { x: level.spawn.x, y: level.spawn.y, face: -Math.PI / 2, stepT: 0, stepDur: 0.46, moving: false, stamina: SPRINT_STAMINA },
     batt: BATT_MAX,
     radar: false,
     radarRattleT: 0,
