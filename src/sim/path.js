@@ -9,51 +9,73 @@ import { MAP_W, MAP_H, FLOOR } from '../config/constants.js';
 const NEIGHBOURS = [[1,0], [-1,0], [0,1], [0,-1]];
 
 /**
- * Builds a walking-distance field over floor tiles.
- * Numeric target coordinates preserve the single-source API. An array of
- * source tile indices or {x,y} tiles returns both distances and BFS visit order.
+ * Traverses floor tiles in neighbour order. Depth-first traversal preserves the
+ * maze generator's component order; distances are shortest only in FIFO order.
  *
  * @param {Uint8Array} grid
- * @param {number|Array<number|{x:number,y:number}>} targetX - target X or sources
- * @param {number} [targetY]
- * @returns {Int16Array|{dist:Int32Array,order:number[]}}
+ * @param {Iterable<number|{x:number,y:number}>} sources
+ * @param {object} [options]
+ * @param {(index:number, from:number)=>boolean} [options.canEnter] - restrict floor tiles.
+ * @param {(index:number, distance:number)=>boolean} [options.stopAt] - stop when a tile is removed from the queue.
+ * @param {(index:number, from:number)=>number} [options.cost] - 1 for a step, Infinity to block it.
+ * @param {boolean} [options.depthFirst] - use a stack instead of a queue.
+ * @returns {{dist:Int32Array,order:number[]}} Distances include queued tiles when stopped early.
  */
-export function distanceField(grid, targetX, targetY){
+export function traverseFloor(grid, sources, {canEnter, stopAt, cost, depthFirst=false}={}){
   const size = MAP_W * MAP_H;
-  const multi = Array.isArray(targetX) ||
-    (ArrayBuffer.isView(targetX) && typeof targetX[Symbol.iterator] === 'function');
-  const dist = multi ? new Int32Array(size) : new Int16Array(size);
+  const dist = new Int32Array(size);
   dist.fill(-1);
   const order = [];
   const queue = new Uint32Array(size);
   let head = 0, tail = 0;
 
-  const sources = multi ? targetX : [{
-    x: Math.floor(targetX), y: Math.floor(targetY)
-  }];
   for (const source of sources){
-    const idx = multi
-      ? (typeof source === 'number' ? source : Math.floor(source.y)*MAP_W+Math.floor(source.x))
-      : source.y*MAP_W+source.x;
-    if (!Number.isInteger(idx) || idx<0 || idx>=size || grid[idx]!==FLOOR || dist[idx]===0) continue;
+    const idx = typeof source === 'number' ? source : Math.floor(source.y)*MAP_W+Math.floor(source.x);
+    if (!Number.isInteger(idx) || idx<0 || idx>=size || grid[idx]!==FLOOR ||
+        dist[idx]===0 || (canEnter && !canEnter(idx, -1))) continue;
     dist[idx]=0;
     queue[tail++]=idx;
-    order.push(idx);
   }
 
-  while (head<tail){
-    const idx=queue[head++], x=idx%MAP_W, y=(idx/MAP_W)|0, nd=dist[idx]+1;
+  while (depthFirst ? tail>0 : head<tail){
+    const idx=depthFirst ? queue[--tail] : queue[head++];
+    order.push(idx);
+    if (stopAt && stopAt(idx, dist[idx])) break;
+    const x=idx%MAP_W, y=(idx/MAP_W)|0, nd=dist[idx]+1;
     for (const [dx,dy] of NEIGHBOURS){
       const nx=x+dx, ny=y+dy;
       if (nx<0 || nx>=MAP_W || ny<0 || ny>=MAP_H) continue;
       const nidx=ny*MAP_W+nx;
-      if (dist[nidx]!==-1 || grid[nidx]!==FLOOR) continue;
+      if (dist[nidx]!==-1 || grid[nidx]!==FLOOR || (canEnter && !canEnter(nidx, idx))) continue;
+      if (cost){
+        const step = cost(nidx, idx);
+        if (step === Infinity) continue;
+        if (step !== 1) throw new RangeError('Traversal cost must be 1 or Infinity');
+      }
       dist[nidx]=nd;
       queue[tail++]=nidx;
-      order.push(nidx);
     }
   }
-  return multi ? {dist, order} : dist;
+  return {dist, order};
+}
+
+/**
+ * Builds a walking-distance field over floor tiles.
+ * Numeric target coordinates preserve the single-source API. An iterable of
+ * sources returns distances and BFS visit order.
+ *
+ * @param {Uint8Array} grid
+ * @param {number|Iterable<number|{x:number,y:number}>} targetX
+ * @param {number|object} [targetY] - target Y or options for multi-source BFS.
+ * Options may provide `canEnter`, `stopAt` and unit-step `cost` callbacks as
+ * documented by traverseFloor(). A stopped field can include queued tiles.
+ * @returns {Int16Array|{dist:Int32Array,order:number[]}}
+ */
+export function distanceField(grid, targetX, targetY){
+  const multi = typeof targetX !== 'number';
+  const sources = multi ? targetX : [{x: Math.floor(targetX), y: Math.floor(targetY)}];
+  const result = traverseFloor(grid, sources, multi ? targetY : undefined);
+  return multi ? result : Int16Array.from(result.dist);
 }
 
 /**

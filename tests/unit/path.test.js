@@ -6,7 +6,53 @@ import { loadGame } from '../helpers/harness.js';
 const { A, G } = await loadGame();
 const buildFloor = A.buildFloor;
 const { MAP_W, MAP_H, FLOOR } = await import('../../src/config/constants.js');
-const { distanceField, nextStep, visitedCount } = await import('../../src/sim/path.js');
+const { distanceField, nextStep, traverseFloor, visitedCount } = await import('../../src/sim/path.js');
+
+test('multi-source traversal keeps breadth-first order and nearest distances', () => {
+  const grid = new Uint8Array(MAP_W * MAP_H);
+  const a = MAP_W + 1, b = a + 4;
+  for (let i = a; i <= b; i++) grid[i] = FLOOR;
+  const { dist, order } = distanceField(grid, [a, b, a]);
+  assert.deepEqual(order, [a, b, a + 1, b - 1, a + 2]);
+  assert.deepEqual(order.map(i => dist[i]), [0, 0, 1, 1, 2]);
+});
+
+test('multi-source traversal accepts tile coordinates and typed arrays', () => {
+  const grid = new Uint8Array(MAP_W * MAP_H);
+  const a = MAP_W + 1, b = a + 1;
+  grid[a] = grid[b] = FLOOR;
+  assert.deepEqual(distanceField(grid, [{x: 1.5, y: 1.5}, {x: 2, y: 1}]).order, [a, b]);
+  assert.deepEqual(distanceField(grid, new Uint32Array([a, b])).order, [a, b]);
+  assert.deepEqual(distanceField(grid, []).order, []);
+});
+
+test('traversal applies tile restrictions, unit costs and stop-on-dequeue', () => {
+  const grid = new Uint8Array(MAP_W * MAP_H);
+  const a = MAP_W + 1, right = a + 1, down = a + MAP_W;
+  for (const i of [a, right, right + 1, down, down + MAP_W]) grid[i] = FLOOR;
+
+  const restricted = distanceField(grid, [a], {canEnter: i => i !== right});
+  assert.deepEqual(restricted.order, [a, down, down + MAP_W]);
+  assert.equal(restricted.dist[right], -1);
+  const blocked = distanceField(grid, [a], {cost: i => i === right ? Infinity : 1});
+  assert.deepEqual(blocked.order, restricted.order);
+  assert.throws(() => distanceField(grid, [a], {cost: () => 2}), RangeError);
+
+  const stopped = distanceField(grid, [a], {stopAt: i => i === right});
+  assert.deepEqual(stopped.order, [a, right]);
+  assert.equal(stopped.dist[down], 1);
+  assert.equal(stopped.dist[right + 1], -1);
+  assert.deepEqual(distanceField(grid, [a], {stopAt: () => true}).order, [a]);
+  assert.deepEqual(distanceField(grid, [a], {canEnter: () => false}).order, []);
+});
+
+test('depth-first traversal preserves mark-on-push and pop order', () => {
+  const grid = new Uint8Array(MAP_W * MAP_H);
+  const a = MAP_W + 1;
+  for (const i of [a, a + 1, a + MAP_W, a + MAP_W + 1]) grid[i] = FLOOR;
+  const { order } = traverseFloor(grid, [a], {depthFirst: true});
+  assert.deepEqual(order, [a, a + MAP_W, a + MAP_W + 1, a + 1]);
+});
 
 /* Unreachable tiles (walls, off-map) give -1. */
 test('unreachable tiles give -1', () => {

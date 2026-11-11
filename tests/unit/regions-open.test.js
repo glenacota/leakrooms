@@ -5,6 +5,18 @@ import { labelRegions } from '../../src/sim/regions.js';
 import { FLOOR, MAP_H, MAP_W } from '../../src/config/constants.js';
 import { mulberry32 } from '../../src/util/rng.js';
 
+test('room tiles separate corridor regions', () => {
+  const grid = new Uint8Array(MAP_W * MAP_H);
+  const x = 2;
+  for (let y = 1; y <= 5; y++) grid[y * MAP_W + x] = FLOOR;
+  const { regionOf, regionAdj, regionCount } = labelRegions({
+    grid, rooms: [{rx: x, ry: 3, rw: 1, rh: 1}],
+  });
+  assert.equal(regionCount, 3);
+  assert.deepEqual([1, 2, 3, 4, 5].map(y => regionOf[y * MAP_W + x]), [1, 1, 0, 2, 2]);
+  assert.deepEqual(regionAdj, [[1, 2], [0], [0]]);
+});
+
 test('an open 3x3 block of floor is never split across regions', () => {
   for (let seed=1; seed<=60; seed++){
     const { grid, rooms } = genMaze(mulberry32(seed));

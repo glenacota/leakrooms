@@ -1,4 +1,5 @@
 import { FLOOR, HOP_FALL, MAP_H, MAP_W } from '../config/constants.js';
+import { distanceField } from './path.js';
 
 /**
  * Splits the floor into "regions" and works out which regions touch.
@@ -38,16 +39,8 @@ export function labelRegions(level) {
     const i0 = y * MAP_W + x;
     if (at(x, y) !== FLOOR || regionOf[i0] >= 0) continue;
     const id = nRegions++;
-    const stack = [i0]; regionOf[i0] = id;
-    while (stack.length) {
-      const c = stack.pop(), cx = c % MAP_W, cy = (c / MAP_W) | 0;
-      for (const [nx, ny] of [[cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]]) {
-        if (nx < 0 || ny < 0 || nx >= MAP_W || ny >= MAP_H) continue;
-        const ni = ny * MAP_W + nx;
-        if (at(nx, ny) !== FLOOR || regionOf[ni] >= 0) continue;
-        regionOf[ni] = id; stack.push(ni);
-      }
-    }
+    const { order } = distanceField(grid, [i0], {canEnter: i => regionOf[i] < 0});
+    for (const i of order) regionOf[i] = id;
   }
   /* ---------- Open spaces ----------
      Rooms the generator left touching, and floor that cleanup opened up outside

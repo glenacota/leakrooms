@@ -1,5 +1,6 @@
 import { MAP_W, MAP_H, WALL, FLOOR, MIN_WALL } from '../config/constants.js';
 import { MAZE_DENSITY } from '../config/tuning.js';
+import { traverseFloor } from './path.js';
 
 /* The maze knob. Each lever runs from its value at density 0 (open rooms, many
    loops) to its value at density 1 (small rooms, many dead ends). Density is
@@ -28,6 +29,53 @@ export function mazeParams(density){
     gate2: at(LEVERS.gate2), shortcuts: Math.round(at(LEVERS.shortcuts)),
     islandMin: Math.round(at(LEVERS.islandMin)), openMax: Math.round(at(LEVERS.openMax)),
   };
+}
+
+/**
+ * Connects disconnected floor components with L-shaped tunnels in place.
+ * @param {Uint8Array} grid
+ */
+export function connectComponents(grid){
+  const idx = (x,y)=> y*MAP_W + x;
+  const label = new Int32Array(MAP_W*MAP_H).fill(-1);
+  const comps = [];
+  for (let y=0;y<MAP_H;y++) for (let x=0;x<MAP_W;x++){
+    const i0 = idx(x,y);
+    if (grid[i0]!==FLOOR || label[i0]>=0) continue;
+    const cid = comps.length;
+    const { order: cells } = traverseFloor(grid, [i0], {depthFirst:true});
+    for (const c of cells) label[c]=cid;
+    comps.push(cells);
+  }
+  if (comps.length > 1){
+    let main=0;
+    for (let c=1;c<comps.length;c++) if (comps[c].length>comps[main].length) main=c;
+    const inMain = new Uint8Array(MAP_W*MAP_H);
+    for (const c of comps[main]) inMain[c]=1;
+    for (let cid=0; cid<comps.length; cid++){
+      if (cid===main) continue;
+      for (const c of comps[cid]){
+        if (inMain[c]) continue;
+        const cx=c%MAP_W, cy=(c/MAP_W)|0;
+        // Find the closest tile that is already connected
+        let best=null, bd=1e9;
+        for (const m of comps[main]){
+          const mx=m%MAP_W, my=(m/MAP_W)|0;
+          const d=(mx-cx)**2+(my-cy)**2;
+          if (d<bd){ bd=d; best=[mx,my]; }
+          if (bd<=4) break;
+        }
+        if (!best) continue;
+        // An L-shaped tunnel from this tile to the connected one
+        let x=cx, y=cy;
+        while (x!==best[0]){ grid[idx(x,y)]=FLOOR; inMain[idx(x,y)]=1; x+=Math.sign(best[0]-x); }
+        while (y!==best[1]){ grid[idx(x,y)]=FLOOR; inMain[idx(x,y)]=1; y+=Math.sign(best[1]-y); }
+        grid[idx(x,y)]=FLOOR; inMain[idx(x,y)]=1;
+      }
+      // Everything just joined now counts as part of the main area
+      for (const c of comps[cid]) if (inMain[c]) comps[main].push(c);
+    }
+  }
 }
 
 /**
@@ -192,55 +240,7 @@ export function genMaze(rng, density=MAZE_DENSITY){
      A safety net. Label every connected group of floor, then tunnel from any
      group that is cut off straight toward the main one until the whole floor is
      a single area. */
-  const label = new Int32Array(MAP_W*MAP_H).fill(-1);
-  const comps = [];
-  for (let y=0;y<MAP_H;y++) for (let x=0;x<MAP_W;x++){
-    const i0 = idx(x,y);
-    if (grid[i0]!==FLOOR || label[i0]>=0) continue;
-    const cid = comps.length, stack=[i0], cells=[];
-    label[i0]=cid;
-    while(stack.length){
-      const c = stack.pop(); cells.push(c);
-      const cx=c%MAP_W, cy=(c/MAP_W)|0;
-      const nb=[c+1,c-1,c+MAP_W,c-MAP_W];
-      const ok=[cx<MAP_W-1, cx>0, cy<MAP_H-1, cy>0];
-      for(let k=0;k<4;k++){
-        if(!ok[k]) continue;
-        const ni=nb[k];
-        if(grid[ni]===FLOOR && label[ni]<0){ label[ni]=cid; stack.push(ni); }
-      }
-    }
-    comps.push(cells);
-  }
-  if (comps.length > 1){
-    let main=0;
-    for (let c=1;c<comps.length;c++) if (comps[c].length>comps[main].length) main=c;
-    const inMain = new Uint8Array(MAP_W*MAP_H);
-    for (const c of comps[main]) inMain[c]=1;
-    for (let cid=0; cid<comps.length; cid++){
-      if (cid===main) continue;
-      for (const c of comps[cid]){
-        if (inMain[c]) continue;
-        const cx=c%MAP_W, cy=(c/MAP_W)|0;
-        // Find the closest tile that is already connected
-        let best=null, bd=1e9;
-        for (const m of comps[main]){
-          const mx=m%MAP_W, my=(m/MAP_W)|0;
-          const d=(mx-cx)**2+(my-cy)**2;
-          if (d<bd){ bd=d; best=[mx,my]; }
-          if (bd<=4) break;
-        }
-        if (!best) continue;
-        // An L-shaped tunnel from this tile to the connected one
-        let x=cx, y=cy;
-        while (x!==best[0]){ grid[idx(x,y)]=FLOOR; inMain[idx(x,y)]=1; x+=Math.sign(best[0]-x); }
-        while (y!==best[1]){ grid[idx(x,y)]=FLOOR; inMain[idx(x,y)]=1; y+=Math.sign(best[1]-y); }
-        grid[idx(x,y)]=FLOOR; inMain[idx(x,y)]=1;
-      }
-      // Everything just joined now counts as part of the main area
-      for (const c of comps[cid]) if (inMain[c]) comps[main].push(c);
-    }
-  }
+  connectComponents(grid);
 
   /* Thinning and island removal feed each other (deleting an island can leave a
      neighbour thin, and thinning can cut a stub loose), so they repeat until
