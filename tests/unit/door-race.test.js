@@ -30,7 +30,7 @@ test('[41] a Lifeform on the threshold does not cycle the door', () => {
   G.plumber.y = e.y + 0.5;
   /* One frame short of the hold, so tickDoor() would cycle on the very next
      step if it ran at all. */
-  G.descend = 1.49;
+  G.descend = 0.49;
 
   const hunter = G.lifeforms[0];
   hunter.x = G.plumber.x;

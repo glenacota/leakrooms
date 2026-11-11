@@ -15,7 +15,7 @@ import { sustainedNoise } from './noise.js';
 
 /**
  * The exit door. Once every leak is sealed, standing at the door for DOOR_HOLD
- * (1.5 s) cycles it open and moves to the next floor. Stepping away drains the
+ * cycles it open and moves to the next floor. Stepping away drains the
  * progress quickly, so committing to the door is a real decision. With the clock
  * running it is also the last decision of the level.
  *
