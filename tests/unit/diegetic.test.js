@@ -307,7 +307,7 @@ test('the percentage is 10px bold with a dark 2px outline under the text', () =>
   G.radar = false;
 });
 
-const STAMINA_SCALE = 0.75;
+const STAMINA_SCALE = 0.5;
 const STAMINA_WIDTH = 14*STAMINA_SCALE;
 const STAMINA_HEIGHT = 42*STAMINA_SCALE;
 const STAMINA_GLYPH = 18*STAMINA_SCALE;
