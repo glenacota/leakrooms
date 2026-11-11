@@ -47,7 +47,10 @@ export function fakeCtx(){
        shadow drawn as an ellipse, so it is the first primitive that reveals
        where a figure was actually placed. */
     ellipse(...a){ calls.list.push(['ellipse',...a]); },
-    stroke(...a){ calls.list.push(['stroke',...a]); },
+    stroke(...a){
+      const e = ['stroke',...a]; e.style = self.strokeStyle; e.width = self.lineWidth;
+      e.cap = self.lineCap; e.join = self.lineJoin; calls.list.push(e);
+    },
     fillText(...a){
       const e = ['fillText',...a];
       /* The alpha, colour and font in force are kept on the call, so a test can

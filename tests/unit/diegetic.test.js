@@ -339,8 +339,13 @@ test('stamina tread strip fills smoothly from the bottom and uses the running gl
     assert.ok(fills.some(c => c.style === UNLIT), 'unlit treads missing');
     const colour = fraction < 0.3 ? DANGER : fraction < 0.5 ? PAL.bright : GREEN;
     assert.ok(fills.some(c => c.style === colour), 'lit tread colour incorrect');
-    assert.ok(calls.list.some(c => c[0] === 'arc' && c[1] === 15.5 && c[2] === 4.5 && c[3] === 2),
-      'runner glyph missing');
+    const head = calls.list.findIndex(c => c[0] === 'arc' && c[1] === 16 && c[2] === 3.5 && c[3] === 2.5);
+    assert.ok(head >= 0, 'runner head missing');
+    assert.equal(calls.list[head + 1]?.[0], 'fill', 'runner head is not filled');
+    assert.equal(calls.list[head + 1]?.style, colour, 'runner head colour does not match the treads');
+    const body = calls.list.slice(0, head).filter(c => c[0] === 'stroke' && c.style === colour).pop();
+    assert.ok(body && body.width === 3.5 && body.cap === 'round' && body.join === 'round',
+      'runner limbs are not bold and rounded');
     assert.ok(!calls.list.some(c => c[0] === 'fillText' && /^\d+s$/.test(c[1])), 'old seconds label remains');
   }
 });

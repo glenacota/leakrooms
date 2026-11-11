@@ -28,7 +28,7 @@ const STAMINA_GREEN = '#8fd07a';
 const STAMINA_UNLIT = 'rgba(230,235,200,0.18)';
 const STAMINA_OUTLINE = 'rgba(12,14,10,0.9)';
 /* Scale the mockup together so its glyph and tread remain proportional. */
-const STAMINA_SCALE = 0.75;
+const STAMINA_SCALE = 0.5;
 const STAMINA_WIDTH = 14 * STAMINA_SCALE;
 const STAMINA_HEIGHT = 42 * STAMINA_SCALE;
 const STAMINA_GLYPH = 18 * STAMINA_SCALE;
@@ -79,24 +79,26 @@ function drawStaminaMeter(cx, cy, stamina){
   ctx.fillRect(cx - STAMINA_GLYPH/2 - STAMINA_PADDING, top - STAMINA_PADDING,
     STAMINA_GLYPH + 2*STAMINA_PADDING, contentHeight + 2*STAMINA_PADDING);
 
-  /* The runner follows the 24-unit glyph in the approved mockup. */
   ctx.save();
   ctx.translate(cx - STAMINA_GLYPH/2, top);
   ctx.scale(STAMINA_GLYPH/24, STAMINA_GLYPH/24);
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   ctx.beginPath();
-  ctx.arc(15.5, 4.5, 2, 0, TAU);
-  ctx.moveTo(12, 9); ctx.lineTo(16, 7); ctx.lineTo(19, 10); ctx.lineTo(22, 11);
-  ctx.moveTo(12, 9); ctx.lineTo(9, 14); ctx.lineTo(13, 16); ctx.lineTo(15, 21);
-  ctx.moveTo(9, 14); ctx.lineTo(4, 16); ctx.lineTo(2, 20);
-  ctx.moveTo(9, 12); ctx.lineTo(14, 14);
+  ctx.moveTo(6, 12); ctx.lineTo(8, 9); ctx.lineTo(14, 9);
+  ctx.lineTo(10, 15); ctx.lineTo(14, 18); ctx.lineTo(12.5, 21);
+  ctx.moveTo(10, 15); ctx.lineTo(8, 18); ctx.lineTo(3.5, 18);
+  ctx.moveTo(14, 9); ctx.lineTo(17, 12); ctx.lineTo(20, 10.5);
   ctx.strokeStyle = STAMINA_OUTLINE;
-  ctx.lineWidth = 4;
+  ctx.lineWidth = 5;
   ctx.stroke();
   ctx.strokeStyle = color;
-  ctx.lineWidth = 1.8;
+  ctx.lineWidth = 3.5;
   ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(16, 3.5, 2.5, 0, TAU);
+  ctx.fillStyle = color;
+  ctx.fill();
   ctx.restore();
 
   ctx.save();
