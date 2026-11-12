@@ -176,7 +176,7 @@ wetAt: (wx, wy) => wetAt(G, wx, wy),
 tickFlood: (dt) => tickFlood(G, dt),
 
 /* Vision wrappers - G serves as VisionState */
-traceViewCone: (force) => { /* HAND_OFF */ return traceViewCone(G, G.plumber, G.radar, force); },
+traceViewCone: (force) => traceViewCone(G, G.plumber, G.radar, force),
 combineMask: () => combineMask(G, G.plumber, G.radar),
 scopeRoomLight: (instant) => scopeRoomLight(G, G.plumber, G.radar, instant),
 fadeRoomLight: (dt) => fadeRoomLight(G, dt),

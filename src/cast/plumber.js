@@ -41,7 +41,8 @@ export function drawPlumber(g, S) {
   g.restore();
   if (wk > 0) {
     const sway = Math.sin(S.t * 0.014);
-    const hx = T * (0.28 + 0.035 * sway), hy = cy - T * 0.24;
+    // held in close and low, so the raised wrench stays inside the collision disc
+    const hx = T * (0.12 + 0.02 * sway), hy = cy - T * 0.16;
     g.save();
     g.globalAlpha = wk;
     limb(g, T * 0.155, cy + T * 0.05, T * 0.22, cy - T * 0.05, T * 0.086, ARM_BORDER);
@@ -52,8 +53,8 @@ export function drawPlumber(g, S) {
     // the wrench held up, swaying side to side
     g.translate(hx, hy); g.rotate(sway * 0.5);
     g.fillStyle = WRENCH;
-    g.fillRect(-T * 0.015, -T * 0.11, T * 0.03, T * 0.11);
-    g.beginPath(); g.arc(0, -T * 0.11, T * 0.028, 0, TAU); g.fill();
+    g.fillRect(-T * 0.015, -T * 0.07, T * 0.03, T * 0.07);
+    g.beginPath(); g.arc(0, -T * 0.07, T * 0.028, 0, TAU); g.fill();
     g.restore();
   }
 
