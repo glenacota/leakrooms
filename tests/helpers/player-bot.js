@@ -1,4 +1,4 @@
-/* A bot that plays with what a player can see and hear.
+/* The player bot: a bot that plays with what a player can see and hear.
 
    It never reads the leak list or the door position before a player could have
    found them:
@@ -6,7 +6,9 @@
      - the door is known once it is in view (the vision mask);
      - a lifeform is known while it is in view, or while it is close enough to
        hear a walking plumber (WALK_HEARD);
-     - floor tiles are known once they have been in view.
+     - floor tiles are known once they have been in view;
+     - the radar is switched on only when the bot is stuck (its goal is a search:
+       no leak known and no water in view) and the battery has charge.
    The game's own predicates still decide reach, repair and the door cycle, so a
    stricter or looser rule invented here would test a different game.
 
@@ -32,20 +34,20 @@ function freshKnowledge(floor, leakCount){
 }
 
 /**
- * Plays one five-floor run with the fair bot.
+ * Plays one five-floor run with the player bot.
  *
  * @param {object} o
  * @param {object} o.A - the API from loadGame().
  * @param {object} o.G - the live game state from loadGame().
  * @param {object} o.keys - the key state the bot presses (A.keys).
  * @param {number} o.seed - run seed, installed as RUN_SEED.
- * @param {boolean} o.withMonsters - whether lifeforms stay on the floors.
+ * @param {boolean} o.withLifeforms - whether lifeforms stay on the floors.
  * @param {number} o.maxSeconds - game seconds before the bot gives up.
  * @param {function} [o.trace] - called every 5 game seconds with what the bot knows.
  * @returns {{cleared:boolean, floorsDone:number, deaths:number, clockOuts:number,
  *   seconds:number, why:string}}
  */
-export function playFairRun({ A, G, keys, seed, withMonsters, maxSeconds, trace }){
+export function playPlayerRun({ A, G, keys, seed, withLifeforms, maxSeconds, trace }){
   const out = { cleared: false, floorsDone: 0, deaths: 0, clockOuts: 0, seconds: 0, why: '' };
   const maxFrames = Math.round(60 * maxSeconds);
 
@@ -211,7 +213,7 @@ export function playFairRun({ A, G, keys, seed, withMonsters, maxSeconds, trace 
 
   /* The nearest lifeform the plumber knows about, by sight or by hearing. */
   function knownThreat(px, py){
-    if (!withMonsters) return null;
+    if (!withLifeforms) return null;
     let best = null, bd = Infinity;
     for (const lf of G.lifeforms){
       if (lf.state === 'DORMANT' || lf.rise <= 0.5) continue;
@@ -263,6 +265,12 @@ export function playFairRun({ A, G, keys, seed, withMonsters, maxSeconds, trace 
       if (best) steer(px, py, best[0], best[1]);
     } else {
       const goal = chooseGoal(px, py);
+
+      /* The radar is the last resort. It goes on only when stuck (a search goal:
+         no leak known, no water in view) and the battery has charge. A live radar
+         pings the floor at NOISE.RADAR, so it can wake lifeforms, and the battery
+         drains at RADAR_DRAIN until the game switches it off. */
+      if (goal.kind === 'search' && G.batt > 0) G.radar = true;
 
       /* Holding still is the game's own hold: repair when in reach of a known
          open leak, or wait at the door until it cycles. */

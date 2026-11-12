@@ -40,11 +40,19 @@ Tall figures of coiled black wire live in the Complex. Dormant, they rest as a f
 
 ## 🧪 Tests
 
-Run the headless test suite:
+There are three kinds of test. Each answers a different question:
 
-```
-node test.js      # exit 0 = pass
-```
+| Kind | Where | Question it answers | Run | Gates the build |
+|---|---|---|---|---|
+| Unit | `tests/unit/` | Does each module do its own job? | `npm run test:quick` | Yes |
+| Integration | `tests/integration/` | Does the whole game hold together? | part of `npm test` | Yes |
+| Player | `tests/player/` | Can a player who only sees and hears win the game? | `npm run test:player` | No, it only reports |
+
+* **Unit** tests check one module at a time: pure logic, wiring and the layer rules.
+* **Integration** tests run the whole game. They include the render golden trace (below) and the layout runs. A layout run walks every floor with an omniscient bot that reads the leak list and the door, with no lifeforms. It proves each floor fits the real clock on every difficulty. It does not prove a player can find the way.
+* **Player** runs play the game the way a player does. The player bot sees through the vision cone and hears walking, so it finds leaks by water and sight, and the door by sight. It uses the radar only when stuck, and it reacts to lifeforms it sees or hears. The bar is that every EASY run clears (EASY is RELAXED in the code). NORMAL and HARD are reported only. These runs are slow and never fail the build.
+
+Run the full suite with `npm test` (about five minutes on two cores). It excludes the player runs.
 
 ### Render-trace golden file
 
@@ -65,16 +73,6 @@ This overwrites `tests/fixtures/render-trace.json` with the current trace and pr
 ```
 npm run serve     # → http://localhost:8080/
 ```
-
-The test suite validates game logic, physics, and generation across 20 automated checks:
-* Maze & Map Integrity: Validates layout connectivity, exit reachability, and tile geometry across 400 floors. Samples 1.7M+ free-space positions to guarantee zero soft-locks.
-* Vision & Lighting: Verifies the 200° cone of vision, line-of-sight wall occlusion, corridor falloff, and room-scoped light spillage.
-* Radar & Mechanics: Tests 100% floor reveal on sweep, battery drain rate limits, and exit-detection triggers.
-* Plumbing & Water Physics: Confirms fluid BFS propagation, speed penalties on wet carpet, 5-second repair timing, and exit unlock state rules.
-* Collision & Entity AI: Tests 20,000 frames of movement against a physics oracle—verifying no wall drift, no clip bugs, and valid hunt/patrol states.
-* Render & HUD Projection: Asserts off-screen canvas projection, true pixel alpha packing for flooded carpet, and sprite alignment.
-* Automated Playthroughs: Simulates keyboard-driven bots through complete runs to prove levels are winnable within the light budget.
-* Settings & Storage: Tests localStorage schema validation, corrupt-state recovery, and difficulty preset parameters.
 
 ## 🤗 OSS!
 Forged under the MIT License.

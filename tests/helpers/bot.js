@@ -1,4 +1,4 @@
-/* Navigation helpers shared by the playthrough tests.
+/* Navigation helpers shared by the layout runs and the player runs.
 
    Breadth-first search over floor tiles. Returns the tile list from start to
    goal, or null when either end is a wall or no path exists. */
