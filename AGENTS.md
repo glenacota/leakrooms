@@ -13,7 +13,8 @@ LEAKROOMS is a 2D top-down stealth and puzzle game. A plumber repairs burst pipe
 ## Commands
 
 - `npm run test:quick`: unit tests only. Use this while iterating.
-- `npm test`: the full suite, about a minute. Run it before every commit.
+- `npm test`: the full suite, about five minutes on two cores. Run it before every commit. It excludes the fair monster runs.
+- `npm run test:fair`: the fair monster runs in `tests/fair/`. Slow. Run only when the change touches search, stealth, water or lifeforms.
 - `npm run serve`: local static server. The game uses ES modules and will not run from `file://`.
 
 Never run the golden-trace update (`UPDATE_GOLDEN=1`) unless the user explicitly asks.
@@ -41,7 +42,7 @@ Never run the golden-trace update (`UPDATE_GOLDEN=1`) unless the user explicitly
 - `src/config/`: constants, levels, difficulty presets, tuning, palette, notes.
 - `src/settings/`: persisted settings schema and store.
 - `src/util/`: seeded RNG, hash, grid and line helpers, event bus, dirty flags, stick maths.
-- `tests/unit/`, `tests/integration/` (bot playthroughs and the render golden trace), `tests/helpers/` (DOM, canvas and audio stubs; the bot; the soft-assert collector).
+- `tests/unit/`, `tests/integration/` (layout runs and the render golden trace), `tests/fair/` (fair monster runs, `npm run test:fair`), `tests/helpers/` (DOM, canvas and audio stubs; the bots `bot.js`, `layout-run.js` and `fair-bot.js`; the soft-assert collector).
 
 ## Layer rules
 
@@ -105,7 +106,8 @@ Pick the smallest suite that covers your change.
 - Pure logic in `sim/`, `util/` or `config/`: `npm run test:quick`.
 - UI wiring: `tests/unit/ui-wiring.test.js` and `ui-flow.test.js`.
 - Drawing: `tests/integration/render.test.js`. The golden trace fails on any change to what is drawn. Report it. Do not regenerate it.
-- Movement, level generation or tuning: the playthrough tests in `tests/integration/playthrough-*` are slow because the bot plays full floors. Run them only when your change touches these areas.
+- Level generation, clock or tuning: the layout runs `tests/integration/layout-*.test.js` (one file per preset and seed). An omniscient bot with no lifeforms proves each floor fits the real clock. It does not prove a player can find the way. Run the file for the preset and seed you touched. `npm test` runs all nine.
+- Search, stealth, water or lifeform changes: `npm run test:fair`. The fair bot plays as a player: it finds leaks by water and sight, and reacts to lifeforms it sees or hears. Its monster runs are marked `todo` as a known gap, so they report as TODO, not failure. Remove the `todo` option once a run clears.
 - New API accessors for tests go in `tests/helpers/api.js`. `loadGame()` in `harness.js` returns `A`, `G` and `els`.
 - The harness keeps one window listener per event type. Do not add window listeners in tests.
 
