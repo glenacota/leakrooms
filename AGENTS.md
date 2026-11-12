@@ -13,7 +13,7 @@ LEAKROOMS is a 2D top-down stealth and puzzle game. A plumber repairs burst pipe
 ## Commands
 
 - `npm run test:quick`: unit tests only. Use this while iterating.
-- `npm test`: the full suite, about five minutes on two cores. Run it before every commit. It excludes the run tests.
+- `npm test`: the full suite. Run it before every commit. It excludes the run tests.
 - `npm run test:runs`: the run tests in `tests/runs/`. Slow, and they only report: they never fail the build. Run when the change touches search, stealth, water, the radar or lifeforms.
 - `npm run serve`: local static server. The game uses ES modules and will not run from `file://`.
 
