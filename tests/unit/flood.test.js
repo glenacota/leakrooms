@@ -136,13 +136,6 @@ test('leaks are placed on walls, stay reachable, and flood downhill', () => {
      everywhere at once the player has nothing to follow. --- */
   {
     let inverted=0;
-    for (let i=0;i<W*W;i++){
-      const d=A.internals.waterDist[i], w=A.internals.wetArr[i];
-      if (d<0) continue;
-      /* every tile is wetter than every strictly further tile's distance band:
-         aggregate it — mean wetness must strictly decrease with distance. */
-      void w;
-    }
     const band=6;
     const sum=new Float64Array(64), cnt=new Float64Array(64);
     for (let i=0;i<W*W;i++){

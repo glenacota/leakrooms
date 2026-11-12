@@ -135,7 +135,7 @@ test('the noise meter uses the scale the game actually produces', () => {
      One frame of decay (0.24 * 1/60 = 0.004) happens per update step. */
   const afterOne = G.noisePeak/A.NOISE_FS*100;
   /* Reading the peak many times between update steps must NOT decay it. */
-  for (let i=0;i<5;i++){ /* reading the peak does not mutate sim state */ }
+  for (let i=0;i<5;i++){ G.noisePeak; }
   const afterFive = G.noisePeak/A.NOISE_FS*100;
   t.assert(Math.abs(afterOne - afterFive) < 0.01,
     `repeated reads changed the peak: ${afterOne.toFixed(2)}% -> ${afterFive.toFixed(2)}%`);

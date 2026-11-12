@@ -35,7 +35,7 @@ test('agents stay out of geometry and react to noise', () => {
   }
   t.assert(bad===0, `${bad} entity integrity violations`);
   t.assert(hunted>0, 'lifeform never entered HUNT state');
-  console.log(`  ok — ${hunted} hunting-frames, ${dormant} dormant-frames, no geometry escapes`);;
+  console.log(`  ok — ${hunted} hunting-frames, ${dormant} dormant-frames, no geometry escapes`);
 });
 
 /* A wandering lifeform touches you if it reaches you.
