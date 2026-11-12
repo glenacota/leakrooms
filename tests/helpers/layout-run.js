@@ -1,20 +1,11 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
-import { loadGame } from '../helpers/harness.js';
-import { bfsPath } from '../helpers/bot.js';
+/* The omniscient layout run: walks every floor of one run with the bot that
+   reads the leak list and the door. Shared by the per-run layout test files, so
+   each file only states its preset and seed. */
+import { bfsPath } from './bot.js';
 import { DIFFICULTIES } from '../../src/config/presets.js';
 import { applyDifficulty } from '../../src/config/tuning.js';
 
-/* THE LAYOUT RUN. Every floor has to be completable with the real clock for each
-   difficulty preset. This bot reads the leak list and the door position, so it
-   proves the geometry and the clock, not that a player can find the way. The
-   fair bot in playthrough-monsters.test.js covers search. Lifeforms are removed
-   here, so this run isolates the floor from the monsters. */
-
-const { A, G } = await loadGame();
-const buildFloor = A.buildFloor;
 const W = 76, H = 76, IDX = (x, y) => y*W + x;
-const SEEDS = [5077, 1234, 4242];
 
 /**
  * Walks every floor with the omniscient bot under one preset and seed.
@@ -23,7 +14,8 @@ const SEEDS = [5077, 1234, 4242];
  * @param {number} seed - base seed; each floor derives its own from it.
  * @returns {{walked:number, sealed:number, total:number, clockOuts:number, why:string}}
  */
-function playLayout(preset, seed){
+export function playLayout(A, G, preset, seed){
+  const buildFloor = A.buildFloor;
   applyDifficulty(DIFFICULTIES[preset]);
   const res = { walked: 0, sealed: 0, total: 0, clockOuts: 0, why: '' };
   const distFieldCache = new Map();
@@ -184,15 +176,4 @@ function playLayout(preset, seed){
   }
   A.keys.w = A.keys.s = A.keys.a = A.keys.d = false; A.keys.shift = false;
   return res;
-}
-
-for (const preset of Object.keys(DIFFICULTIES)){
-  for (const seed of SEEDS){
-    test(`layout ${DIFFICULTIES[preset].label} seed ${seed}: five floors inside the real clock`, () => {
-      const r = playLayout(preset, seed);
-      assert.equal(r.clockOuts, 0, `clock ran out ${r.clockOuts} time(s): ${r.why}`);
-      assert.equal(r.walked, A.LEVELS_N, `${r.walked}/${A.LEVELS_N} floors walked out: ${r.why}`);
-      assert.equal(r.sealed, r.total, `${r.sealed}/${r.total} leaks sealed`);
-    });
-  }
 }

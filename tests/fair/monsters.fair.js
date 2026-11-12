@@ -8,7 +8,8 @@ import { applyDifficulty } from '../../src/config/tuning.js';
 /* THE MONSTER RUN. The fair bot plays the game as a player can: it finds leaks by
    water and sight, the door by sight, and reacts to lifeforms it sees or hears.
    It must clear all five floors within the preset's lives and the real clock.
-   Layout proof (omniscient bot, no monsters) is in playthrough-layout.test.js. */
+   Layout proof (omniscient bot, no monsters) is in tests/integration/layout-*.test.js.
+   This file is outside npm test: run it with npm run test:fair. */
 
 const { A, G } = await loadGame();
 const SEEDS = [5077, 1234, 4242];
