@@ -195,7 +195,7 @@ export const DARK_ROOM      = 0.0;
 /* How visible a room is, by how many gates away it is (index = gates passed).
    A gradual falloff lets light arrive smoothly instead of stopping at an
    invisible boundary. */
-export const HOP_FALL = [1.0, 0.85, 0.50, 0.26, 0.17, 0.11];
+export const HOP_FALL = [1.0, 0.30, 0.08, 0.02, 0.01, 0.005];
 
 /* Distance fade for rooms that are not your own. Without it a 40-tile corridor
    stays at 11% all the way and looks like a lit tube. Your own room never

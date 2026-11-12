@@ -263,7 +263,10 @@ export function scopeRoomLight(visionState, plumber, radar, instant){
     visionState.visTgt.fill(DARK_ROOM);
   } else {
     // BFS over the region graph: how many gates away is each region?
-    const hops = new Int32Array(visionState.regionCount).fill(-1);
+    // regionAdj.length is the pre-merge region id space; regionCount is the
+    // distinct count after merging. The array must cover every possible id,
+    // not just the dense count, because region ids are not renumbered.
+    const hops = new Int32Array(visionState.regionAdj.length).fill(-1);
     const q = [here];
     hops[here] = 0;
     for (let h=0; h<q.length; h++){

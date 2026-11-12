@@ -180,5 +180,6 @@ test('the bot seals every riser, then walks back out the door', () => {
     `${risersSealed}/${risersWanted} leaks were sealed — the tallies do not agree`);
   t.assert(descended===A.LEVELS_N, `the bot walked back out on ${descended}/${A.LEVELS_N} levels`);
   console.log(`  bot: ${risersSealed} leaks sealed, ${descended}/${A.LEVELS_N} levels walked back out`);
+  t.done();
   A.floorIdx=0;;
 });

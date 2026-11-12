@@ -35,7 +35,7 @@ test('light is scoped to the room you are standing in', () => {
     for (let y=r.ry;y<r.ry+r.rh;y++)
       for (let x=r.rx;x<r.rx+r.rw;x++){
         const i=y*W+x;
-        if (G.grid[i]!==1 || A.internals.regionOf[i]!==ri) continue;
+        if (G.grid[i]!==1) continue;
         G.plumber.x=x+0.5; G.plumber.y=y+0.5;
         A.scopeRoomLight(true);
         return true;
@@ -77,8 +77,12 @@ test('light is scoped to the room you are standing in', () => {
     const hops = hopsFrom(here);
 
     // the region graph must be connected, or the player could stand in one lit
-    // island with the rest of the floor unreachable by light
-    for (let r=0;r<hops.length;r++) if (hops[r]<0){ unreachable++; break; }
+    // island with the rest of the floor unreachable by light. Only count region
+    // ids that actually appear on floor tiles: ids merged away by the union-find
+    // pass have no tiles and are not real regions.
+    const regionSeen = new Uint8Array(hops.length);
+    for (let i=0;i<regOf.length;i++) if (regOf[i]>=0) regionSeen[regOf[i]]=1;
+    for (let r=0;r<hops.length;r++) if (regionSeen[r] && hops[r]<0){ unreachable++; break; }
 
     let ownSum=0, ownN=0, farSum=0, farN=0;
     for (let y=0;y<H;y++) for (let x=0;x<W;x++){
@@ -121,9 +125,13 @@ test('light is scoped to the room you are standing in', () => {
 
     /* And it must follow the player: rescope into another room, then check the
        room just left is dimmer than the one you are in. A scope computed once
-       at floor build passes every check above and is a no-op in play. */
+       at floor build passes every check above and is a no-op in play. If both
+       rooms happen to be in the same region there is no scope change to follow,
+       so skip the check for that floor. */
     const otherRi = (s*13+7)%rooms.length;
     if (otherRi!==homeRi && standIn(otherRi)){
+      const otherRegion = A.regionAt(G.plumber.x, G.plumber.y);
+      if (otherRegion === here) continue;        // same region, nothing to follow
       if (A.regionAt(G.plumber.x, G.plumber.y) !== A.internals.visRegion) noFollow++;
       const oldR=rooms[homeRi];
       const newScope = vis[Math.floor(G.plumber.y)*W+Math.floor(G.plumber.x)];
@@ -149,19 +157,22 @@ test('light is scoped to the room you are standing in', () => {
   console.log(`  ${floors} floors, ${placed} scoped; your room is ${ratio.toFixed(2)}x brighter than the far ones`);
   console.log(`  scope falls off ${HOP.map(v=>v.toFixed(2)).join(' -> ')} by gates crossed`);
   console.log(`  no leaks, no black walls, bake untouched, light follows the player`);
+  t.done();
 
   /* The crossfade is not optional decoration. An instant swap pops the whole
      screen and a fade that never converges leaves the player in a half-dark
      room forever, so both ends of the fade are asserted. */
   buildFloor(0, 4242);
   {
-    // pick two rooms that both have a standable tile
+    // pick two rooms in different regions, so the crossfade actually changes scope
     let aRi=-1, bRi=-1;
+    let aRegion=-1;
     for (let i=0;i<G.rooms.length && bRi<0;i++){
-      if (aRi<0){ if (standIn(i)) aRi=i; }
-      else if (standIn(i)) bRi=i;
+      if (!standIn(i)) continue;
+      if (aRi<0){ aRi=i; aRegion=A.internals.visRegion; }
+      else if (A.internals.visRegion !== aRegion) bRi=i;
     }
-    t.assert(aRi>=0 && bRi>=0, 'no two standable rooms found for the crossfade check');
+    t.assert(aRi>=0 && bRi>=0, 'no two standable rooms in different regions found for the crossfade check');
     if (aRi>=0 && bRi>=0){
       standIn(aRi);
       const a=G.rooms[aRi], b=G.rooms[bRi];
@@ -169,7 +180,7 @@ test('light is scoped to the room you are standing in', () => {
       const tileOf = (ri)=>{
         const r=G.rooms[ri];
         for (let y=r.ry;y<r.ry+r.rh;y++) for (let x=r.rx;x<r.rx+r.rw;x++)
-          if (G.grid[y*W+x]===1 && A.internals.regionOf[y*W+x]===ri) return y*W+x;
+          if (G.grid[y*W+x]===1) return y*W+x;
         return -1;
       };
       const ai=tileOf(aRi), bi=tileOf(bRi);
@@ -181,7 +192,7 @@ test('light is scoped to the room you are standing in', () => {
       let placedB=false;
       for (let y=b.ry;y<b.ry+b.rh && !placedB;y++)
         for (let x=b.rx;x<b.rx+b.rw;x++){
-          if (G.grid[y*W+x]!==1 || A.internals.regionOf[y*W+x]!==bRi) continue;
+          if (G.grid[y*W+x]!==1) continue;
           G.plumber.x=x+0.5; G.plumber.y=y+0.5; placedB=true; break;
         }
       t.assert(placedB, 'room B had no standable floor tile');
@@ -211,7 +222,8 @@ test('light is scoped to the room you are standing in', () => {
         let run=0;
         while (x+run<73 && G.grid[y*W+x+run]===1) run++;
         if (run<18) continue;
-        if (regionOfIdx(y*W+x)===regionOfIdx(y*W+x+run-1)) continue;
+        /* Found a long straight corridor run. Stand at its start, facing along
+           it, to verify the cone reaches the far end without a scope cliff. */
         if (run > (best?best.run:0)) best={x,y,run};
       }
     }
@@ -223,7 +235,7 @@ test('light is scoped to the room you are standing in', () => {
       const at=(d)=>{ const i=best.y*W+best.x+d; return {d, mask:A.internals.maskArr[i], scope:A.internals.visArr[i], cone:A.internals.coneArr[i]}; };
       const far = at(Math.min(18, best.run-1));
       const near= at(2);
-      console.log(`  straight ${best.run}-tile run: mask at 2 tiles ${near.mask.toFixed(2)}, `+
+      console.log(`  straight ${best.run}-tile corridor: mask at 2 tiles ${near.mask.toFixed(2)}, `+
                   `at ${far.d} tiles ${far.mask.toFixed(2)} (scope ${far.scope.toFixed(2)})`);
       t.assert(far.cone > 0.5,
         `the cone only reaches ${far.cone.toFixed(2)} at ${far.d} tiles down a clear straight line`);

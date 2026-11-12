@@ -79,7 +79,22 @@ export function genLevel(rng, floorNum=0){
   const pool = candidates.length>=6 ? candidates : maze.rooms;
   const entryRoom = pool[0];
   // The spawn point. The leaks are placed relative to it, so it is worked out first.
-  const spawn = { x: entryRoom.rx + entryRoom.rw/2, y: entryRoom.ry + entryRoom.rh/2 };
+  // It must be a floor tile: a level whose start is inside a wall is unwinnable.
+  // The room centre is the first choice; if a partition or stub landed there the
+  // search falls back to the nearest floor tile in the same room.
+  const cx = entryRoom.rx + entryRoom.rw/2;
+  const cy = entryRoom.ry + entryRoom.rh/2;
+  let spawn = { x: cx, y: cy };
+  if (!inB(cx|0, cy|0) || at(cx|0, cy|0) !== FLOOR) {
+    let best = null, bd = Infinity;
+    for (let y=entryRoom.ry; y<entryRoom.ry+entryRoom.rh; y++)
+      for (let x=entryRoom.rx; x<entryRoom.rx+entryRoom.rw; x++) {
+        if (at(x,y) !== FLOOR) continue;
+        const d = Math.hypot(x+0.5-cx, y+0.5-cy);
+        if (d < bd){ bd = d; best = { x: x+0.5, y: y+0.5 }; }
+      }
+    spawn = best || spawn;
+  }
 
   const exitTiles = [];
   {

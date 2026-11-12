@@ -61,6 +61,16 @@ export function labelRegions(level) {
   }
   for (let i = 0; i < regionOf.length; i++) if (regionOf[i] >= 0) regionOf[i] = find(regionOf[i]);
 
+  /* Count the distinct regions after the union-find merge. regionCount must
+     reflect the actual number of regions, not the pre-merge count, so that
+     code allocating per-region arrays (vision.js) sizes them correctly. */
+  let nActual = 0;
+  const seenRoot = new Uint8Array(nRegions);
+  for (let i = 0; i < regionOf.length; i++) {
+    const r = regionOf[i];
+    if (r >= 0 && !seenRoot[r]) { seenRoot[r] = 1; nActual++; }
+  }
+
   /* ---------- Adjacency ----------
      Two regions are neighbours when they share an edge of floor tiles. A room
      with two gates has two different neighbours, so the search needs the real
@@ -81,7 +91,7 @@ export function labelRegions(level) {
     }
   }
 
-  return { regionOf, regionAdj: regAdj, regionCount: nRegions };
+  return { regionOf, regionAdj: regAdj, regionCount: nActual };
 }
 
 // How much of a room's own light you can see through `hops` gates (see HOP_FALL).
