@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { loadGame } from '../helpers/harness.js';
-import { playPlayerRun } from '../helpers/player-bot.js';
+import { playPlayerRun, classifyDeath } from '../helpers/player-bot.js';
 import { DIFFICULTIES } from '../../src/config/presets.js';
 import { applyDifficulty } from '../../src/config/tuning.js';
 
@@ -21,6 +21,13 @@ const { A, G } = await loadGame();
 const SEEDS = [5077, 1234, 4242];
 const BAR = 'relaxed';
 
+/* "caught 5, clock 9" style summary of why the bot died, for the failure message. */
+function tally(deathLog){
+  const n = {};
+  for (const d of deathLog){ const c = classifyDeath(d); n[c] = (n[c] || 0) + 1; }
+  return Object.entries(n).map(([k, v]) => `${k} ${v}`).join(', ') || 'none';
+}
+
 for (const preset of Object.keys(DIFFICULTIES)){
   const d = DIFFICULTIES[preset];
   const todo = preset === BAR
@@ -35,7 +42,7 @@ for (const preset of Object.keys(DIFFICULTIES)){
         maxSeconds: 5 * d.clock + 60,
       });
       assert.equal(r.cleared, true,
-        `${r.floorsDone}/5 floors, ${r.deaths} death(s), ${r.clockOuts} clock-out(s), ` +
+        `${r.floorsDone}/5 floors, ${r.deaths} death(s) [${tally(r.deathLog)}], ` +
         `${r.seconds.toFixed(0)} s: ${r.why}`);
     });
   }

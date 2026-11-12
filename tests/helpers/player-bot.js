@@ -28,6 +28,10 @@ const LEAK_SIGHT = 2;     // tiles around a standing spot where water shows the 
 const WALK_HEARD = 6.6;   // tiles a walking plumber is heard: HEAR_BASE 4 + HEAR_GAIN * walk power, see constants.js
 const THREAT = 9;         // tiles at which a known lifeform is worth stepping away from
 const REPLAN_FRAMES = 90; // re-plan at least this often, so a stale path cannot stall the bot
+const RECENT_FRAMES = 180; // three seconds of lifeform context kept for tracing a death
+/* A lifeform this close has caught the plumber. The catches seen so far were
+   about half a tile; one tile allows for a lifeform's step between frames. */
+export const CAUGHT_TILES = 1;
 
 function freshKnowledge(floor, leakCount){
   return { floor, door: false, leaks: new Array(leakCount).fill(false), seen: new Uint8Array(N) };
@@ -45,10 +49,11 @@ function freshKnowledge(floor, leakCount){
  * @param {number} o.maxSeconds - game seconds before the bot gives up.
  * @param {function} [o.trace] - called every 5 game seconds with what the bot knows.
  * @returns {{cleared:boolean, floorsDone:number, deaths:number, clockOuts:number,
- *   seconds:number, why:string}}
+ *   seconds:number, why:string, deathLog:Array}} deathLog holds one snapshot per death
+ *   for classifyDeath().
  */
 export function playPlayerRun({ A, G, keys, seed, withLifeforms, maxSeconds, trace }){
-  const out = { cleared: false, floorsDone: 0, deaths: 0, clockOuts: 0, seconds: 0, why: '' };
+  const out = { cleared: false, floorsDone: 0, deaths: 0, clockOuts: 0, seconds: 0, why: '', deathLog: [] };
   const maxFrames = Math.round(60 * maxSeconds);
 
   A.RUN_SEED = seed;
@@ -63,6 +68,7 @@ export function playPlayerRun({ A, G, keys, seed, withLifeforms, maxSeconds, tra
   let distFromKey = '', distField = null;
   let frames = 0;
   let jamSkip = 0, anchorX = -99, anchorY = -99, anchorAt = 0;
+  let recent = []; // the nearest awake lifeform, for the last RECENT_FRAMES frames
 
   /* What the player has seen so far on this floor. Called once per frame. */
   function look(){
@@ -211,6 +217,19 @@ export function playPlayerRun({ A, G, keys, seed, withLifeforms, maxSeconds, tra
     }
   }
 
+  /* The nearest awake lifeform, as a snapshot for tracing a death. */
+  function nearestAwake(px, py){
+    let best = null, bd = Infinity;
+    for (const lf of G.lifeforms){
+      if (lf.state === 'DORMANT') continue;
+      const d = Math.hypot(lf.x - px, lf.y - py);
+      if (d < bd){ bd = d; best = lf; }
+    }
+    if (!best) return { state: '-', d: Infinity, inView: false };
+    return { state: best.state, d: +bd.toFixed(2),
+      inView: G.maskArr[IDX(Math.floor(best.x), Math.floor(best.y))] > SEE };
+  }
+
   /* The nearest lifeform the plumber knows about, by sight or by hearing. */
   function knownThreat(px, py){
     if (!withLifeforms) return null;
@@ -229,6 +248,8 @@ export function playPlayerRun({ A, G, keys, seed, withLifeforms, maxSeconds, tra
   function afterTick(){
     if (A.STATE === 'play') return false;
     if (A.floorIdx >= 5){ out.cleared = true; return true; }
+    out.deathLog.push({ floor: A.floorIdx + 1, frame: frames, clockOut: G.clock <= 0, recent: recent.slice() });
+    recent = [];
     out.deaths++;
     if (G.clock <= 0) out.clockOuts++;
     if (A.lives <= 0){ out.why = 'out of lives on floor ' + (A.floorIdx + 1); return true; }
@@ -244,6 +265,8 @@ export function playPlayerRun({ A, G, keys, seed, withLifeforms, maxSeconds, tra
     const px = G.plumber.x, py = G.plumber.y;
     keys.w = keys.s = keys.a = keys.d = false; keys.shift = false;
     G.radar = false;
+    recent.push(nearestAwake(px, py));
+    if (recent.length > RECENT_FRAMES) recent.shift();
 
     if (trace && frames % 300 === 1){
       trace({ t: frames/60, floor: A.floorIdx, px: +px.toFixed(1), py: +py.toFixed(1), clock: +G.clock.toFixed(0),
@@ -343,4 +366,19 @@ export function playPlayerRun({ A, G, keys, seed, withLifeforms, maxSeconds, tra
   out.seconds = frames / 60;
   if (!out.cleared && !out.why) out.why = frames >= maxFrames ? 'timeout on floor ' + (A.floorIdx + 1) : 'stopped on floor ' + (A.floorIdx + 1);
   return out;
+}
+
+/**
+ * Names the cause of one death from the snapshot playPlayerRun records.
+ * 'caught': an awake lifeform was within CAUGHT_TILES in the last three seconds.
+ * 'clock': the floor clock ran out and no lifeform was that close.
+ * 'unexplained': neither. Those deaths need a closer look at the trace.
+ *
+ * @param {{clockOut:boolean, recent:Array<{d:number}>}} death
+ * @returns {'caught'|'clock'|'unexplained'}
+ */
+export function classifyDeath(death){
+  if (death.recent.some(x => x.d <= CAUGHT_TILES)) return 'caught';
+  if (death.clockOut) return 'clock';
+  return 'unexplained';
 }
