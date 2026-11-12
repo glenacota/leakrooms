@@ -13,8 +13,8 @@ LEAKROOMS is a 2D top-down stealth and puzzle game. A plumber repairs burst pipe
 ## Commands
 
 - `npm run test:quick`: unit tests only. Use this while iterating.
-- `npm test`: the full suite, about five minutes on two cores. Run it before every commit. It excludes the player runs.
-- `npm run test:player`: the player runs in `tests/player/`. Slow, and they only report: they never fail the build. Run when the change touches search, stealth, water, the radar or lifeforms.
+- `npm test`: the full suite, about five minutes on two cores. Run it before every commit. It excludes the run tests.
+- `npm run test:runs`: the run tests in `tests/runs/`. Slow, and they only report: they never fail the build. Run when the change touches search, stealth, water, the radar or lifeforms.
 - `npm run serve`: local static server. The game uses ES modules and will not run from `file://`.
 
 Never run the golden-trace update (`UPDATE_GOLDEN=1`) unless the user explicitly asks.
@@ -42,7 +42,7 @@ Never run the golden-trace update (`UPDATE_GOLDEN=1`) unless the user explicitly
 - `src/config/`: constants, levels, difficulty presets, tuning, palette, notes.
 - `src/settings/`: persisted settings schema and store.
 - `src/util/`: seeded RNG, hash, grid and line helpers, event bus, dirty flags, stick maths.
-- `tests/unit/`, `tests/integration/` (layout runs and the render golden trace), `tests/player/` (player runs, `npm run test:player`), `tests/helpers/` (DOM, canvas and audio stubs; the bots `bot.js`, `layout-run.js` and `player-bot.js`; the soft-assert collector).
+- `tests/unit/`, `tests/integration/` (layout runs and the render golden trace), `tests/runs/` (run tests, `npm run test:runs`), `tests/helpers/` (DOM, canvas and audio stubs; the bots `bot.js`, `layout-run.js` and `player-bot.js`; the soft-assert collector).
 
 ## Layer rules
 
@@ -101,13 +101,13 @@ Full definitions and the words to avoid are in `docs/GLOSSARY.md`.
 
 ## Testing
 
-Pick the smallest suite that covers your change. Three kinds of test exist: unit tests (`tests/unit/`, one module, `npm run test:quick`), integration tests (`tests/integration/`, the whole game, part of `npm test`, these gate the build), and player runs (`tests/player/`, a bot that sees and hears only what a player can, `npm run test:player`, these only report).
+Pick the smallest suite that covers your change. Three kinds of test exist: unit tests (`tests/unit/`, one module, `npm run test:quick`), integration tests (`tests/integration/`, the whole game, part of `npm test`, these gate the build), and run tests (`tests/runs/`, a bot that sees and hears only what a player can, `npm run test:runs`, these only report).
 
 - Pure logic in `sim/`, `util/` or `config/`: `npm run test:quick`.
 - UI wiring: `tests/unit/ui-wiring.test.js` and `ui-flow.test.js`.
 - Drawing: `tests/integration/render.test.js`. The golden trace fails on any change to what is drawn. Report it. Do not regenerate it.
 - Level generation, clock or tuning: the layout runs `tests/integration/layout-*.test.js` (one file per preset and seed). An omniscient bot with no lifeforms proves each floor fits the real clock. It does not prove a player can find the way. Run the file for the preset and seed you touched. `npm test` runs all nine.
-- Search, stealth, water, radar or lifeform changes: `npm run test:player`. The player bot finds leaks by water and sight, finds the door by sight, uses the radar only when stuck, and reacts to lifeforms it sees or hears. Every run is marked `todo`, so it reports as TODO and never fails the build. The bar is that every EASY (RELAXED) run clears. NORMAL and HARD are informational.
+- Search, stealth, water, radar or lifeform changes: `npm run test:runs`. The player bot finds leaks by water and sight, finds the door by sight, uses the radar only when stuck, and reacts to lifeforms it sees or hears. Every run is marked `todo`, so it reports as TODO and never fails the build. The bar is that every EASY (RELAXED) run clears. NORMAL and HARD are informational.
 - New API accessors for tests go in `tests/helpers/api.js`. `loadGame()` in `harness.js` returns `A`, `G` and `els`.
 - The harness keeps one window listener per event type. Do not add window listeners in tests.
 

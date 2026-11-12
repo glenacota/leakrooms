@@ -46,13 +46,13 @@ There are three kinds of test. Each answers a different question:
 |---|---|---|---|---|
 | Unit | `tests/unit/` | Does each module do its own job? | `npm run test:quick` | Yes |
 | Integration | `tests/integration/` | Does the whole game hold together? | part of `npm test` | Yes |
-| Player | `tests/player/` | Can a player who only sees and hears win the game? | `npm run test:player` | No, it only reports |
+| Run | `tests/runs/` | Can a player who only sees and hears win the game? | `npm run test:runs` | No, it only reports |
 
 * **Unit** tests check one module at a time: pure logic, wiring and the layer rules.
 * **Integration** tests run the whole game. They include the render golden trace (below) and the layout runs. A layout run walks every floor with an omniscient bot that reads the leak list and the door, with no lifeforms. It proves each floor fits the real clock on every difficulty. It does not prove a player can find the way.
-* **Player** runs play the game the way a player does. The player bot sees through the vision cone and hears walking, so it finds leaks by water and sight, and the door by sight. It uses the radar only when stuck, and it reacts to lifeforms it sees or hears. The bar is that every EASY run clears (EASY is RELAXED in the code). NORMAL and HARD are reported only. These runs are slow and never fail the build.
+* **Run** tests play the game the way a player does. The player bot sees through the vision cone and hears walking, so it finds leaks by water and sight, and the door by sight. It uses the radar only when stuck, and it reacts to lifeforms it sees or hears. The bar is that every EASY run clears (EASY is RELAXED in the code). NORMAL and HARD are reported only. These runs are slow and never fail the build.
 
-Run the full suite with `npm test` (about five minutes on two cores). It excludes the player runs.
+Run the full suite with `npm test` (about five minutes on two cores). It excludes the run tests.
 
 ### Render-trace golden file
 

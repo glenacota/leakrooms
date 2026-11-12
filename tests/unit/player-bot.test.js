@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { classifyDeath, CAUGHT_TILES } from '../helpers/player-bot.js';
 
-/* The cause of a player-run death. The bot's runs are reported, not gated, so
+/* The cause of a death in a bot run. The bot's runs are reported, not gated, so
    a wrong label here would mislead a diagnosis without failing anything. */
 
 const frame = (d, state = 'HUNT') => ({ state, d, inView: false });

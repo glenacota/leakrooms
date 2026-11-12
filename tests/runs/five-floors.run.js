@@ -5,7 +5,7 @@ import { playPlayerRun, classifyDeath } from '../helpers/player-bot.js';
 import { DIFFICULTIES } from '../../src/config/presets.js';
 import { applyDifficulty } from '../../src/config/tuning.js';
 
-/* THE PLAYER RUN, with lifeforms on the floors. The player bot sees and hears
+/* THE FIVE-FLOOR RUN, with lifeforms on the floors. The player bot sees and hears
    only what a player would, finds leaks by water and sight, finds the door by
    sight, uses the radar only when stuck, and reacts to lifeforms it sees or
    hears. It must clear all five floors within the preset's lives and the real
