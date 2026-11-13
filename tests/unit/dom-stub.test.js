@@ -28,8 +28,8 @@ test('[37] the DOM stub resolves the markup it claims to', () => {
 
 
   /* The five collection shapes, against the counts the markup declares:
-     eight segmented rows, four range inputs, four binder tabs, four binder pages. */
-  assert.equal(querySelectorAll('.seg[data-opt]').length, 8, 'wrong number of segmented rows');
+     nine segmented rows, four range inputs, four binder tabs, four binder pages. */
+  assert.equal(querySelectorAll('.seg[data-opt]').length, 9, 'wrong number of segmented rows');
   assert.equal(querySelectorAll('input[type=range][data-opt]').length, 4, 'wrong number of range inputs');
   assert.equal(querySelectorAll('[data-binder-tab]').length, 4, 'wrong number of binder tabs');
   assert.equal(querySelectorAll('[data-binder-page]').length, 4, 'wrong number of binder pages');
@@ -39,7 +39,7 @@ test('[37] the DOM stub resolves the markup it claims to', () => {
      pause-page button and the two dismiss buttons of the home-screen tip.
      Twenty-one since the binder: three title menu entries and four tabs, less
      the old CHANGE link and two pause tabs. */
-  assert.equal(querySelectorAll('button').length, 21, 'wrong number of buttons');
+  assert.equal(querySelectorAll('button').length, 22, 'wrong number of buttons');
 
   /* Attributes become dataset properties in camelCase — the direction that
      matters, since `data-binder-tab` is `dataset.binderTab` and not the reverse. */

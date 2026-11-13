@@ -435,7 +435,10 @@ test('the floor-clear card shows the clock left and the next floor', () => {
   t.assert(els['screen-clear'].classList.contains('hidden'), 'the clear card stayed up after descending');
 
   const c1 = G.clock;
-  for (let i=0;i<60;i++) A.frame(now += 1000/60);
+  for (let i=0;i<60;i++){
+    A.frame(now += 1000/60);
+    while (A.STATE==='lesson') els['lesson-continue'].click();
+  }
   t.assert(A.STATE==='play' && G.clock < c1,
     `after the card the clock stood at ${G.clock.toFixed(2)} from ${c1.toFixed(2)} — the run is not running`);
 

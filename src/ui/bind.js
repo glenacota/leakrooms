@@ -42,7 +42,7 @@ export function bindDom(){
   on('state', () => {
     syncAmbience();
     if (STATE !== 'play'){ Audio_.silenceBeds(); Audio_.silence(); }
-    if (STATE === 'pause') Audio_.suspend();
+    if (STATE === 'pause' || STATE === 'lesson') Audio_.suspend();
     else if (STATE === 'play') Audio_.resume();
   });
   on('flash', flash);

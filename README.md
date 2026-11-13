@@ -26,6 +26,11 @@ Sprinting is fast but loud and uses stamina. You can sprint for five seconds fro
 
 Tall figures of coiled black wire live in the Complex. Dormant, they rest as a flat pile of loops on the carpet. They wake when they hear you, hunting ruthlessly by both sound and sight.
 
+Illustrated lessons pause the game when you first encounter key mechanics. Each
+lesson is remembered across runs in the same browser. You can disable the
+dialogs in a lesson or under **Settings → Lesson dialogs**; concise flashnotes
+will still teach the same topics. Re-enabling dialogs lets unseen lessons appear.
+
 ## 🕹️ Controls
 
 | Key | Action |

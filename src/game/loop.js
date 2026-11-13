@@ -12,10 +12,11 @@ import { addRunTime, STATE } from './run.js';
 /* The loop does not know how a frame is drawn or what the shell does after a
    step. boot() passes all of it in, so the loop can be read and tested without
    a renderer or a HUD. */
-let renderHook = ()=>{}, afterUpdate = ()=>{}, simAlphaHook = ()=>{}, adaptiveHook = ()=>{};
+let renderHook = ()=>{}, afterUpdate = ()=>{}, afterStep = ()=>{}, simAlphaHook = ()=>{}, adaptiveHook = ()=>{};
 export function setFrameHooks(h){
   if (h.render)      renderHook = h.render;
   if (h.afterUpdate) afterUpdate = h.afterUpdate;
+  if (h.afterStep)   afterStep = h.afterStep;
   if (h.simAlpha)    simAlphaHook = h.simAlpha;
   if (h.adaptive)    adaptiveHook = h.adaptive;
 }
@@ -102,6 +103,7 @@ export function frame(now){
         update(G, SIM_STEP);
         simAcc -= SIM_STEP;
         steps++;
+        if (STATE==='play') afterStep();
         /* update() can end the run (a death, or the door loading the next
            floor). Stop stepping and clear the leftover time so it does not
            carry into the new floor. */

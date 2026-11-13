@@ -40,6 +40,9 @@ let tmr = null;
 let wtmr = null;      // info expiry timer
 const dangerSaid = new Set();
 
+/** Whether a flash cue is still being displayed or held. */
+export function flashBusy(){ return cur !== null || held !== null || waiting !== null; }
+
 function flashEl(){
   return document.getElementById('flashnote');
 }

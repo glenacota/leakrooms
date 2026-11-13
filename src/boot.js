@@ -11,6 +11,7 @@ import { buildPatterns } from './render/textures.js';
 import { applySettings, bindDom } from './ui/bind.js';
 import { bindCards } from './ui/cards.js';
 import { bindHints, tickLoudFlash, tickCues } from './ui/hints.js';
+import { bindLessons, tickLessons } from './ui/lessons.js';
 import { buildSettingsUI, syncSettingsUI } from './ui/settings-panel.js';
 import { Audio_ } from './audio/index.js';
 import { syncAmbience } from './ui/splash.js';
@@ -126,6 +127,7 @@ export function boot(){
   bindFloorSurfaces();
   bindCards();
   bindHints();
+  bindLessons();
   bindInput();
   bindButtons();
   initTouch();
@@ -172,7 +174,7 @@ export function boot(){
      how far into the next simulation step the picture is, `adaptive` decides
      whether the machine is keeping up, and `afterUpdate` refreshes the HUD
      after each simulation step. */
-  setFrameHooks({ render, simAlpha: setSimAlpha, adaptive: adaptResolution,
+  setFrameHooks({ render, simAlpha: setSimAlpha, adaptive: adaptResolution, afterStep: tickLessons,
                   afterUpdate: ()=>{ updateHUD(); tickCues(); tickLoudFlash(); tickTouchHud(); } });
 
   requestAnimationFrame(frame);

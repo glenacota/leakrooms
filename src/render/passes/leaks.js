@@ -17,11 +17,11 @@ const CLAMP_YELLOW = '#e8c11f', CLAMP_INK = '#1c1a14';
 
 /* Draws a layout rectangle. (ox, oy) is the band's top-left in device pixels, U
    one tile in device pixels. */
-function rect(r, ox, oy, U){ ctx.fillRect(ox + r.x*U, oy + r.y*U, r.w*U, r.h*U); }
+function rect(ctx, r, ox, oy, U){ ctx.fillRect(ox + r.x*U, oy + r.y*U, r.w*U, r.h*U); }
 
 /* The pipe body: the riser, the elbow with its rounded outer corner, and the run,
    as ONE path, so the outline has no seam where the two meet. */
-function bodyPath(P, ox, oy, U){
+function bodyPath(ctx, P, ox, oy, U){
   const { run, riser } = P.rects;
   const right = P.elbowRight, dir = right ? 1 : -1;
   const inner = right ? riser.x : riser.x + riser.w, outer = right ? riser.x + riser.w : riser.x;
@@ -39,21 +39,21 @@ function bodyPath(P, ox, oy, U){
   ctx.closePath();
 }
 
-function drawPipe(P, ox, oy, U){
+function drawPipe(ctx, P, ox, oy, U){
   const { run, riser } = P.rects;
-  bodyPath(P, ox, oy, U);
+  bodyPath(ctx, P, ox, oy, U);
   ctx.fillStyle = BODY; ctx.fill();
   ctx.save(); ctx.clip();
-  ctx.fillStyle = SHADE; rect(P.rects.runShade, ox, oy, U);               // the darker underside
+  ctx.fillStyle = SHADE; rect(ctx, P.rects.runShade, ox, oy, U);               // the darker underside
   ctx.fillStyle = LIGHT;
   ctx.fillRect(ox + (P.elbowRight ? riser.x : riser.x + riser.w - 0.045)*U, oy, 0.045*U, run.y*U); // light edge of the riser
   ctx.fillRect(ox + run.x*U, oy + run.y*U, run.w*U, 0.025*U);             // light edge of the run
   ctx.restore();
-  bodyPath(P, ox, oy, U);
+  bodyPath(ctx, P, ox, oy, U);
   ctx.strokeStyle = INK; ctx.lineWidth = Math.max(1, U*0.02); ctx.stroke();
   for (const k of ['endCollar', 'midCollar', 'topCollar']){
     const r = P.rects[k];
-    ctx.fillStyle = COLLAR; rect(r, ox, oy, U);
+    ctx.fillStyle = COLLAR; rect(ctx, r, ox, oy, U);
     ctx.fillStyle = COLLAR_DARK; ctx.fillRect(ox + (r.x + r.w/2)*U, oy + r.y*U, r.w/2*U, r.h*U);
     ctx.strokeStyle = INK; ctx.lineWidth = Math.max(1, U*0.015);
     ctx.strokeRect(ox + r.x*U, oy + r.y*U, r.w*U, r.h*U);
@@ -61,7 +61,7 @@ function drawPipe(P, ox, oy, U){
 }
 
 /* The split: a black jagged shape in the elbow's underside. */
-function drawCrack(P, ox, oy, U){
+function drawCrack(ctx, P, ox, oy, U){
   ctx.fillStyle = CRACK_INK;
   ctx.beginPath();
   P.crack.forEach(([x,y], i) => i ? ctx.lineTo(ox + x*U, oy + y*U) : ctx.moveTo(ox + x*U, oy + y*U));
@@ -69,7 +69,7 @@ function drawCrack(P, ox, oy, U){
 }
 
 /* The hazard clamp that closes the split once it is sealed. */
-function drawClamp(P, ox, oy, U){
+function drawClamp(ctx, P, ox, oy, U){
   const r = P.rects.clamp, x = ox + r.x*U, y = oy + r.y*U, w = r.w*U, h = r.h*U;
   ctx.save();
   ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
@@ -81,7 +81,7 @@ function drawClamp(P, ox, oy, U){
 }
 
 /* The pool on the carpet below the pipe. Static: it does not grow with the flood. */
-function drawPuddle(P, ox, oy, U, deep){
+function drawPuddle(ctx, P, ox, oy, U, deep){
   ctx.fillStyle = waterCss(deep, 0.38, 0.92);
   for (const [cx, cy, rx, ry] of P.puddle){
     ctx.beginPath(); ctx.ellipse(ox + cx*U, oy + cy*U, rx*U, ry*U, 0, 0, 6.283); ctx.fill();
@@ -93,7 +93,7 @@ function drawPuddle(P, ox, oy, U, deep){
 
 /* The drop: a bead that swells at the split, then a teardrop that falls onto the
    puddle, which ripples where it lands. */
-function drawDrop(P, ox, oy, U, deep, phase){
+function drawDrop(ctx, P, ox, oy, U, deep, phase){
   const d = dropAt(phase), x = ox + P.dropFrom.x*U, y = oy + d.y*U, r = d.r*U;
   if (d.ripple > 0){
     const lx = ox + P.dropFrom.x*U, ly = oy + LAND_Y*U;
@@ -113,6 +113,15 @@ function drawDrop(P, ox, oy, U, deep, phase){
   ctx.fill();
 }
 
+/** Draws an open pipe and its puddle using the same artwork as the floor. */
+export function drawLessonLeak(g, x, y, size, deep){
+  const P = pipeLayout(false);
+  drawPuddle(g, P, x, y, size, deep);
+  drawPipe(g, P, x, y, size);
+  drawCrack(g, P, x, y, size);
+  drawDrop(g, P, x, y, size, deep, 0.4);
+}
+
 /* How far below the wall tile's top its face band ends, in tiles. */
 const BAND_BOTTOM = 1.1;
 
@@ -124,7 +133,7 @@ export function puddles(rc){
   for (const L of G.leaks){
     if (L.fixed || !G.wetArr || G.maskArr[L.y*MAP_W + L.x] <= 0.02) continue;
     const P = pipeLayout(pipeFlipped(L.x, L.y));
-    drawPuddle(P, L.x*TILE, (L.y + BAND_BOTTOM)*TILE - WALL_FACE, TILE, deepOf);
+    drawPuddle(ctx, P, L.x*TILE, (L.y + BAND_BOTTOM)*TILE - WALL_FACE, TILE, deepOf);
   }
 }
 
@@ -167,15 +176,15 @@ export function leaks(rc){
       const s = P.rects.streak;
       ctx.fillStyle = waterCss(deep, 0.1, 0.38);
       ctx.fillRect(ox + s.x*U, oy + s.y*U, s.w*U, s.h*U);
-      drawPipe(P, ox, oy, U);
-      drawCrack(P, ox, oy, U);
-      drawDrop(P, ox, oy, U, deep, t/1400 + hash2(L.x*3+1, L.y));
+      drawPipe(ctx, P, ox, oy, U);
+      drawCrack(ctx, P, ox, oy, U);
+      drawDrop(ctx, P, ox, oy, U, deep, t/1400 + hash2(L.x*3+1, L.y));
     } else {
       /* Sealed: the same pipe with the split closed under a hazard clamp, and no
          drop and no puddle. The missing water is the feedback: you can tell from
          across the room that it is done. */
-      drawPipe(P, ox, oy, U);
-      drawClamp(P, ox, oy, U);
+      drawPipe(ctx, P, ox, oy, U);
+      drawClamp(ctx, P, ox, oy, U);
     }
     ctx.restore();
   }

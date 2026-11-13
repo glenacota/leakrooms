@@ -225,6 +225,20 @@ const DORMANT_FILL = Array.from({length:20}, (_,i)=>{
   return `rgba(${br},${br},${br},0.3)`;
 });
 
+/** Draws the dormant lifeform's shadow and static at the given position. */
+export function drawDormantLifeform(g, x, y, t){
+  g.fillStyle='rgba(6,5,3,0.5)';
+  g.beginPath();
+  g.ellipse(x, y+4, TILE*0.36, TILE*0.20, 0,0,6.283);
+  g.fill();
+  for (let i=0;i<20;i++){
+    const sx = x + Math.sin(i*3.7 + t*0.01)*TILE*0.25;
+    const sy = y + Math.cos(i*2.3 + t*0.008)*TILE*0.10;
+    g.fillStyle = DORMANT_FILL[i];
+    g.fillRect(sx, sy, 2, 2);
+  }
+}
+
 /**
  * Draws a lifeform (the Lifeform, drawn by drawLifeform). Its look depends on
  * `lf.rise`, how far up it is:
@@ -242,23 +256,16 @@ export function drawLifeform(lf, t, wx, wy){
   const x=(wx===undefined?lf.x:wx)*TILE, y=(wy===undefined?lf.y:wy)*TILE;
   const h = lf.rise;
 
+  if (h < 0.02){
+    drawDormantLifeform(ctx, x, y, t);
+    return;
+  }
+
   // The shadow is sized to the body and not to the rise
   ctx.fillStyle='rgba(6,5,3,0.5)';
   ctx.beginPath();
   ctx.ellipse(x, y+4, TILE*0.36, TILE*0.20, 0,0,6.283);
   ctx.fill();
-
-  if (h < 0.02){
-    /* DORMANT: only the positions of the specks move (two sines each), so the
-       static crawls. Their fill styles are fixed (see DORMANT_FILL). */
-    for (let i=0;i<20;i++){
-      const sx = x + Math.sin(i*3.7 + t*0.01)*TILE*0.25;
-      const sy = y + Math.cos(i*2.3 + t*0.008)*TILE*0.10;
-      ctx.fillStyle = DORMANT_FILL[i];
-      ctx.fillRect(sx, sy, 2, 2);
-    }
-    return;
-  }
 
   /* Walk cycle. Lifeforms have no step timer, because they are not walking,
      they are coming. The phase runs off the frame clock and the amount of stride
