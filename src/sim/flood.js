@@ -45,13 +45,8 @@ import { distanceField } from './path.js';
  * }} FloodState
  */
 
-/**
- * Player state for flood (only position needed).
- * @typedef {{x:number, y:number}} FloodPlayerState
- */
-
 /* Sets up the flood for a new floor, and pre-warms it. Runs inside buildFloor. */
-export function initFlood(floodState, player) {
+export function initFlood(floodState) {
   floodState.wetArr = new Float32Array(MAP_W * MAP_H);
   const sources = openLeakSpots(floodState);
   const ff = distanceField(floodState.grid, sources);
@@ -73,9 +68,6 @@ export function initFlood(floodState, player) {
   floodState.wetSum = 0;
   floodState.wetEdgeD = -1;
   floodState.wetFloor = floodState.wetByDist.length;
-  /* Start with the spawn room already damp. */
-  seedSplash(floodState, player.x, player.y, 0.30);
-
   /* Pre-warm: set the flood directly to where it would be after LEAK_HEADSTART
      seconds. The end state is exactly "everything inside the front is fully
      wet". wetSum is added up in the same pass, so the sum and the array start
@@ -98,17 +90,14 @@ export function initFlood(floodState, player) {
       if (leakReaches(floodState, i)) { floodState.wetArr[i] = 1; sum += 1; }
     }
     floodState.wetSum = sum;
-    // The spawn puddle may reach past the pre-warmed front, so keep whichever
-    // reaches further.
-    floodState.wetEdgeD = Math.max(floodState.wetEdgeD, Math.floor(front));
+    floodState.wetEdgeD = Math.floor(front);
   }
 
   floodState.floodCover = floodState.wetFloor ? floodState.wetSum / floodState.wetFloor : 0;
   emit('waterChanged');
 }
 
-/* Drops a blob of water. Used to damp the spawn room, and to leave ripples
-   behind the player while they wade, so moving through water leaves a trace. */
+/* Drops a blob of water so wading leaves a trace. */
 export function seedSplash(floodState, wx, wy, amount) {
   if (!floodState.wetArr) return;
   const cx = Math.floor(wx), cy = Math.floor(wy);

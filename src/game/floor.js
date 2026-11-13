@@ -75,7 +75,7 @@ export function makeFloorState(level, floorNum, seed){
   scopeRoomLight(G, G.plumber, G.radar, true);
   snapMask(G, G.plumber, G.radar);
 
-  initFlood(G, G.plumber);
+  initFlood(G);
   resetRepaint();
 }
 

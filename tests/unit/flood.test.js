@@ -1,4 +1,6 @@
 import test from 'node:test';
+import assert from 'node:assert/strict';
+import { LEAK_HEADSTART, LEAK_SPREAD, MAP_W } from '../../src/config/constants.js';
 import { softAssert } from '../helpers/soft-assert.js';
 import { loadGame } from '../helpers/harness.js';
 
@@ -7,6 +9,24 @@ const blocked = A.blocked;
 const buildFloor = A.buildFloor;
 const update = A.update;
 A.setHeadless(false, false);
+
+test('initial water comes only from open leak fronts, including after reinitialization', () => {
+  for (let seed=0; seed<12; seed++){
+    buildFloor(seed % A.LEVELS_N, seed*1543+3);
+    for (let pass=0; pass<2; pass++){
+      if (pass) A.initFlood();
+      const front = Math.min(G.wetMaxDist, LEAK_HEADSTART / LEAK_SPREAD);
+      let sum = 0;
+      for (let i=0; i<G.wetArr.length; i++){
+        const expected = G.leakWaterDist.some(dist => dist && dist[i] >= 0 && dist[i] <= front) ? 1 : 0;
+        assert.equal(G.wetArr[i], expected, `seed ${seed}, tile ${i%MAP_W},${Math.floor(i/MAP_W)}`);
+        sum += expected;
+      }
+      assert.equal(G.wetSum, sum);
+      assert.equal(G.floodCover, sum / G.wetFloor);
+    }
+  }
+});
 
 /* Three things break the repair mechanic quietly. An unreachable leak makes the
    floor unwinnable, and no other assertion here would notice because none of

@@ -252,7 +252,7 @@ export function retryFloor(){
   restoreSealed(G, wasFixed);
   // Rebuild the flood now that the fixed flags are in place, so sealed leaks
   // stop being water sources.
-  initFlood(G, G.plumber);
+  initFlood(G);
   /* Same seed, so the leaks are in the same places and only the flood restarts */
   for (const lf of G.lifeforms){ lf.born=3.0; }
   transition('play');
