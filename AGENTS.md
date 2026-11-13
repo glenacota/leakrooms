@@ -97,6 +97,7 @@ Full definitions and the words to avoid are in `docs/GLOSSARY.md`.
 - **Clock**: the per-floor countdown (`FLOOR_CLOCK`).
 - **Terms**: the difficulty chosen at the door before a run (RELAXED, NORMAL, HARD). Per run.
 - **Settings**: persisted preferences such as volume, water tint and touch options. Not per run. Do not confuse with terms.
+- **Lesson card**: illustrated guidance shown without pausing play. Completed lessons persist across runs; disabling Lesson dialogs uses guidance flashnotes instead. See `docs/GLOSSARY.md`.
 - **"Mode" is overloaded**: input mode (keyboard or touch), HUD visibility mode and so on. Always say which one you mean.
 
 ## Testing
@@ -105,6 +106,7 @@ Pick the smallest suite that covers your change. Three kinds of test exist: unit
 
 - Pure logic in `sim/`, `util/` or `config/`: `npm run test:quick`.
 - UI wiring: `tests/unit/ui-wiring.test.js` and `ui-flow.test.js`.
+- Lesson lifecycle, timing and fallback guidance: `tests/unit/hints.test.js`, `lessons-flow.test.js` and `lesson-timing.test.js`.
 - Drawing: `tests/integration/render.test.js`. The golden trace fails on any change to what is drawn. Report it. Do not regenerate it.
 - Level generation, clock or tuning: the layout runs `tests/integration/layout-*.test.js` (one file per preset and seed). An omniscient bot with no lifeforms proves each floor fits the real clock. It does not prove a player can find the way. Run the file for the preset and seed you touched. `npm test` runs all nine.
 - Search, stealth, water, radar or lifeform changes: `npm run test:runs`. The player bot finds leaks by water and sight, finds the door by sight, uses the radar only when stuck, and reacts to lifeforms it sees or hears. Every run is marked `todo`, so it reports as TODO and never fails the build. The bar is that every EASY (RELAXED) run clears. NORMAL and HARD are informational.

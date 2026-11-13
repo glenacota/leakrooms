@@ -185,6 +185,12 @@ Code: `#screen-binder`, `src/ui/binder.js`.
 The how-to-play reference: controls for keyboard and touch, the HUD legend, and the rules (repair, noise, radar, door, clock, lives). One shared page of the binder, reachable from the title menu, the binder tabs and pause. It replaces the pause "briefing" page.
 Avoid: "briefing" for how-to-play. The briefing is the work order.
 
+**Lesson card**
+An illustrated, non-blocking explanation shown during play when the plumber first encounters a gameplay mechanic. Completed lessons are remembered across runs in the same browser; the Lesson dialogs setting can disable the cards without erasing their history.
+
+**Flashnote**
+A brief on-screen message that gives guidance or feedback during play. When lesson cards are disabled, guidance flashnotes teach the same topics instead.
+
 **Floor clear card**
 The card between two floors, headed "FLOOR SEALED". It shows the clock left over and the next floor's briefing. The next floor is already built behind it, and the clock is frozen while it is up.
 Code: `screen-clear`, `clearCard`.
