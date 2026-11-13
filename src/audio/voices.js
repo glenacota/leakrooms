@@ -38,6 +38,13 @@ export const voices = {
      voices, never the master: this is the mix, not the volume slider. */
   powerVol(p){ return 0.8 + Math.min(2, Math.max(0, p||0))*1.3; },
 
+  stamp(){
+    if (!this.ok) return;
+    const a=this.ctx, t=a.currentTime;
+    tone(a, this.master, {type:'sine', f0:105, f1:45, t, dur:0.18, peak:0.18});
+    noiseBurst(a, this.noise, this.master, {type:'lowpass', frequency:750, t, dur:0.1, peak:0.09});
+  },
+
   step(vol, power){
     if (!this.ok) return;
     const a=this.ctx, t=a.currentTime, k=this.powerVol(power);

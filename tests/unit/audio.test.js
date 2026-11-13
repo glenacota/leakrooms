@@ -250,6 +250,10 @@ console.log('[42] leaving play closes the mix, and pausing stops the context');
   A.Audio_.init();
   const gainOf = n => n.gain._scheduled;
 
+  /* The win report needs the completed attempts that a real run records. */
+  A.floorIdx = 0;
+  for (let floor = 0; floor < A.FLOORS - 1; floor++) A.nextFloor();
+
   /* A loud, wet, hunted floor. */
   A.Audio_.noiseFloor(0.9);
   A.Audio_.drone(0.8);
@@ -258,7 +262,6 @@ console.log('[42] leaving play closes the mix, and pausing stops the context');
 
   /* ...and the win. nextFloor() past the last floor is the one path that used
      to change state without telling anybody. */
-  A.floorIdx = A.FLOORS;
   A.nextFloor();
   t.assert(A.STATE==='win', `nextFloor() on the last floor left STATE '${A.STATE}', want 'win'`);
   t.assert(gainOf(A.Audio_.floorGain)===0,

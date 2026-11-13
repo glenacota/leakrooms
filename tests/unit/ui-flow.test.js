@@ -440,8 +440,7 @@ test('the floor-clear card shows the clock left and the next floor', () => {
     `after the card the clock stood at ${G.clock.toFixed(2)} from ${c1.toFixed(2)} — the run is not running`);
 
   /* The last floor goes to the win card instead: there is no level six. */
-  buildFloor(4, 24601);
-  A.floorIdx=4;
+  while (A.floorIdx < 4) A.nextFloor();
   A.STATE = 'play';
   A.nextFloor();
   t.assert(A.STATE==='win',

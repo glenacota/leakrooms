@@ -115,7 +115,11 @@ export function nextFloor(){
     died: false,
   });
   setFloorIdx(floorIdx+1);
-  if (floorIdx >= FLOORS){ transition('win'); emit('win', { sealed: runStat.sealed, deaths: runStat.deaths, noises: runStat.noises, floors: FLOORS, time: runTime });
+  if (floorIdx >= FLOORS){ transition('win'); emit('win', {
+    sealed: runStat.sealed, deaths: runStat.deaths, noises: runStat.noises,
+    floors: FLOORS, time: runTime, terms: currentTerms().label,
+    runHistory: runHistory.map(entry => ({ ...entry })),
+  });
     return;
   }
   /* Read the leftover clock BEFORE rebuilding. buildFloor replaces G, and the

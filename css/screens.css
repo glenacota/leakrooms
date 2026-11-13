@@ -314,6 +314,51 @@
 }
 .screen.hidden{ display:none; }
 
+/* One closing sheet, with the approval stamp as its only animated accent. */
+.win-wrap{ width:min(94vw,680px); align-items:stretch; }
+.order.win-paper{ display:block; flex:none; }
+.win-paper .order-body{ padding:28px 32px; }
+.win-head{ margin:0; }
+.win-head h1{ font-size:38px; margin-top: -5% }
+.win-head p{ color:var(--yellow-dim); font-size:13px; line-height:1.6; }
+.win-section{ padding:20px 0; border-bottom:1px solid rgba(228,230,168,.2); }
+.win-section:last-child{ border-bottom:0; padding-bottom:0; }
+.win-section h2{ font-size:16px; letter-spacing:.12em; font-weight:900; }
+.win-order-heading{ display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; }
+.win-order-heading p, .win-signoff, .win-summary{ color:var(--yellow-dim); font-size:13px; line-height:1.7; margin-top:10px; }
+.win-stamp{
+  display:inline-block; flex:none; padding:10px;
+  border:5px double var(--danger); color:var(--danger); background: rgba(0,0,0,0.8);
+  font-size:40px; font-weight:900; letter-spacing:.1em;
+  transform:rotate(-7deg); animation:win-stamp .16s .6s both; margin-left:60%
+}
+@keyframes win-stamp{
+  from{ opacity:0; transform:rotate(-7deg) scale(2); }
+  to{ opacity:1; transform:rotate(-7deg) scale(1); }
+}
+.win-table, .win-invoice{ width:100%; border-collapse:collapse; margin-top:14px; font-size:13px; }
+.win-table th, .win-table td{ padding:7px 4px; border-bottom:1px solid rgba(228,230,168,.12); text-align:right; }
+.win-table th:first-child, .win-table td:first-child{ text-align:left; }
+.win-table thead{ color:var(--yellow-dim); font-size:11px; }
+.win-invoice th, .win-invoice td{ padding:5px 0; font-weight:400; }
+.win-invoice th{ text-align:left; color:var(--yellow-dim); }
+.win-invoice td{ text-align:right; white-space:nowrap; }
+.win-invoice .win-total th, .win-invoice .win-total td{ border-top:1px solid rgba(228,230,168,.3); padding-top:10px; font-weight:900; color:var(--yellow); }
+.win-unit{ float:right; color:var(--yellow-dim); font-size:11px; }
+.win-denied{ 
+  margin-top:-3%; margin-left: 25%; transform: rotate(3deg); padding: 10px; width:fit-content;
+  background: rgba(0,0,0,0.8); color:var(--danger); border:4px double var(--danger); 
+  font-size:18px; font-weight:900; letter-spacing:.1em; 
+}
+@media (max-width:480px){
+  .win-paper .order-body{ padding:20px 16px; }
+  .win-table{ font-size:12px; }
+  .win-table thead{ font-size:10px; }
+}
+@media (prefers-reduced-motion:reduce){
+  .win-stamp{ animation:none; }
+}
+
 /* A small centred card, used by the death, win, clear and error screens. */
 .tape{
   max-width:660px;

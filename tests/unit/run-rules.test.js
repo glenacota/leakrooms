@@ -5,6 +5,7 @@ import { fakeAudioContext } from '../helpers/stubs.js';
 import { softAssert } from '../helpers/soft-assert.js';
 import { readCss, readHtml, readSrc } from '../helpers/src-text.js';
 import { loadGame } from '../helpers/harness.js';
+import { on } from '../../src/util/events.js';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const { A, G, els, calls, store, press } = await loadGame();
@@ -186,7 +187,10 @@ test('the run is five levels, three minutes and one door', () => {
           'retrying the level cleared the run totals');
       }
     }
+    let winPayload;
+    const stopWin = on('win', payload => { winPayload = payload; });
     A.nextFloor();        // floorIdx hits FLOORS: the card is printed
+    stopWin();
     t.assert(A.STATE==='win', `the run ended on STATE=${A.STATE}, not the win screen`);
     t.assert(G.stat.sealed !== sealed,
       'this assertion needs G.stat to differ from the run total or it proves nothing');
@@ -196,6 +200,11 @@ test('the run is five levels, three minutes and one door', () => {
     t.assert(card.includes(`Deaths: <b>1</b>`), `the win card does not report 1 death (said: ${card.slice(0,90)}...)`);
     t.assert(card.includes(`Noise made: <b>${noises}</b>`),
       `the win card does not report ${noises} noises (said: ${card.slice(0,90)}...)`);
+    t.assert(winPayload.terms === A.SETTINGS.difficulty.toUpperCase(), 'the win event did not include the run terms');
+    t.assert(winPayload.runHistory.length === 6 && winPayload.runHistory.filter(e => e.died).length === 1,
+      'the win event did not include all floor attempts');
+    t.assert(card.includes('Terms: <b>') && card.includes('RAISE REQUEST: DENIED'),
+      'the win card is missing the terms or invoice sign-off');
     console.log(`  the win card counts the run: ${sealed} leaks sealed, 1 death, ${noises} noises`);
     /* leave the world where the next test expects to find it */
     A.STATE = 'splash';
@@ -203,4 +212,3 @@ test('the run is five levels, three minutes and one door', () => {
     buildFloor(0, 4242);
   };
 });
-
