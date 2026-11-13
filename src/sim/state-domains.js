@@ -105,6 +105,8 @@ export function createFloodState() {
     waterDist: null,
     wetByDist: [],
     wetFront: 0,
+    leakFront: [],
+    leakWaterDist: [],
     wetMaxDist: 0,
     wetSum: 0,
     wetEdgeD: -1,

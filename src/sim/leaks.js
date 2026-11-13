@@ -81,9 +81,9 @@ export function leakReach(leaks, x, y){
  * Seals one leak permanently. It checks the fixed flag first, so it can never
  * be applied twice.
  *
- * Sealing one leak does not stop the flood: the water only starts to recede when
- * the LAST leak is sealed. So sealing one leak out of four is progress, not
- * relief.
+ * Sealing one leak stops it feeding the flood. Its own front starts to recede
+ * toward the pipe, and the water only that pipe was reaching dries. Water the
+ * open pipes still reach stays wet, so sealing one leak out of four is progress.
  *
  * @param {object} L - an entry of leaks array.
  * @param {LeakState} leakState
@@ -102,10 +102,9 @@ export function sealLeak(L, leakState){
     : { cat: 'guide', text: 'EVERY LEAK SEALED \u2014 GET BACK TO THE DOOR' });
   leakState.stat.sealed++;
   emit('stat', 'sealed');
-  /* The recession uses the existing distance field. Building a new field from
-     the seal point would reset the water front and snap the level from flooded
-     to dry in a single frame. The existing field already describes the right
-     answer: water recedes from where it spread. */
+  /* The recession uses the existing fields. Rebuilding them from the seal point
+     would reset the fronts and snap the level from flooded to dry in a single
+     frame. The sealed pipe's front simply starts moving back toward it. */
   emit('waterChanged');
 }
 

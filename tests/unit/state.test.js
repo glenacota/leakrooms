@@ -19,7 +19,7 @@ const PINNED_KEYS = [
   'selfNoise', 'stat', 'time', 'totalLeaks', 'visArr', 'visFadeT', 'visFrom',
   'visRegion', 'visScratch', 'visStep', 'visTgt', 'wallIdx', 'wantVision',
   'atLeak', 'wet', 'wetArr', 'wetByDist', 'wetEdgeD', 'wetFloor', 'wetFront',
-  'wetIndexAtDist', 'wetMaxDist', 'wetSum', 'waterDist',
+  'wetIndexAtDist', 'wetMaxDist', 'wetSum', 'waterDist', 'leakFront', 'leakWaterDist',
 ];
 
 test('a built floor exposes exactly the state G owns', () => {
