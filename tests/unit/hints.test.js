@@ -6,12 +6,12 @@ import { startRun, transition, STATE } from '../../src/game/run.js';
 import { cam } from '../../src/render/render.js';
 import { resetSettings, setOption } from '../../src/settings/store.js';
 import { clearInput, keys } from '../../src/sim/keys.js';
-import { tickLessons, dismissLesson } from '../../src/ui/lessons.js';
+import { tickTutorials, dismissTutorial } from '../../src/ui/tutorials.js';
 import { flashReset } from '../../src/ui/hud.js';
 import { emit, on } from '../../src/util/events.js';
 
 const { A, G, els, store, press } = await loadGame();
-const historyKey = 'leakrooms.lessons.v1';
+const historyKey = 'leakrooms.tutorials.v1';
 
 function quietFloor(){
   G.wetArr.fill(0);
@@ -25,27 +25,27 @@ function quietFloor(){
   cam.jx = cam.jy = 0;
 }
 
-test('lessons allow input, queue and persist only after dismissal', () => {
+test('tutorials allow input, queue and persist only after dismissal', () => {
   startRun();
   quietFloor();
   G.radar = true;
   keys.d = true;
   emit('sprint', 0);
-  tickLessons();
+  tickTutorials();
   assert.equal(STATE, 'play');
-  assert.equal(keys.d, true, 'opening a lesson does not release movement');
-  assert.equal(els['lesson-overlay'].hidden, false);
-  assert.equal(els['lesson-title'].textContent, 'Running has a cost');
+  assert.equal(keys.d, true, 'opening a tutorial does not release movement');
+  assert.equal(els['tutorial-overlay'].hidden, false);
+  assert.equal(els['tutorial-title'].textContent, 'Running has a cost');
   assert.equal(store.has(historyKey), false);
 
-  dismissLesson();
+  dismissTutorial();
   assert.equal(STATE, 'play', 'queued radar leaves the simulation running');
-  assert.equal(els['lesson-title'].textContent, 'Radar has a cost');
+  assert.equal(els['tutorial-title'].textContent, 'Radar has a cost');
   assert.deepEqual(JSON.parse(store.get(historyKey)), ['sprint']);
   press('Enter');
   assert.equal(STATE, 'play');
   assert.deepEqual(JSON.parse(store.get(historyKey)), ['sprint', 'radar']);
-  assert.equal(els['lesson-overlay'].hidden, true);
+  assert.equal(els['tutorial-overlay'].hidden, true);
   assert.equal(keys.d, true, 'movement remains held after dismissal');
   clearInput();
 
@@ -54,31 +54,31 @@ test('lessons allow input, queue and persist only after dismissal', () => {
   quietFloor();
   G.radar = true;
   emit('sprint', 0);
-  tickLessons();
-  assert.equal(STATE, 'play', 'completed lessons do not repeat on a new run');
+  tickTutorials();
+  assert.equal(STATE, 'play', 'completed tutorials do not repeat on a new run');
   resetSettings();
   assert.deepEqual(JSON.parse(store.get(historyKey)), ['sprint', 'radar']);
 });
 
-test('hidden lifeforms do not reveal themselves through a lesson', () => {
+test('hidden lifeforms do not reveal themselves through a tutorial', () => {
   startRun();
   quietFloor();
   const x = Math.floor(cam.x), y = Math.floor(cam.y), i = y*MAP_W+x;
   G.lifeforms = [{ x:x+0.5, y:y+0.5, state:'DORMANT', rise:0 }];
   G.maskArr[i] = 1;
-  tickLessons();
+  tickTutorials();
   assert.equal(STATE, 'play', 'darkness hides the lifeform');
   G.lightArr[i] = 1;
   const previousX = cam.x;
   cam.x += 50;
-  tickLessons();
+  tickTutorials();
   assert.equal(STATE, 'play', 'a lit lifeform outside the viewport is not revealed');
   cam.x = previousX;
-  tickLessons();
+  tickTutorials();
   assert.equal(STATE, 'play');
-  assert.equal(els['lesson-overlay'].hidden, false);
-  assert.equal(els['lesson-title'].textContent, 'Watch for lifeforms');
-  dismissLesson();
+  assert.equal(els['tutorial-overlay'].hidden, false);
+  assert.equal(els['tutorial-title'].textContent, 'Watch for lifeforms');
+  dismissTutorial();
 });
 
 test('visible water and an open leak queue in order', () => {
@@ -88,34 +88,34 @@ test('visible water and an open leak queue in order', () => {
   G.maskArr[i] = G.lightArr[i] = 1;
   G.wetArr[i] = 1;
   G.leaks = [{ x, y, fixed:false }];
-  tickLessons();
-  assert.equal(els['lesson-title'].textContent, 'How to find a leak');
-  dismissLesson();
-  assert.equal(els['lesson-title'].textContent, 'How to seal a leak');
-  dismissLesson();
+  tickTutorials();
+  assert.equal(els['tutorial-title'].textContent, 'How to find a leak');
+  dismissTutorial();
+  assert.equal(els['tutorial-title'].textContent, 'How to seal a leak');
+  dismissTutorial();
   assert.equal(STATE, 'play');
 });
 
-test('disabled dialogs emit fallback guidance without completing lessons', () => {
+test('disabled dialogs emit fallback guidance without completing tutorials', () => {
   startRun();
   quietFloor();
-  setOption('lessons', false);
+  setOption('tutorials', false);
   flashReset();
   const cues = [];
   const unsubscribe = on('flash', cue => cues.push(cue.text));
   try {
     emit('run:start');
     emit('sprint', 0);
-    tickLessons();
+    tickTutorials();
     assert.ok(cues.includes('RUNNING IS LOUD AND DRAINS STAMINA. STOP RUNNING TO RECOVER'));
     assert.equal(STATE, 'play');
     assert.deepEqual(JSON.parse(store.get(historyKey)), ['sprint', 'radar', 'lifeform', 'water', 'repair']);
     emit('sprint', 0);
-    tickLessons();
+    tickTutorials();
     assert.equal(cues.length, 1, 'fallback does not repeat within the run');
   } finally {
     unsubscribe();
-    setOption('lessons', true);
+    setOption('tutorials', true);
   }
 });
 

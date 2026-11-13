@@ -46,7 +46,7 @@ export function tickCues(){
     doorSince = 0;
   }
 
-  /* The door lesson remains a floor-1 flash cue. */
+  /* The door tutorial remains a floor-1 flash cue. */
   if (G.floor === 0){
     /* The door hold only starts once every leak is sealed, so a first-time
        player has no reason to stand there until told. */

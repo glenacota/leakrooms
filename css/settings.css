@@ -40,6 +40,7 @@
 .setrow .note{
   margin:0; font-size:13px; font-weight: 900; line-height:1.5; opacity:.55; max-width:46ch;
 }
+#btn-reset-tutorials{ padding:6px 8px; font-size:12px; letter-spacing:.14em; }
 .setrow.buttons{
   flex-direction:row; gap:12px; justify-content:flex-end;
   margin-top:50px;

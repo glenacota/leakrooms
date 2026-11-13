@@ -214,18 +214,18 @@
   #flashnote.icon .ico{ animation:none; }
 }
 
-/* Lesson cues */
+/* Tutorials */
 
 
-.lesson-overlay[hidden]{ display:none; }
-.lesson-overlay{
+.tutorial-overlay[hidden]{ display:none; }
+.tutorial-overlay{
   position:absolute; inset:0; z-index:8; display:flex;
   align-items:flex-end; justify-content:center;
   padding:calc(8px + var(--safe-t)) calc(8px + var(--safe-r))
           calc(20px + var(--safe-b)) calc(8px + var(--safe-l));
   pointer-events:none;
 }
-.lesson-card{
+.tutorial-card{
   width:min(600px,100%); max-height:100%; overflow:auto;
   display:grid; grid-template-columns:minmax(115px, 32%) 1fr;
   color:var(--yellow);
@@ -235,26 +235,26 @@
   box-shadow:0 0 16px rgba(0,0,0,.55);
   pointer-events:auto; cursor:auto;
 }
-.lesson-card canvas{ width:100%; height:100%; min-height:120px; object-fit:contain; background:#777c45; }
-.lesson-copy{ padding:12px; display:flex; flex-direction:column; gap:8px; align-items:stretch; }
-.lesson-copy h2{ font-size:18px; line-height:1.2; margin-bottom:5px; }
-.lesson-copy p{ font-size:14px; line-height:1.4; color:#f0f1cf; }
-.lesson-actions{ display:flex; align-items:center; gap:12px; margin-top: auto}
-#lesson-countdown{ color:var(--yellow-dim); font-size:13px; font-weight:700; }
-.lesson-copy button{
+.tutorial-card canvas{ width:100%; height:100%; min-height:120px; object-fit:contain; background:#777c45; }
+.tutorial-copy{ padding:12px; display:flex; flex-direction:column; gap:8px; align-items:stretch; }
+.tutorial-copy h2{ font-size:18px; line-height:1.2; margin-bottom:5px; }
+.tutorial-copy p{ font-size:14px; line-height:1.4; color:#f0f1cf; }
+.tutorial-actions{ display:flex; align-items:center; gap:12px; margin-top: auto}
+#tutorial-countdown{ color:var(--yellow-dim); font-size:13px; font-weight:700; }
+.tutorial-copy button{
   padding:8px 12px; background:var(--yellow); color:var(--ink);
   border:0; font:700 13px var(--mono); cursor:pointer;
 }
-.lesson-copy :focus-visible{ outline:3px solid #fff; outline-offset:3px; }
-[data-input=touch] .lesson-card{ width:min(480px, 65%); }
-[data-input=touch] .lesson-copy button{ min-height:44px; }
-[data-input=touch] .lesson-key{ display:none; }
+.tutorial-copy :focus-visible{ outline:3px solid #fff; outline-offset:3px; }
+[data-input=touch] .tutorial-card{ width:min(480px, 65%); }
+[data-input=touch] .tutorial-copy button{ min-height:44px; }
+[data-input=touch] .tutorial-key{ display:none; }
 @media (max-width:520px), (max-height:420px){
-  .lesson-card{ grid-template-columns:minmax(85px, 30%) 1fr; }
-  .lesson-card canvas{ min-height:100px; }
-  .lesson-copy{ padding:8px; gap:6px; }
-  .lesson-copy h2{ font-size:16px; }
-  .lesson-copy p{ font-size:13px; line-height:1.3; }
+  .tutorial-card{ grid-template-columns:minmax(85px, 30%) 1fr; }
+  .tutorial-card canvas{ min-height:100px; }
+  .tutorial-copy{ padding:8px; gap:6px; }
+  .tutorial-copy h2{ font-size:16px; }
+  .tutorial-copy p{ font-size:13px; line-height:1.3; }
 }
 
 /* ---------- The ticket (work order and pause screen) ---------- */

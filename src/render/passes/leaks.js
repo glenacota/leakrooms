@@ -114,7 +114,7 @@ function drawDrop(ctx, P, ox, oy, U, deep, phase){
 }
 
 /** Draws an open pipe and its puddle using the same artwork as the floor. */
-export function drawLessonLeak(g, x, y, size, deep){
+export function drawTutorialLeak(g, x, y, size, deep){
   const P = pipeLayout(false);
   drawPuddle(g, P, x, y, size, deep);
   drawPipe(g, P, x, y, size);

@@ -2,15 +2,15 @@ import { MAP_H, MAP_W, TILE, WET_DRAW } from '../config/constants.js';
 import { STATE } from '../game/run.js';
 import { cvs, SCALE } from '../render/canvas.js';
 import { cam } from '../render/render.js';
-import { paintLesson } from '../render/lesson-art.js';
+import { paintTutorial } from '../render/tutorial-art.js';
 import { SETTINGS } from '../settings/store.js';
 import { G } from '../sim/state.js';
 import { emit, on } from '../util/events.js';
 import { flashBusy } from './hud.js';
 
-const STORAGE_KEY = 'leakrooms.lessons.v1';
-const LESSON_SECONDS = 10;
-const LESSONS = {
+const STORAGE_KEY = 'leakrooms.tutorials.v1';
+const TUTORIAL_SEC = 10;
+const TUTORIALS = {
   sprint: {
     title: 'Running has a cost',
     text: 'Running is loud and may attract hostile lifeforms. It also drains stamina. Walk or stand still to recover.',
@@ -54,17 +54,17 @@ function loadCompleted(){
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return new Set();
     const value = JSON.parse(raw);
-    if (!Array.isArray(value)) throw new Error('Invalid lesson history');
-    return new Set(value.filter(id => Object.hasOwn(LESSONS, id)));
+    if (!Array.isArray(value)) throw new Error('Invalid tutorial history');
+    return new Set(value.filter(id => Object.hasOwn(TUTORIALS, id)));
   } catch (error){
-    console.warn('Could not load lesson history:', error);
+    console.warn('Could not load tutorial history:', error);
     return new Set();
   }
 }
 
 function saveCompleted(){
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify([...completed])); }
-  catch (error){ console.warn('Could not save lesson history:', error); }
+  catch (error){ console.warn('Could not save tutorial history:', error); }
 }
 
 function onScreen(x, y){
@@ -83,7 +83,7 @@ function tileVisible(x, y, pipe = false){
 
 function candidates(){
   const result = [];
-  const needed = id => SETTINGS.lessons ? !completed.has(id) && current !== id && !queue.includes(id)
+  const needed = id => SETTINGS.tutorials ? !completed.has(id) && current !== id && !queue.includes(id)
     : !fallback.has(id) && !fallbackQueue.includes(id);
   if (sprinted && needed('sprint')) result.push('sprint');
   if (G.radar && needed('radar')) result.push('radar');
@@ -109,58 +109,62 @@ function candidates(){
 function displayNext(){
   current = queue.shift();
   if (!current) return;
-  remaining = LESSON_SECONDS;
-  const lesson = LESSONS[current];
-  document.getElementById('lesson-title').textContent = lesson.title;
-  document.getElementById('lesson-text').textContent = lesson.text;
-  paintLesson(document.getElementById('lesson-art'), current, waterTile);
-  document.getElementById('lesson-overlay').hidden = false;
+  remaining = TUTORIAL_SEC;
+  const tutorial = TUTORIALS[current];
+  document.getElementById('tutorial-title').textContent = tutorial.title;
+  document.getElementById('tutorial-text').textContent = tutorial.text;
+  paintTutorial(document.getElementById('tutorial-art'), current, waterTile);
+  document.getElementById('tutorial-overlay').hidden = false;
   syncCountdown();
 }
 
 function syncCountdown(){
-  const el = document.getElementById('lesson-countdown');
+  const el = document.getElementById('tutorial-countdown');
   const text = `${Math.ceil(remaining)}s`;
   if (el.textContent !== text) el.textContent = text;
 }
 
-function clearPending(){
+function clearTutorialCards(){
   queue = [];
-  fallbackQueue = [];
   current = null;
   sprinted = false;
   remaining = 0;
   hovering = focused = false;
-  document.getElementById('lesson-overlay').hidden = true;
+  document.getElementById('tutorial-overlay').hidden = true;
 }
 
-/** Evaluates lesson triggers after a completed simulation step. */
-export function tickLessons(dt = 0){
+function clearPending(){
+  fallbackQueue = [];
+  clearTutorialCards();
+}
+
+/** Evaluates tutorial triggers after a completed simulation step. */
+export function tickTutorials(dt = 0){
   if (STATE !== 'play' || !G) return;
   const active = current;
   for (const id of candidates()){
-    if (!SETTINGS.lessons){
+    if (!SETTINGS.tutorials){
       fallbackQueue.push(id);
     } else if (!completed.has(id) && !queue.includes(id)){
       queue.push(id);
     }
   }
   sprinted = false;
-  if (!SETTINGS.lessons && fallbackQueue.length && !flashBusy()){
+  if (!SETTINGS.tutorials && fallbackQueue.length && !flashBusy()){
     const id = fallbackQueue.shift();
     fallback.add(id);
-    emit('flash', { cat: 'guide', text: LESSONS[id].flash });
+    emit('flash', { cat: 'guide', text: TUTORIALS[id].flash });
   }
   if (active && current === active && !hovering && !focused){
     remaining = Math.max(0, remaining - dt);
-    if (remaining < 1e-8) dismissLesson();
+    if (remaining < 1e-8) dismissTutorial();
     else syncCountdown();
   }
-  if (!current && queue.length && SETTINGS.lessons) displayNext();
+  if (!current && queue.length && SETTINGS.tutorials) displayNext();
 }
 
-/** Dismisses a visible lesson, returning whether one was present. */
-export function dismissLesson(dismiss = true){
+/** Dismisses a visible tutorial, returning whether one was present. */
+export function dismissTutorial(dismiss = true){
   if (STATE !== 'play' || !current) return false;
   if (!dismiss) return true;
   completed.add(current);
@@ -168,19 +172,19 @@ export function dismissLesson(dismiss = true){
   current = null;
   if (queue.length) displayNext();
   else {
-    document.getElementById('lesson-overlay').hidden = true;
+    document.getElementById('tutorial-overlay').hidden = true;
     hovering = focused = false;
   }
   return true;
 }
 
-/** Binds lesson triggers, dismissal and persistent history. */
-export function bindLessons(){
+/** Binds tutorial triggers, dismissal and persistent history. */
+export function bindTutorials(){
   completed = loadCompleted();
   fallback = new Set();
   clearPending();
-  const card = document.getElementById('lesson-overlay');
-  document.getElementById('lesson-continue').onclick = () => dismissLesson();
+  const card = document.getElementById('tutorial-overlay');
+  document.getElementById('tutorial-continue').onclick = () => dismissTutorial();
   card.addEventListener('pointerenter', e => { if (e.pointerType !== 'touch') hovering = true; });
   card.addEventListener('pointerleave', e => { if (e.pointerType !== 'touch') hovering = false; });
   card.addEventListener('focusin', () => { focused = true; });
@@ -188,9 +192,21 @@ export function bindLessons(){
   on('sprint', () => { sprinted = true; });
   on('run:start', () => { fallback.clear(); clearPending(); });
   on('floorBuilt', clearPending);
+  on('tutorials:reset', () => {
+    try {
+      localStorage.setItem(STORAGE_KEY, '[]');
+    } catch (error){
+      console.warn('Could not reset tutorial history:', error);
+      emit('tutorials:reset-result', false);
+      return;
+    }
+    completed.clear();
+    clearTutorialCards();
+    emit('tutorials:reset-result', true);
+  });
   on('settings:changed', key => {
-    if (key !== 'lessons' && key !== '*') return;
-    if (SETTINGS.lessons) fallbackQueue = [];
+    if (key !== 'tutorials' && key !== '*') return;
+    if (SETTINGS.tutorials) fallbackQueue = [];
     else clearPending();
   });
   on('state', () => {

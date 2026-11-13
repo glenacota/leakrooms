@@ -1,6 +1,7 @@
 import { DIFFICULTIES } from '../config/presets.js';
 import { SETTINGS, setOption } from '../settings/store.js';
 import { SETTINGS_SCHEMA } from '../settings/schema.js';
+import { emit, on } from '../util/events.js';
 import { paintTerms } from './terms.js';
 
 /* The buttons for each segmented row (value and label pairs). They are listed
@@ -10,7 +11,7 @@ export const SEGMENTS = {
   difficulty: () => Object.keys(DIFFICULTIES).map(k => [k, DIFFICULTIES[k].label]),
   waterHue:   () => [['slate','SLATE'],['teal','TEAL'],['violet','VIOLET'],['grey','GREY']],
   flash:      () => [['true','ON'],['false','OFF']],
-  lessons:    () => [['true','ON'],['false','OFF']],
+  tutorials:    () => [['true','ON'],['false','OFF']],
   touchHud:   () => [['auto','AUTO'],['always','ALWAYS'],['minimal','MINIMAL']],
   touchSide:  () => [['left','LEFT'],['right','RIGHT']],
   haptics:    () => [['true','ON'],['false','OFF']],
@@ -40,6 +41,14 @@ export function buildSettingsUI(){
     el.addEventListener('input', ()=> setOption(key, parseFloat(el.value)));
   }
 
+  document.getElementById('btn-reset-tutorials').onclick = () => emit('tutorials:reset');
+  on('tutorials:reset-result', success => {
+    let message = 'COULD NOT RESET TUTORIALS. CHECK BROWSER STORAGE AND TRY AGAIN.';
+    if (success) message = SETTINGS.tutorials
+      ? 'TUTORIALS RESET. THEY WILL APPEAR AGAIN DURING PLAY.'
+      : 'TUTORIALS RESET. ENABLE TUTORIALS TO SEE THEM AGAIN.';
+    document.getElementById('tutorials-reset-status').textContent = message;
+  });
 }
 
 /* Makes every control show the current settings: slider positions, which

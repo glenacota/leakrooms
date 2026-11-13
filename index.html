@@ -78,17 +78,17 @@
      the safe area, above the HUD, pointer-events none. -->
   <div id="perf" hidden></div>
 
-  <div id="lesson-overlay" class="lesson-overlay" hidden>
-    <section class="lesson-card" aria-labelledby="lesson-title" aria-describedby="lesson-text">
-      <canvas id="lesson-art" width="360" height="260" aria-hidden="true"></canvas>
-      <div class="lesson-copy">
+  <div id="tutorial-overlay" class="tutorial-overlay" hidden>
+    <section class="tutorial-card" aria-labelledby="tutorial-title" aria-describedby="tutorial-text">
+      <canvas id="tutorial-art" width="360" height="260" aria-hidden="true"></canvas>
+      <div class="tutorial-copy">
         <div aria-live="polite" aria-atomic="true">
-          <h2 id="lesson-title"></h2>
-          <p id="lesson-text"></p>
+          <h2 id="tutorial-title"></h2>
+          <p id="tutorial-text"></p>
         </div>
-        <div class="lesson-actions">
-          <button id="lesson-continue" type="button">CLOSE <span class="lesson-key">[Enter]</span></button>
-          <span id="lesson-countdown" aria-hidden="true"></span>
+        <div class="tutorial-actions">
+          <button id="tutorial-continue" type="button">CLOSE <span class="tutorial-key">[Enter]</span></button>
+          <span id="tutorial-countdown" aria-hidden="true"></span>
         </div>
       </div>
     </section>
@@ -316,8 +316,10 @@
               </div>
 
               <div class="setrow">
-                <span class="lbl">LESSON DIALOGS</span>
-                <div class="seg" id="set-lessons" data-opt="lessons" role="group" aria-label="LESSON DIALOGS"></div>
+                <span class="lbl">TUTORIALS</span>
+                <div class="seg" id="set-tutorials" data-opt="tutorials" role="group" aria-label="TUTORIALS"></div>
+                <div><button type="button" id="btn-reset-tutorials" class="ghost">SHOW ALL TUTORIALS AGAIN</button></div>
+                <p id="tutorials-reset-status" class="note" role="status" aria-live="polite"></p>
               </div>
 
               <!-- Touch settings. Hidden in keyboard mode (css/touch.css). -->

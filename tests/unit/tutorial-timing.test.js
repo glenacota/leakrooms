@@ -5,10 +5,10 @@ import { startRun, transition, STATE } from '../../src/game/run.js';
 import { MAP_W } from '../../src/config/constants.js';
 import { cam } from '../../src/render/render.js';
 import { emit } from '../../src/util/events.js';
-import { tickLessons } from '../../src/ui/lessons.js';
+import { tickTutorials } from '../../src/ui/tutorials.js';
 
 const { G, els, store, press } = await loadGame();
-const historyKey = 'leakrooms.lessons.v1';
+const historyKey = 'leakrooms.tutorials.v1';
 
 function quietFloor(){
   G.wetArr.fill(0);
@@ -26,47 +26,47 @@ test('active countdown freezes on pause and interaction, then advances the queue
   quietFloor();
   G.radar = true;
   emit('sprint', 0);
-  tickLessons();
+  tickTutorials();
   assert.equal(STATE, 'play');
-  assert.equal(els['lesson-countdown'].textContent, '10s');
-  assert.equal(els['lesson-title'].textContent, 'Running has a cost');
+  assert.equal(els['tutorial-countdown'].textContent, '10s');
+  assert.equal(els['tutorial-title'].textContent, 'Running has a cost');
 
   emit('sprint', 0);
-  tickLessons(2);
-  assert.equal(els['lesson-countdown'].textContent, '8s');
+  tickTutorials(2);
+  assert.equal(els['tutorial-countdown'].textContent, '8s');
   press('Escape');
   assert.equal(STATE, 'pause');
-  assert.equal(els['lesson-overlay'].hidden, true);
-  tickLessons(100);
+  assert.equal(els['tutorial-overlay'].hidden, true);
+  tickTutorials(100);
   press('Escape');
   assert.equal(STATE, 'play');
-  assert.equal(els['lesson-overlay'].hidden, false);
-  assert.equal(els['lesson-countdown'].textContent, '8s');
+  assert.equal(els['tutorial-overlay'].hidden, false);
+  assert.equal(els['tutorial-countdown'].textContent, '8s');
 
-  els['lesson-overlay']._fire('pointerenter', { pointerType:'mouse' });
-  tickLessons(20);
-  assert.equal(els['lesson-countdown'].textContent, '8s');
-  els['lesson-overlay']._fire('pointerleave', { pointerType:'mouse' });
-  els['lesson-overlay']._fire('focusin', {});
-  tickLessons(20);
-  assert.equal(els['lesson-countdown'].textContent, '8s');
-  els['lesson-overlay']._fire('focusout', { relatedTarget:null });
+  els['tutorial-overlay']._fire('pointerenter', { pointerType:'mouse' });
+  tickTutorials(20);
+  assert.equal(els['tutorial-countdown'].textContent, '8s');
+  els['tutorial-overlay']._fire('pointerleave', { pointerType:'mouse' });
+  els['tutorial-overlay']._fire('focusin', {});
+  tickTutorials(20);
+  assert.equal(els['tutorial-countdown'].textContent, '8s');
+  els['tutorial-overlay']._fire('focusout', { relatedTarget:null });
 
-  tickLessons(7.99);
-  assert.equal(els['lesson-countdown'].textContent, '1s');
+  tickTutorials(7.99);
+  assert.equal(els['tutorial-countdown'].textContent, '1s');
   assert.equal(store.has(historyKey), false);
-  tickLessons(0.01);
+  tickTutorials(0.01);
   assert.deepEqual(JSON.parse(store.get(historyKey)), ['sprint']);
-  assert.equal(els['lesson-title'].textContent, 'Radar has a cost');
-  assert.equal(els['lesson-countdown'].textContent, '10s');
+  assert.equal(els['tutorial-title'].textContent, 'Radar has a cost');
+  assert.equal(els['tutorial-countdown'].textContent, '10s');
   press('Enter', { repeat:true });
-  assert.equal(els['lesson-title'].textContent, 'Radar has a cost');
-  els['lesson-overlay']._fire('pointerenter', { pointerType:'touch' });
-  tickLessons(1);
-  assert.equal(els['lesson-countdown'].textContent, '9s');
-  tickLessons(9);
+  assert.equal(els['tutorial-title'].textContent, 'Radar has a cost');
+  els['tutorial-overlay']._fire('pointerenter', { pointerType:'touch' });
+  tickTutorials(1);
+  assert.equal(els['tutorial-countdown'].textContent, '9s');
+  tickTutorials(9);
   assert.deepEqual(JSON.parse(store.get(historyKey)), ['sprint', 'radar']);
-  assert.equal(els['lesson-overlay'].hidden, true);
+  assert.equal(els['tutorial-overlay'].hidden, true);
   assert.equal(STATE, 'play');
 });
 
@@ -78,12 +78,12 @@ test('death discards visible and queued cards without completing them', () => {
   G.wetArr[i] = 1;
   G.maskArr[i] = G.lightArr[i] = 1;
   G.leaks = [{ x, y, fixed:false }];
-  tickLessons();
-  assert.equal(els['lesson-title'].textContent, 'How to find a leak');
-  assert.equal(els['lesson-overlay'].hidden, false);
+  tickTutorials();
+  assert.equal(els['tutorial-title'].textContent, 'How to find a leak');
+  assert.equal(els['tutorial-overlay'].hidden, false);
   const before = store.get(historyKey);
   transition('dead');
-  assert.equal(els['lesson-overlay'].hidden, true);
+  assert.equal(els['tutorial-overlay'].hidden, true);
   assert.equal(store.get(historyKey), before);
 
   startRun();
@@ -91,9 +91,9 @@ test('death discards visible and queued cards without completing them', () => {
   G.wetArr[i] = G.maskArr[i] = G.lightArr[i] = 1;
   cam.x = x + 0.5;
   cam.y = y + 0.5;
-  tickLessons();
+  tickTutorials();
   press('Enter');
-  assert.equal(els['lesson-overlay'].hidden, true, 'the previous repair card is not queued');
+  assert.equal(els['tutorial-overlay'].hidden, true, 'the previous repair card is not queued');
   assert.deepEqual(JSON.parse(store.get(historyKey)), ['sprint', 'radar', 'water']);
 });
 
@@ -104,10 +104,10 @@ test('rebuilding a floor discards the current card without completing it', () =>
   const i = y*MAP_W + x;
   G.leaks = [{ x, y, fixed:false }];
   G.maskArr[i] = 1;
-  tickLessons();
-  assert.equal(els['lesson-title'].textContent, 'How to seal a leak');
+  tickTutorials();
+  assert.equal(els['tutorial-title'].textContent, 'How to seal a leak');
   const before = store.get(historyKey);
   emit('floorBuilt');
-  assert.equal(els['lesson-overlay'].hidden, true);
+  assert.equal(els['tutorial-overlay'].hidden, true);
   assert.equal(store.get(historyKey), before);
 });

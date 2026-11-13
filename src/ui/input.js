@@ -11,7 +11,7 @@ import { backSplash, beginShift, activateMenu, moveMenu } from './splash.js';
 import { binderTab, stepBinderTab } from './binder.js';
 import { handleTermsKey } from './terms.js';
 import { isMobileBlocked } from './mobile.js';
-import { dismissLesson } from './lessons.js';
+import { dismissTutorial } from './tutorials.js';
 
 /* What ENTER does on each screen. It confirms whatever the screen is asking
    for: start, resume, rewind, run again. */
@@ -88,7 +88,7 @@ function handleKey(e, k){
       && !!focused.closest && !!focused.closest('#screen-binder');
 
   if (k==='enter'){
-    if (STATE==='play' && dismissLesson(!e.repeat)){
+    if (STATE==='play' && dismissTutorial(!e.repeat)){
       e.preventDefault();
       return true;
     }
@@ -147,7 +147,7 @@ function handleKey(e, k){
     return false;
   }
   if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key)){
-    if (STATE==='play' && e.key===' ' && focused === document.getElementById('lesson-continue')) return false;
+    if (STATE==='play' && e.key===' ' && focused === document.getElementById('tutorial-continue')) return false;
     /* One exception: on the pause screen, arrows move a focused slider and
        space presses a focused button, so those keys belong to the screen.
        Everywhere else they are movement, and preventDefault stops the page

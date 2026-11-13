@@ -7,7 +7,7 @@ import { G } from '../sim/state.js';
 import { drawBatteryMeter } from './battery-meter.js';
 import { drawDormantLifeform } from './entities.js';
 import { surfaces, syncSurfaces } from './floor-surfaces.js';
-import { drawLessonLeak } from './passes/leaks.js';
+import { drawTutorialLeak } from './passes/leaks.js';
 import { drawStaminaMeter } from './stamina-meter.js';
 
 function plumber(g, x, y){
@@ -18,9 +18,9 @@ function plumber(g, x, y){
 }
 
 /** Paints a controlled illustration using the game's own sprites and meters. */
-export function paintLesson(canvas, id, waterTile){
+export function paintTutorial(canvas, id, waterTile){
   const g = canvas.getContext('2d');
-  if (!g) throw new Error('2D canvas context unavailable for lesson illustration');
+  if (!g) throw new Error('2D canvas context unavailable for tutorial illustration');
   const w = canvas.width, h = canvas.height;
   g.clearRect(0, 0, w, h);
   g.fillStyle = '#777c45';
@@ -53,7 +53,7 @@ export function paintLesson(canvas, id, waterTile){
   } else {
     const deep = (WATER_TINTS[SETTINGS.waterHue] || WATER_TINTS.slate).deep;
     if (id === 'repair'){
-      drawLessonLeak(g, w*0.30, h*0.02, 120, deep);
+      drawTutorialLeak(g, w*0.30, h*0.02, 120, deep);
       plumber(g, w*0.48, h*0.78);
       g.strokeStyle = '#e4e6a8';
       g.lineWidth = 2;

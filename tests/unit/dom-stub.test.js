@@ -38,8 +38,9 @@ test('[37] the DOM stub resolves the markup it claims to', () => {
      radar and pause buttons. Seventeen since fullscreen: its glyph, its
      pause-page button and the two dismiss buttons of the home-screen tip.
      Twenty-one since the binder: three title menu entries and four tabs, less
-     the old CHANGE link and two pause tabs. */
-  assert.equal(querySelectorAll('button').length, 22, 'wrong number of buttons');
+     the old CHANGE link and two pause tabs. Twenty-three with the tutorial
+     close and tutorial reset buttons. */
+  assert.equal(querySelectorAll('button').length, 23, 'wrong number of buttons');
 
   /* Attributes become dataset properties in camelCase — the direction that
      matters, since `data-binder-tab` is `dataset.binderTab` and not the reverse. */

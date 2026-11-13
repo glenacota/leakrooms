@@ -5,21 +5,21 @@ import { startRun, STATE, transition } from '../../src/game/run.js';
 import { setOption } from '../../src/settings/store.js';
 import { emit, on } from '../../src/util/events.js';
 import { flashReset } from '../../src/ui/hud.js';
-import { tickLessons } from '../../src/ui/lessons.js';
+import { tickTutorials } from '../../src/ui/tutorials.js';
 
 const { G, els, store, press } = await loadGame();
-const historyKey = 'leakrooms.lessons.v1';
+const historyKey = 'leakrooms.tutorials.v1';
 
 test('a run transition drops a pending sprint without completing it', () => {
   startRun();
   emit('sprint', 0);
   transition('dead');
-  tickLessons();
+  tickTutorials();
   assert.equal(STATE, 'dead');
   assert.equal(store.has(historyKey), false);
 });
 
-test('disabling lessons in settings clears pending cards without completing them', () => {
+test('disabling tutorials in settings clears pending cards without completing them', () => {
   startRun();
   G.wetArr.fill(0);
   G.maskArr.fill(0);
@@ -27,12 +27,12 @@ test('disabling lessons in settings clears pending cards without completing them
   G.lifeforms = [];
   G.radar = true;
   emit('sprint', 0);
-  tickLessons();
-  assert.equal(els['lesson-title'].textContent, 'Running has a cost');
+  tickTutorials();
+  assert.equal(els['tutorial-title'].textContent, 'Running has a cost');
   press('Escape');
   assert.equal(STATE, 'pause');
-  setOption('lessons', false);
-  assert.equal(els['lesson-overlay'].hidden, true);
+  setOption('tutorials', false);
+  assert.equal(els['tutorial-overlay'].hidden, true);
   assert.equal(store.has(historyKey), false);
   press('Escape');
   assert.equal(STATE, 'play');
@@ -40,15 +40,15 @@ test('disabling lessons in settings clears pending cards without completing them
   flashReset();
   const cues = [];
   const unsubscribe = on('flash', cue => cues.push(cue.text));
-  tickLessons();
+  tickTutorials();
   assert.deepEqual(cues, ['RADAR IS LOUD AND DRAINS BATTERY']);
   assert.equal(store.has(historyKey), false);
   unsubscribe();
 
-  setOption('lessons', true);
-  tickLessons();
+  setOption('tutorials', true);
+  tickTutorials();
   assert.equal(STATE, 'play');
-  assert.equal(els['lesson-title'].textContent, 'Radar has a cost');
+  assert.equal(els['tutorial-title'].textContent, 'Radar has a cost');
   press('Enter');
   assert.deepEqual(JSON.parse(store.get(historyKey)), ['radar']);
 });
@@ -60,7 +60,7 @@ test('fallback messages wait for the previous flash instead of replacing it', ()
   G.leaks = [];
   G.lifeforms = [];
   G.radar = true;
-  setOption('lessons', false);
+  setOption('tutorials', false);
   flashReset();
   const originalSetTimeout = global.setTimeout;
   const originalClearTimeout = global.clearTimeout;
@@ -72,13 +72,13 @@ test('fallback messages wait for the previous flash instead of replacing it', ()
   const unsubscribe = on('flash', cue => cues.push(cue.text));
   try {
     emit('sprint', 0);
-    tickLessons();
-    tickLessons();
+    tickTutorials();
+    tickTutorials();
     assert.deepEqual(cues, ['RUNNING IS LOUD AND DRAINS STAMINA. STOP RUNNING TO RECOVER']);
     const [id, done] = timers.entries().next().value;
     timers.delete(id);
     done();
-    tickLessons();
+    tickTutorials();
     assert.deepEqual(cues, [
       'RUNNING IS LOUD AND DRAINS STAMINA. STOP RUNNING TO RECOVER',
       'RADAR IS LOUD AND DRAINS BATTERY',
@@ -88,6 +88,6 @@ test('fallback messages wait for the previous flash instead of replacing it', ()
     flashReset();
     global.setTimeout = originalSetTimeout;
     global.clearTimeout = originalClearTimeout;
-    setOption('lessons', true);
+    setOption('tutorials', true);
   }
 });
