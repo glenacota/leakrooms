@@ -28,12 +28,12 @@ test('active countdown freezes on pause and interaction, then advances the queue
   emit('sprint', 0);
   tickTutorials();
   assert.equal(STATE, 'play');
-  assert.equal(els['tutorial-countdown'].textContent, '10s');
+  assert.equal(els['tutorial-countdown'].textContent, '[9s]');
   assert.equal(els['tutorial-title'].textContent, 'Running has a cost');
 
   emit('sprint', 0);
   tickTutorials(2);
-  assert.equal(els['tutorial-countdown'].textContent, '8s');
+  assert.equal(els['tutorial-countdown'].textContent, '[7s]');
   press('Escape');
   assert.equal(STATE, 'pause');
   assert.equal(els['tutorial-overlay'].hidden, true);
@@ -41,29 +41,29 @@ test('active countdown freezes on pause and interaction, then advances the queue
   press('Escape');
   assert.equal(STATE, 'play');
   assert.equal(els['tutorial-overlay'].hidden, false);
-  assert.equal(els['tutorial-countdown'].textContent, '8s');
+  assert.equal(els['tutorial-countdown'].textContent, '[7s]');
 
   els['tutorial-overlay']._fire('pointerenter', { pointerType:'mouse' });
   tickTutorials(20);
-  assert.equal(els['tutorial-countdown'].textContent, '8s');
+  assert.equal(els['tutorial-countdown'].textContent, '[7s]');
   els['tutorial-overlay']._fire('pointerleave', { pointerType:'mouse' });
   els['tutorial-overlay']._fire('focusin', {});
   tickTutorials(20);
-  assert.equal(els['tutorial-countdown'].textContent, '8s');
+  assert.equal(els['tutorial-countdown'].textContent, '[7s]');
   els['tutorial-overlay']._fire('focusout', { relatedTarget:null });
 
-  tickTutorials(7.99);
-  assert.equal(els['tutorial-countdown'].textContent, '1s');
+  tickTutorials(6.99);
+  assert.equal(els['tutorial-countdown'].textContent, '[1s]');
   assert.equal(store.has(historyKey), false);
   tickTutorials(0.01);
   assert.deepEqual(JSON.parse(store.get(historyKey)), ['sprint']);
   assert.equal(els['tutorial-title'].textContent, 'Radar has a cost');
-  assert.equal(els['tutorial-countdown'].textContent, '10s');
+  assert.equal(els['tutorial-countdown'].textContent, '[9s]');
   press('Enter', { repeat:true });
   assert.equal(els['tutorial-title'].textContent, 'Radar has a cost');
   els['tutorial-overlay']._fire('pointerenter', { pointerType:'touch' });
   tickTutorials(1);
-  assert.equal(els['tutorial-countdown'].textContent, '9s');
+  assert.equal(els['tutorial-countdown'].textContent, '[8s]');
   tickTutorials(9);
   assert.deepEqual(JSON.parse(store.get(historyKey)), ['sprint', 'radar']);
   assert.equal(els['tutorial-overlay'].hidden, true);

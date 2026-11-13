@@ -9,7 +9,7 @@ import { emit, on } from '../util/events.js';
 import { flashBusy } from './hud.js';
 
 const STORAGE_KEY = 'leakrooms.tutorials.v1';
-const TUTORIAL_SEC = 10;
+const TUTORIAL_SEC = 9;
 const TUTORIALS = {
   sprint: {
     title: 'Running has a cost',
@@ -120,7 +120,7 @@ function displayNext(){
 
 function syncCountdown(){
   const el = document.getElementById('tutorial-countdown');
-  const text = `${Math.ceil(remaining)}s`;
+  const text = `[${Math.ceil(remaining)}s]`;
   if (el.textContent !== text) el.textContent = text;
 }
 

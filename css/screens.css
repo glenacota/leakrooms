@@ -240,12 +240,13 @@
 .tutorial-copy h2{ font-size:18px; line-height:1.2; margin-bottom:5px; }
 .tutorial-copy p{ font-size:14px; line-height:1.4; color:#f0f1cf; }
 .tutorial-actions{ display:flex; align-items:center; gap:12px; margin-top: auto}
-#tutorial-countdown{ color:var(--yellow-dim); font-size:13px; font-weight:700; }
+#tutorial-countdown{ font-size:12px; font-weight:700; }
 .tutorial-copy button{
-  padding:8px 12px; background:var(--yellow); color:var(--ink);
-  border:0; font:700 13px var(--mono); cursor:pointer;
+  padding:8px 20px; background:var(--yellow); color:var(--ink);
+  border:0; font:900 13px var(--mono); cursor:pointer;
 }
 .tutorial-copy :focus-visible{ outline:3px solid #fff; outline-offset:3px; }
+.tutorial-key { font-size: 12px; letter-spacing: .2em;}
 [data-input=touch] .tutorial-card{ width:min(480px, 65%); }
 [data-input=touch] .tutorial-copy button{ min-height:44px; }
 [data-input=touch] .tutorial-key{ display:none; }

@@ -27,7 +27,7 @@ Sprinting is fast but loud and uses stamina. You can sprint for five seconds fro
 Tall figures of coiled black wire live in the Complex. Dormant, they rest as a flat pile of loops on the carpet. They wake when they hear you, hunting ruthlessly by both sound and sight.
 
 Illustrated tutorials appear during play when you first encounter key mechanics.
-They close after 10 seconds of active play, or earlier with Enter or Close.
+They close after 9 seconds of active play, or earlier with Enter or Close.
 The countdown pauses while the game is paused or you interact with the card.
 Each completed tutorial is remembered across runs in the same browser. Disable
 tutorials under **Settings → Tutorials** to use concise flashnotes instead;
