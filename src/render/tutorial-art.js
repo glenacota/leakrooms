@@ -1,6 +1,6 @@
 import { drawLifeform } from '../cast/lifeform.js';
 import { drawPlumber } from '../cast/plumber.js';
-import { MAP_H, MAP_W, SPRINT_STAMINA, TILE } from '../config/constants.js';
+import { MAP_H, MAP_W, SPRINT_STAMINA, TILE, WET_DRAW } from '../config/constants.js';
 import { WATER_TINTS } from '../config/presets.js';
 import { SETTINGS } from '../settings/store.js';
 import { G } from '../sim/state.js';
@@ -18,7 +18,7 @@ function plumber(g, x, y){
 }
 
 /** Paints a controlled illustration using the game's own sprites and meters. */
-export function paintTutorial(canvas, id, waterTile){
+export function paintTutorial(canvas, id){
   const g = canvas.getContext('2d');
   if (!g) throw new Error('2D canvas context unavailable for tutorial illustration');
   const w = canvas.width, h = canvas.height;
@@ -61,12 +61,12 @@ export function paintTutorial(canvas, id, waterTile){
       g.ellipse(w*0.48, h*0.82, 26, 10, 0, 0, Math.PI*2);
       g.stroke();
     } else {
-      if (waterTile){
+      let deepest = -1;
+      for (let i=0; i<G.wetArr.length; i++){
+        if (G.wetArr[i] > WET_DRAW && (deepest < 0 || G.wetArr[i] > G.wetArr[deepest])) deepest = i;
+      }
+      if (deepest >= 0){
         syncSurfaces(G);
-        let deepest = waterTile.y*MAP_W + waterTile.x;
-        for (let i=0; i<G.wetArr.length; i++){
-          if (G.wetArr[i] > G.wetArr[deepest]) deepest = i;
-        }
         const x = Math.max(0, Math.min(MAP_W-5, deepest%MAP_W-2));
         const y = Math.max(0, Math.min(MAP_H-3, Math.floor(deepest/MAP_W)-1));
         g.imageSmoothingEnabled = true;

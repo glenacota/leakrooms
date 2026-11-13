@@ -1,4 +1,4 @@
-import { MAP_H, MAP_W, TILE, WET_DRAW } from '../config/constants.js';
+import { MAP_H, MAP_W, TILE } from '../config/constants.js';
 import { STATE } from '../game/run.js';
 import { cvs, SCALE } from '../render/canvas.js';
 import { cam } from '../render/render.js';
@@ -10,6 +10,8 @@ import { flashBusy } from './hud.js';
 
 const STORAGE_KEY = 'leakrooms.tutorials.v1';
 const TUTORIAL_SEC = 9;
+// Starting value for introducing the water clue early on the first floor.
+const WATER_TUTORIAL_SEC = 3;
 const TUTORIALS = {
   sprint: {
     title: 'Running has a cost',
@@ -44,7 +46,6 @@ let queue = [];
 let fallbackQueue = [];
 let current = null;
 let sprinted = false;
-let waterTile = null;
 let remaining = 0;
 let hovering = false;
 let focused = false;
@@ -87,20 +88,7 @@ function candidates(){
     : !fallback.has(id) && !fallbackQueue.includes(id);
   if (sprinted && needed('sprint')) result.push('sprint');
   if (G.radar && needed('radar')) result.push('radar');
-  if (G.wetArr && needed('water')){
-    for (let y=0; y<MAP_H; y++){
-      let found = false;
-      for (let x=0; x<MAP_W; x++){
-        if (G.wetArr[y*MAP_W+x] > WET_DRAW && tileVisible(x+0.5, y+0.5)){
-          waterTile = { x, y };
-          result.push('water');
-          found = true;
-          break;
-        }
-      }
-      if (found) break;
-    }
-  }
+  if (G.floor === 0 && G.time >= WATER_TUTORIAL_SEC - 1e-8 && needed('water')) result.push('water');
   if (needed('repair') && G.leaks.some(l => !l.fixed && tileVisible(l.x+0.5, l.y+0.5, true))) result.push('repair');
   if (needed('lifeform') && G.lifeforms.some(l => tileVisible(l.x, l.y))) result.push('lifeform');
   return result;
@@ -113,7 +101,7 @@ function displayNext(){
   const tutorial = TUTORIALS[current];
   document.getElementById('tutorial-title').textContent = tutorial.title;
   document.getElementById('tutorial-text').textContent = tutorial.text;
-  paintTutorial(document.getElementById('tutorial-art'), current, waterTile);
+  paintTutorial(document.getElementById('tutorial-art'), current);
   document.getElementById('tutorial-overlay').hidden = false;
   syncCountdown();
 }

@@ -170,7 +170,7 @@ moveEnt(e, dx, dy, r){ return createCollision(G.grid).moveEnt(e, dx, dy, r); },
 regionAt(x, y){ const tx=Math.floor(x), ty=Math.floor(y); if (tx<0||ty<0||tx>=76||ty>=76) return -1; return G.regionOf[ty*76+tx]; },
 
 /* Flood wrappers - G serves as FloodState */
-initFlood: () => initFlood(G, G.plumber),
+initFlood: () => initFlood(G),
 seedSplash: (wx, wy, amount) => seedSplash(G, wx, wy, amount),
 wetAt: (wx, wy) => wetAt(G, wx, wy),
 tickFlood: (dt) => tickFlood(G, dt),

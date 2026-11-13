@@ -81,13 +81,14 @@ test('hidden lifeforms do not reveal themselves through a tutorial', () => {
   dismissTutorial();
 });
 
-test('visible water and an open leak queue in order', () => {
+test('timed water and an open leak queue in order', () => {
   startRun();
   quietFloor();
   const x = Math.floor(cam.x), y = Math.floor(cam.y), i = y*MAP_W+x;
   G.maskArr[i] = G.lightArr[i] = 1;
   G.wetArr[i] = 1;
   G.leaks = [{ x, y, fixed:false }];
+  G.time = 3;
   tickTutorials();
   assert.equal(els['tutorial-title'].textContent, 'How to find a leak');
   dismissTutorial();
