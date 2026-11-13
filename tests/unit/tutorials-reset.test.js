@@ -21,7 +21,7 @@ function quietFloor(){
 
 test('settings reset persists and completed tutorials reappear only on their triggers', () => {
   els['btn-reset-tutorials'].click();
-  assert.equal(els['tutorials-reset-status'].textContent, 'TUTORIALS RESET. THEY WILL APPEAR AGAIN DURING PLAY.');
+  assert.equal(els['tutorials-reset-status'].textContent, 'DONE.');
   assert.deepEqual(JSON.parse(store.get(historyKey)), []);
   assert.equal(STATE, 'splash');
   startRun();
@@ -73,7 +73,6 @@ test('reset leaves disabled setting and flashnote history intact', () => {
     assert.deepEqual(cues, ['RUNNING IS LOUD AND DRAINS STAMINA. STOP RUNNING TO RECOVER']);
     els['btn-reset-tutorials'].click();
     assert.equal(SETTINGS.tutorials, false);
-    assert.match(els['tutorials-reset-status'].textContent, /ENABLE TUTORIALS/);
     assert.deepEqual(JSON.parse(store.get(historyKey)), []);
     flashReset();
     emit('sprint', 0);

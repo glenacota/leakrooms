@@ -44,9 +44,7 @@ export function buildSettingsUI(){
   document.getElementById('btn-reset-tutorials').onclick = () => emit('tutorials:reset');
   on('tutorials:reset-result', success => {
     let message = 'COULD NOT RESET TUTORIALS. CHECK BROWSER STORAGE AND TRY AGAIN.';
-    if (success) message = SETTINGS.tutorials
-      ? 'TUTORIALS RESET. THEY WILL APPEAR AGAIN DURING PLAY.'
-      : 'TUTORIALS RESET. ENABLE TUTORIALS TO SEE THEM AGAIN.';
+    if (success) message = 'DONE.';
     document.getElementById('tutorials-reset-status').textContent = message;
   });
 }
