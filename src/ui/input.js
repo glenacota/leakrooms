@@ -1,7 +1,7 @@
 import { SETTINGS, setOption } from '../settings/store.js';
 import { Audio_ } from '../audio/index.js';
 import { keys, clearInput } from '../sim/keys.js';
-import { emit, on } from '../util/events.js';
+import { emit } from '../util/events.js';
 import { G } from '../sim/state.js';
 import { STATE, dismissClear, retryFloor, runAgain } from '../game/run.js';
 import { resize } from '../render/canvas.js';
@@ -39,9 +39,6 @@ const GAME_CODES = {
 
 // The name a key goes by in the held-keys table. Keydown and keyup must agree on it.
 const keyOf = e => GAME_CODES[e.code] || e.key.toLowerCase();
-const lessonHeld = new Set();
-const lessonGameKeys = new Set(['w', 'a', 's', 'd', 'arrowup', 'arrowdown',
-  'arrowleft', 'arrowright', 'shift', 'r']);
 
 /* The radar toggle, pulled out of the key handler so a touch button can call
    the same code. It does nothing outside a live run. */
@@ -61,28 +58,6 @@ export function toggleRadar(){
    them into separate listeners would make the result depend on the order the
    listeners were registered. */
 function handleKey(e, k){
-  if (STATE==='lesson'){
-    if (e.key==='Escape'){
-      if (!e.repeat) dismissLesson();
-      e.preventDefault();
-    } else if (e.key==='Tab'){
-      const checkbox = document.getElementById('lesson-disable');
-      const button = document.getElementById('lesson-continue');
-      if (document.activeElement !== checkbox && document.activeElement !== button){
-        (e.shiftKey ? checkbox : button).focus();
-        e.preventDefault();
-      } else if (e.shiftKey && document.activeElement === checkbox){
-        button.focus();
-        e.preventDefault();
-      } else if (!e.shiftKey && document.activeElement === button){
-        checkbox.focus();
-        e.preventDefault();
-      }
-    } else if (e.repeat || (e.key !== ' ' && e.key !== 'Enter')){
-      e.preventDefault();
-    }
-    return true;
-  }
   /* M mutes from any screen. A player who wants silence usually wants it
      before the title finishes fading in. It is consumed so the mute key does
      not also advance the title screen, and a held M is not still down when
@@ -113,6 +88,10 @@ function handleKey(e, k){
       && !!focused.closest && !!focused.closest('#screen-binder');
 
   if (k==='enter'){
+    if (STATE==='play' && dismissLesson(!e.repeat)){
+      e.preventDefault();
+      return true;
+    }
     const act = MODAL_ACTION[STATE];
     let consumed = false;
     // Auto-repeat is ignored, so holding ENTER cannot rush through the title and start a second run.
@@ -168,6 +147,7 @@ function handleKey(e, k){
     return false;
   }
   if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key)){
+    if (STATE==='play' && e.key===' ' && focused === document.getElementById('lesson-continue')) return false;
     /* One exception: on the pause screen, arrows move a focused slider and
        space presses a focused button, so those keys belong to the screen.
        Everywhere else they are movement, and preventDefault stops the page
@@ -201,17 +181,11 @@ function onKeyDown(e){
   Audio_.unlock();
 
   const k = keyOf(e);
-  if (STATE === 'lesson' && lessonGameKeys.has(k)) lessonHeld.add(k);
-  if (lessonHeld.has(k)){
-    e.preventDefault();
-    return;
-  }
   if (!handleKey(e, k)) keys[k] = true;
 }
 
 function onKeyUp(e){
   if (typeof e.key !== 'string') return;
-  lessonHeld.delete(keyOf(e));
   /* Pressing Meta on a Mac opens the app switcher, and its keyup can arrive
      after the window is back and other keys have already been released.
      Trusting a single keyup could leave the player sprinting forever, so
@@ -234,15 +208,11 @@ export function toggleMute(){
 export function bindInput(){
   window.addEventListener('keydown', onKeyDown);
   window.addEventListener('keyup', onKeyUp);
-  on('lesson:opening', () => {
-    for (const k of lessonGameKeys) if (keys[k]) lessonHeld.add(k);
-  });
 
   /* Losing the window (switching tabs or apps) means two things: no more key
      releases will arrive, and nobody is watching the run. So release every
      key, and pause so the clock does not run out in the background. */
   const lostFocus = () => {
-    lessonHeld.clear();
     clearInput();
     /* The touch layer tracks its own fingers, and clearInput cannot reach them. */
     emit('input:lost');

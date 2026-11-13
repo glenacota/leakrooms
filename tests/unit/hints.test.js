@@ -25,30 +25,28 @@ function quietFloor(){
   cam.jx = cam.jy = 0;
 }
 
-test('lessons pause, queue and persist only after dismissal', () => {
+test('lessons allow input, queue and persist only after dismissal', () => {
   startRun();
   quietFloor();
   G.radar = true;
   keys.d = true;
   emit('sprint', 0);
   tickLessons();
-  assert.equal(STATE, 'lesson');
+  assert.equal(STATE, 'play');
+  assert.equal(keys.d, true, 'opening a lesson does not release movement');
+  assert.equal(els['lesson-overlay'].hidden, false);
   assert.equal(els['lesson-title'].textContent, 'Running has a cost');
   assert.equal(store.has(historyKey), false);
 
   dismissLesson();
-  assert.equal(STATE, 'lesson', 'queued radar does not resume the simulation');
+  assert.equal(STATE, 'play', 'queued radar leaves the simulation running');
   assert.equal(els['lesson-title'].textContent, 'Radar has a cost');
   assert.deepEqual(JSON.parse(store.get(historyKey)), ['sprint']);
-  press('Escape');
+  press('Enter');
   assert.equal(STATE, 'play');
   assert.deepEqual(JSON.parse(store.get(historyKey)), ['sprint', 'radar']);
   assert.equal(els['lesson-overlay'].hidden, true);
-  press('d', { repeat:true });
-  assert.notEqual(keys.d, true, 'a held movement key stays released after dismissal');
-  window._h.keyup({ key:'d', code:'KeyD' });
-  press('d');
-  assert.equal(keys.d, true, 'movement works again after release');
+  assert.equal(keys.d, true, 'movement remains held after dismissal');
   clearInput();
 
   transition('splash');
@@ -77,7 +75,8 @@ test('hidden lifeforms do not reveal themselves through a lesson', () => {
   assert.equal(STATE, 'play', 'a lit lifeform outside the viewport is not revealed');
   cam.x = previousX;
   tickLessons();
-  assert.equal(STATE, 'lesson');
+  assert.equal(STATE, 'play');
+  assert.equal(els['lesson-overlay'].hidden, false);
   assert.equal(els['lesson-title'].textContent, 'Watch for lifeforms');
   dismissLesson();
 });

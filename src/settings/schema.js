@@ -29,7 +29,7 @@ export const SETTINGS_SPEC = {
      photosensitivity trigger; a player who needs it off turns it off here. The
      opacity is a constant, so the toggle is on/off and not a dimmer. */
   flash:          { default:true, type:'bool' },
-  /* Illustrated lessons pause the game when you first encounter key mechanics. */ 
+  /* Illustrated lessons appear during play when you encounter key mechanics. */
   lessons:        { default:true, type:'bool' },
   /* The touch settings. They only show in touch mode, but they are stored like
      the rest, so a player who plays on both keeps them. How much of the HUD panel

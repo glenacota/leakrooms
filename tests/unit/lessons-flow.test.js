@@ -19,7 +19,7 @@ test('a run transition drops a pending sprint without completing it', () => {
   assert.equal(store.has(historyKey), false);
 });
 
-test('opting out clears queued dialogs without completing them', () => {
+test('disabling lessons in settings clears pending cards without completing them', () => {
   startRun();
   G.wetArr.fill(0);
   G.maskArr.fill(0);
@@ -29,25 +29,28 @@ test('opting out clears queued dialogs without completing them', () => {
   emit('sprint', 0);
   tickLessons();
   assert.equal(els['lesson-title'].textContent, 'Running has a cost');
-  els['lesson-disable'].checked = true;
+  press('Escape');
+  assert.equal(STATE, 'pause');
+  setOption('lessons', false);
+  assert.equal(els['lesson-overlay'].hidden, true);
+  assert.equal(store.has(historyKey), false);
   press('Escape');
   assert.equal(STATE, 'play');
-  assert.deepEqual(JSON.parse(store.get(historyKey)), ['sprint']);
 
   flashReset();
   const cues = [];
   const unsubscribe = on('flash', cue => cues.push(cue.text));
   tickLessons();
   assert.deepEqual(cues, ['RADAR IS LOUD AND DRAINS BATTERY']);
-  assert.deepEqual(JSON.parse(store.get(historyKey)), ['sprint']);
+  assert.equal(store.has(historyKey), false);
   unsubscribe();
 
   setOption('lessons', true);
   tickLessons();
-  assert.equal(STATE, 'lesson');
+  assert.equal(STATE, 'play');
   assert.equal(els['lesson-title'].textContent, 'Radar has a cost');
-  press('Escape');
-  assert.deepEqual(JSON.parse(store.get(historyKey)), ['sprint', 'radar']);
+  press('Enter');
+  assert.deepEqual(JSON.parse(store.get(historyKey)), ['radar']);
 });
 
 test('fallback messages wait for the previous flash instead of replacing it', () => {
