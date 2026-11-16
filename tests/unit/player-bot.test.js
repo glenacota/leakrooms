@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { loadGame } from '../helpers/harness.js';
-import { playPlayerRun, classifyDeath, chooseVisibleWater, advanceWaypoint, searchTargetDone } from '../helpers/player-bot.js';
+import { playPlayerRun, classifyDeath, chooseVisibleWater, advanceWaypoint, searchTargetDone, chooseRememberedReturn } from '../helpers/player-bot.js';
 import { FLOOR, MAP_W, MAP_H } from '../../src/config/constants.js';
 import { emit } from '../../src/util/events.js';
 
@@ -74,6 +74,110 @@ test('a seen fallback target is not finished until its tile is visited', () => {
   assert.equal(searchTargetDone('unvisited', seen, visited, 1), false);
   visited[1] = 1;
   assert.equal(searchTargetDone('unvisited', seen, visited, 1), true);
+});
+
+test('remembered return uses reachable seen tiles and falls back to spawn or search', () => {
+  const grid = new Uint8Array(MAP_W * MAP_H);
+  const put = (x, y) => { grid[y * MAP_W + x] = FLOOR; };
+  for (const [x, y] of [[10, 10], [10, 11], [11, 11], [12, 11], [12, 10]]) put(x, y);
+  const door = { x: 13, y: 10 }, spawn = { x: 10, y: 10 };
+  assert.deepEqual(chooseRememberedReturn(grid, 10.5, 10.5, door, spawn),
+    { kind: 'door', x: 12, y: 10 });
+  grid[10 * MAP_W + 12] = 0;
+  assert.deepEqual(chooseRememberedReturn(grid, 11.5, 11.5, door, spawn),
+    { kind: 'spawn', x: 10, y: 10 });
+  assert.deepEqual(chooseRememberedReturn(grid, 10.5, 10.5, door, spawn), { kind: 'search' });
+  grid[11 * MAP_W + 10] = 0;
+  assert.deepEqual(chooseRememberedReturn(grid, 11.5, 11.5, door, spawn), { kind: 'search' });
+});
+
+test('remembered return does not take an unseen shortcut', () => {
+  const startRun = A.startRun, update = A.updateReal, blocked = A.blocked;
+  const directions = [];
+  let grid, mask, exit, leaks;
+  A.startRun = () => {
+    startRun();
+    if (!grid){
+      grid = G.grid.slice(); mask = G.maskArr.slice();
+      exit = G.exitTiles[0]; leaks = G.leaks.map(leak => leak.fixed);
+    }
+    G.grid.fill(0); G.maskArr.fill(0);
+    for (const [x, y] of [[10,10], [11,10], [12,10], [10,11], [11,11], [12,11]])
+      G.grid[y * MAP_W + x] = FLOOR;
+    for (const [x, y] of [[10,10], [10,11], [11,11], [12,11], [12,10]])
+      G.maskArr[y * MAP_W + x] = 1;
+    G.plumber.x = 10.5; G.plumber.y = 10.5;
+    G.exitTiles[0] = { x: 13, y: 10 };
+    G.leaks.forEach(leak => { leak.fixed = true; });
+  };
+  A.blocked = () => false;
+  A.updateReal = () => directions.push({ right: !!A.keys.d, down: !!A.keys.s });
+  try {
+    run({ withLifeforms: false, returnPolicy: 'remembered', maxSeconds: 1 / 60 });
+    run({ withLifeforms: false, returnPolicy: 'full', maxSeconds: 1 / 60 });
+    assert.deepEqual(directions, [{ right: false, down: true }, { right: true, down: false }]);
+  } finally {
+    G.grid.set(grid); G.maskArr.set(mask); G.exitTiles[0] = exit;
+    G.leaks.forEach((leak, i) => { leak.fixed = leaks[i]; });
+    A.startRun = startRun; A.updateReal = update; A.blocked = blocked;
+  }
+});
+
+test('return memory survives a retry and resets on the next floor', () => {
+  const startRun = A.startRun, retry = A.retryFloor, dismiss = A.dismissClear, update = A.updateReal;
+  const samples = [];
+  let calls = 0;
+  A.startRun = () => {
+    startRun();
+    G.maskArr.fill(0);
+    const x = Math.floor(G.plumber.x), y = Math.floor(G.plumber.y);
+    G.maskArr[y * MAP_W + x + 1] = 1;
+  };
+  A.retryFloor = () => { retry(); G.maskArr.fill(0); };
+  A.dismissClear = () => { dismiss(); G.maskArr.fill(0); };
+  A.updateReal = () => {
+    if (++calls === 1) emit('clock:out');
+    if (calls === 302) A.nextFloor();
+  };
+  try {
+    run({ withLifeforms: false, returnPolicy: 'remembered', maxSeconds: 10.1,
+      trace: sample => { if (!sample.event) samples.push(sample); } });
+    assert.equal(samples.length, 3);
+    assert.ok(samples[0].seenTiles >= 2);
+    assert.ok(samples[1].seenTiles >= samples[0].seenTiles);
+    assert.deepEqual(samples[1].spawn, samples[0].spawn);
+    assert.equal(samples[2].floor, 1);
+    assert.equal(samples[2].seenTiles, 1);
+  } finally {
+    A.startRun = startRun; A.retryFloor = retry; A.dismissClear = dismiss; A.updateReal = update;
+  }
+});
+
+test('return moves toward the door when already in its approach tile', () => {
+  const startRun = A.startRun, update = A.updateReal, blocked = A.blocked;
+  const directions = [];
+  let grid, exit, leaks;
+  A.startRun = () => {
+    startRun();
+    grid = G.grid.slice(); exit = G.exitTiles[0]; leaks = G.leaks.map(leak => leak.fixed);
+    G.grid.fill(0); G.grid[10 * MAP_W + 10] = FLOOR;
+    G.plumber.x = 10.01; G.plumber.y = 10.5;
+    G.exitTiles[0] = { x: 11, y: 10 };
+    G.leaks.forEach(leak => { leak.fixed = true; });
+  };
+  A.blocked = () => false;
+  A.updateReal = () => directions.push(!!A.keys.d);
+  try {
+    const result = run({ withLifeforms: false, maxSeconds: 1 / 60 });
+    assert.deepEqual(directions, [true]);
+    assert.equal(result.returnStats.seconds, 1 / 60);
+    assert.equal(result.returnStats.stalledSeconds, 1 / 60);
+    assert.equal(result.returnStats.replans, 1);
+  } finally {
+    G.grid.set(grid); G.exitTiles[0] = exit;
+    G.leaks.forEach((leak, i) => { leak.fixed = leaks[i]; });
+    A.startRun = startRun; A.updateReal = update; A.blocked = blocked;
+  }
 });
 
 test('a water plateau falls back to search instead of targeting the current tile', () => {

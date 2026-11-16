@@ -41,8 +41,11 @@ for (const preset of Object.keys(DIFFICULTIES)){
         avoidancePolicy: process.env.PLAYER_BOT_AVOIDANCE || 'flee',
         waterPolicy: process.env.PLAYER_BOT_WATER || 'follow',
         explorationPolicy: process.env.PLAYER_BOT_EXPLORATION || 'walk',
+        returnPolicy: process.env.PLAYER_BOT_RETURN || 'full',
         trace: process.env.PLAYER_BOT_TRACE === '1' ? sample => console.log(JSON.stringify(sample)) : undefined,
       });
+      if (process.env.PLAYER_BOT_TRACE === '1')
+        console.log(JSON.stringify({ event: 'result', seed, preset, withLifeforms, returnStats: r.returnStats }));
       assert.equal(r.cleared, true,
         `${r.floorsDone}/5 floors, ${r.deaths} death(s) [${tally(r.deathLog)}], ` +
         `${r.seconds.toFixed(0)} s: ${r.why}`);

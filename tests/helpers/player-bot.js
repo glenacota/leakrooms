@@ -20,7 +20,8 @@ const SAFE_SPRINT_FRAMES = 180; // scan information expires after three seconds
 const SPRINT_CHECK_RANGE = 12.6; // sprint noise range in open floor
 
 function freshKnowledge(floor, leakCount){
-  return { floor, door: true, leaks: new Array(leakCount).fill(false), seen: new Uint8Array(N), visited: new Uint8Array(N) };
+  return { floor, door: null, spawn: null, leaks: new Array(leakCount).fill(false),
+    seen: new Uint8Array(N), visited: new Uint8Array(N), walkable: new Uint8Array(N), version: 0 };
 }
 
 /** Selects deeper visible water; a flat puddle leaves exploration to search. */
@@ -53,6 +54,22 @@ export function searchTargetDone(kind, seen, visited, tile){
   return kind === 'unseen' ? !!seen[tile] : !!visited[tile];
 }
 
+/** Selects a reachable remembered door approach, or the remembered spawn. */
+export function chooseRememberedReturn(grid, px, py, door, spawn){
+  const sx = Math.floor(px), sy = Math.floor(py);
+  if (Math.hypot(door.x + 0.5 - px, door.y + 0.5 - py) < 1.25)
+    return { kind: 'door', x: sx, y: sy };
+  let best = null, length = Infinity;
+  for (const [x, y] of [[door.x+1,door.y], [door.x-1,door.y], [door.x,door.y+1], [door.x,door.y-1]]){
+    if (x < 0 || y < 0 || x >= W || y >= H || grid[IDX(x, y)] !== FLOOR) continue;
+    const path = bfsPath(sx, sy, x, y, grid, W, H);
+    if (path && path.length < length){ best = { kind: 'door', x, y }; length = path.length; }
+  }
+  if (best) return best;
+  const path = bfsPath(sx, sy, spawn.x, spawn.y, grid, W, H);
+  return path && path.length > 1 ? { kind: 'spawn', x: spawn.x, y: spawn.y } : { kind: 'search' };
+}
+
 /**
  * Plays one five-floor run with the player bot.
  *
@@ -67,16 +84,19 @@ export function searchTargetDone(kind, seen, visited, tile){
  * @param {'flee'|'none'} [o.avoidancePolicy] - flee nearby threats, or ignore them.
  * @param {'follow'|'off'} [o.waterPolicy] - follow visible water, or search without it.
  * @param {'walk'|'scan-sprint'} [o.explorationPolicy] - optionally sprint after a clear radar scan.
+ * @param {'full'|'remembered'} [o.returnPolicy] - route home over the full or remembered grid.
  * @param {function} [o.trace] - called every 5 game seconds and on deaths.
  * @returns {{cleared:boolean, floorsDone:number, deaths:number, clockOuts:number,
- *   seconds:number, why:string, deathLog:Array}}
+ *   seconds:number, why:string, deathLog:Array, returnStats:object}}
  */
-export function playPlayerRun({ A, G, keys, seed, withLifeforms, maxSeconds, radarPolicy = 'periodic', avoidancePolicy = 'flee', waterPolicy = 'follow', explorationPolicy = 'walk', trace }){
+export function playPlayerRun({ A, G, keys, seed, withLifeforms, maxSeconds, radarPolicy = 'periodic', avoidancePolicy = 'flee', waterPolicy = 'follow', explorationPolicy = 'walk', returnPolicy = 'full', trace }){
   if (radarPolicy !== 'periodic' && radarPolicy !== 'off') throw new Error('Unknown radar policy: ' + radarPolicy);
   if (avoidancePolicy !== 'flee' && avoidancePolicy !== 'none') throw new Error('Unknown avoidance policy: ' + avoidancePolicy);
   if (waterPolicy !== 'follow' && waterPolicy !== 'off') throw new Error('Unknown water policy: ' + waterPolicy);
   if (explorationPolicy !== 'walk' && explorationPolicy !== 'scan-sprint') throw new Error('Unknown exploration policy: ' + explorationPolicy);
-  const out = { cleared: false, floorsDone: 0, deaths: 0, clockOuts: 0, seconds: 0, why: '', deathLog: [] };
+  if (returnPolicy !== 'full' && returnPolicy !== 'remembered') throw new Error('Unknown return policy: ' + returnPolicy);
+  const out = { cleared: false, floorsDone: 0, deaths: 0, clockOuts: 0, seconds: 0, why: '', deathLog: [],
+    returnStats: { seconds: 0, distance: 0, stalledSeconds: 0, replans: 0 } };
   const maxFrames = Math.round(60 * maxSeconds);
 
   A.RUN_SEED = seed;
@@ -88,6 +108,7 @@ export function playPlayerRun({ A, G, keys, seed, withLifeforms, maxSeconds, rad
   let searchTarget = 'unseen';
   let swapped = false, movedLast = false;
   let distFromKey = '', distField = null;
+  let returnKey = '', returnGoal = null;
   let frames = 0;
   let searchFrames = 0;
   let scanFrames = 0, scanClear = true, safeSprintUntil = 0;
@@ -99,8 +120,15 @@ export function playPlayerRun({ A, G, keys, seed, withLifeforms, maxSeconds, rad
   const unsubscribe = on('dead', ({ cause }) => { deathCause = cause; });
 
   function step(){
+    const x = G.plumber.x, y = G.plumber.y;
     A.addRunTime(1/60);
     A.updateReal(1/60);
+    if (lastAction === 'door' || lastAction === 'spawn' || lastAction === 'door-hold'){
+      const distance = Math.hypot(G.plumber.x - x, G.plumber.y - y);
+      out.returnStats.seconds += 1/60;
+      out.returnStats.distance += distance;
+      if (lastAction !== 'door-hold' && distance < 1e-6) out.returnStats.stalledSeconds += 1/60;
+    }
   }
 
   /* The headless run uses the harness canvas size and a centered, clamped
@@ -122,16 +150,28 @@ export function playPlayerRun({ A, G, keys, seed, withLifeforms, maxSeconds, rad
   function look(){
     if (know.floor !== A.floorIdx){
       know = freshKnowledge(A.floorIdx, G.leaks.length);
+      know.spawn = { x: Math.floor(G.plumber.x), y: Math.floor(G.plumber.y) };
+      know.door = { x: G.exitTiles[0].x, y: G.exitTiles[0].y };
+      returnKey = '';
       path = null;
     }
     const m = G.maskArr;
     const threshold = G.radar ? RADAR_SEE : SEE;
-    for (let i = 0; i < N; i++) if (m[i] > threshold && onScreen(i % W, (i / W) | 0)) know.seen[i] = 1;
+    for (let i = 0; i < N; i++){
+      if (m[i] > threshold && onScreen(i % W, (i / W) | 0)) know.seen[i] = 1;
+      if (returnPolicy === 'remembered' && know.seen[i] && !know.walkable[i] && G.grid[i] === FLOOR){
+        know.walkable[i] = FLOOR; know.version++;
+      }
+    }
     /* The tile under the plumber is always drawn, even behind the vision cone,
        so standing on a tile is seeing it. Without this a tile directly behind
        the plumber is reached and never counts as searched. */
-    know.seen[IDX(Math.floor(G.plumber.x), Math.floor(G.plumber.y))] = 1;
-    know.visited[IDX(Math.floor(G.plumber.x), Math.floor(G.plumber.y))] = 1;
+    const tile = IDX(Math.floor(G.plumber.x), Math.floor(G.plumber.y));
+    know.seen[tile] = 1;
+    know.visited[tile] = 1;
+    if (returnPolicy === 'remembered' && !know.walkable[tile] && G.grid[tile] === FLOOR){
+      know.walkable[tile] = FLOOR; know.version++;
+    }
 
     G.leaks.forEach((L, k) => {
       if (know.leaks[k] || L.fixed) return;
@@ -212,6 +252,15 @@ export function playPlayerRun({ A, G, keys, seed, withLifeforms, maxSeconds, rad
     }
     const allSealed = G.leaks.every(L => L.fixed);
     if (allSealed && know.door){
+      if (returnPolicy === 'remembered'){
+        const key = Math.floor(px) + ',' + Math.floor(py) + ',' + know.version +
+          ',' + (Math.hypot(know.door.x + 0.5 - px, know.door.y + 0.5 - py) < 1.25);
+        if (key !== returnKey){
+          returnGoal = chooseRememberedReturn(know.walkable, px, py, know.door, know.spawn);
+          returnKey = key;
+        }
+        return returnGoal;
+      }
       const s = doorStands();
       if (s.length){
         s.sort((a, b) => Math.abs(a[0]-px)+Math.abs(a[1]-py) - (Math.abs(b[0]-px)+Math.abs(b[1]-py)));
@@ -330,7 +379,7 @@ export function playPlayerRun({ A, G, keys, seed, withLifeforms, maxSeconds, rad
     if (trace && frames % 300 === 1){
       trace({ t: frames/60, floor: A.floorIdx, px: +px.toFixed(1), py: +py.toFixed(1), clock: +G.clock.toFixed(0),
         leaksKnown: know.leaks.filter(Boolean).length, leaks: G.leaks.length, open: G.leaks.filter(L=>!L.fixed).length,
-        door: know.door, seenTiles: know.seen.reduce((a,b)=>a+b,0), goal: chooseGoal(px, py),
+        door: know.door, spawn: know.spawn, seenTiles: know.seen.reduce((a,b)=>a+b,0), goal: chooseGoal(px, py),
         radar: G.radar, battery: G.batt, stamina: G.plumber.stamina,
         moving: G.plumber.moving, nearest: recent[recent.length - 1],
         threat: !!knownThreat(px, py), lives: A.lives });
@@ -367,6 +416,7 @@ export function playPlayerRun({ A, G, keys, seed, withLifeforms, maxSeconds, rad
       }
       const door = G.exitTiles[0];
       if (goal.kind === 'door' && Math.hypot(door.x + 0.5 - px, door.y + 0.5 - py) < 1.25){
+        lastAction = 'door-hold';
         step();
         if (afterTick()) break;
         continue;
@@ -385,7 +435,10 @@ export function playPlayerRun({ A, G, keys, seed, withLifeforms, maxSeconds, rad
           searchTarget = path ? 'unseen' : 'unvisited';
           if (!path) path = pathToNearest(px, py, c => G.grid[c] === FLOOR && !know.visited[c]);
         } else {
-          path = bfsPath(cx, cy, goal.x, goal.y, G.grid, W, H);
+          const grid = returnPolicy === 'remembered' && (goal.kind === 'door' || goal.kind === 'spawn')
+            ? know.walkable : G.grid;
+          path = bfsPath(cx, cy, goal.x, goal.y, grid, W, H);
+          if (goal.kind === 'door' || goal.kind === 'spawn') out.returnStats.replans++;
         }
         pathGoal = gid; pathAt = [px, py]; pathAge = 0; pathIndex = 1; jamSkip = 0;
       }
@@ -395,9 +448,16 @@ export function playPlayerRun({ A, G, keys, seed, withLifeforms, maxSeconds, rad
         out.why = 'no walkable path for goal ' + goal.kind;
         break;
       }
-      /* Arrived at a search target: it is seen now, so the next frame picks the
-         next unseen tile. */
+      /* A door approach can be the current tile but still outside hold range. */
       if (path.length <= 1){
+        if (goal.kind === 'door' && cx === goal.x && cy === goal.y){
+          steer(px, py, goal.x + 0.5, goal.y + 0.5);
+          const x = G.plumber.x, y = G.plumber.y;
+          step();
+          movedLast = Math.abs(G.plumber.x - x) + Math.abs(G.plumber.y - y) > 1e-6;
+          if (afterTick()) break;
+          continue;
+        }
         path = null;
         step();
         if (afterTick()) break;
