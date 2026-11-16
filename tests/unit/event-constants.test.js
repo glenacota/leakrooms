@@ -3,7 +3,7 @@ import { strict as assert } from 'node:assert';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { EVENT } from '../../src/util/events.js';
+import { EVENT, EVENT_CONTRACTS } from '../../src/util/events.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '..', '..');
@@ -18,6 +18,16 @@ function walk(dir, out = []) {
 }
 
 const SRC_FILES = walk(path.join(ROOT, 'src')).sort();
+
+test('every EVENT has a documented purpose and argument shape', () => {
+  const eventNames = Object.values(EVENT).sort();
+  const contractNames = Object.keys(EVENT_CONTRACTS).sort();
+  assert.deepEqual(contractNames, eventNames, 'event contract catalog does not match EVENT');
+  for (const [name, contract] of Object.entries(EVENT_CONTRACTS)) {
+    assert.equal(typeof contract.purpose, 'string', `${name} has no purpose`);
+    assert.equal(typeof contract.args, 'string', `${name} has no argument shape`);
+  }
+});
 
 /* Remove line comments and block comments, preserving newlines and string literals. */
 function stripComments(src) {
