@@ -54,11 +54,7 @@ function showFatal(err){
   if (el) el.classList.remove('hidden');
 }
 
-/**
- * Starts the game: sets up the canvas, connects the modules, loads settings,
- * builds the first floor and starts the frame loop.
- */
-export function boot(){
+function prepare(){
   /* Set up error handling first, so that anything that fails during the rest
      of boot (or later, while playing) shows the fatal card. Without it, a
      crash would leave a black or frozen screen that tells the player nothing. */
@@ -78,7 +74,9 @@ export function boot(){
      connected yet, so this first resize() does not trigger any redraw work. */
   resize();
   buildPatterns();
+}
 
+function connect(){
   /* Connect the modules to each other through the event bus and the DOM. */
   bindRun();
   bindDom();
@@ -93,7 +91,9 @@ export function boot(){
   initHaptics();
   initFullscreen();
   initPerf();
+}
 
+function initialize(){
   /* A handheld plays with the touch layer. One that cannot run it gets the
      notice instead of a title nobody can start; the key handler checks
      isMobileBlocked() so a stray key cannot walk past it. The touch mode set
@@ -109,12 +109,9 @@ export function boot(){
   buildSettingsUI();
   syncSettingsUI();
 
-  /* Audio is built now, at boot, so the title screen has its ambient sound.
+  /* Audio is built at boot so the title screen has its ambient sound.
      Browsers keep the audio context suspended until the player presses a key
-     or clicks.
-
-     Audio is optional. If the browser has no audio support or setup fails,
-     the game still starts, just without sound. */
+     or clicks. */
   try {
     Audio_.init();
     syncAmbience();
@@ -127,14 +124,20 @@ export function boot(){
      Reusing one floor means the maze is generated only once. */
   buildFloor(0, RUN_SEED);
   paintSplashPlan();
+}
 
-  /* The loop does not know about rendering, the HUD or the resolution, so all
-     three are passed in: `render` draws a frame, `simAlpha` tells the renderer
-     how far into the next simulation step the picture is, `adaptive` decides
-     whether the machine is keeping up, and `afterUpdate` refreshes the HUD
-     after each simulation step. */
+function start(){
   setFrameHooks({ render, simAlpha: setSimAlpha, adaptive: adaptResolution, afterStep: tickTutorials,
                   afterUpdate: ()=>{ updateHUD(); tickCues(); tickLoudFlash(); tickTouchHud(); } });
-
   requestAnimationFrame(frame);
+}
+
+/**
+ * Starts the game through ordered phases.
+ */
+export function boot(){
+  prepare();
+  connect();
+  initialize();
+  start();
 }

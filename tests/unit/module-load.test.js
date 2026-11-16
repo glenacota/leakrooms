@@ -22,7 +22,10 @@ import { loadGame } from '../helpers/harness.js';
 /* The stubs must be installed before anything is imported: render/canvas.js and
    render/textures.js touch `document` at module scope, and ui/hud.js reads the
    HUD table while it loads. */
+let scheduledFrames = 0;
+global.requestAnimationFrame = ()=>{ scheduledFrames++; return 0; };
 const { A } = await loadGame();
+const bootScheduledFrames = scheduledFrames;
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -97,4 +100,5 @@ test('the module graph has no cycles', () => {
 test('the smoke test loaded a real game, not an empty module', () => {
   assert.ok(A && A.G, '__api did not load');
   assert.ok(A.G && A.G.grid, 'no floor was built at boot');
+  assert.equal(bootScheduledFrames, 1, 'boot did not schedule exactly one initial animation frame');
 });
