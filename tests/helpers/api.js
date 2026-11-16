@@ -7,7 +7,7 @@ import { Audio_ } from '../../src/audio/index.js';
 import { drawPlumber, drawLifeform, drawDoor, ENT } from '../../src/render/entities.js';
 import { drawPlumber as drawPlumberSprite } from '../../src/cast/plumber.js';
 import { drawLifeform as drawLifeformSprite } from '../../src/cast/lifeform.js';
-import { cvs, ctx, SCALE } from '../../src/render/canvas.js';
+import { cvs, ctx, SCALE, viewScale } from '../../src/render/canvas.js';
 import { G } from '../../src/sim/state.js';
 import { keys } from '../../src/sim/keys.js';
 import { createCollision } from '../../src/sim/collision.js';
@@ -28,10 +28,10 @@ import { genLevel } from '../../src/sim/level.js';
 import { update } from '../../src/sim/update.js';
 import { buildFloor } from '../../src/game/floor.js';
 import {
-  STATE, lives, floorIdx, runLives, runStat, RUN_SEED,
-  clearCard, resetArmed, clockText, nextFloor, dismissClear, rollRunSeed,
+  STATE, lives, floorIdx, runLives, runStat, runTime, RUN_SEED,
+  clearCard, resetArmed, clockText, nextFloor, dismissClear, rollRunSeed, startRun, retryFloor,
   resetRun, 
-  setState, setLives, setFloorIdx, setRunTime, setRunSeed,
+  setState, setLives, setFloorIdx, setRunTime, addRunTime, setRunSeed,
 } from '../../src/game/run.js';
 import { frame } from '../../src/game/loop.js';
 import { hideAll, SCREENS, show } from '../../src/ui/dom.js';
@@ -112,13 +112,13 @@ get WATER_TINTS(){ return WATER_TINTS; },
 loadSettings, saveSettings, resetSettings, applySettings, setOption,
 settingsValid, get SETTINGS_KEY(){ return SETTINGS_KEY; },
 activateMenu, beginShift, backSplash, moveMenu, selectMenu, TITLE_MENU, show, hideAll, get SCREENS(){ return SCREENS; },
-nextFloor, dismissClear, get clearCard(){ return clearCard; },
+nextFloor, dismissClear, startRun, retryFloor, addRunTime, get clearCard(){ return clearCard; },
 get STATE(){ return STATE; },
 set STATE(v){ setState(v); },
 get floorIdx(){ return floorIdx; }, set floorIdx(v){ setFloorIdx(v); },
 get keys(){ return keys; },
 get HAND_OFF(){ return HAND_OFF; }, drawLifeform,
-get cvs(){ return cvs; }, get ctxRef(){ return ctx; }, get SCALE(){ return SCALE; },
+get cvs(){ return cvs; }, get ctxRef(){ return ctx; }, get SCALE(){ return SCALE; }, viewScale,
 get TILE(){ return TILE; },
 get WET_DRAW(){ return WET_DRAW; },
 get LOUD(){ return LOUD; },
@@ -158,7 +158,7 @@ get resetArmed(){ return resetArmed; },
 get FLOORS(){ return FLOORS; },
 get HUNT_BASE(){ return HUNT_BASE; }, get HUNT_STEP(){ return HUNT_STEP; },
 get lives(){ return lives; }, set lives(v){ setLives(v); },
-set runTime(v){ setRunTime(v); },
+get runTime(){ return runTime; }, set runTime(v){ setRunTime(v); },
 get runLives(){ return runLives; },
 get runStat(){ return runStat; },
 /* the cast: the avatar's rig and the thing hunting it */

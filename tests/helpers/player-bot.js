@@ -1,40 +1,44 @@
-/* The player bot: a bot that plays with what a player can see and hear.
-
-   It never reads the leak list or the door position before a player could have
-   found them:
-     - a leak is known once water shows beside its standing spot in view;
-     - the door is known once it is in view (the vision mask);
-     - a lifeform is known while it is in view, or while it is close enough to
-       hear a walking plumber (WALK_HEARD);
-     - floor tiles are known once they have been in view;
-     - the radar is switched on only when the bot is stuck (its goal is a search:
-       no leak known and no water in view) and the battery has charge.
-   The game's own predicates still decide reach, repair and the door cycle, so a
-   stricter or looser rule invented here would test a different game.
-
-   Floors advance through the game's own path (the door calls nextFloor, which
-   rebuilds from RUN_SEED), so the clock and the lives behave as they do for a
-   player. */
+/* Player-like navigation over the real simulation. The bot still uses the
+   complete grid for routing and is not a substitute for human playtests. */
 import { bfsPath } from './bot.js';
-import { FLOOR, MAP_H, MAP_W } from '../../src/config/constants.js';
+import { FLOOR, MAP_H, MAP_W, TILE, WET_DRAW } from '../../src/config/constants.js';
+import { on } from '../../src/util/events.js';
 
 const W = MAP_W, H = MAP_H, N = W * H;
 const IDX = (x, y) => y * W + x;
 
 const SEE = 0.2;          // vision-mask value that counts as in view
-const WET = 0.05;         // wetness that reads as damp in view, close to a leak
-const WATER_CLUE = 0.5;   // wetness that reads as water to follow; damp carpet near the start is not a clue
-const LEAK_SIGHT = 2;     // tiles around a standing spot where water shows the leak
+const RADAR_SEE = 0.1;    // radar gives otherwise dark tiles a 0.15 mask
 const WALK_HEARD = 6.6;   // tiles a walking plumber is heard: HEAR_BASE 4 + HEAR_GAIN * walk power, see constants.js
 const THREAT = 9;         // tiles at which a known lifeform is worth stepping away from
 const REPLAN_FRAMES = 90; // re-plan at least this often, so a stale path cannot stall the bot
-const RECENT_FRAMES = 180; // three seconds of lifeform context kept for tracing a death
-/* A lifeform this close has caught the plumber. The catches seen so far were
-   about half a tile; one tile allows for a lifeform's step between frames. */
-export const CAUGHT_TILES = 1;
+const RECENT_FRAMES = 900; // fifteen seconds of context before a death
+const RADAR_PERIOD = 600; // one short scan every ten seconds while searching
+const RADAR_FRAMES = 60;  // a one-second scan gives the mask time to appear
+const SCAN_CONFIRM_FRAMES = 30; // allow half a second for lifeforms to appear on radar
+const SAFE_SPRINT_FRAMES = 180; // scan information expires after three seconds
+const SPRINT_CHECK_RANGE = 12.6; // sprint noise range in open floor
 
 function freshKnowledge(floor, leakCount){
-  return { floor, door: false, leaks: new Array(leakCount).fill(false), seen: new Uint8Array(N) };
+  return { floor, door: true, leaks: new Array(leakCount).fill(false), seen: new Uint8Array(N), visited: new Uint8Array(N) };
+}
+
+/** Selects deeper visible water; a flat puddle leaves exploration to search. */
+export function chooseVisibleWater(grid, wet, mask, visited, radar, px, py, onScreen){
+  const threshold = radar ? RADAR_SEE : SEE;
+  const current = IDX(Math.floor(px), Math.floor(py));
+  const currentWet = wet[current];
+  let best = null, bestWet = currentWet, bestDistance = Infinity;
+  for (let i = 0; i < N; i++){
+    const x = i % W, y = (i / W) | 0;
+    if (i === current || mask[i] <= threshold || grid[i] !== FLOOR || visited[i] ||
+        wet[i] <= WET_DRAW || wet[i] <= currentWet + 0.01 || !onScreen(x, y)) continue;
+    const distance = Math.abs(x + 0.5 - px) + Math.abs(y + 0.5 - py);
+    if (wet[i] > bestWet || (wet[i] === bestWet && distance < bestDistance)){
+      bestWet = wet[i]; bestDistance = distance; best = { kind: 'water', x, y };
+    }
+  }
+  return best;
 }
 
 /**
@@ -47,28 +51,59 @@ function freshKnowledge(floor, leakCount){
  * @param {number} o.seed - run seed, installed as RUN_SEED.
  * @param {boolean} o.withLifeforms - whether lifeforms stay on the floors.
  * @param {number} o.maxSeconds - game seconds before the bot gives up.
- * @param {function} [o.trace] - called every 5 game seconds with what the bot knows.
+ * @param {'periodic'|'off'} [o.radarPolicy] - scan while searching, or disable radar.
+ * @param {'flee'|'none'} [o.avoidancePolicy] - flee nearby threats, or ignore them.
+ * @param {'follow'|'off'} [o.waterPolicy] - follow visible water, or search without it.
+ * @param {'walk'|'scan-sprint'} [o.explorationPolicy] - optionally sprint after a clear radar scan.
+ * @param {function} [o.trace] - called every 5 game seconds and on deaths.
  * @returns {{cleared:boolean, floorsDone:number, deaths:number, clockOuts:number,
- *   seconds:number, why:string, deathLog:Array}} deathLog holds one snapshot per death
- *   for classifyDeath().
+ *   seconds:number, why:string, deathLog:Array}}
  */
-export function playPlayerRun({ A, G, keys, seed, withLifeforms, maxSeconds, trace }){
+export function playPlayerRun({ A, G, keys, seed, withLifeforms, maxSeconds, radarPolicy = 'periodic', avoidancePolicy = 'flee', waterPolicy = 'follow', explorationPolicy = 'walk', trace }){
+  if (radarPolicy !== 'periodic' && radarPolicy !== 'off') throw new Error('Unknown radar policy: ' + radarPolicy);
+  if (avoidancePolicy !== 'flee' && avoidancePolicy !== 'none') throw new Error('Unknown avoidance policy: ' + avoidancePolicy);
+  if (waterPolicy !== 'follow' && waterPolicy !== 'off') throw new Error('Unknown water policy: ' + waterPolicy);
+  if (explorationPolicy !== 'walk' && explorationPolicy !== 'scan-sprint') throw new Error('Unknown exploration policy: ' + explorationPolicy);
   const out = { cleared: false, floorsDone: 0, deaths: 0, clockOuts: 0, seconds: 0, why: '', deathLog: [] };
   const maxFrames = Math.round(60 * maxSeconds);
 
   A.RUN_SEED = seed;
-  A.floorIdx = 0;
-  A.runTime = 0;
-  A.buildFloor(0, seed);
-  A.STATE = 'play';
+  A.startRun();
+  if (!withLifeforms) G.lifeforms.length = 0;
 
   let know = freshKnowledge(-1, 0);
   let path = null, pathGoal = '', pathAt = [-99, -99], pathAge = 0;
   let swapped = false, movedLast = false;
   let distFromKey = '', distField = null;
   let frames = 0;
+  let searchFrames = 0;
+  let scanFrames = 0, scanClear = true, safeSprintUntil = 0;
   let jamSkip = 0, anchorX = -99, anchorY = -99, anchorAt = 0;
-  let recent = []; // the nearest awake lifeform, for the last RECENT_FRAMES frames
+  let recent = [];
+  let lastAction = 'start';
+  let deathCause = null;
+  let viewport;
+  const unsubscribe = on('dead', ({ cause }) => { deathCause = cause; });
+
+  function step(){
+    A.addRunTime(1/60);
+    A.updateReal(1/60);
+  }
+
+  /* The headless run uses the harness canvas size and a centered, clamped
+     camera; rendering itself is not stepped in this simulation. */
+  function updateViewport(){
+    const width = A.cvs.clientWidth, height = A.cvs.clientHeight;
+    const scale = A.viewScale(width, height) * TILE;
+    if (!(scale > 0)) throw new Error('Player bot requires a nonzero viewport');
+    const halfW = width / (2 * scale), halfH = height / (2 * scale);
+    const cx = W > halfW * 2 ? Math.max(halfW, Math.min(W - halfW, G.plumber.x)) : G.plumber.x;
+    const cy = H > halfH * 2 ? Math.max(halfH, Math.min(H - halfH, G.plumber.y)) : G.plumber.y;
+    viewport = { left: cx - halfW, right: cx + halfW, top: cy - halfH, bottom: cy + halfH };
+  }
+  function onScreen(x, y){
+    return x + 1 > viewport.left && x < viewport.right && y + 1 > viewport.top && y < viewport.bottom;
+  }
 
   /* What the player has seen so far on this floor. Called once per frame. */
   function look(){
@@ -77,23 +112,17 @@ export function playPlayerRun({ A, G, keys, seed, withLifeforms, maxSeconds, tra
       path = null;
     }
     const m = G.maskArr;
-    for (let i = 0; i < N; i++) if (m[i] > SEE) know.seen[i] = 1;
+    const threshold = G.radar ? RADAR_SEE : SEE;
+    for (let i = 0; i < N; i++) if (m[i] > threshold && onScreen(i % W, (i / W) | 0)) know.seen[i] = 1;
     /* The tile under the plumber is always drawn, even behind the vision cone,
        so standing on a tile is seeing it. Without this a tile directly behind
        the plumber is reached and never counts as searched. */
     know.seen[IDX(Math.floor(G.plumber.x), Math.floor(G.plumber.y))] = 1;
-
-    const door = G.exitTiles[0];
-    if (!know.door && A.fixtureVis(door) > SEE) know.door = true;
+    know.visited[IDX(Math.floor(G.plumber.x), Math.floor(G.plumber.y))] = 1;
 
     G.leaks.forEach((L, k) => {
       if (know.leaks[k] || L.fixed) return;
-      for (let dy = -LEAK_SIGHT; dy <= LEAK_SIGHT; dy++)
-        for (let dx = -LEAK_SIGHT; dx <= LEAK_SIGHT; dx++){
-          const x = L.sx + dx, y = L.sy + dy;
-          if (x < 0 || y < 0 || x >= W || y >= H) continue;
-          if (m[IDX(x, y)] > SEE && A.wetAt(x, y) > WET) know.leaks[k] = true;
-        }
+      if (onScreen(L.x, L.y) && m[IDX(L.x, L.y)] > 0.02) know.leaks[k] = true;
     });
   }
 
@@ -176,23 +205,9 @@ export function playPlayerRun({ A, G, keys, seed, withLifeforms, maxSeconds, tra
         return { kind: 'door', x: s[0][0], y: s[0][1] };
       }
     }
-    /* Water in view is the clue to a leak nobody has reached yet. Follow the
-       deepest visible water, nearest first among equals. Once the standing spot
-       is in view the leak is known and the branch above takes over. */
-    const m = G.maskArr;
-    let wetBest = null, wetVal = 0, wetD = Infinity;
-    for (let i = 0; i < N; i++){
-      if (m[i] <= SEE) continue;
-      const x = i % W, y = (i / W) | 0;
-      const v = A.wetAt(x, y);
-      if (v <= WATER_CLUE) continue;
-      const d = Math.abs(x + 0.5 - px) + Math.abs(y + 0.5 - py);
-      if (v > wetVal + 1e-6 || (Math.abs(v - wetVal) <= 1e-6 && d < wetD)){
-        wetVal = v; wetD = d; wetBest = [x, y];
-      }
-    }
-    if (wetBest) return { kind: 'water', x: wetBest[0], y: wetBest[1] };
-    return { kind: 'search' };
+    if (allSealed || waterPolicy === 'off') return { kind: 'search' };
+    /* A flat puddle has no gradient; resume searching rather than circling it. */
+    return chooseVisibleWater(G.grid, G.wetArr, G.maskArr, know.visited, G.radar, px, py, onScreen) || { kind: 'search' };
   }
 
   /* Key steering along a path: the axis that moves toward the next waypoint,
@@ -226,8 +241,9 @@ export function playPlayerRun({ A, G, keys, seed, withLifeforms, maxSeconds, tra
       if (d < bd){ bd = d; best = lf; }
     }
     if (!best) return { state: '-', d: Infinity, inView: false };
-    return { state: best.state, d: +bd.toFixed(2),
-      inView: G.maskArr[IDX(Math.floor(best.x), Math.floor(best.y))] > SEE };
+    return { state: best.state, x: best.x, y: best.y, d: +bd.toFixed(2),
+      lineOfSight: G.los(best.x, best.y, px, py),
+      inView: onScreen(best.x, best.y) && G.maskArr[IDX(Math.floor(best.x), Math.floor(best.y))] > (G.radar ? RADAR_SEE : SEE) };
   }
 
   /* The nearest lifeform the plumber knows about, by sight or by hearing. */
@@ -237,7 +253,7 @@ export function playPlayerRun({ A, G, keys, seed, withLifeforms, maxSeconds, tra
     for (const lf of G.lifeforms){
       if (lf.state === 'DORMANT' || lf.rise <= 0.5) continue;
       const d = Math.hypot(lf.x - px, lf.y - py);
-      const inView = G.maskArr[IDX(Math.floor(lf.x), Math.floor(lf.y))] > SEE;
+      const inView = onScreen(lf.x, lf.y) && G.maskArr[IDX(Math.floor(lf.x), Math.floor(lf.y))] > (G.radar ? RADAR_SEE : SEE);
       if ((inView || d <= WALK_HEARD) && d < bd){ bd = d; best = lf; }
     }
     return best && bd < THREAT ? { lf: best, d: bd } : null;
@@ -247,33 +263,69 @@ export function playPlayerRun({ A, G, keys, seed, withLifeforms, maxSeconds, tra
      when the run is over. A death rebuilds the floor, as a player's respawn does. */
   function afterTick(){
     if (A.STATE === 'play') return false;
-    if (A.floorIdx >= 5){ out.cleared = true; return true; }
-    out.deathLog.push({ floor: A.floorIdx + 1, frame: frames, clockOut: G.clock <= 0, recent: recent.slice() });
+    if (A.STATE === 'win'){ out.cleared = true; return true; }
+    if (A.STATE === 'clear'){
+      A.dismissClear();
+      if (!withLifeforms) G.lifeforms.length = 0;
+      path = null; pathGoal = ''; distFromKey = ''; distField = null;
+      know = freshKnowledge(-1, 0); recent = []; searchFrames = 0;
+      scanFrames = 0; scanClear = true; safeSprintUntil = 0;
+      anchorX = -99; anchorY = -99; anchorAt = frames; jamSkip = 0; movedLast = false;
+      return false;
+    }
+    if (A.STATE !== 'dead' || !deathCause) throw new Error('Unexpected bot run state: ' + A.STATE);
+    const death = { floor: A.floorIdx + 1, frame: frames, cause: deathCause, recent: recent.slice() };
+    out.deathLog.push(death);
+    if (trace) trace({ event: 'death', ...death, recent: death.recent.filter((_, i) => i % 30 === 0) });
     recent = [];
     out.deaths++;
-    if (G.clock <= 0) out.clockOuts++;
+    if (deathCause === 'clock') out.clockOuts++;
+    deathCause = null;
     if (A.lives <= 0){ out.why = 'out of lives on floor ' + (A.floorIdx + 1); return true; }
-    A.buildFloor(A.floorIdx, seed);
-    A.STATE = 'play';
-    path = null; pathGoal = ''; know = freshKnowledge(-1, 0);
+    A.retryFloor();
+    if (!withLifeforms) G.lifeforms.length = 0;
+    path = null; pathGoal = '';
+    distFromKey = ''; distField = null; searchFrames = 0;
+    scanFrames = 0; scanClear = true; safeSprintUntil = 0;
+    anchorX = -99; anchorY = -99; anchorAt = frames; jamSkip = 0; movedLast = false;
     return false;
   }
 
+  try {
   while (frames < maxFrames){
     frames++;
+    updateViewport();
     look();
     const px = G.plumber.x, py = G.plumber.y;
+    if (G.radar){
+      scanFrames++;
+      if (G.lifeforms.some(lf => onScreen(lf.x, lf.y) &&
+          G.maskArr[IDX(Math.floor(lf.x), Math.floor(lf.y))] > RADAR_SEE &&
+          Math.hypot(lf.x - px, lf.y - py) < SPRINT_CHECK_RANGE)) scanClear = false;
+      if (scanClear && scanFrames >= SCAN_CONFIRM_FRAMES) safeSprintUntil = frames + SAFE_SPRINT_FRAMES;
+      if (!scanClear) safeSprintUntil = 0;
+    } else {
+      scanFrames = 0; scanClear = true;
+    }
+    recent.push({ ...nearestAwake(px, py), px, py, clock: G.clock,
+      radar: G.radar, battery: G.batt, stamina: G.plumber.stamina,
+      moving: G.plumber.moving, sprint: !!keys.shift, action: lastAction,
+      lifeforms: G.lifeforms.map(lf => ({ x: lf.x, y: lf.y, state: lf.state })) });
     keys.w = keys.s = keys.a = keys.d = false; keys.shift = false;
-    G.radar = false;
-    recent.push(nearestAwake(px, py));
     if (recent.length > RECENT_FRAMES) recent.shift();
 
     if (trace && frames % 300 === 1){
       trace({ t: frames/60, floor: A.floorIdx, px: +px.toFixed(1), py: +py.toFixed(1), clock: +G.clock.toFixed(0),
         leaksKnown: know.leaks.filter(Boolean).length, leaks: G.leaks.length, open: G.leaks.filter(L=>!L.fixed).length,
-        door: know.door, seenTiles: know.seen.reduce((a,b)=>a+b,0), goal: chooseGoal(px, py).kind });
+        door: know.door, seenTiles: know.seen.reduce((a,b)=>a+b,0), goal: chooseGoal(px, py),
+        radar: G.radar, battery: G.batt, stamina: G.plumber.stamina,
+        moving: G.plumber.moving, nearest: recent[recent.length - 1],
+        threat: !!knownThreat(px, py), lives: A.lives });
     }
-    const threat = knownThreat(px, py);
+    const threat = avoidancePolicy === 'flee' ? knownThreat(px, py) : null;
+    const goal = threat ? null : chooseGoal(px, py);
+    lastAction = threat ? 'avoid' : goal.kind;
+    G.radar = false;
     if (threat){
       /* Step away from the threat to the walkable neighbour that puts most
          distance between them. Sprint while running. */
@@ -287,25 +339,22 @@ export function playPlayerRun({ A, G, keys, seed, withLifeforms, maxSeconds, tra
       }
       if (best) steer(px, py, best[0], best[1]);
     } else {
-      const goal = chooseGoal(px, py);
-
-      /* The radar is the last resort. It goes on only when stuck (a search goal:
-         no leak known, no water in view) and the battery has charge. A live radar
-         pings the floor at NOISE.RADAR, so it can wake lifeforms, and the battery
-         drains at RADAR_DRAIN until the game switches it off. */
-      if (goal.kind === 'search' && G.batt > 0) G.radar = true;
+      if (radarPolicy === 'periodic' && goal.kind === 'search' && G.batt > 0){
+        G.radar = searchFrames % RADAR_PERIOD < RADAR_FRAMES;
+        searchFrames++;
+      }
 
       /* Holding still is the game's own hold: repair when in reach of a known
          open leak, or wait at the door until it cycles. */
       if (goal.kind === 'leak' && A.leakReach(px, py) &&
           Math.hypot(px - (goal.x + 0.5), py - (goal.y + 0.5)) < 1.5){
-        A.updateReal(1/60);
+        step();
         if (afterTick()) break;
         continue;
       }
       const door = G.exitTiles[0];
       if (goal.kind === 'door' && Math.hypot(door.x + 0.5 - px, door.y + 0.5 - py) < 1.25){
-        A.updateReal(1/60);
+        step();
         if (afterTick()) break;
         continue;
       }
@@ -320,7 +369,8 @@ export function playPlayerRun({ A, G, keys, seed, withLifeforms, maxSeconds, tra
         (know.seen[IDX(last[0], last[1])] || Math.hypot(px - (last[0] + 0.5), py - (last[1] + 0.5)) < 0.6);
       if (gid !== pathGoal || off || searchDone || pathAge > REPLAN_FRAMES || !path || path.length === 0){
         if (goal.kind === 'search'){
-          path = pathToNearest(px, py, c => G.grid[c] === FLOOR && !know.seen[c]);
+          path = pathToNearest(px, py, c => G.grid[c] === FLOOR && !know.seen[c]) ||
+            pathToNearest(px, py, c => G.grid[c] === FLOOR && !know.visited[c]);
         } else {
           path = bfsPath(cx, cy, goal.x, goal.y, G.grid, W, H);
         }
@@ -336,7 +386,7 @@ export function playPlayerRun({ A, G, keys, seed, withLifeforms, maxSeconds, tra
          next unseen tile. */
       if (path.length <= 1){
         path = null;
-        A.updateReal(1/60);
+        step();
         if (afterTick()) break;
         continue;
       }
@@ -352,16 +402,19 @@ export function playPlayerRun({ A, G, keys, seed, withLifeforms, maxSeconds, tra
       if (wi > path.length - 1) wi = path.length - 1;
       const wp = path[wi];
       steer(px, py, wp[0] + 0.5, wp[1] + 0.5);
+      if (explorationPolicy === 'scan-sprint' && frames < safeSprintUntil && G.plumber.stamina > 0.5)
+        keys.shift = true;
     }
-
     const bx0 = G.plumber.x, by0 = G.plumber.y;
-    A.updateReal(1/60);
+    step();
     if (Math.abs(G.plumber.x - bx0) + Math.abs(G.plumber.y - by0) > 1e-6) movedLast = true;
 
     if (afterTick()) break;
   }
-
-  keys.w = keys.s = keys.a = keys.d = false; keys.shift = false;
+  } finally {
+    unsubscribe();
+    keys.w = keys.s = keys.a = keys.d = false; keys.shift = false;
+  }
   out.floorsDone = Math.min(A.floorIdx, 5);
   out.seconds = frames / 60;
   if (!out.cleared && !out.why) out.why = frames >= maxFrames ? 'timeout on floor ' + (A.floorIdx + 1) : 'stopped on floor ' + (A.floorIdx + 1);
@@ -369,16 +422,11 @@ export function playPlayerRun({ A, G, keys, seed, withLifeforms, maxSeconds, tra
 }
 
 /**
- * Names the cause of one death from the snapshot playPlayerRun records.
- * 'caught': an awake lifeform was within CAUGHT_TILES in the last three seconds.
- * 'clock': the floor clock ran out and no lifeform was that close.
- * 'unexplained': neither. Those deaths need a closer look at the trace.
+ * Names the cause reported by the game's death event.
  *
- * @param {{clockOut:boolean, recent:Array<{d:number}>}} death
- * @returns {'caught'|'clock'|'unexplained'}
+ * @param {{cause:'caught'|'clock'}} death
+ * @returns {'caught'|'clock'}
  */
 export function classifyDeath(death){
-  if (death.recent.some(x => x.d <= CAUGHT_TILES)) return 'caught';
-  if (death.clockOut) return 'clock';
-  return 'unexplained';
+  return death.cause;
 }

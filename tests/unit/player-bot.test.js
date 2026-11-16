@@ -1,32 +1,189 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { classifyDeath, CAUGHT_TILES } from '../helpers/player-bot.js';
+import { loadGame } from '../helpers/harness.js';
+import { playPlayerRun, classifyDeath, chooseVisibleWater } from '../helpers/player-bot.js';
+import { FLOOR, MAP_W, MAP_H } from '../../src/config/constants.js';
+import { emit } from '../../src/util/events.js';
 
-/* The cause of a death in a bot run. The bot's runs are reported, not gated, so
-   a wrong label here would mislead a diagnosis without failing anything. */
+const { A, G } = await loadGame();
 
-const frame = (d, state = 'HUNT') => ({ state, d, inView: false });
+function run(options = {}){
+  A.setOption('difficulty', 'relaxed');
+  return playPlayerRun({
+    A, G, keys: A.keys, seed: 5077, withLifeforms: true,
+    maxSeconds: 0.1, ...options,
+  });
+}
 
-test('a lifeform within the catch distance is a catch, even on the clock', () => {
-  const death = { clockOut: true, recent: [frame(9), frame(CAUGHT_TILES)] };
-  assert.equal(classifyDeath(death), 'caught');
+test('death classification uses the actual clock event even near a lifeform', () => {
+  assert.equal(classifyDeath({ cause: 'clock', recent: [{ d: 0.1 }] }), 'clock');
 });
 
-test('a clock-out with no lifeform close is a clock death', () => {
-  const death = { clockOut: true, recent: [frame(12, 'WALK'), frame(11, 'WALK')] };
-  assert.equal(classifyDeath(death), 'clock');
+test('death classification uses the actual catch event', () => {
+  assert.equal(classifyDeath({ cause: 'caught', recent: [] }), 'caught');
 });
 
-test('no lifeform close and not the clock is unexplained', () => {
-  const death = { clockOut: false, recent: [frame(30, 'WALK')] };
-  assert.equal(classifyDeath(death), 'unexplained');
+test('a water plateau falls back to search instead of targeting the current tile', () => {
+  const grid = new Uint8Array(MAP_W * MAP_H);
+  const wet = new Float32Array(grid.length);
+  const mask = new Float32Array(grid.length);
+  const visited = new Uint8Array(grid.length);
+  const current = 10 * MAP_W + 10, next = current + 1;
+  grid[current] = grid[next] = FLOOR;
+  wet[current] = wet[next] = mask[current] = mask[next] = 1;
+  assert.equal(chooseVisibleWater(grid, wet, mask, visited, false, 10.5, 10.5, () => true), null);
+  wet[current] = 0;
+  assert.deepEqual(chooseVisibleWater(grid, wet, mask, visited, false, 10.5, 10.5, () => true),
+    { kind: 'water', x: 11, y: 10 });
+  visited[next] = 1;
+  assert.equal(chooseVisibleWater(grid, wet, mask, visited, false, 10.5, 10.5, () => true), null);
 });
 
-test('an empty history is unexplained, not a catch', () => {
-  assert.equal(classifyDeath({ clockOut: false, recent: [] }), 'unexplained');
+test('radar-only visibility admits water that normal vision does not', () => {
+  const grid = new Uint8Array(MAP_W * MAP_H);
+  const wet = new Float32Array(grid.length);
+  const mask = new Float32Array(grid.length);
+  const visited = new Uint8Array(grid.length);
+  const tile = 10 * MAP_W + 11;
+  grid[tile] = FLOOR; wet[tile] = 1; mask[tile] = 0.15;
+  assert.equal(chooseVisibleWater(grid, wet, mask, visited, false, 10.5, 10.5, () => true), null);
+  assert.deepEqual(chooseVisibleWater(grid, wet, mask, visited, true, 10.5, 10.5, () => true),
+    { kind: 'water', x: 11, y: 10 });
+  assert.equal(chooseVisibleWater(grid, wet, mask, visited, true, 10.5, 10.5, () => false), null);
 });
 
-test('a lifeform just past the catch distance is not a catch', () => {
-  const death = { clockOut: false, recent: [frame(CAUGHT_TILES + 0.01)] };
-  assert.equal(classifyDeath(death), 'unexplained');
+test('a run starts with the selected terms and normal lifeform grace', () => {
+  let observed;
+  run({ trace(){ observed = { lives: A.lives, born: G.lifeforms.map(lf => lf.born) }; } });
+  assert.equal(observed.lives, 5);
+  assert.ok(observed.born.length > 0);
+  assert.ok(observed.born.every(born => born === 3));
+  assert.ok(A.runTime > 0);
+});
+
+test('radar can be disabled for a matched scenario', () => {
+  const update = A.updateReal;
+  const radar = [];
+  A.updateReal = dt => { radar.push(G.radar); update(dt); };
+  try {
+    run({ radarPolicy: 'off', withLifeforms: false });
+    assert.ok(radar.length > 0);
+    assert.ok(radar.every(value => !value));
+  } finally {
+    A.updateReal = update;
+  }
+});
+
+test('a radar scan does not mark the entire off-screen map as seen', () => {
+  const samples = [];
+  run({ withLifeforms: false, maxSeconds: 5.1, trace: sample => samples.push(sample) });
+  assert.equal(samples.length, 2);
+  assert.ok(samples[1].seenTiles < MAP_W * MAP_H);
+});
+
+test('the water control searches without selecting water goals', () => {
+  const samples = [];
+  run({ withLifeforms: false, waterPolicy: 'off', maxSeconds: 5.1, trace: sample => samples.push(sample) });
+  assert.equal(samples.length, 2);
+  assert.ok(samples.every(sample => sample.goal.kind !== 'water'));
+});
+
+test('the avoidance control disables the flee response without removing lifeforms', () => {
+  const update = A.updateReal;
+  const sprint = [];
+  A.updateReal = () => { sprint.push(!!A.keys.shift); };
+  const threat = () => {
+    const lf = G.lifeforms[0];
+    lf.x = G.plumber.x + 1; lf.y = G.plumber.y;
+    lf.state = 'HUNT'; lf.rise = 1;
+  };
+  try {
+    run({ maxSeconds: 1/60, avoidancePolicy: 'flee', trace: threat });
+    run({ maxSeconds: 1/60, avoidancePolicy: 'none', trace: threat });
+    assert.deepEqual(sprint, [true, false]);
+  } finally {
+    A.updateReal = update;
+  }
+});
+
+test('scan-sprint requires a clear radar scan and refuses a visible lifeform', () => {
+  const update = A.updateReal;
+  const sprint = [];
+  A.updateReal = () => { sprint.push(!!A.keys.shift); };
+  try {
+    run({ maxSeconds: 1, withLifeforms: false, waterPolicy: 'off', explorationPolicy: 'scan-sprint' });
+    assert.ok(sprint.some(Boolean));
+    sprint.length = 0;
+    run({
+      maxSeconds: 1, waterPolicy: 'off', avoidancePolicy: 'none', explorationPolicy: 'scan-sprint',
+      trace(){
+        const lf = G.lifeforms[0];
+        lf.x = G.plumber.x; lf.y = G.plumber.y;
+        G.maskArr[Math.floor(lf.y) * MAP_W + Math.floor(lf.x)] = 1;
+      },
+    });
+    assert.ok(sprint.every(value => !value));
+  } finally {
+    A.updateReal = update;
+  }
+});
+
+test('the lifeform-free control removes lifeforms on start, retry and clear', () => {
+  const update = A.updateReal;
+  let calls = 0;
+  const counts = [];
+  A.updateReal = dt => {
+    counts.push(G.lifeforms.length);
+    if (++calls === 1) emit('clock:out');
+    else if (calls === 2) A.nextFloor();
+    else update(dt);
+  };
+  try {
+    const result = run({ withLifeforms: false });
+    assert.equal(result.deaths, 1);
+    assert.deepEqual(counts.slice(0, 3), [0, 0, 0]);
+  } finally {
+    A.updateReal = update;
+  }
+});
+
+test('a retry keeps sealed leaks and records the real death cause', () => {
+  const update = A.updateReal;
+  let calls = 0, restored;
+  A.updateReal = dt => {
+    if (++calls === 1){
+      A.sealLeak(G.leaks[0]);
+      emit('clock:out');
+    } else {
+      restored = G.leaks[0].fixed;
+      update(dt);
+    }
+  };
+  try {
+    const result = run();
+    assert.equal(restored, true);
+    assert.equal(result.deaths, 1);
+    assert.equal(result.clockOuts, 1);
+    assert.equal(result.deathLog[0].cause, 'clock');
+  } finally {
+    A.updateReal = update;
+  }
+});
+
+test('a floor clear is not counted as a death', () => {
+  const update = A.updateReal;
+  let calls = 0;
+  A.updateReal = dt => {
+    if (++calls === 1) A.nextFloor();
+    else update(dt);
+  };
+  try {
+    const result = run();
+    assert.equal(result.floorsDone, 1);
+    assert.equal(result.deaths, 0);
+    assert.equal(A.lives, 5);
+    assert.equal(A.STATE, 'play');
+  } finally {
+    A.updateReal = update;
+  }
 });
