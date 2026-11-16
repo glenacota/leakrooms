@@ -96,3 +96,43 @@ test('dt is clamped after a long frame gap', () => {
   const rc = buildFrame(1000 + 60000); // one minute gap
   assert.ok(rc.dt <= 0.25, 'dt clamped to 0.25s after a 60s gap');
 });
+
+test('reduced motion removes camera jitter and follows preference changes', () => {
+  buildFloor(2, 31337);
+  const preference = { matches: false };
+  const random = Math.random;
+  let queries = 0;
+  let randomCalls = 0;
+  window.matchMedia = query => {
+    assert.equal(query, '(prefers-reduced-motion: reduce)');
+    queries++;
+    return preference;
+  };
+  Math.random = () => { randomCalls++; return 0.75; };
+
+  try {
+    buildFrame(1000);
+    assert.notEqual(cam.jx, 0);
+    assert.notEqual(cam.jy, 0);
+    assert.equal(randomCalls, 2);
+
+    preference.matches = true;
+    const rc = buildFrame(1016);
+    assert.equal(cam.jx, 0);
+    assert.equal(cam.jy, 0);
+    assert.equal(rc.tx, -cam.x * TILE + CW / (2 * SCALE));
+    assert.equal(rc.ty, -cam.y * TILE + CH / (2 * SCALE));
+    assert.equal(randomCalls, 2, 'reduced motion does not sample camera jitter');
+
+    preference.matches = false;
+    buildFrame(1032);
+    assert.notEqual(cam.jx, 0);
+    assert.notEqual(cam.jy, 0);
+    assert.equal(randomCalls, 4);
+    assert.equal(queries, 1, 'the media query is reused');
+  } finally {
+    preference.matches = false;
+    Math.random = random;
+    delete window.matchMedia;
+  }
+});

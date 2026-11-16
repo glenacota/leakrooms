@@ -17,6 +17,7 @@ export const cam = { x: 0, y: 0, jx: 0, jy: 0 };
 let prevT = null;
 let prevTRaw = null;
 let dt = 0;
+let motionPreference = null;
 
 /**
  * Build one frame context.
@@ -37,10 +38,16 @@ export function buildFrame(t){
   cam.x += (p.x - cam.x) * k;
   cam.y += (p.y - cam.y) * k;
 
-  const breathe = Math.sin(t * 0.0009) * 0.06;
-  const jscale = Math.sqrt(eased / 0.0167);
-  cam.jx = (Math.random() - 0.5) * 0.10 * jscale + breathe * 0.35;
-  cam.jy = (Math.random() - 0.5) * 0.10 * jscale;
+  if (!motionPreference && typeof window !== 'undefined' && typeof window.matchMedia === 'function')
+    motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
+  if (motionPreference?.matches){
+    cam.jx = cam.jy = 0;
+  } else {
+    const breathe = Math.sin(t * 0.0009) * 0.06;
+    const jscale = Math.sqrt(eased / 0.0167);
+    cam.jx = (Math.random() - 0.5) * 0.10 * jscale + breathe * 0.35;
+    cam.jy = (Math.random() - 0.5) * 0.10 * jscale;
+  }
 
   // Clamp to the map, so the viewport never shows empty space beyond the edge
   const T = TILE * SCALE;
