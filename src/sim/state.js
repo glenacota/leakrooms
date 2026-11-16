@@ -7,53 +7,35 @@ import {
    nothing that belongs to a floor can outlive that floor. Every module reads
    the floor through G. */
 
-let domains = null;
 let owners = null;
-/* The public keys of the installed floor, in domain order. Derived once per
-   install from the domain objects, so a new field needs no second list. */
-let publicKeys = null;
-let publicKeySet = null;
 
 /* Internal domain fields stay addressable through G but out of its key list. */
 const INTERNAL_KEYS = new Set(['clockAnnounced']);
 
-/* Keys that exist on the facade but are computed/assembled (not owned by a single domain). */
-const COMPUTED_KEYS = new Set();
-
 function getTarget(k) {
-  if (!domains) return null;
-  const owner = owners.get(k);
-  return owner ? domains[owner] : null;
+  return owners?.get(k) ?? null;
 }
 
 function hasKey(k) {
-  if (!domains) return false;
-  return owners.has(k) || COMPUTED_KEYS.has(k);
+  return owners?.has(k) ?? false;
 }
 
 function createOwners(nextDomains) {
   const nextOwners = new Map();
-  for (const [domainName, domain] of Object.entries(nextDomains)) {
+  for (const domain of Object.values(nextDomains)) {
     for (const key of Object.keys(domain)) {
-      if (COMPUTED_KEYS.has(key)) {
-        throw new Error(`State domain "${domainName}" claims computed G key "${key}"`);
-      }
       if (nextOwners.has(key)) {
         throw new Error(`State key "${key}" has multiple domain owners`);
       }
-      nextOwners.set(key, domainName);
+      nextOwners.set(key, domain);
     }
   }
 
   return nextOwners;
 }
 
-/* The public key list: every owned field except the internal ones, then the
-   computed keys. Reading it from the owners keeps the list and the ownership
-   map from drifting apart. */
-function listPublicKeys(nextOwners) {
-  const keys = [...nextOwners.keys()].filter(key => !INTERNAL_KEYS.has(key));
-  return [...keys, ...COMPUTED_KEYS];
+function listPublicKeys() {
+  return [...owners.keys()].filter(key => !INTERNAL_KEYS.has(key));
 }
 
 /* G is a facade, not the state itself. Every G.<field> read or write is
@@ -63,12 +45,11 @@ function listPublicKeys(nextOwners) {
    built floor owns. */
 export const G = new Proxy({}, {
   get(_, k) {
-    if (!domains) return undefined;
     const target = getTarget(k);
     return target ? target[k] : undefined;
   },
   set(_, k, v) {
-    if (!domains) return true;
+    if (!owners) return true;
     const target = getTarget(k);
     if (!target) throw new Error(`Cannot assign unowned or computed G key "${String(k)}"`);
     target[k] = v;
@@ -78,13 +59,13 @@ export const G = new Proxy({}, {
     return hasKey(k);
   },
   ownKeys() {
-    return domains ? publicKeys : [];
+    return owners ? listPublicKeys() : [];
   },
   getOwnPropertyDescriptor(_, k) {
     if (!hasKey(k)) return undefined;
     return {
       configurable: true,
-      enumerable: publicKeySet.has(k),
+      enumerable: !INTERNAL_KEYS.has(k),
       writable: owners.has(k),
       value: G[k],
     };
@@ -111,9 +92,5 @@ export function createGameState(level, floorNum, seed){
 /* Set a floor's state behind the facade. */
 export function setFloorState(d){
   const nextOwners = createOwners(d);
-  const nextKeys = listPublicKeys(nextOwners);
-  domains = d;
   owners = nextOwners;
-  publicKeys = nextKeys;
-  publicKeySet = new Set(nextKeys);
 }

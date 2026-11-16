@@ -27,6 +27,18 @@ test('a built floor exposes exactly the state G owns', () => {
   assert.deepEqual([...Object.keys(G)].sort(), [...PINNED_KEYS].sort());
 });
 
+test('G keeps its identity and reads state from rebuilt floors', () => {
+  const facade = G;
+  A.buildFloor(0, 1234);
+  const firstSeed = G.seed;
+
+  A.buildFloor(0, 5678);
+
+  assert.equal(G, facade);
+  assert.equal(G.seed, 5678);
+  assert.notEqual(G.seed, firstSeed);
+});
+
 test('state installation rejects a field claimed by two domains', () => {
   A.buildFloor(0, 1234);
   const previousFloor = G.floor;
