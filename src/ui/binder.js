@@ -14,11 +14,15 @@ import { disarmReset } from '../game/run.js';
 
 export const SHIFT_TABS = ['order', 'manual', 'settings'];
 export const PAUSE_TABS = ['run', 'manual', 'settings'];
+export const BINDER_MODES = ['shift', 'pause'];
 
 export let binderMode = 'shift';        // 'shift' | 'pause'
 export let binderTab = 'order';
 
-const tabsFor = mode => mode === 'pause' ? PAUSE_TABS : SHIFT_TABS;
+const tabsFor = mode => {
+  if (!BINDER_MODES.includes(mode)) throw new RangeError(`Unknown binder mode: ${mode}`);
+  return mode === 'pause' ? PAUSE_TABS : SHIFT_TABS;
+};
 
 /**
  * Opens the binder in a mode on a tab. The caller shows the screen.
@@ -27,6 +31,7 @@ const tabsFor = mode => mode === 'pause' ? PAUSE_TABS : SHIFT_TABS;
  * @param {string} [tab] first tab of the mode when omitted or not valid there
  */
 export function openBinder(mode, tab){
+  tabsFor(mode);
   binderMode = mode;
   const screen = document.getElementById('screen-binder');
   if (screen) screen.dataset.binderMode = mode;

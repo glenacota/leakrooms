@@ -49,11 +49,11 @@ test('the handheld notice swaps in, and cannot be walked past', () => {
   t.assert(/class="screen hidden"/.test(html.slice(html.indexOf('id="screen-mobile"'), html.indexOf('id="fatal"'))),
     'the desktop-only notice ships visible — it would cover the title');
   t.assert(A.SCREENS.includes('mobile'),
-    `'mobile' is not in SCREENS, so show()/hideAll() will never reach it`);
+    `'mobile' is not in SCREENS, so showScreen()/hideScreens() will never reach it`);
 
   /* The swap: the notice comes up over the riser, and the keys stop. */
   A.STATE = 'splash';
-  A.show('splash');
+  A.showScreen('splash');
   t.assert(els['screen-mobile'].classList.contains('hidden'),
     'the notice was up before it was shown');
   showMobileNotice();

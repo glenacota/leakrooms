@@ -34,10 +34,13 @@ import {
   setState, setLives, setFloorIdx, setRunTime, addRunTime, setRunSeed,
 } from '../../src/game/run.js';
 import { frame } from '../../src/game/loop.js';
-import { hideAll, SCREENS, show } from '../../src/ui/dom.js';
+import { hideScreens, SCREENS, showScreen } from '../../src/ui/dom.js';
 import { HUD, updateHUD } from '../../src/ui/hud.js';
 import { activateMenu, beginShift, backSplash, moveMenu, selectMenu, TITLE_MENU } from '../../src/ui/splash.js';
-import { binderMode, binderTab, openBinder, setBinderTab, stepBinderTab } from '../../src/ui/binder.js';
+import {
+  BINDER_MODES, SHIFT_TABS, PAUSE_TABS,
+  binderMode, binderTab, openBinder, setBinderTab, stepBinderTab,
+} from '../../src/ui/binder.js';
 import { togglePause } from '../../src/ui/pause.js';
 import { applySettings } from '../../src/ui/bind.js';
 import { setPixels, surfaces, syncSurfaces } from '../../src/render/floor-surfaces.js';
@@ -111,7 +114,7 @@ get DIFFICULTIES(){ return DIFFICULTIES; },
 get WATER_TINTS(){ return WATER_TINTS; },
 loadSettings, saveSettings, resetSettings, applySettings, setOption,
 settingsValid, get SETTINGS_KEY(){ return SETTINGS_KEY; },
-activateMenu, beginShift, backSplash, moveMenu, selectMenu, TITLE_MENU, show, hideAll, get SCREENS(){ return SCREENS; },
+activateMenu, beginShift, backSplash, moveMenu, selectMenu, TITLE_MENU, showScreen, hideScreens, get SCREENS(){ return SCREENS; },
 nextFloor, dismissClear, startRun, retryFloor, addRunTime, get clearCard(){ return clearCard; },
 get STATE(){ return STATE; },
 set STATE(v){ setState(v); },
@@ -153,6 +156,9 @@ togglePause, clockText,
 get binderMode(){ return binderMode; },
 get binderTab(){ return binderTab; },
 openBinder, setBinderTab, stepBinderTab,
+get BINDER_MODES(){ return BINDER_MODES; },
+get SHIFT_TABS(){ return SHIFT_TABS; },
+get PAUSE_TABS(){ return PAUSE_TABS; },
 resetRun,
 get resetArmed(){ return resetArmed; },
 get FLOORS(){ return FLOORS; },

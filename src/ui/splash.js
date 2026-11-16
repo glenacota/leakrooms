@@ -1,15 +1,9 @@
 import { Audio_ } from '../audio/index.js';
 import { setState, startRun, STATE } from '../game/run.js';
 import { openBinder } from './binder.js';
-import { show } from './dom.js';
+import { showScreen } from './dom.js';
 
-/* Starts or stops the ambient room sound to match the current state. It
-   follows STATE and not the individual screens, because show() is also how the
-   pause screen appears, and the title sound must not leak into the pause menu.
-
-   The floor clear card counts as a menu: the room hum keeps playing under it.
-   What stops there is the floor's own sound (the leak and noise beds), which
-   is closed by the 'state' event. */
+/* Starts or stops the ambient room sound to match the current state. */
 export function syncAmbience(){
   Audio_.ambience(STATE==='splash' || STATE==='binder' || STATE==='clear');
 }
@@ -46,7 +40,7 @@ export function activateMenu(entry){
             : name==='manual' ? 'manual' : 'settings';
   setState('binder');
   openBinder('shift', tab);
-  show('binder');
+  showScreen('binder');
   syncAmbience();
 }
 
@@ -58,6 +52,6 @@ export function beginShift(){
 
 // ESC: one step back (binder to title). Returns false when there is nothing behind the current screen.
 export function backSplash(){
-  if (STATE==='binder'){ setState('splash'); show('splash'); syncAmbience(); return true; }
+  if (STATE==='binder'){ setState('splash'); showScreen('splash'); syncAmbience(); return true; }
   return false;
 }

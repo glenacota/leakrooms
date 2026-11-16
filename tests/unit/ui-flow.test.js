@@ -83,7 +83,7 @@ test('the splash chain walks the riser, then the work order, then the run', () =
                                             altKey:false, preventDefault(){}, ...extra });
   const vis = ()=> A.SCREENS.filter(s=>!els['screen-'+s].classList.contains('hidden'));
 
-  A.hideAll(); A.STATE='splash'; A.show('splash');
+  A.hideScreens(); A.STATE='splash'; A.showScreen('splash');
   t.assert(vis().join()==='splash', `boot shows ${vis().join()||'nothing'}, expected the riser`);
 
   press('Enter');
@@ -127,7 +127,7 @@ test('the splash chain walks the riser, then the work order, then the run', () =
   t.assert(vis().length===0, `${vis().join()} still up on top of the run`);
 
   /* Auto-repeat is how a held key behaves, and it must not advance twice. */
-  A.hideAll(); A.STATE='splash'; A.show('splash');
+  A.hideScreens(); A.STATE='splash'; A.showScreen('splash');
   press('Enter', {repeat:true});
   t.assert(A.STATE==='splash', 'an auto-repeating ENTER advanced the title');
   press('Enter');
@@ -169,7 +169,7 @@ test('the splash chain walks the riser, then the work order, then the run', () =
   t.assert(stored().muted===false, 'unmuting did not persist');
 
   /* M is not a splash advance. A mute key that doubles as "skip intro" is a bug. */
-  A.hideAll(); A.STATE='splash'; A.show('splash');
+  A.hideScreens(); A.STATE='splash'; A.showScreen('splash');
   press('m');
   t.assert(A.STATE==='splash', 'M advanced the splash chain');
   A.setOption('muted', false);
@@ -359,7 +359,7 @@ test('the pause screen is the binder with the run written on it', () => {
   t.assert(A.STATE==='play' && A.lives===A.runLives, 'the run after RESTART SHIFT did not start whole');
   t.assert(A.SETTINGS.difficulty===termsKept, 'RESTART SHIFT wiped the chosen terms — preferences are not progress');
 
-  A.STATE='play'; A.hideAll();
+  A.STATE='play'; A.hideScreens();
   console.log('  pause = the binder with a run page; manual and settings shared; terms chosen at the door; RESTART SHIFT two-stage');
 });
 
@@ -381,7 +381,7 @@ test('the floor-clear card shows the clock left and the next floor', () => {
   for (const id of ['clear-clock','clear-leaks','clear-forms','clear-floor','clear-sub'])
     t.assert(new RegExp('id="'+id+'"').test(clearHtml), `the clear card is missing #${id}`);
   t.assert(A.SCREENS.includes('clear'),
-    `'clear' is not in SCREENS, so show()/hideAll() will never bring the card up`);
+    `'clear' is not in SCREENS, so showScreen()/hideScreens() will never bring the card up`);
 
   /* The content: the briefing is the LEVELS row for the floor being entered. */
   buildFloor(0, 24601);
@@ -401,7 +401,7 @@ test('the floor-clear card shows the clock left and the next floor', () => {
   t.assert(A.clearCard.leaks===spec.leaks && A.clearCard.lifeforms===spec.lifeforms,
     `the briefing says ${A.clearCard.leaks} bursts / ${A.clearCard.lifeforms} lifeforms, `+
     `LEVELS[1] says ${spec.leaks} / ${spec.lifeforms}`);
-  t.assert(!els['screen-clear'].classList.contains('hidden'), 'show(\'clear\') left the card hidden');
+  t.assert(!els['screen-clear'].classList.contains('hidden'), 'showScreen(\'clear\') left the card hidden');
   t.assert(els['screen-splash'].classList.contains('hidden')
       && els['screen-binder'].classList.contains('hidden'),
     'the clear card came up without dismissing the screens behind it');

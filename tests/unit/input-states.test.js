@@ -25,15 +25,17 @@ test('[UI] ENTER on every modal screen runs its action without throwing', () => 
                                      ctrlKey:false, altKey:false, preventDefault(){} });
   /* a thrown action is the failure this file exists for, so it is recorded
      against the screen that caused it */
-  const enterOn = (st) => {
-    A.hideAll(); A.STATE = st; A.show(st);
+  const enterOn = (st, screenId = st) => {
+    A.hideScreens(); A.STATE = st;
+    if (screenId) A.showScreen(screenId);
     let err = null;
     try { pressEnter(); } catch (e){ err = e; }
     t.assert(!err, `ENTER on the ${st} screen threw: ${err && err.message}`);
     return !err;
   };
 
-  for (const st of ['splash','binder','pause','dead','win']) enterOn(st);
+  for (const st of ['splash','binder','dead','win']) enterOn(st);
+  enterOn('pause', 'binder');
 
   /* the clear card needs a real descent behind it: nextFloor() is what raises
      the card, and dismissClear() is the action ENTER is wired to */
@@ -65,7 +67,7 @@ test('[UI] losing the window releases the keys and pauses the run', () => {
 console.log('[UI] losing the window releases the keys and pauses the run');
 {
   A.buildFloor(0, 4242);
-  A.hideAll(); A.STATE = 'play';
+  A.hideScreens(); A.STATE = 'play';
   pressCode('w', 'KeyW');
   t.assert(!!A.keys['w'], 'W could not be held at all — this file cannot test anything else');
 
@@ -93,7 +95,7 @@ test('[UI] the movement cluster follows the key, not the character', () => {
   const t = softAssert();
 console.log('[UI] the movement cluster follows the key, not the character');
 {
-  A.hideAll(); A.STATE = 'play';
+  A.hideScreens(); A.STATE = 'play';
 
   /* A layout where the key labelled Z sits where QWERTY puts W: the character is
      z, the physical key is KeyW, and the game must move. */
@@ -119,7 +121,7 @@ test('[UI] a shortcut the browser owns is not also a game key', () => {
 console.log('[UI] a shortcut the browser owns is not also a game key');
 {
   A.buildFloor(0, 4242);
-  A.hideAll(); A.STATE = 'play';
+  A.hideScreens(); A.STATE = 'play';
   G.radar = false; G.batt = 100;
 
   pressCode('r', 'KeyR', { ctrlKey:true });
@@ -142,7 +144,7 @@ test('[UI] the F key goes through the shared fullscreen toggle and is consumed',
 console.log('[UI] the F key goes through the shared fullscreen toggle and is consumed');
 {
   A.buildFloor(0, 4242);
-  A.hideAll(); A.STATE = 'play';
+  A.hideScreens(); A.STATE = 'play';
 
   let err = null;
   try { pressCode('f', 'KeyF'); } catch (e){ err = e; }
@@ -160,7 +162,7 @@ test('[UI] pagehide pauses a running game once and zeroes keys and pad', () => {
 console.log('[UI] pagehide pauses a running game once and zeroes keys and pad');
 {
   A.buildFloor(0, 4242);
-  A.hideAll(); A.STATE = 'play';
+  A.hideScreens(); A.STATE = 'play';
   pressCode('w', 'KeyW');
   t.assert(!!A.keys['w'], 'W could not be held at all — this file cannot test anything else');
 
@@ -189,7 +191,7 @@ test('[UI] pageshow restores the canvas size without resuming the run', async ()
 console.log('[UI] pageshow restores the canvas size without resuming the run');
 {
   A.buildFloor(0, 4242);
-  A.hideAll(); A.STATE = 'pause';
+  A.hideScreens(); A.STATE = 'pause';
 
   const pageshow = global.window._h.pageshow;
   t.assert(typeof pageshow === 'function', 'no pageshow handler was registered');

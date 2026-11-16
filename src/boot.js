@@ -43,9 +43,6 @@ import { RENDER_START_IDX_HANDHELD } from './config/constants.js';
  * promise rejection, or the loop giving up) ends up here, so the player always
  * sees the same message with a reload button.
  *
- * The card is not one of the normal screens, so it has no show() call
- * and simply removes its own "hidden" class.
- *
  * @param {Error} [err] - what went wrong; logged to the console if given.
  */
 function showFatal(err){

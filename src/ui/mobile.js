@@ -12,7 +12,7 @@
    mouse). Both halves are read defensively, because this module also loads
    headless, where there is no navigator and no matchMedia. */
 
-import { show } from './dom.js';
+import { showScreen } from './dom.js';
 
 /* Handheld user agents. "Mobile" is what most phones send, "Android" without
    it is a tablet, and the rest are the older and the niche ones. */
@@ -78,5 +78,5 @@ export function isMobileBlocked(){ return blocked; }
    cannot run the touch layer. */
 export function showMobileNotice(){
   blocked = true;
-  show('mobile');
+  showScreen('mobile');
 }
