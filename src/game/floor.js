@@ -6,7 +6,8 @@
    The build is split in two. getStaticLevel() makes the half a building
    decides: the layout, the light array, the region map. It holds that for one
    key (seed and floor number). buildFloorState() makes the half a player
-   changes: the flood, the cast, the clock.
+   changes: the flood, the cast, the clock. Each build replaces this state,
+   even when the static key matches.
 
    The split is not tidiness. A retry rebuilds the same floor, so the static
    half is almost always already correct, and regenerating it means running a

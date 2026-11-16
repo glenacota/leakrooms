@@ -2,9 +2,9 @@
    FLOOR SURFACES
    The five canvases a floor draws from, and nothing else writes to them:
 
-     tiles, walls   the carpet and the wall faces and tops. Painted once per
-                    building, cached by its key, so a retry repaints nothing.
-     light          the ambient light bake. Also cached by key.
+     tiles, walls   the carpet and the wall faces and tops. Reused while the
+                    seed:floor key matches; a new key releases and rebakes them.
+     light          the ambient light bake. Reused by the same key.
      mask           what the plumber can see right now. New on every build.
      wet            the water, one pixel per tile. New on every build.
 
@@ -229,9 +229,9 @@ function openFloorCanvases(){
 /* ---------- Building ---------- */
 
 /**
- * Makes the surfaces for one floor. The same key keeps the static three; a
- * new key releases them and bakes new ones. The mask and the water are always
- * new.
+ * Prepares surfaces during synchronous `floorPreparing` delivery. The same
+ * key keeps tile, wall, and light canvases; a new key releases and rebakes
+ * them. Each call creates new mask and water canvases.
  *
  * @param {string} key - the building's identity, 'seed:floor'.
  * @param {{grid: Uint8Array, lightArr: Float32Array}} inputs

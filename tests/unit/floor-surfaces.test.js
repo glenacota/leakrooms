@@ -96,13 +96,16 @@ test('a retry of the same floor hands back the same static canvases', () => {
 
 test('a different floor releases the previous static canvases and bakes new ones', () => {
   A.buildFloor(0, 102);
-  const old = { tiles: surfaces.tiles, walls: surfaces.walls, light: surfaces.light };
+  const old = {
+    tiles: surfaces.tiles, walls: surfaces.walls, light: surfaces.light,
+    mask: surfaces.mask, wet: surfaces.wet,
+  };
   A.buildFloor(0, 103);
   for (const [name, cv] of Object.entries(old)) {
-    assert.equal(cv.width, 0, `the previous ${name} canvas was dropped, not released`);
-    assert.equal(cv.height, 0, `the previous ${name} canvas was dropped, not released`);
+    assert.equal(cv.width, 0, `the previous ${name} canvas was kept, not released`);
+    assert.equal(cv.height, 0, `the previous ${name} canvas was kept, not released`);
+    assert.notEqual(surfaces[name], cv, `a new floor reused the previous ${name} canvas`);
   }
-  assert.notEqual(surfaces.tiles, old.tiles, 'a new floor reused the old tile layer');
   assert.ok(surfaces.tiles.width > 0, 'the floor just built is already released');
 });
 
