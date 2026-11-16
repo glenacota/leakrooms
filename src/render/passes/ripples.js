@@ -27,7 +27,7 @@ import { G } from '../../sim/state.js';
 import { simAlpha } from './actors.js';
 import { ctx, SCALE } from '../canvas.js';
 import { LOUD, NOISE_FS, TILE } from '../../config/constants.js';
-import { on } from '../../util/events.js';
+import { on, EVENT } from '../../util/events.js';
 import { drawNoiseGlow, drawNoiseRipple } from '../noise-visuals.js';
 
 /* Below this noise nothing is drawn or spawned. Same gate as the old ring, so
@@ -189,7 +189,7 @@ export function resetRipples(){
   presence = 0;
   level = 0;
 }
-on('floorBuilt', resetRipples);
+on(EVENT.floorBuilt, resetRipples);
 
 /* Draws the glow around the plumber at (x, y), in world pixels. */
 function glow(x, y){

@@ -1,7 +1,7 @@
 import { SETTINGS, currentTerms } from '../settings/store.js';
 import { applyDifficulty } from '../config/tuning.js';
 import { Audio_ } from '../audio/index.js';
-import { on } from '../util/events.js';
+import { on, EVENT } from '../util/events.js';
 import { repaintDirty } from '../util/repaint.js';
 import { G } from '../sim/state.js';
 import { STATE } from '../game/run.js';
@@ -24,27 +24,27 @@ export function applySettings(){
 
 /** Wires common shell events: settings, screens, HUD, rendering and audio. */
 export function bindDom(){
-  on('settings:changed', key => {
+  on(EVENT.settingsChanged, key => {
     if ((key === '*' || key === 'waterHue' || key === 'waterContrast') && G) repaintDirty.water = true;
     applySettings();
     syncSettingsUI();
   });
-  on('screen', name => { if (name === null) hideAll(); else show(name); });
-  on('hud', showing => {
+  on(EVENT.screen, name => { if (name === null) hideAll(); else show(name); });
+  on(EVENT.hud, showing => {
     const h = document.getElementById('hud');
     if (showing) h.classList.add('on'); else h.classList.remove('on');
   });
-  on('lives', renderLives);
-  on('splash:repaint', () => paintSplashPlan());
-  on('resize', () => {
+  on(EVENT.lives, renderLives);
+  on(EVENT.splashRepaint, () => paintSplashPlan());
+  on(EVENT.resize, () => {
     if (G && (STATE === 'splash' || STATE === 'binder')) paintSplashPlan();
   });
-  on('state', () => {
+  on(EVENT.state, () => {
     syncAmbience();
     if (STATE !== 'play'){ Audio_.silenceBeds(); Audio_.silence(); }
     if (STATE === 'pause') Audio_.suspend();
     else if (STATE === 'play') Audio_.resume();
   });
-  on('flash', flash);
-  on('sfx', (n, ...a) => Audio_[n](...a));
+  on(EVENT.flash, flash);
+  on(EVENT.sfx, (n, ...a) => Audio_[n](...a));
 }

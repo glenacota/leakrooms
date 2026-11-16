@@ -1,6 +1,6 @@
 import { LEAK_NOISE_BASE, LEAK_NOISE_GAIN, LOUD, MAP_W, REPAIR_NOISE, REPAIR_REACH } from '../config/constants.js';
 import { REPAIR_TIME } from '../config/tuning.js';
-import { emit } from '../util/events.js';
+import { emit, EVENT } from '../util/events.js';
 import { sustainedNoise } from './noise.js';
 
 /**
@@ -96,16 +96,16 @@ export function sealLeak(L, leakState){
   L.repair = 0;
   L.repairing = false;
   leakState.openLeaks = Math.max(0, leakState.openLeaks-1);
-  emit('sfx', 'seal');
-  emit('flash', leakState.openLeaks
+  emit(EVENT.sfx, 'seal');
+  emit(EVENT.flash, leakState.openLeaks
     ? { cat: 'info', text: `LEAK SEALED \u2014 ${leakState.openLeaks} STILL OPEN` }
     : { cat: 'guide', text: 'EVERY LEAK SEALED \u2014 GET BACK TO THE DOOR' });
   leakState.stat.sealed++;
-  emit('stat', 'sealed');
+  emit(EVENT.stat, 'sealed');
   /* The recession uses the existing fields. Rebuilding them from the seal point
      would reset the fronts and snap the level from flooded to dry in a single
      frame. The sealed pipe's front simply starts moving back toward it. */
-  emit('waterChanged');
+  emit(EVENT.waterChanged);
 }
 
 /* ---------- Noise from open leaks ----------
@@ -152,7 +152,7 @@ export function tickLeakNoise(leakState, dt){
       if (p.dripT <= 0){
         // At least 0.28 s between drips. A faster rhythm sounds like a machine gun and not a leak.
         p.dripT = Math.max(0.28, 0.28 + Math.min(1, ld/14)*1.5);
-        emit('sfx', 'drip', 1 - Math.min(1, ld/14));
+        emit(EVENT.sfx, 'drip', 1 - Math.min(1, ld/14));
       }
     }
   } else {
@@ -180,7 +180,7 @@ export function tickRepair(leakState, dt, moving, bumped){
       L.repairing = true;
       if (L.repair === 0) L.wrenchT = 0;
       L.wrenchT = (L.wrenchT||0) - dt;
-      if (L.wrenchT <= 0){ emit('sfx', 'wrench', REPAIR_NOISE); L.wrenchT = 1; }
+      if (L.wrenchT <= 0){ emit(EVENT.sfx, 'wrench', REPAIR_NOISE); L.wrenchT = 1; }
       L.repair = Math.min(REPAIR_TIME, L.repair + dt);
       sustainedNoise(leakState, REPAIR_NOISE, L.sx+0.5, L.sy+0.5, true);
       if (L.repair >= REPAIR_TIME){

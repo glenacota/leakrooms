@@ -1,7 +1,7 @@
 import { DIFFICULTIES } from '../config/presets.js';
 import { SETTINGS, setOption } from '../settings/store.js';
 import { SETTINGS_SCHEMA } from '../settings/schema.js';
-import { emit, on } from '../util/events.js';
+import { emit, on, EVENT } from '../util/events.js';
 import { paintTerms } from './terms.js';
 
 /* The buttons for each segmented row (value and label pairs). They are listed
@@ -41,8 +41,8 @@ export function buildSettingsUI(){
     el.addEventListener('input', ()=> setOption(key, parseFloat(el.value)));
   }
 
-  document.getElementById('btn-reset-tutorials').onclick = () => emit('tutorials:reset');
-  on('tutorials:reset-result', success => {
+  document.getElementById('btn-reset-tutorials').onclick = () => emit(EVENT.tutorialsReset);
+  on(EVENT.tutorialsResetResult, success => {
     let message = 'COULD NOT RESET TUTORIALS. CHECK BROWSER STORAGE AND TRY AGAIN.';
     if (success) message = 'DONE.';
     document.getElementById('tutorials-reset-status').textContent = message;

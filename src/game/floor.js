@@ -20,7 +20,7 @@ import { computeLightArr } from '../sim/lightmap.js';
 import { scopeRoomLight, snapMask } from '../sim/vision.js';
 import { initFlood } from '../sim/flood.js';
 import { G, createGameState, setFloorState } from '../sim/state.js';
-import { emit } from '../util/events.js';
+import { emit, EVENT } from '../util/events.js';
 import { resetRepaint } from '../util/repaint.js';
 import { buildFloorSurfaces } from '../render/floor-surfaces.js';
 
@@ -95,5 +95,5 @@ export function buildFloor(floorNum, seed){
 
   /* Render-only state keyed to a floor (the floor ripples) clears on this, so
      nothing from the last floor is drawn over the new one. */
-  emit('floorBuilt');
+  emit(EVENT.floorBuilt);
 }

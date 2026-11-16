@@ -1,6 +1,6 @@
 import { SETTINGS_DEFAULTS, SETTINGS_SCHEMA, SETTINGS_KEY, settingsValid } from './schema.js';
 import { DIFFICULTIES } from '../config/presets.js';
-import { emit } from '../util/events.js';
+import { emit, EVENT } from '../util/events.js';
 
 export let SETTINGS = Object.assign({}, SETTINGS_DEFAULTS);
 
@@ -45,14 +45,14 @@ export function resetSettings(opts){
   const terms = (opts && opts.keepTerms) ? SETTINGS.difficulty : null;
   SETTINGS = Object.assign({}, SETTINGS_DEFAULTS);
   if (terms) SETTINGS.difficulty = terms;
-  emit('settings:changed', '*');
+  emit(EVENT.settingsChanged, '*');
   saveSettings();
 }
 
 export function setOption(key, value){
   if (!settingsValid(key, value)) return false;
   SETTINGS[key] = value;
-  emit('settings:changed', key);
+  emit(EVENT.settingsChanged, key);
   saveSettings();
   return true;
 }

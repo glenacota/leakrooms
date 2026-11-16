@@ -1,6 +1,6 @@
 import { FLOOR_CLOCK } from '../config/tuning.js';
 import { clearCard, clockText, DEATH_CAUSE, STATE } from '../game/run.js';
-import { emit, on } from '../util/events.js';
+import { emit, on, EVENT } from '../util/events.js';
 
 // Fictional invoice rates: placeholders for the contractor's paperwork, not game currency.
 const LEAK_RATE = 100, FLOOR_RATE = 40, DEATH_COST = 75;
@@ -55,9 +55,9 @@ function winReport({ sealed, deaths, noises, floors, time, terms, runHistory }){
 export function bindCards(){
   const winStats = document.getElementById('win-stats');
   winStats.addEventListener('animationend', event => {
-    if (event.animationName === 'win-stamp' && STATE === 'win') emit('sfx', 'stamp');
+    if (event.animationName === 'win-stamp' && STATE === 'win') emit(EVENT.sfx, 'stamp');
   });
-  on('dead', ({ lives, cause }) => {
+  on(EVENT.dead, ({ lives, cause }) => {
     const title = document.getElementById('dead-title');
     const sub = document.getElementById('dead-sub');
     const btn = document.getElementById('btn-retry');
@@ -72,13 +72,13 @@ export function bindCards(){
       sub.textContent = 'OUT OF LIVES';
     }
   });
-  on('win', report => {
+  on(EVENT.win, report => {
     document.getElementById('win-wrap').scrollTop = 0;
     winStats.innerHTML = winReport(report);
     if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)
-      emit('sfx', 'stamp');
+      emit(EVENT.sfx, 'stamp');
   });
-  on('clear:show', () => {
+  on(EVENT.clearShow, () => {
     const el = id => document.getElementById(id);
     el('clear-clock').textContent = clockText(clearCard.clock);
     el('clear-floor').textContent = clearCard.floor+1;
@@ -88,7 +88,7 @@ export function bindCards(){
       ? 'GOOD WORK. MANAGEMENT NOTICES.'
       : 'SEALED. MANAGEMENT HAS NO COMMENT.';
   });
-  on('reset', armed => {
+  on(EVENT.reset, armed => {
     const b = document.getElementById('btn-reset-run');
     if (b) b.textContent = armed ? 'TAP AGAIN — LOSES THE SHIFT' : 'RESTART SHIFT';
   });

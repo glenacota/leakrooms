@@ -7,7 +7,7 @@
    ============================================================ */
 
 import { MAP_W, MAP_H, NOISE, SOUND_POWERS } from '../config/constants.js';
-import { emit } from '../util/events.js';
+import { emit, EVENT } from '../util/events.js';
 import { createCollision } from './collision.js';
 import { walkLine } from '../util/line.js';
 
@@ -101,8 +101,8 @@ export function alert(a, src, ctx){
     const dToPlayer = Math.hypot(a.x - px, a.y - py);
     const reach = baseR || hearRadius(power);
     const vol = baseVol * Math.max(0.15, 1 - dToPlayer / reach);
-    emit('sfx', 'rattle', vol);
-    emit('heard', { from: 'DORMANT', to: 'RISING', dist });
+    emit(EVENT.sfx, 'rattle', vol);
+    emit(EVENT.heard, { from: 'DORMANT', to: 'RISING', dist });
     return;
   }
   if (a.born>0) return;
@@ -114,12 +114,12 @@ export function alert(a, src, ctx){
   if (loud){
     const from = a.state;
     a.state='HUNT'; a.target={x,y}; a.t=0;
-    if (from !== 'HUNT') emit('heard', { from, to: 'HUNT', dist });
+    if (from !== 'HUNT') emit(EVENT.heard, { from, to: 'HUNT', dist });
     return;
   }
   if (a.state==='WALK'){
     a.state='SEARCH'; a.t=4.5; a.target={x,y};
-    emit('heard', { from: 'WALK', to: 'SEARCH', dist });
+    emit(EVENT.heard, { from: 'WALK', to: 'SEARCH', dist });
   }
 }
 
@@ -149,7 +149,7 @@ export function alertLifeforms(noiseState, baseR, power, x, y, mine){
 export function emitNoise(noiseState, power, x, y, mine){
   sustainedNoise(noiseState, power, x, y, mine);
   noiseState.stat.noises++;
-  emit('stat', 'noises');
+  emit(EVENT.stat, 'noises');
 }
 
 /* A noise that continues, such as walking or an open leak. It is called every
@@ -166,10 +166,10 @@ export function sustainedNoise(noiseState, power, x, y, mine){
 /* A hunting lifeform touching the plumber is fatal. A lifeform that was not
    hunting yet starts hunting and makes a loud noise instead. */
 export function brush(lf, p, noiseState){
-  if (lf.state==='HUNT'){ emit('caught'); return; }
+  if (lf.state==='HUNT'){ emit(EVENT.caught); return; }
   lf.state='HUNT'; lf.target={x:p.x, y:p.y}; lf.t=0;
   lf.rise=Math.max(lf.rise, 0.85);
   emitNoise(noiseState, NOISE.BRUSH, p.x, p.y);
-  emit('flash', { cat: 'danger', text: 'IT TOUCHED YOU' });
-  emit('sfx', 'rattle', 1);
+  emit(EVENT.flash, { cat: 'danger', text: 'IT TOUCHED YOU' });
+  emit(EVENT.sfx, 'rattle', 1);
 }

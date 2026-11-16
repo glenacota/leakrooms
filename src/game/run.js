@@ -8,7 +8,7 @@
 import { LEVELS, LEVELS_N } from '../config/levels.js';
 import { FLOOR_CLOCK, FLOORS } from '../config/tuning.js';
 import { currentTerms } from '../settings/store.js';
-import { emit, on } from '../util/events.js';
+import { emit, on, EVENT } from '../util/events.js';
 import { initFlood } from '../sim/flood.js';
 import { clearInput } from '../sim/keys.js';
 import { restoreSealed } from '../sim/leaks.js';
@@ -47,7 +47,7 @@ export function rollRunSeed(){
   buildFloor(0, RUN_SEED);
   /* The title plan is painted by the renderer, which the run does not know
      about. The event is the whole of the dependency. */
-  emit('splash:repaint');
+  emit(EVENT.splashRepaint);
 }
 
 /* ============================================================
@@ -67,9 +67,9 @@ export let clearCard = { floor:0, clock:0, leaks:0, lifeforms:0 };
    the writing on them lives in ui/, because this file must never touch the
    document — that is what makes it readable, and testable, without a DOM. */
 export function showClear(){
-  emit('clear:show');
+  emit(EVENT.clearShow);
   transition('clear');
-  emit('sfx', 'acclaim');
+  emit(EVENT.sfx, 'acclaim');
 }
 
 /* Called by ENTER and by the card's button. ESC does nothing here on purpose:
@@ -97,10 +97,10 @@ export function dismissClear(){
  */
 export function transition(to){
   setState(to);
-  emit('screen', to === 'play' ? null : to);
-  emit('hud', to === 'play');
+  emit(EVENT.screen, to === 'play' ? null : to);
+  emit(EVENT.hud, to === 'play');
   clearInput();
-  emit('state', STATE);
+  emit(EVENT.state, STATE);
 }
 
 // Called when the door cycles: moves to the next floor, or ends the run.
@@ -115,7 +115,7 @@ export function nextFloor(){
     died: false,
   });
   setFloorIdx(floorIdx+1);
-  if (floorIdx >= FLOORS){ transition('win'); emit('win', {
+  if (floorIdx >= FLOORS){ transition('win'); emit(EVENT.win, {
     sealed: runStat.sealed, deaths: runStat.deaths, noises: runStat.noises,
     floors: FLOORS, time: runTime, terms: currentTerms().label,
     runHistory: runHistory.map(entry => ({ ...entry })),
@@ -161,10 +161,10 @@ export function lose(cause){
   G.stat.deaths++;
   runStat.deaths++;
   setLives(lives-1);
-  emit('sfx', 'sting');           // the noise beds are closed by the 'state' event
+  emit(EVENT.sfx, 'sting');           // the noise beds are closed by the 'state' event
   transition('dead');
-  emit('lives');
-  emit('dead', { lives, cause });
+  emit(EVENT.lives);
+  emit(EVENT.dead, { lives, cause });
 }
 
 export function caught(){ lose(DEATH_CAUSE.CAUGHT); }
@@ -189,7 +189,7 @@ let resetArmTimer = 0;
 /* The label on the button is the shell's business; this file only decides
    whether the run is armed, and says so. */
 function announceReset(){
-  emit('reset', resetArmed);
+  emit(EVENT.reset, resetArmed);
 }
 export function disarmReset(){
   resetArmed = false;
@@ -213,7 +213,7 @@ export function resetRun(){
   setRunLives(currentTerms().lives);
   setLives(runLives);
   setRunStat({ noises:0, deaths:0, sealed:0 });
-  emit('lives');
+  emit(EVENT.lives);
   transition('splash');          // also hides the HUD, which belongs to a run
   disarmReset();
 }
@@ -227,13 +227,13 @@ export function resetRun(){
 export function startRun(){
   /* The seed is not rolled here: the plan behind the title has to be the level
      the player is about to play. A finished run rolls its own (see rollRunSeed). */
-  emit('run:start');
+  emit(EVENT.runStart);
   setRunLives(currentTerms().lives);
   setLives(runLives); setFloorIdx(0); setRunTime(0);
   // A new run gets a new tally, so the win card never shows the previous run.
   setRunStat({ noises:0, deaths:0, sealed:0 });
   runHistory = [];
-  emit('lives');
+  emit(EVENT.lives);
   buildFloor(0, RUN_SEED);
   // A short grace period before lifeforms can notice you.
   for (const lf of G.lifeforms){ lf.born = 3.0; }
@@ -286,8 +286,8 @@ export function setClearCard(v){ clearCard = v; }
    decides what each one means. Called once from boot().
    ============================================================ */
 export function bindRun(){
-  on('stat', k => { runStat[k]++; });
-  on('caught', caught);
-  on('clock:out', outOfTime);
-  on('door:cycled', nextFloor);
+  on(EVENT.stat, k => { runStat[k]++; });
+  on(EVENT.caught, caught);
+  on(EVENT.clockOut, outOfTime);
+  on(EVENT.doorCycled, nextFloor);
 }

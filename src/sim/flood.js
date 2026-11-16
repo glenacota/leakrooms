@@ -20,7 +20,7 @@
    ============================================================ */
 
 import { FLOOR, LEAK_HEADSTART, LEAK_RETREAT, LEAK_SPREAD, MAP_H, MAP_W, WET_EDGE, WET_FALL, WET_RISE } from '../config/constants.js';
-import { emit } from '../util/events.js';
+import { emit, EVENT } from '../util/events.js';
 import { hasOpenLeaks, openLeakSpots } from './leaks.js';
 import { distanceField } from './path.js';
 
@@ -94,7 +94,7 @@ export function initFlood(floodState) {
   }
 
   floodState.floodCover = floodState.wetFloor ? floodState.wetSum / floodState.wetFloor : 0;
-  emit('waterChanged');
+  emit(EVENT.waterChanged);
 }
 
 /* Drops a blob of water so wading leaves a trace. */
@@ -109,7 +109,7 @@ export function seedSplash(floodState, wx, wy, amount) {
     const w = Math.min(1, Math.max(0, amount * (1 - dd / 1.8)));
     if (w > floodState.wetArr[i]) {
       floodState.wetSum += w - floodState.wetArr[i]; floodState.wetArr[i] = w;
-      emit('tileChanged', i);
+      emit(EVENT.tileChanged, i);
       if (w > WET_EDGE && floodState.waterDist[i] > floodState.wetEdgeD) floodState.wetEdgeD = floodState.waterDist[i];
     }
   }
@@ -202,7 +202,7 @@ export function tickFlood(floodState, dt) {
       sum += snapped - cur;
       floodState.wetArr[i] = snapped;
       changed = true;
-      emit('tileChanged', i);
+      emit(EVENT.tileChanged, i);
     }
     if (floodState.wetArr[i] > WET_EDGE) edge = floodState.waterDist[i];
   }

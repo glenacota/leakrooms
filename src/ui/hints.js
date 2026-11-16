@@ -1,7 +1,7 @@
 import { LOUD } from '../config/constants.js';
 import { STATE } from '../game/run.js';
 import { G } from '../sim/state.js';
-import { emit, on } from '../util/events.js';
+import { emit, on, EVENT } from '../util/events.js';
 
 const announced = new Set();
 
@@ -14,7 +14,7 @@ let doorLast = -1e9;    // performance.now() of the last DOOR LOCKED cue
 export function tickLoudFlash(){
   if (!announced.has('LOUD') && G && G.selfNoise >= LOUD){
     announced.add('LOUD');
-    emit('flash', { cat: 'danger', text: 'YOU ARE LOUD — SOMETHING CAN HEAR YOU' });
+    emit(EVENT.flash, { cat: 'danger', text: 'YOU ARE LOUD — SOMETHING CAN HEAR YOU' });
   }
 }
 
@@ -39,7 +39,7 @@ export function tickCues(){
     if (!doorSince) doorSince = now;
     if (now - doorSince >= 800 && now - doorLast >= 20000){
       doorLast = now;
-      emit('flash', { cat: 'alert',
+      emit(EVENT.flash, { cat: 'alert',
               text: `DOOR LOCKED — ${G.openLeaks} LEAK${G.openLeaks === 1 ? '' : 'S'} OPEN` });
     }
   } else {
@@ -52,14 +52,14 @@ export function tickCues(){
        player has no reason to stand there until told. */
     if (!f1Door && G.descend > 0.02){
       f1Door = true;
-      emit('flash', { cat: 'guide', text: 'STAND BY THE DOOR TO OPEN IT' });
+      emit(EVENT.flash, { cat: 'guide', text: 'STAND BY THE DOOR TO OPEN IT' });
     }
   }
 }
 
 /** Wires the stealth hints and resets their once-per-run announcements. */
 export function bindHints(){
-  on('state', () => {
+  on(EVENT.state, () => {
     if (STATE === 'splash'){
       announced.clear();
       f1Door = false;
@@ -67,14 +67,14 @@ export function bindHints(){
       doorLast = -1e9;
     }
   });
-  on('heard', ({ to }) => {
+  on(EVENT.heard, ({ to }) => {
     const msg = to === 'RISING' ? 'SOMETHING WOKE UP'
       : to === 'SEARCH' ? 'SOMETHING HEARD YOU'
       : to === 'HUNT' ? "SOMETHING IT'S AFTER YOU"
       : null;
     if (msg && !announced.has(to)){
       announced.add(to);
-      emit('flash', { cat: 'danger', text: msg });
+      emit(EVENT.flash, { cat: 'danger', text: msg });
     }
   });
 }

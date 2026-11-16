@@ -103,7 +103,7 @@ test('the gate: a handheld plays when the touch layer can work, otherwise it is 
   // boot acts on the verdict: blocked shows the notice, touch sets the mode
   const boot = readSrc();
   t.assert(/verdict === 'blocked'\) showMobileNotice\(\)/.test(boot), 'boot does not show the notice for a blocked verdict');
-  t.assert(/verdict === 'touch'\) emit\('input:mode', 'touch'\)/.test(boot), 'boot does not set touch mode for a touch verdict');
+  t.assert(/verdict === 'touch'\) emit\(EVENT\.inputMode, 'touch'\)/.test(boot), 'boot does not set touch mode for a touch verdict');
   t.done();
 });
 

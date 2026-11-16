@@ -9,7 +9,7 @@
    the sound off can still feel the game.
    ============================================================ */
 import { SETTINGS } from '../settings/store.js';
-import { on } from '../util/events.js';
+import { on, EVENT } from '../util/events.js';
 
 /* Milliseconds. Sound names not listed here (the splash of a wet step, the beds,
    the wrench) do not buzz: a buzz on every step would be noise, not warning. The
@@ -34,8 +34,8 @@ function buzz(ms){
  */
 export function initHaptics(){
   if (typeof navigator === 'undefined' || typeof navigator.vibrate !== 'function') return () => {};
-  const offSfx = on('sfx', name => { if (PULSE_MS[name]) buzz(PULSE_MS[name]); });
-  const offHeard = on('heard', e => { if (e && e.to && HEARD_BUZZ.has(e.to)) buzz(HEARD_MS); });
-  const offDead = on('dead', () => buzz(DEAD_MS));
+  const offSfx = on(EVENT.sfx, name => { if (PULSE_MS[name]) buzz(PULSE_MS[name]); });
+  const offHeard = on(EVENT.heard, e => { if (e && e.to && HEARD_BUZZ.has(e.to)) buzz(HEARD_MS); });
+  const offDead = on(EVENT.dead, () => buzz(DEAD_MS));
   return () => { offSfx(); offHeard(); offDead(); };
 }

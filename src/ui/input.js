@@ -1,7 +1,7 @@
 import { SETTINGS, setOption } from '../settings/store.js';
 import { Audio_ } from '../audio/index.js';
 import { keys, clearInput } from '../sim/keys.js';
-import { emit } from '../util/events.js';
+import { emit, EVENT } from '../util/events.js';
 import { G } from '../sim/state.js';
 import { STATE, dismissClear, retryFloor, runAgain } from '../game/run.js';
 import { resize } from '../render/canvas.js';
@@ -45,7 +45,7 @@ const keyOf = e => GAME_CODES[e.code] || e.key.toLowerCase();
 export function toggleRadar(){
   if (!(G && STATE==='play')) return;
   if (G.radar) G.radar = false;
-  else if (G.batt<=0) emit('flash', { cat: 'alert', text: 'THE RADAR IS DEAD. LOOK FOR MORE BATTERIES' });
+  else if (G.batt<=0) emit(EVENT.flash, { cat: 'alert', text: 'THE RADAR IS DEAD. LOOK FOR MORE BATTERIES' });
   else { G.radar = true; G.radarRattleT = 0; }
 }
 
@@ -174,7 +174,7 @@ function onKeyDown(e){
 
   /* A real key press means a keyboard is in use, so the touch layer steps
      aside. It only announces; touch.js decides what to do with it. */
-  emit('input:mode', 'kbm');
+  emit(EVENT.inputMode, 'kbm');
 
   /* Browsers only start audio after a user gesture. Every key is a gesture,
      and this is the one place the game hears about all of them. */
@@ -200,7 +200,7 @@ function onKeyUp(e){
 export function toggleMute(){
   const next = !SETTINGS.muted;
   setOption('muted', next);
-  emit('flash', { cat: 'info', text: next ? 'AUDIO MUTED' : 'AUDIO ON' });
+  emit(EVENT.flash, { cat: 'info', text: next ? 'AUDIO MUTED' : 'AUDIO ON' });
   if (!next) Audio_.blip(true);
 }
 
@@ -215,7 +215,7 @@ export function bindInput(){
   const lostFocus = () => {
     clearInput();
     /* The touch layer tracks its own fingers, and clearInput cannot reach them. */
-    emit('input:lost');
+    emit(EVENT.inputLost);
     if (STATE==='play') togglePause();
   };
   window.addEventListener('blur', lostFocus);

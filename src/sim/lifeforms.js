@@ -11,7 +11,7 @@
 
 import { LIFEFORM, CATCH_R, LEAK_LURE, MAP_W } from '../config/constants.js';
 import { HUNT_BASE } from '../config/tuning.js';
-import { emit } from '../util/events.js';
+import { emit, EVENT } from '../util/events.js';
 import { createCollision } from './collision.js';
 import { firstOpenLeakWithin } from './leaks.js';
 import { brush } from './noise.js';
@@ -63,7 +63,7 @@ export function tickLifeforms(lifeformState, dt){
              what keeps a sight-hunt tracking the player instead of a stale
              position. The cue manager degrades repeats to an icon-only pulse. */
           if (lf.born<=0 && lf.state!=='HUNT'){
-            emit('flash', { cat: 'danger', text: 'IT SEES YOU' });
+            emit(EVENT.flash, { cat: 'danger', text: 'IT SEES YOU' });
           }
           if (lf.born<=0){ lf.state='HUNT'; lf.target={x:p.x,y:p.y}; lf.t=0; }
         }

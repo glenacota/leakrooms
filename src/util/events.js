@@ -5,6 +5,43 @@
    twice. That snapshot is kept between emits and thrown away when the listener
    set changes, because emit() runs several times a frame and copying the set
    each time was most of its cost. */
+
+/* Canonical event-type names. Every emit() and on() call site should use
+   these constants instead of bare strings, so a typo throws ReferenceError
+   instead of silently dropping the event. */
+export const EVENT = Object.freeze({
+  sfx: 'sfx',
+  heard: 'heard',
+  stat: 'stat',
+  caught: 'caught',
+  flash: 'flash',
+  doorCycled: 'door:cycled',
+  waterChanged: 'waterChanged',
+  tileChanged: 'tileChanged',
+  clockOut: 'clock:out',
+  sprint: 'sprint',
+  maskChanged: 'maskChanged',
+  splashRepaint: 'splash:repaint',
+  clearShow: 'clear:show',
+  screen: 'screen',
+  hud: 'hud',
+  state: 'state',
+  win: 'win',
+  lives: 'lives',
+  dead: 'dead',
+  reset: 'reset',
+  runStart: 'run:start',
+  floorBuilt: 'floorBuilt',
+  resize: 'resize',
+  settingsChanged: 'settings:changed',
+  particle: 'particle',
+  contextrestored: 'contextrestored',
+  inputMode: 'input:mode',
+  inputLost: 'input:lost',
+  tutorialsReset: 'tutorials:reset',
+  tutorialsResetResult: 'tutorials:reset-result',
+});
+
 const listeners = new Map();
 const delivery = new Map();      // type -> the array emit() last built
 

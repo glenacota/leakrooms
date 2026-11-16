@@ -20,15 +20,15 @@ import { FACE_BACKLIGHT, FLOOR, LS, MAP_H, MAP_W, TILE, VISION_PENUMBRA_TILES, W
 import { WATER_TINTS } from '../config/presets.js';
 import { SETTINGS } from '../settings/store.js';
 import { hash2 } from '../util/hash.js';
-import { on } from '../util/events.js';
+import { on, EVENT } from '../util/events.js';
 import { markWetAll, markWetTile, repaintDirty, takeWetBox } from '../util/repaint.js';
 import { buildGrainFull, buildPatterns, carpetPat, ceilPat, wallPat } from './textures.js';
 
 /* The renderer owns the dirty box. Sim announces what changed through events,
    and this module turns those announcements into dirty flags and a dirty box. */
-on('tileChanged', markWetTile);
-on('waterChanged', markWetAll);
-on('maskChanged', () => { repaintDirty.mask = true; });
+on(EVENT.tileChanged, markWetTile);
+on(EVENT.waterChanged, markWetAll);
+on(EVENT.maskChanged, () => { repaintDirty.mask = true; });
 
 /* The packers check this, so a headless test skips the pixel work. */
 let wantPixels = true;
@@ -385,5 +385,5 @@ let listening = false;
 export function bindFloorSurfaces(){
   if (listening) return;
   listening = true;
-  on('contextrestored', restore);
+  on(EVENT.contextrestored, restore);
 }

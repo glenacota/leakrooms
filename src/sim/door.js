@@ -1,5 +1,5 @@
 import { DOOR_AJAR, DOOR_EASE, DOOR_HOLD, DOOR_NOISE } from '../config/constants.js';
-import { emit } from '../util/events.js';
+import { emit, EVENT } from '../util/events.js';
 import { hasOpenLeaks } from './leaks.js';
 import { sustainedNoise } from './noise.js';
 
@@ -37,10 +37,10 @@ export function tickDoor(doorState, dt){
       if (Math.hypot(e.x+0.5-p.x, e.y+0.5-p.y) < 1.25){ onExit=true; break; }
     }
     if (onExit){
-      if (doorState.descend===0) emit('sfx', 'door', DOOR_NOISE);
+      if (doorState.descend===0) emit(EVENT.sfx, 'door', DOOR_NOISE);
       doorState.descend += dt;
       sustainedNoise(doorState, DOOR_NOISE, p.x, p.y, true);
-      if (doorState.descend>=DOOR_HOLD){ emit('door:cycled'); return false; }
+      if (doorState.descend>=DOOR_HOLD){ emit(EVENT.doorCycled); return false; }
     } else {
       doorState.descend = Math.max(0, doorState.descend - dt*2.5);
     }

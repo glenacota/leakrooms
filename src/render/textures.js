@@ -1,4 +1,4 @@
-import { on } from '../util/events.js';
+import { on, EVENT } from '../util/events.js';
 import { cvs, ctx } from './canvas.js';
 import { PAL } from '../config/palette.js';
 
@@ -77,7 +77,7 @@ export function buildGrainFull(){
    lands on the same size (a DPR change that rounds the same way, a synthetic
    event, a context restore) would otherwise spend a screen-sized buffer of
    fresh noise to produce an identical picture. */
-on('resize', () => {
+on(EVENT.resize, () => {
   if (cvs.width <= 0 || cvs.height <= 0) return;
   if (grainFull && grainFull.width === cvs.width && grainFull.height === cvs.height) return;
   buildGrainFull();

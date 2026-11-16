@@ -12,7 +12,7 @@
    the dark.
    ============================================================ */
 
-import { on } from '../../util/events.js';
+import { on, EVENT } from '../../util/events.js';
 import { ctx, SCALE } from '../canvas.js';
 import { TILE } from '../../config/constants.js';
 
@@ -20,7 +20,7 @@ const pool = [];
 const MAX_PARTICLES = 200; // hard cap: visuals never cost more than a few hundred dots
 
 /* Spawn a splash from a wading step. */
-on('particle', (x, y)=>{
+on(EVENT.particle, (x, y)=>{
   const count = 5 + Math.floor(Math.random()*5);
   for (let i = 0; i < count; i++){
     const ang = Math.random()*6.2831;

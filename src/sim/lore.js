@@ -1,4 +1,4 @@
-import { emit, on } from '../util/events.js';
+import { emit, on, EVENT } from '../util/events.js';
 
 /* Notes about the lore of the Backrooms read at random. */
 export const LORE_CHANCE = 1 / 600;
@@ -8,7 +8,7 @@ let lastFlash = 0;
 
 /* Any flash emission restarts the gap timer so lore cannot follow too close on
    a danger, alert, guide or info cue — and so lore cannot chain with itself. */
-on('flash', () => { lastFlash = performance.now(); });
+on(EVENT.flash, () => { lastFlash = performance.now(); });
 
 export function tickLore(state){
   const { loreRng, notes } = state;
@@ -21,7 +21,7 @@ export function tickLore(state){
      loses one to the cue manager's single hold slot. */
   const n = unseen[(loreRng() * unseen.length)|0];
   n.seen = true;
-  emit('flash', { cat: 'lore', text: `"${n.text}"` });
+  emit(EVENT.flash, { cat: 'lore', text: `"${n.text}"` });
 }
 
 /* Resets the gap timer so lore can fire immediately. Tests only. */

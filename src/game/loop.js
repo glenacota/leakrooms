@@ -6,7 +6,7 @@
 
 import { update } from '../sim/update.js';
 import { G } from '../sim/state.js';
-import { on } from '../util/events.js';
+import { on, EVENT } from '../util/events.js';
 import { addRunTime, STATE } from './run.js';
 
 /* The loop does not know how a frame is drawn or what the shell does after a
@@ -66,8 +66,8 @@ const IDLE_REDRAW_MS = 250;
 let needsRedraw = true;
 let lastRedraw  = 0;
 let lastState   = null;
-on('resize',          ()=>{ needsRedraw = true; });
-on('settings:changed',()=>{ needsRedraw = true; });
+on(EVENT.resize,          ()=>{ needsRedraw = true; });
+on(EVENT.settingsChanged,()=>{ needsRedraw = true; });
 
 function shouldRender(now){
   if (STATE==='play')  return true;

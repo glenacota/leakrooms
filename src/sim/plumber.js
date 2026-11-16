@@ -1,5 +1,5 @@
 import { BATT_MAX, NOISE, RADAR_DRAIN, PLUMBER, SPRINT, SPRINT_RECOVERY_SECONDS, SPRINT_STAMINA, WALK } from '../config/constants.js';
-import { emit } from '../util/events.js';
+import { emit, EVENT } from '../util/events.js';
 import { createCollision } from './collision.js';
 import { seedSplash, wetAt } from './flood.js';
 import { sustainedNoise } from './noise.js';
@@ -45,15 +45,15 @@ export function tickBattery(plumberMeta, plumber, batteries, dt){
   plumberMeta.battPulseT = Math.max(0, plumberMeta.battPulseT - dt);
   if (plumberMeta.radar){
     plumberMeta.batt -= RADAR_DRAIN*dt;
-    if (plumberMeta.batt<=0){ plumberMeta.batt=0; plumberMeta.radar=false; emit('flash', { cat: 'alert', text: 'THE RADAR IS DEAD. LOOK FOR MORE BATTERIES' }); }
+    if (plumberMeta.batt<=0){ plumberMeta.batt=0; plumberMeta.radar=false; emit(EVENT.flash, { cat: 'alert', text: 'THE RADAR IS DEAD. LOOK FOR MORE BATTERIES' }); }
     plumberMeta.radarRattleT = (plumberMeta.radarRattleT||0) - dt;
-    if (plumberMeta.radarRattleT <= 0){ emit('sfx', 'clink', 0.4); plumberMeta.radarRattleT = 0.6; }
+    if (plumberMeta.radarRattleT <= 0){ emit(EVENT.sfx, 'clink', 0.4); plumberMeta.radarRattleT = 0.6; }
   } else {
     plumberMeta.radarRattleT = 0;
   }
   for (const b of batteries){
     if (b.taken) continue;
-    if (Math.hypot(b.x-plumber.x,b.y-plumber.y)<0.85){ b.taken=true; plumberMeta.batt=Math.min(BATT_MAX,plumberMeta.batt+20); emit('flash', { cat: 'info', text: '+20% BATTERY' }); plumberMeta.battPulseT = PULSE_FOR; }
+    if (Math.hypot(b.x-plumber.x,b.y-plumber.y)<0.85){ b.taken=true; plumberMeta.batt=Math.min(BATT_MAX,plumberMeta.batt+20); emit(EVENT.flash, { cat: 'info', text: '+20% BATTERY' }); plumberMeta.battPulseT = PULSE_FOR; }
   }
 }
 
@@ -131,10 +131,10 @@ export function tickMovement(plumber, grid, floodState, dt){
       plumber.stepT = sprinting ? 0.26 : 0.46;
       plumber.stepDur = plumber.stepT;
       if (inWater){
-        emit('sfx', 'splash', sprinting?1.4:0.5, stepPow);
+        emit(EVENT.sfx, 'splash', sprinting?1.4:0.5, stepPow);
         // A splash where the boot hits the water, pure visual.
-        emit('particle', plumber.x, plumber.y);
-      } else       emit('sfx', 'step', sprinting?1.4:0.5, stepPow);
+        emit(EVENT.particle, plumber.x, plumber.y);
+      } else       emit(EVENT.sfx, 'step', sprinting?1.4:0.5, stepPow);
     }
     // Wading pushes a ripple ahead of you, a trace of where you have been on top of the noise you already made.
     if (preWet > 0.3){
@@ -150,7 +150,7 @@ export function tickMovement(plumber, grid, floodState, dt){
     // Count the bump once per contact, not every frame.
     if (!plumber.bumpedLastFrame){
       floodState.stat.noises++;
-      emit('stat', 'noises');
+      emit(EVENT.stat, 'noises');
       plumber.bumpedLastFrame = true;
     }
   } else {

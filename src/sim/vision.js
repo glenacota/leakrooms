@@ -25,7 +25,7 @@ import {
 } from '../config/constants.js';
 import { scopeFor, regionAt } from './regions.js';
 import { wallNeighbourMax } from './walls.js';
-import { emit } from '../util/events.js';
+import { emit, EVENT } from '../util/events.js';
 
 /**
  * Vision state bundle passed by reference.
@@ -339,7 +339,7 @@ export function smoothMask(visionState, dt){
     if (d > 0.0025 || d < -0.0025){ maskArr[i] += d*k; moved = true; }
     else if (d !== 0){ maskArr[i] = maskTgt[i]; moved = true; }
   }
-  if (moved) emit('maskChanged');
+  if (moved) emit(EVENT.maskChanged);
   return moved;
 }
 
@@ -348,5 +348,5 @@ export function smoothMask(visionState, dt){
 export function snapMask(visionState, plumber, radar){
   traceViewCone(visionState, plumber, radar, true);
   visionState.maskArr.set(visionState.maskTgt);
-  emit('maskChanged');
+  emit(EVENT.maskChanged);
 }

@@ -1,4 +1,4 @@
-import { emit } from '../util/events.js';
+import { emit, EVENT } from '../util/events.js';
 import { tickDoor } from './door.js';
 import { tickFlood } from './flood.js';
 import { tickLeakNoise, tickRepair } from './leaks.js';
@@ -15,11 +15,11 @@ import { tickBattery, tickMovement } from './plumber.js';
    bed (the leaks' total noise, quieter with distance). */
 export function tickAudio(state){
   const prox = Math.max(0, 1 - state.nearest/13);
-  emit('sfx', 'drone', prox * (0.35 + state.seenBy*0.65));
+  emit(EVENT.sfx, 'drone', prox * (0.35 + state.seenBy*0.65));
   // The noise bed follows the loudest thing in earshot, which is the number the bar shows. The yellow fill on the bar is only the player's own share.
   // Ambient mix only: running raises footsteps, not the bed.
-  emit('sfx', 'noiseFloor', Math.max(state.ambientNoise, state.leakTotal)/NOISE_FS);
-  emit('sfx', 'leakBed', state.leakTotal/NOISE_FS, state.leakDist);
+  emit(EVENT.sfx, 'noiseFloor', Math.max(state.ambientNoise, state.leakTotal)/NOISE_FS);
+  emit(EVENT.sfx, 'leakBed', state.leakTotal/NOISE_FS, state.leakDist);
 }
 
 /**
@@ -58,7 +58,7 @@ export function update(state, dt){
   if (!tickClock(state, dt)) return;
   tickBattery(state, state.plumber, state.batteries, dt);
   const mv = tickMovement(state.plumber, state.grid, state, dt);
-  if (mv.sprinting && dt > 0) emit('sprint', state.floor);
+  if (mv.sprinting && dt > 0) emit(EVENT.sprint, state.floor);
   state.wet = mv.wet;                  // the tile the plumber is standing on now
 
   /* Room-scoped light. It runs AFTER movement, so the room you just walked into

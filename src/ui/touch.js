@@ -18,7 +18,7 @@ import { STICK } from '../config/constants.js';
 import { STATE } from '../game/run.js';
 import { SETTINGS } from '../settings/store.js';
 import { pad } from '../sim/keys.js';
-import { on } from '../util/events.js';
+import { on, EVENT } from '../util/events.js';
 import { stickMap, sprintThresholds } from '../util/stick.js';
 import { toggleRadar } from './input.js';
 import { togglePause } from './pause.js';
@@ -221,11 +221,11 @@ export function initTouch(){
     if (mode === 'touch' && e.preventDefault) e.preventDefault();
   });
 
-  on('state', refresh);
-  on('input:mode', setMode);
-  on('input:lost', releaseAll);
+  on(EVENT.state, refresh);
+  on(EVENT.inputMode, setMode);
+  on(EVENT.inputLost, releaseAll);
   /* A finger that is down when the side changes would be on the wrong half. */
-  on('settings:changed', key => {
+  on(EVENT.settingsChanged, key => {
     if (key === 'touchSide' || key === '*'){ releaseAll(); layout(); }
     /* The new line applies from the next move. The finger stays down, so the
        marker is repainted and the latch is left alone. */

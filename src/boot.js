@@ -25,7 +25,7 @@ import { initTouch } from './ui/touch.js';
 import { initHaptics } from './ui/haptics.js';
 import { initFullscreen } from './ui/fullscreen.js';
 import { initPerf } from './ui/perf.js';
-import { emit } from './util/events.js';
+import { emit, EVENT } from './util/events.js';
 import { mobileVerdict, showMobileNotice, looksHandheld } from './ui/mobile.js';
 import { setFatalHook, setFrameHooks } from './game/loop.js';
 import { adaptResolution } from './render/adaptive.js';
@@ -141,7 +141,7 @@ export function boot(){
      here is not locked: a tablet that later gets a key press goes back to kbm. */
   const verdict = mobileVerdict();
   if (verdict === 'blocked') showMobileNotice();
-  else if (verdict === 'touch') emit('input:mode', 'touch');
+  else if (verdict === 'touch') emit(EVENT.inputMode, 'touch');
 
   /* Load saved settings and apply them (difficulty and volume), then build
      the settings controls so they show the loaded values. */

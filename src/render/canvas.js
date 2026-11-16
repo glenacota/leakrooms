@@ -1,4 +1,4 @@
-import { emit } from '../util/events.js';
+import { emit, EVENT } from '../util/events.js';
 import { RENDER_SCALES, VIEW_T, TILE, VIEW_ROWS_MIN } from '../config/constants.js';
 
 /**
@@ -50,7 +50,7 @@ export function resize(){
   cvs.width = Math.floor(VW * DPR);
   cvs.height = Math.floor(VH * DPR);
   SCALE = viewScale(VW, VH) * DPR;
-  if (cvs.width > 0 && cvs.height > 0) emit('resize');
+  if (cvs.width > 0 && cvs.height > 0) emit(EVENT.resize);
 }
 
 /* ---------- Window resize ----------
@@ -90,4 +90,4 @@ window.addEventListener('orientationchange', onWindowResize);
 cvs.addEventListener('contextlost', e => {
   if (e && e.preventDefault) e.preventDefault();
 });
-cvs.addEventListener('contextrestored', () => emit('contextrestored'));
+cvs.addEventListener('contextrestored', () => emit(EVENT.contextrestored));

@@ -5,7 +5,7 @@ import { cam } from '../render/render.js';
 import { paintTutorial } from '../render/tutorial-art.js';
 import { SETTINGS } from '../settings/store.js';
 import { G } from '../sim/state.js';
-import { emit, on } from '../util/events.js';
+import { emit, on, EVENT } from '../util/events.js';
 import { flashBusy } from './hud.js';
 
 const STORAGE_KEY = 'leakrooms.tutorials.v1';
@@ -141,7 +141,7 @@ export function tickTutorials(dt = 0){
   if (!SETTINGS.tutorials && fallbackQueue.length && !flashBusy()){
     const id = fallbackQueue.shift();
     fallback.add(id);
-    emit('flash', { cat: 'guide', text: TUTORIALS[id].flash });
+    emit(EVENT.flash, { cat: 'guide', text: TUTORIALS[id].flash });
   }
   if (active && current === active && !hovering && !focused){
     remaining = Math.max(0, remaining - dt);
@@ -177,27 +177,27 @@ export function bindTutorials(){
   card.addEventListener('pointerleave', e => { if (e.pointerType !== 'touch') hovering = false; });
   card.addEventListener('focusin', () => { focused = true; });
   card.addEventListener('focusout', e => { focused = !!e.relatedTarget && card.contains(e.relatedTarget); });
-  on('sprint', () => { sprinted = true; });
-  on('run:start', () => { fallback.clear(); clearPending(); });
-  on('floorBuilt', clearPending);
-  on('tutorials:reset', () => {
+  on(EVENT.sprint, () => { sprinted = true; });
+  on(EVENT.runStart, () => { fallback.clear(); clearPending(); });
+  on(EVENT.floorBuilt, clearPending);
+  on(EVENT.tutorialsReset, () => {
     try {
       localStorage.setItem(STORAGE_KEY, '[]');
     } catch (error){
       console.warn('Could not reset tutorial history:', error);
-      emit('tutorials:reset-result', false);
+      emit(EVENT.tutorialsResetResult, false);
       return;
     }
     completed.clear();
     clearTutorialCards();
-    emit('tutorials:reset-result', true);
+    emit(EVENT.tutorialsResetResult, true);
   });
-  on('settings:changed', key => {
+  on(EVENT.settingsChanged, key => {
     if (key !== 'tutorials' && key !== '*') return;
     if (SETTINGS.tutorials) fallbackQueue = [];
     else clearPending();
   });
-  on('state', () => {
+  on(EVENT.state, () => {
     if (STATE === 'pause'){
       card.hidden = true;
       hovering = focused = false;
