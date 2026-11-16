@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { loadGame } from '../helpers/harness.js';
-import { playPlayerRun, classifyDeath, chooseVisibleWater } from '../helpers/player-bot.js';
+import { playPlayerRun, classifyDeath, chooseVisibleWater, advanceWaypoint, searchTargetDone } from '../helpers/player-bot.js';
 import { FLOOR, MAP_W, MAP_H } from '../../src/config/constants.js';
 import { emit } from '../../src/util/events.js';
 
@@ -21,6 +21,59 @@ test('death classification uses the actual clock event even near a lifeform', ()
 
 test('death classification uses the actual catch event', () => {
   assert.equal(classifyDeath({ cause: 'caught', recent: [] }), 'caught');
+});
+
+test('following a path does not return to a waypoint already passed', () => {
+  const path = [[0, 0], [1, 0], [2, 0], [3, 0]];
+  const next = advanceWaypoint(path, 1, 1.1, 0.5);
+  assert.equal(next, 2);
+  assert.equal(advanceWaypoint(path, next, 2.0, 0.5), 2);
+  assert.equal(advanceWaypoint(path, next, 2.5, 0.5), 3);
+});
+
+test('the run keeps steering forward after passing a waypoint', () => {
+  const startRun = A.startRun, update = A.updateReal, blocked = A.blocked;
+  const directions = [];
+  let grid, exit, leaks;
+  A.startRun = () => {
+    startRun();
+    grid = G.grid.slice();
+    exit = G.exitTiles[0];
+    leaks = G.leaks.map(leak => leak.fixed);
+    G.grid.fill(0);
+    for (let x = 10; x <= 15; x++) G.grid[10 * MAP_W + x] = FLOOR;
+    G.plumber.x = 10.5; G.plumber.y = 10.5;
+    G.exitTiles[0] = { x: 16, y: 10 };
+    G.leaks.forEach(leak => { leak.fixed = true; });
+  };
+  A.blocked = () => false;
+  A.updateReal = () => {
+    directions.push({ left: !!A.keys.a, right: !!A.keys.d });
+    if (directions.length === 1) G.plumber.x = 11.1;
+    if (directions.length === 2) G.plumber.x = 12;
+  };
+  try {
+    run({ withLifeforms: false, maxSeconds: 3 / 60 });
+    assert.deepEqual(directions, [
+      { left: false, right: true },
+      { left: false, right: true },
+      { left: false, right: true },
+    ]);
+  } finally {
+    G.grid.set(grid);
+    G.exitTiles[0] = exit;
+    G.leaks.forEach((leak, i) => { leak.fixed = leaks[i]; });
+    A.startRun = startRun; A.updateReal = update; A.blocked = blocked;
+  }
+});
+
+test('a seen fallback target is not finished until its tile is visited', () => {
+  const seen = new Uint8Array([0, 1]);
+  const visited = new Uint8Array([0, 0]);
+  assert.equal(searchTargetDone('unseen', seen, visited, 1), true);
+  assert.equal(searchTargetDone('unvisited', seen, visited, 1), false);
+  visited[1] = 1;
+  assert.equal(searchTargetDone('unvisited', seen, visited, 1), true);
 });
 
 test('a water plateau falls back to search instead of targeting the current tile', () => {

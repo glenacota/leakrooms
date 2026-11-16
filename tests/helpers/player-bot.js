@@ -41,6 +41,18 @@ export function chooseVisibleWater(grid, wet, mask, visited, radar, px, py, onSc
   return best;
 }
 
+/** Advances through reached waypoints without returning to earlier waypoints. */
+export function advanceWaypoint(path, index, px, py){
+  while (index < path.length - 1 &&
+         Math.hypot(path[index][0] + 0.5 - px, path[index][1] + 0.5 - py) < 0.45) index++;
+  return index;
+}
+
+/** Returns whether the current exploration target has been observed or visited. */
+export function searchTargetDone(kind, seen, visited, tile){
+  return kind === 'unseen' ? !!seen[tile] : !!visited[tile];
+}
+
 /**
  * Plays one five-floor run with the player bot.
  *
@@ -72,7 +84,8 @@ export function playPlayerRun({ A, G, keys, seed, withLifeforms, maxSeconds, rad
   if (!withLifeforms) G.lifeforms.length = 0;
 
   let know = freshKnowledge(-1, 0);
-  let path = null, pathGoal = '', pathAt = [-99, -99], pathAge = 0;
+  let path = null, pathGoal = '', pathAt = [-99, -99], pathAge = 0, pathIndex = 1;
+  let searchTarget = 'unseen';
   let swapped = false, movedLast = false;
   let distFromKey = '', distField = null;
   let frames = 0;
@@ -362,19 +375,19 @@ export function playPlayerRun({ A, G, keys, seed, withLifeforms, maxSeconds, rad
       const gid = goal.kind + ':' + (goal.x ?? '') + ',' + (goal.y ?? '');
       const cx = Math.floor(px), cy = Math.floor(py);
       const off = !path || Math.hypot(px - pathAt[0], py - pathAt[1]) > 2.5;
-      /* A search path is done when its target is reached or seen: the next
-         unseen tile is then picked, not the old one walked to again. */
+      /* A visited-tile search cannot finish merely because the tile is visible. */
       const last = path && path.length ? path[path.length - 1] : null;
       const searchDone = goal.kind === 'search' && last &&
-        (know.seen[IDX(last[0], last[1])] || Math.hypot(px - (last[0] + 0.5), py - (last[1] + 0.5)) < 0.6);
+        searchTargetDone(searchTarget, know.seen, know.visited, IDX(last[0], last[1]));
       if (gid !== pathGoal || off || searchDone || pathAge > REPLAN_FRAMES || !path || path.length === 0){
         if (goal.kind === 'search'){
-          path = pathToNearest(px, py, c => G.grid[c] === FLOOR && !know.seen[c]) ||
-            pathToNearest(px, py, c => G.grid[c] === FLOOR && !know.visited[c]);
+          path = pathToNearest(px, py, c => G.grid[c] === FLOOR && !know.seen[c]);
+          searchTarget = path ? 'unseen' : 'unvisited';
+          if (!path) path = pathToNearest(px, py, c => G.grid[c] === FLOOR && !know.visited[c]);
         } else {
           path = bfsPath(cx, cy, goal.x, goal.y, G.grid, W, H);
         }
-        pathGoal = gid; pathAt = [px, py]; pathAge = 0; jamSkip = 0;
+        pathGoal = gid; pathAt = [px, py]; pathAge = 0; pathIndex = 1; jamSkip = 0;
       }
       pathAge++;
 
@@ -393,14 +406,12 @@ export function playPlayerRun({ A, G, keys, seed, withLifeforms, maxSeconds, rad
       /* Jammed at a corner: over a window the plumber has not gone a tile from
          where it was, so skip the waypoint it cannot reach. */
       if (frames - anchorAt > REPLAN_FRAMES){
-        if (Math.hypot(px - anchorX, py - anchorY) < 1) jamSkip++;
+        if (Math.hypot(px - anchorX, py - anchorY) < 1) jamSkip = 1;
         anchorX = px; anchorY = py; anchorAt = frames;
       }
-      let wi = 1 + jamSkip;
-      while (wi < path.length - 1 &&
-             Math.hypot(path[wi][0] + 0.5 - px, path[wi][1] + 0.5 - py) < 0.45) wi++;
-      if (wi > path.length - 1) wi = path.length - 1;
-      const wp = path[wi];
+      pathIndex = advanceWaypoint(path, pathIndex, px, py);
+      if (jamSkip){ pathIndex = Math.min(pathIndex + 1, path.length - 1); jamSkip = 0; }
+      const wp = path[pathIndex];
       steer(px, py, wp[0] + 0.5, wp[1] + 0.5);
       if (explorationPolicy === 'scan-sprint' && frames < safeSprintUntil && G.plumber.stamina > 0.5)
         keys.shift = true;
