@@ -31,6 +31,7 @@ export const EVENT = Object.freeze({
   dead: 'dead',
   reset: 'reset',
   runStart: 'run:start',
+  floorPreparing: 'floorPreparing',
   floorBuilt: 'floorBuilt',
   resize: 'resize',
   settingsChanged: 'settings:changed',

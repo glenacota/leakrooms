@@ -1,7 +1,7 @@
 /* Builds one floor. The generated level and the G object that holds the floor's
    state are made here. The pixel layers the renderer draws (light, tiles, walls,
-   mask and water) belong to render/floor-surfaces.js, and this file hands them
-   the inputs they need.
+   mask and water) belong to the renderer, which receives the inputs through
+   an event wired at boot.
 
    The build is split in two. getStaticLevel() makes the half a building
    decides: the layout, the light array, the region map. It holds that for one
@@ -22,7 +22,6 @@ import { initFlood } from '../sim/flood.js';
 import { G, createGameState, setFloorState } from '../sim/state.js';
 import { emit, EVENT } from '../util/events.js';
 import { resetRepaint } from '../util/repaint.js';
-import { buildFloorSurfaces } from '../render/floor-surfaces.js';
 
 /* ---------- The cached half ---------- */
 
@@ -83,14 +82,14 @@ export function buildFloorState(level, floorNum, seed){
  * Builds a floor and stores it in G (see sim/state.js).
  *
  * The same seed and floor number always produce the same layout, so a retry
- * puts the leaks in the same rooms and hands back the same static canvases.
+ * puts the leaks in the same rooms and allows static canvases to be reused.
  *
  * @param {number} floorNum - 0-based floor index; picks the row in LEVELS.
  * @param {number} seed - the run seed.
  */
 export function buildFloor(floorNum, seed){
   const level = getStaticLevel(seed, floorNum);
-  buildFloorSurfaces(keyOf(seed, floorNum), level);
+  emit(EVENT.floorPreparing, keyOf(seed, floorNum), level);
   buildFloorState(level, floorNum, seed);
 
   /* Render-only state keyed to a floor (the floor ripples) clears on this, so

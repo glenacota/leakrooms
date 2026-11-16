@@ -219,6 +219,21 @@ test('a build whose bake fails is not skipped by the retry', () => {
   assert.ok(surfaces.light.width > 0 && surfaces.tiles.width > 0, 'the retry left the static canvases empty');
 });
 
+test('a failed floor bake preserves the installed floor and the retry succeeds', () => {
+  A.buildFloor(0, 113);
+  const leaks = G.leaks;
+  const hook = failTheLightBakeOnce();
+  try {
+    assert.throws(() => A.buildFloor(1, 114));
+  } finally { hook.undo(); }
+  assert.ok(hook.tripped, 'the floor build did not reach the light bake');
+  assert.equal(G.leaks, leaks, 'a failed bake replaced the floor state');
+  A.buildFloor(1, 114);
+  assert.notEqual(G.leaks, leaks, 'the retry did not install the new floor');
+  assert.ok(surfaces.light.getContext('2d'), 'the retry did not rebuild the light canvas');
+  assert.ok(surfaces.tiles.width > 0, 'the retry left the static canvases empty');
+});
+
 test('a context restore whose bake fails is retried by the next context restore', () => {
   A.buildFloor(0, 112);
   const hook = failTheLightBakeOnce();

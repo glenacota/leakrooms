@@ -93,7 +93,7 @@ export const G = new Proxy({}, {
 
 /* The floor's own state. Pure: it allocates arrays and clones the level's
    mutable parts, and touches no canvas. The canvases and the G-dependent
-   ticks are finished by game/floor.js, which owns the render side. */
+   ticks are finished by game/floor.js. Rendering is wired separately at boot. */
 export function createGameState(level, floorNum, seed){
   return {
     level: createLevelState(level, floorNum, seed),

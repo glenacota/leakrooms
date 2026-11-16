@@ -2,7 +2,7 @@
 
    The tree is only readable because the direction of every dependency is
    fixed: the simulation and its helpers never reach up into the renderer,
-   the shell or the audio, and the run and the loop never reach into the
+   the shell or the audio, and the run, floor and loop never reach into the
    renderer or the DOM. Nothing enforces that but this file. A single
    convenience import breaks it silently — the module still loads, the game
    still runs — and the cost is paid later, when a headless test has to
@@ -50,10 +50,8 @@ const LAYERS = [
   { dir: 'src/config/', banned: ['src/render/', 'src/ui/', 'src/game/', 'src/audio/'] },
 ];
 
-/* These two sit between the simulation and the shell. The loop runs the game,
-   and the run owns its state; both may be read by the renderer and the UI,
-   but must not reach into them. */
-const MIDDLE = ['src/game/run.js', 'src/game/loop.js'];
+/* These sit between the simulation and the shell and must not reach into it. */
+const MIDDLE = ['src/game/run.js', 'src/game/loop.js', 'src/game/floor.js'];
 const MIDDLE_BANNED = ['src/render/', 'src/ui/'];
 
 test('the simulation layers import nothing above them', () => {
@@ -71,7 +69,7 @@ test('the simulation layers import nothing above them', () => {
     `a low layer imports up the tree:\n  ${offenders.join('\n  ')}`);
 });
 
-test('the run and the loop import no renderer and no UI', () => {
+test('the run, floor and loop import no renderer and no UI', () => {
   const offenders = [];
   for (const f of MIDDLE) {
     for (const dep of GRAPH.get(f) || []) {
@@ -80,10 +78,10 @@ test('the run and the loop import no renderer and no UI', () => {
     }
   }
   assert.deepEqual(offenders, [],
-    `the run and the loop reach up into the renderer or the shell:\n  ${offenders.join('\n  ')}`);
+    `the run, floor or loop reach up into the renderer or the shell:\n  ${offenders.join('\n  ')}`);
 });
 
-test('the run and the loop never touch the document', () => {
+test('the run, floor and loop never touch the document', () => {
   const offenders = [];
   for (const f of MIDDLE) {
     const src = fs.readFileSync(path.join(ROOT, f), 'utf8');
@@ -92,7 +90,7 @@ test('the run and the loop never touch the document', () => {
     });
   }
   assert.deepEqual(offenders, [],
-    `the DOM belongs to ui/, not to the run or the loop:\n  ${offenders.join('\n  ')}`);
+    `the DOM belongs to ui/, not to the run, floor or loop:\n  ${offenders.join('\n  ')}`);
 });
 
 test('boot wires manual art without drawing it', () => {
