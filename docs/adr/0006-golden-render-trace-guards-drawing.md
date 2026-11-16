@@ -6,3 +6,4 @@
 
 - A failing golden test means "drawing changed", not "the test is wrong". Check whether the change was intended before regenerating.
 - Regenerating the trace is a reviewed act, not part of a routine fix.
+- Render order is part of the visual design. Layers can obscure or alter earlier layers, so review trace changes for intent before updating the golden file.

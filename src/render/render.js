@@ -34,15 +34,22 @@ export function render(t){
 
   const rc = buildFrame(t);
 
-  /* Clear the frame. Without this, anything the scene does not paint (the
-     margin beyond the map edge) would keep last frame's pixels and the
-     post-processing would pile up on top of it. */
+  clearFrame();
+  drawWorld(rc);
+  drawLightingAndPipes(rc);
+  applyPostProcessing(rc);
+  drawReadableCues(rc, t);
+}
+
+function clearFrame(){
   ctx.setTransform(1,0,0,1,0,0);
   ctx.globalAlpha=1;
   ctx.globalCompositeOperation='source-over';
   ctx.fillStyle='#000';
   ctx.fillRect(0,0,cvs.width,cvs.height);
+}
 
+function drawWorld(rc){
   ctx.setTransform(SCALE,0,0,SCALE,0,0);
   ctx.save();
   ctx.translate(rc.tx, rc.ty);
@@ -53,15 +60,18 @@ export function render(t){
   actors(rc);
   particles(rc);
   ctx.restore();
+}
 
+function drawLightingAndPipes(rc){
   lighting(rc);
   leaks(rc);
-  post(rc);
+}
 
-  /* The world rings (repair, door crank), the floor ripples and the battery
-     ring are drawn after post() so the light bake, the radar's green tint and
-     the VHS pass never touch them: they stay readable in the dark and while the
-     radar is on. */
+function applyPostProcessing(rc){
+  post(rc);
+}
+
+function drawReadableCues(rc, t){
   repairRing(rc);
   ctx.save();
   ctx.setTransform(SCALE,0,0,SCALE,0,0);
@@ -71,3 +81,4 @@ export function render(t){
   ripples(rc);
   diegetic(rc);
 }
+
