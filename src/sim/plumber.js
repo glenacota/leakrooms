@@ -103,7 +103,6 @@ export function tickMovement(plumber, grid, floodState, dt){
 
   if (ix||iy){
     const len=Math.hypot(ix,iy); ix/=len; iy/=len;
-    const before=[plumber.x,plumber.y];
     const [dx,dy]=moveEnt(plumber, ix*spd*dt, iy*spd*dt, PLUMBER.RADIUS);
     moving = (dx!==0 || dy!==0);
     plumber.face = Math.atan2(iy,ix);

@@ -71,13 +71,14 @@ export function post(rc){
 
   /* ---------- 8. VHS tape effect ----------
      A scrolling tracking band, scanlines, grain, a chroma ghost and dropouts.
-     This pass makes the game look like a recording and not a window. It is
-     always on. The snapshot is taken before the passes that read it.
+     This pass makes the game look like a recording and not a window. The
+     snapshot is taken before the passes that read it.
 
      The strength is now a setting again (SETTINGS.crt). The default is 1.0, which
      is the full VHS_PASS and the exact look the game has always shipped. The
      setting is a fraction of the constant, not a replacement for it: VHS_PASS is
      still the ceiling and the identity of the tape look. */
+  if (SETTINGS.crt === 0) return;
   const vhs = VHS_PASS * SETTINGS.crt * (G.radar ? 5000 : 1);
   /* The snapshot gives the chroma ghost something to read that does not include
      the ghost itself. It is a QUARTER-size copy of the canvas, scaled back up
