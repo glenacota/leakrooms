@@ -41,6 +41,14 @@ test('[COPY] how-to-play lives in the field manual and not in the story pages', 
   assert.ok(!/WASD/.test(title), 'the title lists the movement keys');
 });
 
+test('[COPY] the work order describes clock-out and lifeform detection', () => {
+  const story = visibleText(html.slice(html.indexOf('data-binder-page="order"'), html.indexOf('data-binder-page="run"')));
+  assert.match(story, /timer expires.*lose a life/i);
+  assert.match(story, /lives left.*retry the floor/i);
+  assert.match(story, /hunt by sound.*see you up close/i);
+  assert.doesNotMatch(story, /permanent entrapment/i);
+});
+
 test('[COPY] CLOCK IN opens the work order, and BEGIN starts the run', () => {
   A.STATE = 'splash'; A.show('splash'); A.selectMenu('start');
   A.activateMenu();
