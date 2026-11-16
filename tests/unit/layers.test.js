@@ -95,6 +95,18 @@ test('the run and the loop never touch the document', () => {
     `the DOM belongs to ui/, not to the run or the loop:\n  ${offenders.join('\n  ')}`);
 });
 
+test('boot wires manual art without drawing it', () => {
+  const boot = fs.readFileSync(path.join(ROOT, 'src/boot.js'), 'utf8');
+  assert.doesNotMatch(boot, /\bgetContext\s*\(/);
+  assert.doesNotMatch(boot, /manual-(?:battery|stamina|noise)/);
+  const drawingModules = [
+    'src/render/manual-art.js', 'src/render/battery-meter.js',
+    'src/render/stamina-meter.js', 'src/render/noise-visuals.js',
+    'src/render/passes/ripples.js',
+  ];
+  assert.deepEqual(GRAPH.get('src/boot.js').filter(dep => drawingModules.includes(dep)), []);
+});
+
 /* The state refactor moves G behind a facade and gives each sim module its
    state explicitly. Until every module is converted, the files that still
    import state.js are named here; a new importer fails the test instead of

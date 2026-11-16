@@ -18,152 +18,36 @@
    nothing back to the simulation. It is drawn after post() (see render.js), so
    the light bake, the radar tint and the CRT never touch it, and it reads in
    the dark. Rings are cleared on every new floor.
-
-   The maths is in plain functions at the top so the tests can check the
-   numbers without a canvas.
    ============================================================ */
 
 import { G } from '../../sim/state.js';
 import { simAlpha } from './actors.js';
 import { ctx, SCALE } from '../canvas.js';
-import { LOUD, NOISE_FS, TILE } from '../../config/constants.js';
+import { NOISE_FS, TILE } from '../../config/constants.js';
 import { on, EVENT } from '../../util/events.js';
 import { drawNoiseGlow, drawNoiseRipple } from '../noise-visuals.js';
+import { glowAlpha, glowKick, glowRadius, glowRgb, glowStops, isRedRing, ringAlpha, ringLife, ringRadius, spawnGap } from '../ripple-math.js';
+
+export { GLOW_HOLE, RADIUS_AT_LOUD, glowAlpha, glowKick, glowRadius, glowRgb, glowStops, isRedRing, maxRadius, ringAlpha, ringLife, ringRadius, spawnGap } from '../ripple-math.js';
 
 /* Below this noise nothing is drawn or spawned. Same gate as the old ring, so
    the HUD appears at the same moments it always did. */
 export const NOISE_FLOOR = 0.02;
 
-/* How far a ring reaches at the LOUD threshold, in tiles. Chosen so the
-   reference circle is a sensible size on screen. Every other noise level scales
-   from here in proportion, so a sprint (0.70) reaches 2.1 tiles, the wrench
-   (0.85) 2.55 and a walk (0.20) 0.6. The radius is a symbol for loudness, not
-   the real hearing range, which is in sim/noise.js. */
-export const RADIUS_AT_LOUD = 1.5;
-/* The smallest a ring starts, in tiles, so it appears as a dot and not a point. */
-const R_START = 0.15;
-
-/* Spawn gap at the quiet end and the loud end, in seconds. A walk is 0.2 and
-   gets the slow gap; anything at or above 0.44 gets the fast one. */
-const GAP_QUIET = 0.75;
-const GAP_LOUD = 0.5;
-const GAP_RAMP_FROM = 0.2;
-const GAP_RAMP_SPAN = 0.5;
-
 /* Hard cap on live rings. Only a few are ever alive at once (a ring lives
    about a second), so this only matters if the timer is ever wrong. */
 export const MAX_RINGS = 24;
 
-/* Colours. The amber is the palette's bright yellow; the red is the danger
-   colour shared with the rest of the HUD. */
-const AMBER = '#e4e6a8';
-const DANGER = '#d8503c';
-const OUTLINE = '#0c0e0a';
-const HUD_OPACITY = 0.8;
 /* Seconds for the glow to fade in and out. Quick in, so it is there when the
    sound is; slower out, so it does not flicker between footsteps. */
 const FADE_IN = 0.15;
 const FADE_OUT = 0.4;
 
-/* The glow's size in tiles: a base that is always there plus a gain at full
-   noise. Small on purpose, so the rings carry the size and the glow carries the
-   level. */
-const GLOW_R_BASE = 0.42;
-const GLOW_R_GAIN = 0.5;
-/* Inside this radius, in tiles, the glow is clear. The plumber's suit and hood
-   reach about 0.2 tiles from the centre, and a bright wash over a yellow suit
-   hides the thing the player is watching. */
-export const GLOW_HOLE = 0.1;
-/* The glow goes from pale yellow to the danger red over this noise range, which
-   straddles LOUD (0.5) so the change is under way as the noise crosses it. */
-const GLOW_YELLOW = [255, 245, 160];
-const GLOW_RED = [216, 80, 60];
-const GLOW_RED_FROM = 0.44;
-const GLOW_RED_TO = 0.54;
-/* Seconds the glow takes to flash after a ripple spawns, and how far the flash
-   swings either side of the steady brightness (a 0.8 to 1.2 multiplier). */
-const KICK_TIME = 0.25;
-const KICK_LOW = 0.8;
-const KICK_SPAN = 0.4;
 /* The glow follows the noise level through this ease, in seconds, so the 60 Hz
    simulation values do not make it flicker. */
 const LEVEL_EASE = 0.1;
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-
-/* Seconds between spawns at this noise. Louder noise spawns faster. */
-export function spawnGap(noise){
-  return GAP_QUIET - (GAP_QUIET - GAP_LOUD)*clamp((noise - GAP_RAMP_FROM)/GAP_RAMP_SPAN, 0, 1);
-}
-
-/* How far a ring of this noise reaches at the end of its life, in tiles. */
-export function maxRadius(noise){
-  return RADIUS_AT_LOUD*noise/LOUD;
-}
-
-/* How long a ring of this noise lives, in seconds. Louder rings last less time,
-   so a sprint's trail clears quicker than a walk's. */
-export function ringLife(noise){
-  return 1.1 - 0.5*clamp(noise/NOISE_FS, 0, 1);
-}
-
-/* A ring's radius in tiles at `age` seconds. It grows fast then slows, so it
-   looks like a splash rather than a steady expansion. */
-export function ringRadius(noise, age){
-  const k = clamp(age/ringLife(noise), 0, 1);
-  const grow = 1 - Math.pow(1 - k, 2.2);
-  return R_START + (maxRadius(noise) - R_START)*grow;
-}
-
-/* A ring's opacity at `age`, 0 to 1 before the HUD's own 80%. It scales with
-   the noise that made it, so a faint step leaves a faint ring. */
-export function ringAlpha(noise, age){
-  const k = clamp(age/ringLife(noise), 0, 1);
-  return Math.pow(1 - k, 1.3)*clamp(noise/NOISE_FS, 0, 1);
-}
-
-/* A ring is red once it has grown past the LOUD circle. */
-export function isRedRing(radiusTiles){
-  return radiusTiles >= RADIUS_AT_LOUD;
-}
-
-const smooth = (a, b, v) => {
-  const t = clamp((v - a)/(b - a), 0, 1);
-  return t*t*(3 - 2*t);
-};
-
-/* The glow's outer radius in tiles at this level (noise / NOISE_FS, 0 to 1). */
-export function glowRadius(level){
-  return GLOW_R_BASE + GLOW_R_GAIN*clamp(level, 0, 1);
-}
-
-/* The glow's colour as [r, g, b] at this noise: yellow while quiet, red once
-   the noise is past LOUD, a blend in between. */
-export function glowRgb(noise){
-  const k = smooth(GLOW_RED_FROM, GLOW_RED_TO, noise);
-  return GLOW_YELLOW.map((y, i) => Math.round(y + (GLOW_RED[i] - y)*k));
-}
-
-/* The glow's opacity before the HUD's own 80%. It scales with the level, so a
-   quiet step is a faint glow. `kick` is 1 as a ripple spawns and falls to 0, so
-   the glow pulses once per ring. */
-export function glowAlpha(level, kick){
-  return clamp(clamp(level, 0, 1)*(KICK_LOW + KICK_SPAN*clamp(kick, 0, 1)), 0, 1);
-}
-
-/* How strong the flash is `sinceSpawn` seconds after a ring left: 1, then 0. */
-export function glowKick(sinceSpawn){
-  return clamp(1 - sinceSpawn/KICK_TIME, 0, 1);
-}
-
-/* The glow's colour stops as [offset, alpha] pairs from the centre to the edge
-   of a glow `radiusTiles` wide. Clear up to GLOW_HOLE, then a bright rim that
-   fades out. */
-export function glowStops(radiusTiles){
-  const hole = clamp(GLOW_HOLE/radiusTiles, 0, 0.95);
-  const span = 1 - hole;
-  return [[0, 0], [hole, 0], [hole + span*0.25, 0.95], [hole + span*0.6, 0.45], [1, 0]];
-}
 
 /* Moves the presence value toward its target at the fade speed. */
 function fade(a, on, dt){
@@ -236,7 +120,7 @@ export function ripples(rc){
     }
   } else {
     /* Silent: the next noise spawns a ring on its first frame. */
-    gapT = GAP_QUIET;
+    gapT = spawnGap(0);
   }
 
   for (const r of rings) r.age += dt;
