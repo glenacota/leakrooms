@@ -5,7 +5,7 @@
 
    The build is split in two. getStaticLevel() makes the half a building
    decides: the layout, the light array, the region map. It holds that for one
-   key (seed and floor number). makeFloorState() makes the half a player
+   key (seed and floor number). buildFloorState() makes the half a player
    changes: the flood, the cast, the clock.
 
    The split is not tidiness. A retry rebuilds the same floor, so the static
@@ -68,7 +68,7 @@ export function getStaticLevel(seed, floorNum){
  * @param {number} floorNum - 0-based floor index.
  * @param {number} seed - the run seed.
  */
-export function makeFloorState(level, floorNum, seed){
+export function buildFloorState(level, floorNum, seed){
   setFloorState(createGameState(level, floorNum, seed));
 
   // Light the room the plumber starts in. From here on the lit room follows them.
@@ -91,7 +91,7 @@ export function makeFloorState(level, floorNum, seed){
 export function buildFloor(floorNum, seed){
   const level = getStaticLevel(seed, floorNum);
   buildFloorSurfaces(keyOf(seed, floorNum), level);
-  makeFloorState(level, floorNum, seed);
+  buildFloorState(level, floorNum, seed);
 
   /* Render-only state keyed to a floor (the floor ripples) clears on this, so
      nothing from the last floor is drawn over the new one. */
