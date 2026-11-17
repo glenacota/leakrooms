@@ -14,28 +14,28 @@ const TUTORIAL_SEC = 9;
 const WATER_TUTORIAL_SEC = 3;
 const TUTORIALS = {
   sprint: {
-    title: 'Running has a cost',
-    text: 'Running is loud and may attract hostile lifeforms. It also drains stamina. Walk or stand still to recover.',
+    title: 'Save your legs',
+    text: 'Running makes enough noise to bring something bad over. It also drains stamina. Walk or stand still to recover.',
     flash: 'RUNNING IS LOUD AND DRAINS STAMINA. STOP RUNNING TO RECOVER',
   },
   radar: {
-    title: 'Radar has a cost',
-    text: 'The radar reveals the map for 10 seconds, but its noise may attract hostile lifeforms. Grab spare batteries to recharge.',
+    title: 'Use the radar sparingly',
+    text: 'The radar reveals the floor for ten seconds, but its pulse can draw attention. Grab batteries when you find them.',
     flash: 'RADAR IS LOUD AND DRAINS BATTERY',
   },
   water: {
     title: 'How to find a leak',
-    text: 'Water spreads from open leaks. Follow the water on the floor to find them.',
-    flash: 'FOLLOW THE WET FLOOR TO FIND A LEAK',
+    text: 'Water spreads from broken pipes. Follow the wet carpet to find them.',
+    flash: 'FOLLOW THE WET CARPET TO FIND A LEAK',
   },
   repair: {
     title: 'How to seal a leak',
-    text: 'Stand still beside the leak to repair it. Repairing is loud and can attract lifeforms.',
+    text: 'Stand still beside the leak to repair it. The wrench is not a quiet tool and can attract something dangerous.',
     flash: 'STAND STILL BESIDE THE LEAK TO REPAIR IT. REPAIRING IS LOUD',
   },
   lifeform: {
     title: 'Watch for lifeforms',
-    text: 'Dormant lifeforms cannot see you. Only loud sounds (running, using the radar) wake them. Awake lifeforms can also see you.',
+    text: 'Loud actions can wake a dormant lifeform or turn a search into a hunt. Awake lifeforms can see you all too well.',
     flash: 'LOUD SOUNDS WAKE LIFEFORMS OR START A HUNT. AWAKE LIFEFORMS CAN SEE YOU',
   },
 };
