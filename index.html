@@ -6,7 +6,7 @@
 <meta name="author" content="glenacota">
 <title>LEAKROOMS</title>
 <link rel="icon" type="image/png" href="./logo.png">
-<!-- Home-screen launch: no browser bars. There is no manifest on purpose. -->
+
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -47,21 +47,16 @@
 <div id="crt">
 
   <!-- ============ STAGE ============
-       The play area. The canvas fills this box and nothing else, so the map
-       is never drawn underneath the HUD. The game sizes its camera, lighting
-       and visibility mask to this box. -->
+       The play area. The canvas fills this box and nothing else, so the map is never drawn underneath the HUD. 
+       The game sizes its camera, lighting and visibility mask to this box. -->
   <div id="stage">
     <canvas id="game"></canvas>
     <div id="flashnote"></div>
   </div>
 
-  <!-- ============ HUD ============
-       One instrument panel in the corner of the frame.
-       The values are written by src/ui/hud.js. -->
+  <!-- ============ HUD ============ -->
   <div id="hud">
 
-    <!-- The clock, the lives and the leaks marks. The noise and radar
-         readings moved to diegetic rings above the plumber. -->
     <div class="crt crt-c">
       <div class="crt-cell clock">
         <div class="crt-clock" id="clock"><span id="val-clock">3:00</span></div>
@@ -74,10 +69,10 @@
 
   </div>
 
-  <!-- Frame-time overlay: shown only with ?perf=1 (src/ui/perf.js). Fixed inside
-     the safe area, above the HUD, pointer-events none. -->
+  <!-- Frame-time overlay: shown only with ?perf=1 -->
   <div id="perf" hidden></div>
 
+  <!-- ============ TUTORIAL CARDS ============ -->
   <div id="tutorial-overlay" class="tutorial-overlay" hidden>
     <section class="tutorial-card" aria-labelledby="tutorial-title" aria-describedby="tutorial-text">
       <canvas id="tutorial-art" width="360" height="260" aria-hidden="true"></canvas>
@@ -95,30 +90,19 @@
   </div>
 
   <!-- ============ TOUCH CONTROLS ============
-       The on-screen stick and two buttons, for phones and tablets. A sibling of
-       the HUD on purpose: the HUD is click-through, this layer is not. It is
-       hidden until touch mode is on and a run is being played.
-       Behaviour is in src/ui/touch.js. The buttons have no id because they are
-       found by data-touch, from one listener on #touch. -->
+       The on-screen stick and buttons, for mobile users. Hidden until touch mode is on and a run is being played. -->
   <div id="touch" hidden>
     <div id="touch-ring" hidden><div id="touch-knob"></div></div>
     <button type="button" data-touch="radar" aria-label="Radar">RADAR</button>
     <button type="button" data-touch="pause" aria-label="Pause"><i></i><i></i></button>
-    <!-- Beside the pause glyph. It acts on click, not pointerdown: the browser
-         only allows fullscreen from a completed tap. -->
     <button type="button" data-touch="fullscreen" aria-label="Fullscreen"><i></i></button>
   </div>
 
   <!-- ============ SCREENS ============
-       Overlay screens. Only one is visible at a time, and src/ui/dom.js
-       switches between them by adding or removing the hidden class.
-       The order of this list matches the run:
-         title -> binder -> (play) -> pause (binder) / floor clear / death / win -->
+       Overlay screens. Only one is visible at a time, and src/ui/dom.js 
+       switches between them by adding or removing the hidden class. -->
 
-  <!-- ------------ TITLE SCREEN ------------
-       The first thing the player sees. Behind the title are the rolling
-       floor plan and the water animation (see splash.css). The menu below the
-       title starts the run, or opens the field manual or the settings. -->
+  <!-- ------------ TITLE SCREEN ------------ -->
   <div id="screen-splash" class="screen splash">
     <div class="splash-plan"><canvas id="splash-plan"></canvas></div>
     <div class="splash-plan far"><canvas id="splash-plan-far"></canvas></div>
@@ -127,16 +111,18 @@
     <div class="splash-water"></div>
     <div class="splash-plate">
       <h1>LEAKROOMS</h1>
-      <h2>The Backrooms are flooding. <b>Seal the leaks</b>. Get back in one piece.</h2>
-      <!-- The title menu. Entries are bound by src/ui/buttons.js and moved with the arrow keys (src/ui/input.js). -->
-      <nav class="title-menu" aria-label="MAIN MENU">
-        <button type="button" id="menu-start" class="sel" data-menu="start">PLAY</button>
-        <button type="button" id="menu-manual" data-menu="manual">MANUAL</button>
-        <button type="button" id="menu-settings" data-menu="settings">SETTINGS</button>
-      </nav>
-      <p class="go kbd-only">&uarr;&darr; SELECT &middot; <b>ENTER</b> CONFIRM</p>
-      <p class="fs-hint touch-only" hidden><span>TIP: SHARE, THEN ADD TO HOME SCREEN, TO PLAY WITHOUT BROWSER BARS.</span><button type="button" id="btn-hint-title" aria-label="Dismiss tip">OK</button></p>
-    </div>
+      <h2>Backrooms are flooding. <b>Seal the leaks</b>. Don't get lost. <b>Or worse.</b></h3>
+        <!-- The title menu. Entries are bound by src/ui/buttons.js and moved with the arrow keys (src/ui/input.js). -->
+        <nav class="title-menu" aria-label="MAIN MENU">
+          <button type="button" id="menu-start" class="sel" data-menu="start">PLAY</button>
+          <button type="button" id="menu-manual" data-menu="manual">MANUAL</button>
+          <button type="button" id="menu-settings" data-menu="settings">SETTINGS</button>
+        </nav>
+        <p class="go kbd-only">&uarr;&darr; SELECT &middot; <b>ENTER</b> CONFIRM</p>
+        <p class="fs-hint touch-only" hidden><span>TIP: SHARE, THEN ADD TO HOME SCREEN, TO PLAY WITHOUT BROWSER BARS.</span><button type="button" id="btn-hint-title" aria-label="Dismiss tip">OK</button></p>
+      </div>
+
+    <!-- ============ FOOTER ============ -->
     <footer class="screen-footer">
       <p class="footer-left">
         <a href="https://github.com/glenacota/leakrooms" target="_blank" rel="noopener noreferrer" class="footer-link">
@@ -153,13 +139,10 @@
   </div>
 
   <!-- ------------ BINDER ------------
-       One screen for everything the player reads or sets outside a run. It has
-       two modes (data-binder-mode, written by src/ui/binder.js):
+       One screen for everything the player reads or sets outside a run. It has two modes:
          shift  before a run, opened from the title. Tabs: YOUR MISSION, FIELD MANUAL, SETTINGS.
                 Starting the run happens here.
-         pause  during a run (STATE 'pause'). Tabs: RUN, FIELD MANUAL, SETTINGS.
-       The work order is the job briefing and nothing else. How to play lives
-       in the field manual, which exists once and is shared by both modes. -->
+         pause  during a run (STATE 'pause'). Tabs: RUN, FIELD MANUAL, SETTINGS. -->
   <div id="screen-binder" class="screen hidden" data-binder-mode="shift">
     <div class="order-wrap">
       <div class="order perf binder">
@@ -178,16 +161,21 @@
               <h2>WORK ORDER 88D</h2>
               <p class="meta">CLIENT: <b>ASYNC</b> &middot; LOCATION: <b>BACKROOMS, SEC D/F01-05</b></p>
             </div>
-            <!-- <div class="field"><span>MAINTENANCE DIRECTIVE</span></div> -->
-            <div class="field"><b>Multiple pipe failures reported across the first five floors of Backrooms Sector D. Locate and seal all leaks before the assigned deadline.</b></div>
-            <div class="field"><span>WARNING</span></div>
-            <div class="field"><b>When the timer expires, exit doors seal permanently to contain the flood. Fail to escape in time, and you lose a life. If you have lives left, you can retry the floor.</b></div>
-            <div class="field"><span>HAZARD</span></div>
-            <div class="field"><b>Hostile lifeforms can hunt by sound and see you up close. Stay quiet, keep your distance.</b></div>
+            <div class="field">
+              <b>The crew must locate and seal all reported pipe failures across floors 01-05 of Sector D. 
+                Floor plans may have changed since the last inspection. Follow the water.</b>
+            </div>
+            <div class="field"><span>SAFETY MEASURES</span></div>
+            <div class="field">
+              <b># FLOOD-CONTAINMENT .... The exit door opens only when every floor leak is sealed</b> <br/>
+              <b># INSURANCE-COVERAGE ... Only one worker per floor at a time</b> <br/>
+              <b># AIRBORNE-HAZARD ...... Each worker receives a breathing unit with limited air supply</b> <br/>
+              <b># HOSTILE-ENTITIES ..... Reported throughout the sector. Drawn to sound, hunting by sight</b> <br/>
+            </div>
+            <div class="field"><span>CONTINUITY POLICY</span></div>
+            <div class="field"><b>Personnel fatalities do not suspend the assignment. <br/>The next available crew member must resume the work order.</b></div>
             <div class="field"><span>TERMS</span></div>
-            <!-- Terms are chosen here, before the run, and nowhere else, so a run
-                 keeps the same rules from its first frame to its last. The
-                 buttons are built by src/ui/settings-panel.js. -->
+            <!-- Terms are chosen here, before the run, and nowhere else, so a run keeps the same rules from its first frame to its last. -->
             <div class="terms">
               <div class="seg" id="set-difficulty" data-opt="difficulty" role="group" aria-label="TERMS"></div>
               <p class="note" id="note-difficulty"></p>
