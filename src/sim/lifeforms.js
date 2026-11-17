@@ -57,13 +57,9 @@ export function tickLifeforms(lifeformState, dt){
         const amb = (lifeformState.lightArr[pi] || 0) * (lifeformState.visArr[pi] || 0);
         if (amb > LIFEFORM.SIGHT_AMBIENT){
           seenBy = Math.max(seenBy, 1);
-          /* It sees you by the light you stand in. The sight check runs every
-             frame it has you in view, so the cue fires only on the transition
-             into HUNT; the re-target and t=0 stay per-frame, because that is
-             what keeps a sight-hunt tracking the player instead of a stale
-             position. The cue manager degrades repeats to an icon-only pulse. */
+          /* It sees you when nothing it's up close. */
           if (lf.born<=0 && lf.state!=='HUNT'){
-            emit(EVENT.flash, { cat: 'danger', text: 'IT SEES YOU' });
+            emit(EVENT.flash, { cat: 'danger', text: 'IT CAN SEE YOU! RUN! BREAK LINE OF SIGHT!' });
           }
           if (lf.born<=0){ lf.state='HUNT'; lf.target={x:p.x,y:p.y}; lf.t=0; }
         }

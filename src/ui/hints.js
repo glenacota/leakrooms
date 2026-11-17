@@ -14,7 +14,7 @@ let doorLast = -1e9;    // performance.now() of the last DOOR LOCKED cue
 export function tickLoudFlash(){
   if (!announced.has('LOUD') && G && G.selfNoise >= LOUD){
     announced.add('LOUD');
-    emit(EVENT.flash, { cat: 'danger', text: 'YOU ARE LOUD — SOMETHING CAN HEAR YOU' });
+    emit(EVENT.flash, { cat: 'danger', text: 'YOU ARE LOUD. SOMETHING UNWANTED MAY HEAR YOU' });
   }
 }
 
@@ -40,7 +40,7 @@ export function tickCues(){
     if (now - doorSince >= 800 && now - doorLast >= 20000){
       doorLast = now;
       emit(EVENT.flash, { cat: 'alert',
-              text: `DOOR LOCKED — ${G.openLeaks} LEAK${G.openLeaks === 1 ? '' : 'S'} OPEN` });
+              text: `EXIT LOCKED — ${G.openLeaks} OPEN LEAK${G.openLeaks === 1 ? '' : 'S'} OPEN` });
     }
   } else {
     doorSince = 0;
@@ -68,9 +68,9 @@ export function bindHints(){
     }
   });
   on(EVENT.heard, ({ to }) => {
-    const msg = to === 'RISING' ? 'SOMETHING WOKE UP'
-      : to === 'SEARCH' ? 'SOMETHING HEARD YOU'
-      : to === 'HUNT' ? "SOMETHING IT'S AFTER YOU"
+    const msg = to === 'RISING' ? "SOMETHING WOKE UP"
+      : to === 'SEARCH' ? "IT KNOWS THERE'S SOMEONE HERE"
+      : to === 'HUNT' ? "IT'S COMING AFTER YOU"
       : null;
     if (msg && !announced.has(to)){
       announced.add(to);
