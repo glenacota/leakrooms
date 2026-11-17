@@ -62,14 +62,14 @@ export function bindCards(){
     const sub = document.getElementById('dead-sub');
     const btn = document.getElementById('btn-retry');
     if (lives > 0){
-      if (cause === DEATH_CAUSE.CAUGHT) title.textContent = 'CAUGHT';
-      else if (cause === DEATH_CAUSE.CLOCK) title.textContent = "TIME'S UP";
-      btn.textContent = 'TRY AGAIN';
-      sub.textContent = `${lives} LIVES LEFT • SEALED LEAKS STAY SEALED`;
+      if (cause === DEATH_CAUSE.CAUGHT) title.textContent = 'FATALITY RECORDED';
+      else if (cause === DEATH_CAUSE.CLOCK) title.textContent = "AIR RESERVE DEPLETED";
+      btn.textContent = 'SEND NEXT CREW MEMBER';
+      sub.textContent = `CREW REMAINING: ${lives} • SEALED LEAKS STAY SEALED`;
     } else {
       title.textContent = 'SHIFT OVER';
       btn.textContent = 'START OVER';
-      sub.textContent = 'OUT OF LIVES';
+      sub.textContent = 'CREW DECIMATED - NO ONE LEFT TO SEND';
     }
   });
   on(EVENT.win, report => {
