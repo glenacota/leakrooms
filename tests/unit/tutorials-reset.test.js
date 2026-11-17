@@ -30,7 +30,7 @@ test('settings reset persists and completed tutorials reappear only on their tri
   assert.equal(els['tutorial-overlay'].hidden, true);
   emit('sprint', 0);
   tickTutorials();
-  assert.equal(els['tutorial-title'].textContent, 'Running has a cost');
+  assert.equal(els['tutorial-title'].textContent, 'Save your legs');
   press('Enter');
   assert.deepEqual(JSON.parse(store.get(historyKey)), ['sprint']);
 });
@@ -42,7 +42,7 @@ test('reset while paused discards current and queued cards without restarting', 
   G.radar = true;
   emit('sprint', 0);
   tickTutorials();
-  assert.equal(els['tutorial-title'].textContent, 'Running has a cost');
+  assert.equal(els['tutorial-title'].textContent, 'Save your legs');
   G.radar = false;
   press('Escape');
   assert.equal(STATE, 'pause');
@@ -54,7 +54,7 @@ test('reset while paused discards current and queued cards without restarting', 
   assert.equal(els['tutorial-overlay'].hidden, true);
   emit('sprint', 0);
   tickTutorials();
-  assert.equal(els['tutorial-title'].textContent, 'Running has a cost');
+  assert.equal(els['tutorial-title'].textContent, 'Save your legs');
   press('Enter');
   assert.equal(els['tutorial-overlay'].hidden, true);
 });
@@ -89,7 +89,7 @@ test('reset leaves disabled setting and flashnote history intact', () => {
     G.radar = false;
     emit('sprint', 0);
     tickTutorials();
-    assert.equal(els['tutorial-title'].textContent, 'Running has a cost');
+    assert.equal(els['tutorial-title'].textContent, 'Save your legs');
     press('Enter');
   } finally {
     unsubscribe();
@@ -103,7 +103,7 @@ test('storage failure reports an error and preserves history and pending card', 
   quietFloor();
   G.radar = true;
   tickTutorials();
-  assert.equal(els['tutorial-title'].textContent, 'Radar has a cost');
+  assert.equal(els['tutorial-title'].textContent, 'Use the radar sparingly');
   press('Escape');
   const before = store.get(historyKey);
   const original = global.localStorage;
@@ -122,7 +122,7 @@ test('storage failure reports an error and preserves history and pending card', 
   }
   press('Escape');
   assert.equal(els['tutorial-overlay'].hidden, false);
-  assert.equal(els['tutorial-title'].textContent, 'Radar has a cost');
+  assert.equal(els['tutorial-title'].textContent, 'Use the radar sparingly');
   press('Enter');
   assert.deepEqual(JSON.parse(store.get(historyKey)), ['sprint', 'radar']);
 });

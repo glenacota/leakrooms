@@ -35,12 +35,12 @@ test('tutorials allow input, queue and persist only after dismissal', () => {
   assert.equal(STATE, 'play');
   assert.equal(keys.d, true, 'opening a tutorial does not release movement');
   assert.equal(els['tutorial-overlay'].hidden, false);
-  assert.equal(els['tutorial-title'].textContent, 'Running has a cost');
+  assert.equal(els['tutorial-title'].textContent, 'Save your legs');
   assert.equal(store.has(historyKey), false);
 
   dismissTutorial();
   assert.equal(STATE, 'play', 'queued radar leaves the simulation running');
-  assert.equal(els['tutorial-title'].textContent, 'Radar has a cost');
+  assert.equal(els['tutorial-title'].textContent, 'Use the radar sparingly');
   assert.deepEqual(JSON.parse(store.get(historyKey)), ['sprint']);
   press('Enter');
   assert.equal(STATE, 'play');

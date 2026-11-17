@@ -58,10 +58,10 @@ test('water queues behind a card and pending cards are discarded on floor rebuil
   freshRun();
   emit('sprint');
   tickTutorials();
-  assert.equal(els['tutorial-title'].textContent, 'Running has a cost');
+  assert.equal(els['tutorial-title'].textContent, 'Save your legs');
   G.time = 3;
   tickTutorials();
-  assert.equal(els['tutorial-title'].textContent, 'Running has a cost');
+  assert.equal(els['tutorial-title'].textContent, 'Save your legs');
   dismissTutorial();
   assert.equal(els['tutorial-title'].textContent, 'How to find a leak');
   transition('dead');
@@ -92,7 +92,7 @@ test('disabled cards use the timed guide and enabling or resetting uses elapsed 
     assert.deepEqual(cues, []);
     G.time = 3;
     tickTutorials();
-    assert.deepEqual(cues, ['FOLLOW THE WET FLOOR TO FIND A LEAK']);
+    assert.deepEqual(cues, ['FOLLOW THE WET CARPET TO FIND A LEAK']);
     tickTutorials();
     assert.equal(cues.length, 1);
     setOption('tutorials', true);

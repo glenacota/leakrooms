@@ -28,7 +28,7 @@ test('disabling tutorials in settings clears pending cards without completing th
   G.radar = true;
   emit('sprint', 0);
   tickTutorials();
-  assert.equal(els['tutorial-title'].textContent, 'Running has a cost');
+  assert.equal(els['tutorial-title'].textContent, 'Save your legs');
   press('Escape');
   assert.equal(STATE, 'pause');
   setOption('tutorials', false);
@@ -48,7 +48,7 @@ test('disabling tutorials in settings clears pending cards without completing th
   setOption('tutorials', true);
   tickTutorials();
   assert.equal(STATE, 'play');
-  assert.equal(els['tutorial-title'].textContent, 'Radar has a cost');
+  assert.equal(els['tutorial-title'].textContent, 'Use the radar sparingly');
   press('Enter');
   assert.deepEqual(JSON.parse(store.get(historyKey)), ['radar']);
 });

@@ -29,7 +29,7 @@ test('active countdown freezes on pause and interaction, then advances the queue
   tickTutorials();
   assert.equal(STATE, 'play');
   assert.equal(els['tutorial-countdown'].textContent, '[9s]');
-  assert.equal(els['tutorial-title'].textContent, 'Running has a cost');
+  assert.equal(els['tutorial-title'].textContent, 'Save your legs');
 
   emit('sprint', 0);
   tickTutorials(2);
@@ -57,10 +57,10 @@ test('active countdown freezes on pause and interaction, then advances the queue
   assert.equal(store.has(historyKey), false);
   tickTutorials(0.01);
   assert.deepEqual(JSON.parse(store.get(historyKey)), ['sprint']);
-  assert.equal(els['tutorial-title'].textContent, 'Radar has a cost');
+  assert.equal(els['tutorial-title'].textContent, 'Use the radar sparingly');
   assert.equal(els['tutorial-countdown'].textContent, '[9s]');
   press('Enter', { repeat:true });
-  assert.equal(els['tutorial-title'].textContent, 'Radar has a cost');
+  assert.equal(els['tutorial-title'].textContent, 'Use the radar sparingly');
   els['tutorial-overlay']._fire('pointerenter', { pointerType:'touch' });
   tickTutorials(1);
   assert.equal(els['tutorial-countdown'].textContent, '[8s]');
