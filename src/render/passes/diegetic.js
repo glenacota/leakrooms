@@ -19,7 +19,7 @@ import { G } from '../../sim/state.js';
 import { simAlpha } from './actors.js';
 import { ctx, SCALE } from '../canvas.js';
 import { TAU } from '../../cast/primitives.js';
-import { SPRINT_STAMINA, TILE } from '../../config/constants.js';
+import { SPRINT_STAMINA_SECONDS, TILE_SIZE_PX } from '../../config/constants.js';
 import { drawBatteryMeter } from '../battery-meter.js';
 import { drawStaminaMeter } from '../stamina-meter.js';
 
@@ -68,7 +68,7 @@ export function diegetic(rc){
   const radar = !!G.radar;
   const pulse = (G.battPulseT || 0) > 0;
   const stamina = G.plumber.stamina;
-  const showStamina = stamina < SPRINT_STAMINA;
+  const showStamina = stamina < SPRINT_STAMINA_SECONDS;
 
   battAlpha = fade(battAlpha, radar || pulse, rc.dt);
   staminaAlpha = fade(staminaAlpha, showStamina, rc.dt);
@@ -84,8 +84,8 @@ export function diegetic(rc){
   const px = p.px + (p.x - p.px)*al;
   const py = p.py + (p.y - p.py)*al;
 
-  const by = (py - BATT_Y)*TILE;
-  const bx = (px + SIDE)*TILE;
+  const by = (py - BATT_Y)*TILE_SIZE_PX;
+  const bx = (px + SIDE)*TILE_SIZE_PX;
 
   ctx.save();
   /* The pass runs after post(), which leaves the context in device space, so
@@ -99,7 +99,7 @@ export function diegetic(rc){
   }
   if (staminaAlpha > 0){
     ctx.globalAlpha = staminaAlpha * HUD_OPACITY;
-    drawStaminaMeter(ctx, (px - SIDE)*TILE, by, stamina);
+    drawStaminaMeter(ctx, (px - SIDE)*TILE_SIZE_PX, by, stamina);
   }
   ctx.restore();
 }

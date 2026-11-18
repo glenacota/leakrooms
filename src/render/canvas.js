@@ -1,9 +1,9 @@
 import { emit, EVENT } from '../util/events.js';
-import { RENDER_SCALES, VIEW_T, TILE, VIEW_ROWS_MIN } from '../config/constants.js';
+import { RENDER_SCALES, VIEWPORT_WIDTH_TILES, TILE_SIZE_PX, VIEWPORT_MIN_ROWS } from '../config/constants.js';
 
 /**
  * The CSS pixels per world pixel that fit the viewport: wide enough to show
- * VIEW_T tiles across, and tall enough to show VIEW_ROWS_MIN rows. The width
+ * VIEWPORT_WIDTH_TILES tiles across, and tall enough to show VIEWPORT_MIN_ROWS rows. The width
  * cap wins on a normal 16:9 screen; only a screen wider than 27:12 is limited
  * by the row floor instead. Pure: no DOM, no state, just the two numbers.
  *
@@ -12,7 +12,7 @@ import { RENDER_SCALES, VIEW_T, TILE, VIEW_ROWS_MIN } from '../config/constants.
  * @returns {number} CSS pixels per world pixel
  */
 export function viewScale(w, h){
-  return Math.min(w / (VIEW_T * TILE), h / (VIEW_ROWS_MIN * TILE));
+  return Math.min(w / (VIEWPORT_WIDTH_TILES * TILE_SIZE_PX), h / (VIEWPORT_MIN_ROWS * TILE_SIZE_PX));
 }
 
 /* ---------- The main canvas ---------- */

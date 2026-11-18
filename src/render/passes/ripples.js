@@ -23,7 +23,7 @@
 import { G } from '../../sim/state.js';
 import { simAlpha } from './actors.js';
 import { ctx, SCALE } from '../canvas.js';
-import { NOISE_FS, TILE } from '../../config/constants.js';
+import { NOISE_FULL_SCALE, TILE_SIZE_PX } from '../../config/constants.js';
 import { on, EVENT } from '../../util/events.js';
 import { drawNoiseGlow, drawNoiseRipple } from '../noise-visuals.js';
 import { glowAlpha, glowKick, glowRadius, glowRgb, glowStops, isRedRing, ringAlpha, ringLife, ringRadius, spawnGap } from '../ripple-math.js';
@@ -77,8 +77,8 @@ on(EVENT.floorBuilt, resetRipples);
 
 /* Draws the glow around the plumber at (x, y), in world pixels. */
 function glow(x, y){
-  const R = glowRadius(level)*TILE;
-  const [r, g, b] = glowRgb(level*NOISE_FS);
+  const R = glowRadius(level)*TILE_SIZE_PX;
+  const [r, g, b] = glowRgb(level*NOISE_FULL_SCALE);
   const kick = glowKick(gapT);
   drawNoiseGlow(ctx, x, y, R, [r, g, b], presence*glowAlpha(level, kick), glowStops(glowRadius(level)));
 }
@@ -88,7 +88,7 @@ function glow(x, y){
    plumber as they are now, not where the ring was made. */
 function drawRing(r, x, y){
   const radius = ringRadius(r.n, r.age);
-  drawNoiseRipple(ctx, x, y, radius*TILE, ringAlpha(r.n, r.age), r.age, ringLife(r.n), isRedRing(radius));
+  drawNoiseRipple(ctx, x, y, radius*TILE_SIZE_PX, ringAlpha(r.n, r.age), r.age, ringLife(r.n), isRedRing(radius));
 }
 
 /**
@@ -104,7 +104,7 @@ export function ripples(rc){
   const noise = G.selfNoise || 0;
   const dt = rc.dt;
   presence = fade(presence, noise > NOISE_FLOOR, dt);
-  level += (clamp(noise/NOISE_FS, 0, 1) - level)*(1 - Math.exp(-dt/LEVEL_EASE));
+  level += (clamp(noise/NOISE_FULL_SCALE, 0, 1) - level)*(1 - Math.exp(-dt/LEVEL_EASE));
 
   /* The same smoothed position the battery ring uses, so the glow and rings sit
      under the figure you see and not one tick behind it. */
@@ -137,7 +137,7 @@ export function ripples(rc){
   ctx.translate(rc.tx, rc.ty);
   ctx.globalCompositeOperation = 'source-over';
   ctx.lineCap = 'round';
-  if (presence > 0) glow(px*TILE, py*TILE);
-  for (const r of rings) drawRing(r, px*TILE, py*TILE);
+  if (presence > 0) glow(px*TILE_SIZE_PX, py*TILE_SIZE_PX);
+  for (const r of rings) drawRing(r, px*TILE_SIZE_PX, py*TILE_SIZE_PX);
   ctx.restore();
 }

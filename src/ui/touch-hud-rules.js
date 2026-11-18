@@ -6,7 +6,7 @@
    read, no game state import. The caller passes time in, and builds the
    snapshot (buildHudSnap below).
    ============================================================ */
-import { BATT_LOW, LOUD } from '../config/constants.js';
+import { BATTERY_LOW_CHARGE, LOUD } from '../config/constants.js';
 
 /* The tunables, in one place. Times are milliseconds. */
 export const HUD_RULES = {
@@ -45,7 +45,7 @@ export function buildHudSnap(G, livesLeft, nowMs){
     noise: G.selfNoise,
     loud: G.selfNoise >= LOUD,
     battery: G.batt,
-    batteryLow: G.batt <= BATT_LOW,
+    batteryLow: G.batt <= BATTERY_LOW_CHARGE,
     radarOn: !!G.radar,
     clockSeconds: G.clock,
     lives: livesLeft,

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { loadGame } from '../helpers/harness.js';
-import { MAP_W, SPRINT_STAMINA } from '../../src/config/constants.js';
+import { MAP_WIDTH_TILES, SPRINT_STAMINA_SECONDS } from '../../src/config/constants.js';
 import { startRun, transition, STATE } from '../../src/game/run.js';
 import { cam } from '../../src/render/render.js';
 import { resetSettings, setOption } from '../../src/settings/store.js';
@@ -63,7 +63,7 @@ test('tutorials allow input, queue and persist only after dismissal', () => {
 test('hidden lifeforms do not reveal themselves through a tutorial', () => {
   startRun();
   quietFloor();
-  const x = Math.floor(cam.x), y = Math.floor(cam.y), i = y*MAP_W+x;
+  const x = Math.floor(cam.x), y = Math.floor(cam.y), i = y*MAP_WIDTH_TILES+x;
   G.lifeforms = [{ x:x+0.5, y:y+0.5, state:'DORMANT', rise:0 }];
   G.maskArr[i] = 1;
   tickTutorials();
@@ -84,7 +84,7 @@ test('hidden lifeforms do not reveal themselves through a tutorial', () => {
 test('timed water and an open leak queue in order', () => {
   startRun();
   quietFloor();
-  const x = Math.floor(cam.x), y = Math.floor(cam.y), i = y*MAP_W+x;
+  const x = Math.floor(cam.x), y = Math.floor(cam.y), i = y*MAP_WIDTH_TILES+x;
   G.maskArr[i] = G.lightArr[i] = 1;
   G.wetArr[i] = 1;
   G.leaks = [{ x, y, fixed:false }];
@@ -135,7 +135,7 @@ test('the sprint event is emitted only while stamina is consumed', () => {
     G.plumber.stamina = 0;
     A.update(1/60);
     assert.equal(count, 0);
-    G.plumber.stamina = SPRINT_STAMINA;
+    G.plumber.stamina = SPRINT_STAMINA_SECONDS;
     A.update(1/60);
     assert.equal(count, 1);
   } finally {

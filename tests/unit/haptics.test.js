@@ -86,7 +86,7 @@ test('[HAPTICS] the heard event buzzes for HUNT and SEARCH only, 25 ms', () => {
     emit('heard', { from: 'DORMANT', to: 'RISING', dist: 10 });
     emit('heard', { from: 'RISING', to: 'SEARCH', dist: 5 });
     emit('heard', { from: 'SEARCH', to: 'HUNT', dist: 2 });
-    emit('heard', { from: 'HUNT', to: 'WALK', dist: 20 });
+    emit('heard', { from: 'HUNT', to: 'WALK_SPEED_TILES_PER_SECOND', dist: 20 });
     assert.deepEqual(log, [25, 25], 'only HUNT and SEARCH buzz on heard');
   });
 });

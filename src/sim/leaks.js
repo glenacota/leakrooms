@@ -1,4 +1,4 @@
-import { LEAK_NOISE_BASE, LEAK_NOISE_GAIN, LOUD, MAP_W, REPAIR_NOISE, REPAIR_REACH } from '../config/constants.js';
+import { LEAK_NOISE_BASE, LEAK_NOISE_GAIN, LOUD, MAP_WIDTH_TILES, REPAIR_NOISE, REPAIR_REACH } from '../config/constants.js';
 import { REPAIR_TIME } from '../config/tuning.js';
 import { emit, EVENT } from '../util/events.js';
 import { sustainedNoise } from './noise.js';
@@ -26,7 +26,7 @@ export function hasOpenLeaks(state){
 
 /** Returns the standing tile indices of open leaks, in leak order. */
 export function openLeakSpots(state){
-  return state.leaks.filter(L => !L.fixed).map(L => L.sy*MAP_W + L.sx);
+  return state.leaks.filter(L => !L.fixed).map(L => L.sy*MAP_WIDTH_TILES + L.sx);
 }
 
 /** Returns the first open leak strictly within range of its standing spot. */

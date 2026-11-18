@@ -28,7 +28,7 @@ export function spawnLifeforms(level, rng){
     lifeformRooms.add(far);
     lifeforms.push({
       x: far.rx+far.rw/2, y: far.ry+far.rh/2,
-      state:'WALK', t:0, rise:0, target:null,
+      state:'WALK_SPEED_TILES_PER_SECOND', t:0, rise:0, target:null,
       // The opening direction is hashed from the room, so it depends only on the level. Math.random() would make it impossible to reproduce from the seed.
       face: hash2(far.rx, far.ry)*6.28,
       born:3.5,

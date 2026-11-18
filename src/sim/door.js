@@ -1,4 +1,4 @@
-import { DOOR_AJAR, DOOR_EASE, DOOR_HOLD, DOOR_NOISE } from '../config/constants.js';
+import { DOOR_AJAR_FRACTION, DOOR_SWING_EASE, DOOR_HOLD_SEC, DOOR_NOISE } from '../config/constants.js';
 import { emit, EVENT } from '../util/events.js';
 import { hasOpenLeaks } from './leaks.js';
 import { sustainedNoise } from './noise.js';
@@ -14,7 +14,7 @@ import { sustainedNoise } from './noise.js';
  */
 
 /**
- * The exit door. Once every leak is sealed, standing at the door for DOOR_HOLD
+ * The exit door. Once every leak is sealed, standing at the door for DOOR_HOLD_SEC
  * cycles it open and moves to the next floor. Stepping away drains the
  * progress quickly, so committing to the door is a real decision. With the clock
  * running it is also the last decision of the level.
@@ -40,7 +40,7 @@ export function tickDoor(doorState, dt){
       if (doorState.descend===0) emit(EVENT.sfx, 'door', DOOR_NOISE);
       doorState.descend += dt;
       sustainedNoise(doorState, DOOR_NOISE, p.x, p.y, true);
-      if (doorState.descend>=DOOR_HOLD){ emit(EVENT.doorCycled); return false; }
+      if (doorState.descend>=DOOR_HOLD_SEC){ emit(EVENT.doorCycled); return false; }
     } else {
       doorState.descend = Math.max(0, doorState.descend - dt*2.5);
     }
@@ -53,16 +53,16 @@ export function tickDoor(doorState, dt){
 
   /* The door leaf. Where it swings to depends on the state:
        leaks open      shut (0)
-       all sealed      ajar (DOOR_AJAR), so READY reads from across the room
+       all sealed      ajar (DOOR_AJAR_FRACTION), so READY reads from across the room
        at the door     follows the hold progress up to fully open
      It eases toward that target, because a leaf that jumps between positions is
      an animation, and this is a door. This runs even on the frame that cycles
      the door only if the code above did not return first, which is correct: the
      floor is being torn down, not drawn once more. */
   const swing = leakDone
-    ? (onExit ? DOOR_AJAR + (1-DOOR_AJAR)*(doorState.descend/DOOR_HOLD) : DOOR_AJAR)
+    ? (onExit ? DOOR_AJAR_FRACTION + (1-DOOR_AJAR_FRACTION)*(doorState.descend/DOOR_HOLD_SEC) : DOOR_AJAR_FRACTION)
     : 0;
   for (const e of doorState.exitTiles)
-    e.open += (swing - e.open) * Math.min(1, dt*DOOR_EASE);
+    e.open += (swing - e.open) * Math.min(1, dt*DOOR_SWING_EASE);
   return true;
 }

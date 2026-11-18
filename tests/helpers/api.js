@@ -49,7 +49,7 @@ import { paintSplashPlan } from '../../src/render/splash-plan.js';
 import { render } from '../../src/render/render.js';
 import { SETTINGS, loadSettings, saveSettings, resetSettings, setOption } from '../../src/settings/store.js';
 import * as _C from '../../src/config/constants.js';
-const { BRUSH_NOISE, DARK_ROOM, DOOR_NOISE, HAND_OFF, HOP_FALL, LEAK_HEADSTART, LEAK_LURE, LEAK_NOISE_BASE, LEAK_NOISE_GAIN, LEAK_RETREAT, LEAK_SPREAD, LOUD, NOISE, NOISE_FS, SOUND_POWERS, LEAK_GAP, RADAR_DRAIN, REPAIR_NOISE, REPAIR_REACH, SPRINT, SPRINT_NOISE, TILE, VIEW_FADE_FAR, VIEW_FADE_NEAR, VIEW_HALF, VIEW_RANGE, WALK, WET_DRAW, WET_FALL, WET_RISE, FLOOR } = _C;
+const { BRUSH_NOISE, DARK_ROOM, DOOR_NOISE, RADAR_HAND_OFF_TILES, ROOM_SCOPE_FALLOFF, LEAK_HEADSTART, LEAK_LURE, LEAK_NOISE_BASE, LEAK_NOISE_GAIN, LEAK_RETREAT_SECONDS_PER_TILE, LEAK_SPREAD_SECONDS_PER_TILE, LOUD, NOISE, NOISE_FULL_SCALE, SOUND_POWERS, LEAK_GAP, RADAR_DRAIN_CHARGE_PER_SECOND, REPAIR_NOISE, REPAIR_REACH, SPRINT_SPEED_TILES_PER_SECOND, SPRINT_NOISE, TILE_SIZE_PX, VIEW_FADE_FAR, VIEW_FADE_NEAR, VIEW_HALF, VIEW_RANGE, WALK_SPEED_TILES_PER_SECOND, WET_DRAW, WET_TILE_FALL_SECONDS, WET_TILE_RISE_SECONDS, FLOOR } = _C;
 
 /* The packers are internal to the surfaces. A test marks a layer dirty and runs the one sync. */
 /* Packs one layer and leaves the other layer's pending flag as it was. */
@@ -82,12 +82,12 @@ get internals(){ return {
   cvs, ctxRef: ctx, SCALE
 }; },
 get DARK_ROOM(){ return DARK_ROOM; },
-get HOP_FALL(){ return HOP_FALL; },
+get ROOM_SCOPE_FALLOFF(){ return ROOM_SCOPE_FALLOFF; },
 get VIEW_FADE_NEAR(){ return VIEW_FADE_NEAR; },
 get VIEW_FADE_FAR(){ return VIEW_FADE_FAR; },
 get VIEW_HALF(){ return VIEW_HALF; },
 get VIEW_RANGE(){ return VIEW_RANGE; },
-get RADAR_DRAIN(){ return RADAR_DRAIN; },
+get RADAR_DRAIN_CHARGE_PER_SECOND(){ return RADAR_DRAIN_CHARGE_PER_SECOND; },
 buildFloor, genLevel, render, emitNoise, drawPlumber,
 frame,
 updateReal: (dt) => { return update(G, dt); },
@@ -120,21 +120,21 @@ get STATE(){ return STATE; },
 set STATE(v){ setState(v); },
 get floorIdx(){ return floorIdx; }, set floorIdx(v){ setFloorIdx(v); },
 get keys(){ return keys; },
-get HAND_OFF(){ return HAND_OFF; }, drawLifeform,
+get RADAR_HAND_OFF_TILES(){ return RADAR_HAND_OFF_TILES; }, drawLifeform,
 get cvs(){ return cvs; }, get ctxRef(){ return ctx; }, get SCALE(){ return SCALE; }, viewScale,
-get TILE(){ return TILE; },
+get TILE_SIZE_PX(){ return TILE_SIZE_PX; },
 get WET_DRAW(){ return WET_DRAW; },
 get LOUD(){ return LOUD; },
   /* The whole noise table, so a test can assert on the contract as a whole
      instead of naming four constants and hoping the rest are covered. */
   NOISE,
   SOUND_POWERS,
-get NOISE_FS(){ return NOISE_FS; },
+get NOISE_FULL_SCALE(){ return NOISE_FULL_SCALE; },
 get DOOR_NOISE(){ return DOOR_NOISE; },
 get BRUSH_NOISE(){ return BRUSH_NOISE; },
 updateHUD, HUD,
 LEVELS, LEVELS_N, get FLOOR_CLOCK(){ return FLOOR_CLOCK; },
-get WET_FALL(){ return WET_FALL; },
+get WET_TILE_FALL_SECONDS(){ return WET_TILE_FALL_SECONDS; },
 get LEAK_HEADSTART(){ return LEAK_HEADSTART; },
 get LEAK_GAP(){ return LEAK_GAP; },
 get FLOOR(){ return FLOOR; },
@@ -144,11 +144,11 @@ get REPAIR_NOISE(){ return REPAIR_NOISE; },
 get SPRINT_NOISE(){ return SPRINT_NOISE; },
 get LEAK_NOISE_BASE(){ return LEAK_NOISE_BASE; },
 get LEAK_NOISE_GAIN(){ return LEAK_NOISE_GAIN; },
-get LEAK_SPREAD(){ return LEAK_SPREAD; },
-get LEAK_RETREAT(){ return LEAK_RETREAT; },
-get WET_RISE(){ return WET_RISE; },
+get LEAK_SPREAD_SECONDS_PER_TILE(){ return LEAK_SPREAD_SECONDS_PER_TILE; },
+get LEAK_RETREAT_SECONDS_PER_TILE(){ return LEAK_RETREAT_SECONDS_PER_TILE; },
+get WET_TILE_RISE_SECONDS(){ return WET_TILE_RISE_SECONDS; },
 get LEAK_LURE(){ return LEAK_LURE; },
-get WALK(){ return WALK; }, get SPRINT(){ return SPRINT; },
+get WALK_SPEED_TILES_PER_SECOND(){ return WALK_SPEED_TILES_PER_SECOND; }, get SPRINT_SPEED_TILES_PER_SECOND(){ return SPRINT_SPEED_TILES_PER_SECOND; },
 paintSplashPlan, rollRunSeed, get RUN_SEED(){ return RUN_SEED; },
 set RUN_SEED(v){ setRunSeed(v); },
 mulberry32, seedSplash,

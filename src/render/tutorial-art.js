@@ -1,6 +1,6 @@
 import { drawLifeform } from '../cast/lifeform.js';
 import { drawPlumber } from '../cast/plumber.js';
-import { MAP_H, MAP_W, SPRINT_STAMINA, TILE, WET_DRAW } from '../config/constants.js';
+import { MAP_HEIGHT_TILES, MAP_WIDTH_TILES, SPRINT_STAMINA_SECONDS, TILE_SIZE_PX, WET_DRAW } from '../config/constants.js';
 import { WATER_TINTS } from '../config/presets.js';
 import { clockText } from '../game/run.js';
 import { SETTINGS } from '../settings/store.js';
@@ -14,7 +14,7 @@ import { drawStaminaMeter } from './stamina-meter.js';
 function plumber(g, x, y){
   g.save();
   g.translate(x, y);
-  drawPlumber(g, { T: TILE*2, phase: 0.25, gait: 0.6, t: 0, wave: 0 });
+  drawPlumber(g, { T: TILE_SIZE_PX*2, phase: 0.25, gait: 0.6, t: 0, wave: 0 });
   g.restore();
 }
 
@@ -58,7 +58,7 @@ export function paintTutorial(canvas, id){
     g.save();
     g.translate(w*0.72, h*0.54);
     g.scale(2.4, 2.4);
-    if (id === 'sprint') drawStaminaMeter(g, -70, 0, SPRINT_STAMINA*0.6);
+    if (id === 'sprint') drawStaminaMeter(g, -70, 0, SPRINT_STAMINA_SECONDS*0.6);
     else drawBatteryMeter(g, 0, 0, 70, true, -Math.PI/3);
     g.restore();
   } else if (id === 'lifeform'){
@@ -69,7 +69,7 @@ export function paintTutorial(canvas, id){
     g.restore();
     g.save();
     g.translate(w*0.75, h*0.67);
-    drawLifeform(g, { T: TILE*2, h: 1, phase: 0.3, gait: 1, t: 0, danger: 1 });
+    drawLifeform(g, { T: TILE_SIZE_PX*2, h: 1, phase: 0.3, gait: 1, t: 0, danger: 1 });
     g.restore();
     g.font = 'bold 18px Courier New, monospace';
     g.textAlign = 'center';
@@ -95,10 +95,10 @@ export function paintTutorial(canvas, id){
       }
       if (deepest >= 0){
         syncSurfaces(G);
-        const x = Math.max(0, Math.min(MAP_W-5, deepest%MAP_W-2));
-        const y = Math.max(0, Math.min(MAP_H-3, Math.floor(deepest/MAP_W)-1));
+        const x = Math.max(0, Math.min(MAP_WIDTH_TILES-5, deepest%MAP_WIDTH_TILES-2));
+        const y = Math.max(0, Math.min(MAP_HEIGHT_TILES-3, Math.floor(deepest/MAP_WIDTH_TILES)-1));
         g.imageSmoothingEnabled = true;
-        g.drawImage(surfaces.tiles, x*TILE, y*TILE, 5*TILE, 3*TILE, 0, 0, w, h);
+        g.drawImage(surfaces.tiles, x*TILE_SIZE_PX, y*TILE_SIZE_PX, 5*TILE_SIZE_PX, 3*TILE_SIZE_PX, 0, 0, w, h);
         g.drawImage(surfaces.wet, x, y, 5, 3, 0, 0, w, h);
       }
       plumber(g, w*0.28, h*0.62);

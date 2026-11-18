@@ -3,13 +3,13 @@
    Each lifeform is a small state machine (lf.state):
      DORMANT  lies still on the carpet; wakes only to a LOUD noise
      RISING   getting up after waking (about 1.4 s), then it hunts
-     WALK     wanders the floor; a noise turns it to SEARCH, a loud one to HUNT
-     SEARCH   walks to the place it heard something; times out to WALK
+     WALK_SPEED_TILES_PER_SECOND     wanders the floor; a noise turns it to SEARCH, a loud one to HUNT
+     SEARCH   walks to the place it heard something; times out to WALK_SPEED_TILES_PER_SECOND
      HUNT     chases its target at HUNT_BASE per floor
    Noise reactions are in noise.js (alert).
    ============================================================ */
 
-import { LIFEFORM, CATCH_R, LEAK_LURE, MAP_W } from '../config/constants.js';
+import { LIFEFORM, CATCH_RADIUS_TILES, LEAK_LURE, MAP_WIDTH_TILES } from '../config/constants.js';
 import { HUNT_BASE } from '../config/tuning.js';
 import { emit, EVENT } from '../util/events.js';
 import { createCollision } from './collision.js';
@@ -53,7 +53,7 @@ export function tickLifeforms(lifeformState, dt){
         /* It sees you by the light you stand in, which is the bake times the
            room visibility. Using the bake alone would let it see you in a room
            whose lights are, as far as the screen shows, off. */
-        const pi = Math.floor(p.y)*MAP_W+Math.floor(p.x);
+        const pi = Math.floor(p.y)*MAP_WIDTH_TILES+Math.floor(p.x);
         const amb = (lifeformState.lightArr[pi] || 0) * (lifeformState.visArr[pi] || 0);
         if (amb > LIFEFORM.SIGHT_AMBIENT){
           seenBy = Math.max(seenBy, 1);
@@ -92,7 +92,7 @@ export function updateLifeform(lifeformState, lf, dt, p){
     return;
   }
 
-  if (lf.state==='WALK'){
+  if (lf.state==='WALK_SPEED_TILES_PER_SECOND'){
     lf.rise = Math.min(1, lf.rise + dt/1.0);
     if (!lf.target || Math.hypot(lf.x-lf.target.x, lf.y-lf.target.y)<0.5 || lf.t<=0){
       lf.target = randomFloorNear(lifeformState, lf.x,lf.y, 14, blocked);
@@ -103,7 +103,7 @@ export function updateLifeform(lifeformState, lf, dt, p){
     const ang = Math.atan2(lf.target.y-lf.y, lf.target.x-lf.x);
     lf.face = ang;
     moveEnt(lf, Math.cos(ang)*spd*dt, Math.sin(ang)*spd*dt, LIFEFORM.RADIUS);
-    if (Math.hypot(lf.x-p.x, lf.y-p.y) < CATCH_R) brush(lf, p, lifeformState);
+    if (Math.hypot(lf.x-p.x, lf.y-p.y) < CATCH_RADIUS_TILES) brush(lf, p, lifeformState);
     return;
   }
 
@@ -132,7 +132,7 @@ export function updateLifeform(lifeformState, lf, dt, p){
       lf.t -= dt;
       steerToward(lifeformState, lf, tgt, spd, dt, { sidestep: true });
     }
-    if (Math.hypot(lf.x-p.x,lf.y-p.y) < CATCH_R) brush(lf, p, lifeformState);
+    if (Math.hypot(lf.x-p.x,lf.y-p.y) < CATCH_RADIUS_TILES) brush(lf, p, lifeformState);
     // After about 8 seconds with nothing new to chase, give up and search nearby
     if (lf.t < -8){ lf.state='SEARCH'; lf.t=6; lf.target=randomFloorNear(lifeformState, lf.x,lf.y,9, blocked); lf.hold=0; lf.holdDone=false; }
     return;
@@ -166,9 +166,9 @@ export function updateLifeform(lifeformState, lf, dt, p){
     /* Move toward target: straight line if LOS, else follow distance field. */
     const spd = LIFEFORM.SEARCH_SPEED;
     steerToward(lifeformState, lf, lf.target, spd, dt, { sidestep: false });
-    if (Math.hypot(lf.x-p.x,lf.y-p.y) < CATCH_R) brush(lf, p, lifeformState);
+    if (Math.hypot(lf.x-p.x,lf.y-p.y) < CATCH_RADIUS_TILES) brush(lf, p, lifeformState);
     if (lf.t<=0){
-      lf.state = 'WALK'; lf.rise=1; lf.target=null;
+      lf.state = 'WALK_SPEED_TILES_PER_SECOND'; lf.rise=1; lf.target=null;
     }
   }
 }

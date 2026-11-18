@@ -136,7 +136,7 @@ The row of `LEVELS` that gives a floor's leak count and lifeform count. Code-onl
 Code: `LEVELS`, `spec`.
 
 **Door**
-The exit. The plumber starts the floor standing next to it, so the way out is always known. It cycles open after `DOOR_HOLD` seconds of standing at it, and only once every leak is sealed. Standing on it with leaks open does nothing.
+The exit. The plumber starts the floor standing next to it, so the way out is always known. It cycles open after `DOOR_HOLD_SEC` seconds of standing at it, and only once every leak is sealed. Standing on it with leaks open does nothing.
 Code: `exitTiles`, `descend` (hold progress), `tickDoor`.
 Avoid: "exit" in player copy.
 

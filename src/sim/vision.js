@@ -19,7 +19,7 @@
    ============================================================ */
 
 import {
-  DARK_ROOM, HAND_OFF, LIGHT_FADE, LIGHT_FADE_STEPS, MAP_H, MAP_W,
+  DARK_ROOM, RADAR_HAND_OFF_TILES, LIGHT_FADE, LIGHT_FADE_STEPS, MAP_HEIGHT_TILES, MAP_WIDTH_TILES,
   MASK_TAU, VIEW_FADE_FAR, VIEW_FADE_NEAR, VIEW_HALF, VIEW_MID,
   VIEW_RANGE, VIEW_RAYS, WALL,
 } from '../config/constants.js';
@@ -63,8 +63,8 @@ import { emit, EVENT } from '../util/events.js';
    not jump to full brightness. */
 export function fixtureVis(f, visionState){
   const tx=Math.floor(f.x), ty=Math.floor(f.y);
-  if (tx<0||ty<0||tx>=MAP_W||ty>=MAP_H) return 0;
-  return visionState.maskArr[ty*MAP_W+tx];
+  if (tx<0||ty<0||tx>=MAP_WIDTH_TILES||ty>=MAP_HEIGHT_TILES) return 0;
+  return visionState.maskArr[ty*MAP_WIDTH_TILES+tx];
 }
 
 /**
@@ -91,8 +91,8 @@ export function castFan(out, ox, oy, facing, halfAngle, range, rays, gain, fall,
     const a = facing - halfAngle + (rays===1 ? 0 : (r/(rays-1))*halfAngle*2);
     const dx=Math.cos(a), dy=Math.sin(a);
     let ix=Math.floor(ox), iy=Math.floor(oy);
-    if (ix<0||iy<0||ix>=MAP_W||iy>=MAP_H) continue;
-    if (grid[iy*MAP_W+ix]===WALL) continue;    // eye inside a wall: see nothing
+    if (ix<0||iy<0||ix>=MAP_WIDTH_TILES||iy>=MAP_HEIGHT_TILES) continue;
+    if (grid[iy*MAP_WIDTH_TILES+ix]===WALL) continue;    // eye inside a wall: see nothing
     const stepX = dx>0?1:-1, stepY = dy>0?1:-1;
     const invX = dx!==0 ? 1/Math.abs(dx) : Infinity;
     const invY = dy!==0 ? 1/Math.abs(dy) : Infinity;
@@ -101,8 +101,8 @@ export function castFan(out, ox, oy, facing, halfAngle, range, rays, gain, fall,
     const tDeltaX = invX, tDeltaY = invY;
     let t = 0;
     while (t <= range){
-      if (ix<0||iy<0||ix>=MAP_W||iy>=MAP_H) break;
-      const i = iy*MAP_W+ix;
+      if (ix<0||iy<0||ix>=MAP_WIDTH_TILES||iy>=MAP_HEIGHT_TILES) break;
+      const i = iy*MAP_WIDTH_TILES+ix;
       if (grid[i]===WALL) break;                // the wall blocks the ray
       /* Only mark a tile if the ray passes near its CENTRE (within VIEW_MID),
          not when it just clips a corner. Otherwise you could see a sliver of
@@ -124,8 +124,8 @@ export function castFan(out, ox, oy, facing, halfAngle, range, rays, gain, fall,
       if (Math.abs(tMaxX-tMaxY) < 1e-9){
         const ax=ix+stepX, ay=iy;
         const bx=ix, by=iy+stepY;
-        const sa=(ax<0||ay<0||ax>=MAP_W||ay>=MAP_H)||grid[ay*MAP_W+ax]===WALL;
-        const sb=(bx<0||by<0||bx>=MAP_W||by>=MAP_H)||grid[by*MAP_W+bx]===WALL;
+        const sa=(ax<0||ay<0||ax>=MAP_WIDTH_TILES||ay>=MAP_HEIGHT_TILES)||grid[ay*MAP_WIDTH_TILES+ax]===WALL;
+        const sb=(bx<0||by<0||bx>=MAP_WIDTH_TILES||by>=MAP_HEIGHT_TILES)||grid[by*MAP_WIDTH_TILES+bx]===WALL;
         if (sa && sb) break;
         t=tMaxX; tMaxX+=tDeltaX; tMaxY+=tDeltaY; ix=ax; iy=ay;
       } else if (tMaxX < tMaxY){
@@ -162,8 +162,8 @@ export function traceViewCone(visionState, plumber, radar, force){
 
   visionState.coneArr.fill(0);
 
-  const ex = plumber.x + Math.cos(plumber.face)*HAND_OFF;
-  const ey = plumber.y + Math.sin(plumber.face)*HAND_OFF;
+  const ex = plumber.x + Math.cos(plumber.face)*RADAR_HAND_OFF_TILES;
+  const ey = plumber.y + Math.sin(plumber.face)*RADAR_HAND_OFF_TILES;
 
   /* The cone has no distance falloff. It is only about angle and walls: within
      100 degrees of where you face, until a wall. What you can see is bright and
@@ -171,7 +171,7 @@ export function traceViewCone(visionState, plumber, radar, force){
   castFan(visionState.coneArr, ex, ey, plumber.face, VIEW_HALF, VIEW_RANGE, VIEW_RAYS, 1, 0, visionState.grid);
 
   // Always see the tile under the plumber, or backing into a corner (where every ray exits early) would draw the figure in a black hole.
-  if (tx>=0&&ty>=0&&tx<MAP_W&&ty<MAP_H) visionState.coneArr[ty*MAP_W+tx]=1;
+  if (tx>=0&&ty>=0&&tx<MAP_WIDTH_TILES&&ty<MAP_HEIGHT_TILES) visionState.coneArr[ty*MAP_WIDTH_TILES+tx]=1;
 
   /* Walls take the brightest neighbouring floor value, with no dimming.
      Walking wallIdx avoids scanning the whole map. */
@@ -211,9 +211,9 @@ export function combineMask(visionState, plumber, radar){
   const vis=visionState.visArr, cone=visionState.coneArr, tgt=visionState.maskTgt;
   const fadeSpan = VIEW_FADE_FAR-VIEW_FADE_NEAR;
   let i=0;
-  for (let y=0; y<MAP_H; y++){
+  for (let y=0; y<MAP_HEIGHT_TILES; y++){
     const cy = y+0.5-py2;
-    for (let x=0; x<MAP_W; x++, i++){
+    for (let x=0; x<MAP_WIDTH_TILES; x++, i++){
       const sc = vis[i], cn = cone[i];
       let v = 0;
       if (sc > 0 && cn > 0){
@@ -284,14 +284,14 @@ export function scopeRoomLight(visionState, plumber, radar, instant){
        them. A wall with no lit neighbour stays dark, which is correct. */
     const src = visionState.visScratch;
     src.set(visionState.visTgt);
-    for (let y=0; y<MAP_H; y++) for (let x=0; x<MAP_W; x++){
-      const i = y*MAP_W+x;
+    for (let y=0; y<MAP_HEIGHT_TILES; y++) for (let x=0; x<MAP_WIDTH_TILES; x++){
+      const i = y*MAP_WIDTH_TILES+x;
       if (src[i] >= 0) continue;
       let m = DARK_ROOM;
-      if (x+1<MAP_W   && src[i+1]   >= 0) m = Math.max(m, src[i+1]);
+      if (x+1<MAP_WIDTH_TILES   && src[i+1]   >= 0) m = Math.max(m, src[i+1]);
       if (x>0        && src[i-1]   >= 0) m = Math.max(m, src[i-1]);
-      if (y+1<MAP_H  && src[i+MAP_W]>= 0) m = Math.max(m, src[i+MAP_W]);
-      if (y>0        && src[i-MAP_W]>= 0) m = Math.max(m, src[i-MAP_W]);
+      if (y+1<MAP_HEIGHT_TILES  && src[i+MAP_WIDTH_TILES]>= 0) m = Math.max(m, src[i+MAP_WIDTH_TILES]);
+      if (y>0        && src[i-MAP_WIDTH_TILES]>= 0) m = Math.max(m, src[i-MAP_WIDTH_TILES]);
       visionState.visTgt[i] = m;
     }
   }

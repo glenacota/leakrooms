@@ -1,7 +1,7 @@
 import test from 'node:test';
 import { strict as assert } from 'node:assert';
 import { loadGame } from '../helpers/harness.js';
-import { SPRINT_STAMINA } from '../../src/config/constants.js';
+import { SPRINT_STAMINA_SECONDS } from '../../src/config/constants.js';
 import { PAL } from '../../src/config/palette.js';
 
 const { A, G, calls } = await loadGame();
@@ -9,11 +9,11 @@ const buildFloor = A.buildFloor;
 const render = A.render;
 
 /* Diegetic ring layout constants, mirrored from src/render/passes/diegetic.js. */
-const TILE   = 40;
+const TILE_SIZE_PX   = 40;
 const BATT_Y  = 0.3;
 const SIDE   = 1;         /* distance of the ring from the plumber, in tiles */
 const RING_R   = 0.38;      /* radius of the cells' centre line, in tiles */
-const RING_RADIUS = RING_R * TILE; /* 18 px */
+const RING_RADIUS = RING_R * TILE_SIZE_PX; /* 18 px */
 const CELL_LW = 2;
 const CELLS = 10;
 const UNLIT = 'rgba(230,235,200,0.18)';
@@ -34,8 +34,8 @@ function draw(){
 // Centre of the battery ring, right of the plumber.
 function battRingCentre(x, y){
   return {
-    bx: (x + SIDE) * TILE,
-    by: (y - BATT_Y) * TILE,
+    bx: (x + SIDE) * TILE_SIZE_PX,
+    by: (y - BATT_Y) * TILE_SIZE_PX,
   };
 }
 
@@ -95,7 +95,7 @@ test('the lit cells fill clockwise from the top, so the dim ones are the empty p
   G.radar = false;
 });
 
-test('the cells turn red at or below BATT_LOW (four cells) and not above it', () => {
+test('the cells turn red at or below BATTERY_LOW_CHARGE (four cells) and not above it', () => {
   setup();
   const {bx, by} = battRingCentre(10, 10);
   G.radar = true;
@@ -122,7 +122,7 @@ test('the battery ring sits on a dark disc', () => {
 
 test('the ring clears the plumber\'s body', () => {
   /* The plumber's collision radius is 0.33 tile. */
-  assert.ok(SIDE - RING_R - CELL_LW/2/TILE > 0.33);
+  assert.ok(SIDE - RING_R - CELL_LW/2/TILE_SIZE_PX > 0.33);
 });
 
 test('the battery ring is drawn after the post-processing pass', () => {
@@ -317,7 +317,7 @@ const STAMINA_CONTENT_HEIGHT = STAMINA_GLYPH + STAMINA_GAP + STAMINA_HEIGHT
   + Math.tan(Math.PI/10)*STAMINA_WIDTH/2;
 function staminaBacking(){
   return calls.list.find(c => c[0] === 'fillRect' &&
-    c[1] === (10 - SIDE)*TILE - STAMINA_GLYPH/2 - STAMINA_PADDING &&
+    c[1] === (10 - SIDE)*TILE_SIZE_PX - STAMINA_GLYPH/2 - STAMINA_PADDING &&
     c[3] === STAMINA_GLYPH + 2*STAMINA_PADDING &&
     c[4] === STAMINA_CONTENT_HEIGHT + 2*STAMINA_PADDING);
 }
@@ -356,7 +356,7 @@ test('stamina tread colours change only below the 50% and 30% thresholds', () =>
     [0.5001, GREEN], [0.5, GREEN], [0.4999, PAL.bright],
     [0.3001, PAL.bright], [0.3, PAL.bright], [0.2999, DANGER], [0, DANGER]
   ]){
-    G.plumber.stamina = fraction*SPRINT_STAMINA;
+    G.plumber.stamina = fraction*SPRINT_STAMINA_SECONDS;
     draw();
     const clip = calls.list.findIndex(c => c[0] === 'clip');
     const fill = calls.list.slice(clip + 1).find(c => c[0] === 'fill');
@@ -404,8 +404,8 @@ test('stamina backing has equal padding around the glyph and slanted treads', ()
   draw();
   const backing = staminaBacking();
   assert.ok(backing);
-  const cx = (10 - SIDE)*TILE;
-  const cy = (10 - BATT_Y)*TILE;
+  const cx = (10 - SIDE)*TILE_SIZE_PX;
+  const cy = (10 - BATT_Y)*TILE_SIZE_PX;
   const top = cy - STAMINA_CONTENT_HEIGHT/2;
   assert.equal(cx - STAMINA_GLYPH/2 - backing[1], STAMINA_PADDING);
   assert.equal(backing[1] + backing[3] - (cx + STAMINA_GLYPH/2), STAMINA_PADDING);

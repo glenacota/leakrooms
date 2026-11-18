@@ -1,5 +1,5 @@
 import { TAU } from '../cast/primitives.js';
-import { SPRINT_STAMINA } from '../config/constants.js';
+import { SPRINT_STAMINA_SECONDS } from '../config/constants.js';
 import { PAL } from '../config/palette.js';
 
 const STAMINA_DANGER = '#d8503c';
@@ -18,7 +18,7 @@ const STAMINA_SLOPE = -Math.tan(Math.PI/10);
 
 /** Draw the stamina meter centered at the given coordinates. */
 export function drawStaminaMeter(ctx, cx, cy, stamina){
-  const progress = Math.max(0, Math.min(1, stamina/SPRINT_STAMINA));
+  const progress = Math.max(0, Math.min(1, stamina/SPRINT_STAMINA_SECONDS));
   const color = progress < 0.3 ? STAMINA_DANGER : progress < 0.5 ? PAL.bright : STAMINA_GREEN;
   const contentHeight = STAMINA_GLYPH + STAMINA_GAP + STAMINA_HEIGHT
     + Math.abs(STAMINA_SLOPE)*STAMINA_WIDTH/2;

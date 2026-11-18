@@ -1,11 +1,11 @@
-import { MAP_W, MAP_H, WALL } from '../config/constants.js';
+import { MAP_WIDTH_TILES, MAP_HEIGHT_TILES, WALL } from '../config/constants.js';
 import { walkLine } from './line.js';
 
 /* Line of sight between two points, using Bresenham's line algorithm: it walks
    the tiles on the straight line and stops at the first wall. */
 export function makeLos(grid){
-  const at = (x,y)=> grid[y*MAP_W+x];
-  const inB = (x,y)=> x>=0 && y>=0 && x<MAP_W && y<MAP_H;
+  const at = (x,y)=> grid[y*MAP_WIDTH_TILES+x];
+  const inB = (x,y)=> x>=0 && y>=0 && x<MAP_WIDTH_TILES && y<MAP_HEIGHT_TILES;
   return function los(x0,y0,x1,y1){
     x0=Math.floor(x0); y0=Math.floor(y0); x1=Math.floor(x1); y1=Math.floor(y1);
     let first=true, visible=false;

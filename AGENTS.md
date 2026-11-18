@@ -95,7 +95,7 @@ Full definitions and the words to avoid are in `docs/GLOSSARY.md`.
 - **Lure**: an open leak's noise pulls SEARCHing lifeforms toward it.
 - **Floor**: one generated level map. `floorIdx` runs 0 to 4 and is shown as 1 to 5.
 - **Run**: from start until the win screen or the last crew member is lost. Has a seed (`RUN_SEED`). Player-facing copy calls a run a shift.
-- **Door**: the exit (`exitTiles`). It opens after `DOOR_HOLD` seconds of standing at it, and only once every leak is sealed.
+- **Door**: the exit (`exitTiles`). It opens after `DOOR_HOLD_SEC` seconds of standing at it, and only once every leak is sealed.
 - **Air supply**: the per-floor reserve shown as AIR. Code names it `clock` (`FLOOR_CLOCK`). Do not call it "clock" in new player-facing copy.
 - **Terms**: the difficulty chosen at the door before a run (RELAXED, NORMAL, HARD). Per run.
 - **Settings**: persisted preferences such as volume, water tint and touch options. Not per run. Do not confuse with terms.

@@ -7,7 +7,7 @@
    finding the leaks by following the water downhill.
    ------------------------------------------------------------ */
 
-import { FLOOR, MAP_H, MAP_W } from '../config/constants.js';
+import { FLOOR, MAP_HEIGHT_TILES, MAP_WIDTH_TILES } from '../config/constants.js';
 import { G } from '../sim/state.js';
 import { STATE } from '../game/run.js';
 import { VH, VW } from './canvas.js';
@@ -23,7 +23,7 @@ export function paintSplashPlan(){
   /* One copy of the painting must be exactly the frame width, or the -50% roll
      in css/splash.css would show a seam. Scaling by width does that. The plan is
      a cropped texture anyway, so nobody sees the top and bottom. */
-  const cell = W / MAP_W;
+  const cell = W / MAP_WIDTH_TILES;
   const pw = Math.ceil(W * 2), ph = Math.ceil(H);
   for (const c of [cv, far]){
     if (!c) continue;
@@ -39,8 +39,8 @@ export function paintSplashPlan(){
        mostly wall, so filling the walls paints big slabs and the splash turns into
        a checkerboard. Lighting the walkable tiles gives a thin lattice that reads
        as a plan. */
-    for (let y=0; y<MAP_H; y++) for (let x=0; x<MAP_W; x++){
-      if (G.grid[y*MAP_W+x] === FLOOR){
+    for (let y=0; y<MAP_HEIGHT_TILES; y++) for (let x=0; x<MAP_WIDTH_TILES; x++){
+      if (G.grid[y*MAP_WIDTH_TILES+x] === FLOOR){
         ctx.fillStyle = 'rgba(228,230,168,0.55)';
         ctx.fillRect(ox+px(x), px(y), Math.ceil(cell), Math.ceil(cell));
       }
@@ -48,10 +48,10 @@ export function paintSplashPlan(){
     // The survey grid: one hairline every four tiles
     ctx.strokeStyle = 'rgba(228,230,168,0.16)';
     ctx.lineWidth = 1;
-    for (let x=0; x<=MAP_W; x+=4){
+    for (let x=0; x<=MAP_WIDTH_TILES; x+=4){
       ctx.beginPath(); ctx.moveTo(ox+px(x)+0.5, 0); ctx.lineTo(ox+px(x)+0.5, ph); ctx.stroke();
     }
-    for (let y=0; y<=MAP_W; y+=4){
+    for (let y=0; y<=MAP_WIDTH_TILES; y+=4){
       ctx.beginPath(); ctx.moveTo(ox, px(y)+0.5); ctx.lineTo(ox+W, px(y)+0.5); ctx.stroke();
     }
     /* The marks that are the run: the player's spawn (the door you came in by)

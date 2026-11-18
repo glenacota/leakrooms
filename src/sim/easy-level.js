@@ -1,4 +1,4 @@
-import { FLOOR, MAP_H, MAP_W } from '../config/constants.js';
+import { FLOOR, MAP_HEIGHT_TILES, MAP_WIDTH_TILES } from '../config/constants.js';
 import { LEVELS, LEVELS_N } from '../config/levels.js';
 import { NOTES } from '../config/notes.js';
 
@@ -10,10 +10,10 @@ import { NOTES } from '../config/notes.js';
  */
 export function genEasyLevel(rng, floorNum){
   // Four leaks fit on the north wall with distinct repair ranges and room for the door.
-  const room = { rx: Math.floor((MAP_W-18)/2), ry: Math.floor((MAP_H-12)/2), rw: 18, rh: 12 };
-  const grid = new Uint8Array(MAP_W*MAP_H);
+  const room = { rx: Math.floor((MAP_WIDTH_TILES-18)/2), ry: Math.floor((MAP_HEIGHT_TILES-12)/2), rw: 18, rh: 12 };
+  const grid = new Uint8Array(MAP_WIDTH_TILES*MAP_HEIGHT_TILES);
   for (let y=room.ry; y<room.ry+room.rh; y++)
-    for (let x=room.rx; x<room.rx+room.rw; x++) grid[y*MAP_W+x] = FLOOR;
+    for (let x=room.rx; x<room.rx+room.rw; x++) grid[y*MAP_WIDTH_TILES+x] = FLOOR;
 
   const spec = { ...LEVELS[Math.min(floorNum, LEVELS_N-1)], lifeforms: 0 };
   const doorRight = rng() < 0.5;

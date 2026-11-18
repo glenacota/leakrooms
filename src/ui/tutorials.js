@@ -1,4 +1,4 @@
-import { MAP_H, MAP_W, TILE } from '../config/constants.js';
+import { MAP_HEIGHT_TILES, MAP_WIDTH_TILES, TILE_SIZE_PX } from '../config/constants.js';
 import { STATE } from '../game/run.js';
 import { cvs, SCALE } from '../render/canvas.js';
 import { cam } from '../render/render.js';
@@ -77,15 +77,15 @@ function saveCompleted(){
 
 function onScreen(x, y){
   if (!SCALE || !cvs.width || !cvs.height) return false;
-  const sx = (x - cam.x)*TILE*SCALE + cvs.width/2 + cam.jx*SCALE;
-  const sy = (y - cam.y)*TILE*SCALE + cvs.height/2 + cam.jy*SCALE;
+  const sx = (x - cam.x)*TILE_SIZE_PX*SCALE + cvs.width/2 + cam.jx*SCALE;
+  const sy = (y - cam.y)*TILE_SIZE_PX*SCALE + cvs.height/2 + cam.jy*SCALE;
   return sx >= 0 && sx < cvs.width && sy >= 0 && sy < cvs.height;
 }
 
 function tileVisible(x, y, pipe = false){
   const tx = Math.floor(x), ty = Math.floor(y);
-  if (tx < 0 || tx >= MAP_W || ty < 0 || ty >= MAP_H || !onScreen(x, y)) return false;
-  const i = ty*MAP_W + tx;
+  if (tx < 0 || tx >= MAP_WIDTH_TILES || ty < 0 || ty >= MAP_HEIGHT_TILES || !onScreen(x, y)) return false;
+  const i = ty*MAP_WIDTH_TILES + tx;
   return pipe ? G.maskArr[i] > 0.02 : G.maskArr[i] * G.lightArr[i] > 0.05;
 }
 

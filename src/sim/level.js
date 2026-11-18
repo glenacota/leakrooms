@@ -1,5 +1,5 @@
 import { genMaze } from './maze.js';
-import { MAP_W, MAP_H, WALL, FLOOR, LEAK_GAP, REPAIR_REACH, LEAK_FAR, PLUMBER } from '../config/constants.js';
+import { MAP_WIDTH_TILES, MAP_HEIGHT_TILES, WALL, FLOOR, LEAK_GAP, REPAIR_REACH, LEAK_FAR, PLUMBER } from '../config/constants.js';
 import { LEVELS, LEVELS_N } from '../config/levels.js';
 import { NOTES } from '../config/notes.js';
 import { hash2 } from '../util/hash.js';
@@ -18,10 +18,10 @@ import { hash2 } from '../util/hash.js';
 export function genLevel(rng, floorNum=0){
   const maze = genMaze(rng);
   const grid = maze.grid;
-  const at = (x,y)=> grid[y*MAP_W+x];
-  const inB = (x,y)=> x>=0 && y>=0 && x<MAP_W && y<MAP_H;
+  const at = (x,y)=> grid[y*MAP_WIDTH_TILES+x];
+  const inB = (x,y)=> x>=0 && y>=0 && x<MAP_WIDTH_TILES && y<MAP_HEIGHT_TILES;
 
-  const INTERIOR = (x,y)=> x>0 && y>0 && x<MAP_W-1 && y<MAP_H-1;
+  const INTERIOR = (x,y)=> x>0 && y>0 && x<MAP_WIDTH_TILES-1 && y<MAP_HEIGHT_TILES-1;
 
 
   /* ---------- The door ----------
@@ -64,7 +64,7 @@ export function genLevel(rng, floorNum=0){
     }
     if (!cand.length){
       const any = [];
-      for (let y=1;y<MAP_H-1 && any.length<4000;y++) for (let x=1;x<MAP_W-1;x++){
+      for (let y=1;y<MAP_HEIGHT_TILES-1 && any.length<4000;y++) for (let x=1;x<MAP_WIDTH_TILES-1;x++){
         if (southFacing(x,y)) any.push([x,y]);
       }
       // Sorted before the slice, so the cap keeps the nearest USABLE tiles
@@ -111,8 +111,8 @@ export function genLevel(rng, floorNum=0){
      and only if that fails too does it use a fixed tile. */
   if (!exitTiles.length){
     let fb = null;
-    outer: for (let y=1; y<MAP_H-1 && !fb; y++)
-      for (let x=1; x<MAP_W-1; x++)
+    outer: for (let y=1; y<MAP_HEIGHT_TILES-1 && !fb; y++)
+      for (let x=1; x<MAP_WIDTH_TILES-1; x++)
         if (southFacing(x,y)){ fb = [x,y]; break outer; }
     if (!fb) fb = [1,1];
     exitTiles.push({x:fb[0], y:fb[1], open:0, facing:'S'});
@@ -130,7 +130,7 @@ export function genLevel(rng, floorNum=0){
      shorter one. With several leaks, picks must be LEAK_GAP apart, so four leaks
      are four corners of the building and not four faces of one wall. */
   const faceTiles = [];
-  for (let y=1;y<MAP_H-1;y++) for (let x=1;x<MAP_W-1;x++){
+  for (let y=1;y<MAP_HEIGHT_TILES-1;y++) for (let x=1;x<MAP_WIDTH_TILES-1;x++){
     if (!southFacing(x,y)) continue;
     faceTiles.push({x, y, d: Math.hypot(x+0.5-spawn.x, y+0.5-spawn.y)});
   }
@@ -210,7 +210,7 @@ export function genLevel(rng, floorNum=0){
       for (let i=0;i<16;i++){
         const tx = r.rx+inset + Math.floor(rng()*w);
         const ty = r.ry+inset + Math.floor(rng()*h);
-        if (maze.grid[ty*MAP_W+tx]!==FLOOR) continue;
+        if (maze.grid[ty*MAP_WIDTH_TILES+tx]!==FLOOR) continue;
         if (away && Math.hypot(tx+0.5-away.x, ty+0.5-away.y) < minD) continue;
         return {x:tx, y:ty};
       }

@@ -1,10 +1,10 @@
 /* Player-like navigation over the real simulation. The bot still uses the
    complete grid for routing and is not a substitute for human playtests. */
 import { bfsPath } from './bot.js';
-import { FLOOR, MAP_H, MAP_W, TILE, WET_DRAW } from '../../src/config/constants.js';
+import { FLOOR, MAP_HEIGHT_TILES, MAP_WIDTH_TILES, TILE_SIZE_PX, WET_DRAW } from '../../src/config/constants.js';
 import { on } from '../../src/util/events.js';
 
-const W = MAP_W, H = MAP_H, N = W * H;
+const W = MAP_WIDTH_TILES, H = MAP_HEIGHT_TILES, N = W * H;
 const IDX = (x, y) => y * W + x;
 
 const SEE = 0.2;          // vision-mask value that counts as in view
@@ -135,7 +135,7 @@ export function playPlayerRun({ A, G, keys, seed, withLifeforms, maxSeconds, rad
      camera; rendering itself is not stepped in this simulation. */
   function updateViewport(){
     const width = A.cvs.clientWidth, height = A.cvs.clientHeight;
-    const scale = A.viewScale(width, height) * TILE;
+    const scale = A.viewScale(width, height) * TILE_SIZE_PX;
     if (!(scale > 0)) throw new Error('Player bot requires a nonzero viewport');
     const halfW = width / (2 * scale), halfH = height / (2 * scale);
     const cx = W > halfW * 2 ? Math.max(halfW, Math.min(W - halfW, G.plumber.x)) : G.plumber.x;

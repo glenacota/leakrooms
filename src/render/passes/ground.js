@@ -1,4 +1,4 @@
-import { MAP_W, SHEEN_STEPS, TILE } from '../../config/constants.js';
+import { MAP_WIDTH_TILES, SHEEN_STEPS, TILE_SIZE_PX } from '../../config/constants.js';
 import { hash2 } from '../../util/hash.js';
 import { G } from '../../sim/state.js';
 import { surfaces } from '../floor-surfaces.js';
@@ -24,8 +24,8 @@ export function ground(rc){
      visible part of each layer is copied with one drawImage. The source rectangle
      is the viewport in tiles on the map-sized canvas, and the destination is the
      same rectangle in world pixels, inside the camera transform. */
-  ctx.drawImage(surfaces.tiles, x0*TILE, y0*TILE, vw*TILE, vh*TILE,
-                          x0*TILE, y0*TILE, vw*TILE, vh*TILE);
+  ctx.drawImage(surfaces.tiles, x0*TILE_SIZE_PX, y0*TILE_SIZE_PX, vw*TILE_SIZE_PX, vh*TILE_SIZE_PX,
+                          x0*TILE_SIZE_PX, y0*TILE_SIZE_PX, vw*TILE_SIZE_PX, vh*TILE_SIZE_PX);
 
   /* ---------- 1b. The flood ----------
      Drawn AFTER the carpet and BEFORE the walls. That order is what makes it look
@@ -38,7 +38,7 @@ export function ground(rc){
      by syncSurfaces() when the water changes, not here. */
   if (G.wetArr){
     ctx.globalAlpha = 1;
-    ctx.drawImage(surfaces.wet, 0, 0, MAP_W*TILE, MAP_W*TILE);
+    ctx.drawImage(surfaces.wet, 0, 0, MAP_WIDTH_TILES*TILE_SIZE_PX, MAP_WIDTH_TILES*TILE_SIZE_PX);
 
     /* The shine on deep water. Without it a flooded room is a flat tinted area
        that looks like a blue filter, and the highlight is what makes it look like a
@@ -59,7 +59,7 @@ export function ground(rc){
        needs a sine, and recomputing it per bucket meant a flooded view paid for
        every tile up to four times over. */
     for (let y=shy0;y<=y1;y++) for (let x=shx0;x<=x1;x++){
-      const i=y*MAP_W+x;
+      const i=y*MAP_WIDTH_TILES+x;
       const w = wetArr[i];
       if (w < 0.55) continue;
       if (maskArr[i] < 0.05) continue;
@@ -81,7 +81,7 @@ export function ground(rc){
       const list = bucketTiles[b];
       for (let j=0;j<n;j++){
         const i = list[j];
-        ctx.rect((i%MAP_W)*TILE, ((i/MAP_W)|0)*TILE, TILE, TILE);
+        ctx.rect((i%MAP_WIDTH_TILES)*TILE_SIZE_PX, ((i/MAP_WIDTH_TILES)|0)*TILE_SIZE_PX, TILE_SIZE_PX, TILE_SIZE_PX);
       }
       ctx.fill();
     }
@@ -92,6 +92,6 @@ export function ground(rc){
      The second baked layer, drawn after the flood so a partition standing in a
      flooded room stays dry: the water lands on the carpet and the walls are painted
      over it. */
-  ctx.drawImage(surfaces.walls, x0*TILE, y0*TILE, vw*TILE, vh*TILE,
-                           x0*TILE, y0*TILE, vw*TILE, vh*TILE);
+  ctx.drawImage(surfaces.walls, x0*TILE_SIZE_PX, y0*TILE_SIZE_PX, vw*TILE_SIZE_PX, vh*TILE_SIZE_PX,
+                           x0*TILE_SIZE_PX, y0*TILE_SIZE_PX, vw*TILE_SIZE_PX, vh*TILE_SIZE_PX);
 }

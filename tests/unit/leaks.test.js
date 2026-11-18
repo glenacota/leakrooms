@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { MAP_W } from '../../src/config/constants.js';
+import { MAP_WIDTH_TILES } from '../../src/config/constants.js';
 import { firstOpenLeakWithin, hasOpenLeaks, nearestOpenLeak, openLeakSpots, restoreSealed, tickLeakNoise } from '../../src/sim/leaks.js';
 import { on } from '../../src/util/events.js';
 
@@ -14,7 +14,7 @@ test('open leak queries use the stored count and open standing tiles', () => {
     ]
   };
   assert.equal(hasOpenLeaks(state), true);
-  assert.deepEqual(openLeakSpots(state), [5*MAP_W+4, 5*MAP_W+5]);
+  assert.deepEqual(openLeakSpots(state), [5*MAP_WIDTH_TILES+4, 5*MAP_WIDTH_TILES+5]);
   assert.equal(firstOpenLeakWithin(state, 4.5, 5.5, 1.1), state.leaks[1]);
   assert.equal(firstOpenLeakWithin(state, 5.4, 5.5, 1), state.leaks[1]);
   assert.equal(firstOpenLeakWithin(state, 3.5, 5.5, 1), null);

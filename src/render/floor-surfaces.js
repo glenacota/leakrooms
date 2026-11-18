@@ -16,7 +16,7 @@
    the simulation state.
    ============================================================ */
 
-import { FACE_BACKLIGHT, FLOOR, LS, MAP_H, MAP_W, TILE, VISION_PENUMBRA_TILES, WALL, WALL_FACE, WET_DRAW } from '../config/constants.js';
+import { FACE_BACKLIGHT, FLOOR, LIGHT_SAMPLES_PER_TILE, MAP_HEIGHT_TILES, MAP_WIDTH_TILES, TILE_SIZE_PX, VISION_PENUMBRA_TILES, WALL, WALL_FACE_HEIGHT_PX, WET_DRAW } from '../config/constants.js';
 import { WATER_TINTS } from '../config/presets.js';
 import { SETTINGS } from '../settings/store.js';
 import { hash2 } from '../util/hash.js';
@@ -90,28 +90,28 @@ function release(cv){
 /* A wall face is the south side of a wall tile with floor below it. The bake
    paints it, and the mask lights it. The row comes from the index. */
 function isWallFace(grid, idx){
-  const row = (idx / MAP_W) | 0;
-  return grid[idx]===WALL && row+1<MAP_H && grid[idx+MAP_W]===FLOOR;
+  const row = (idx / MAP_WIDTH_TILES) | 0;
+  return grid[idx]===WALL && row+1<MAP_HEIGHT_TILES && grid[idx+MAP_WIDTH_TILES]===FLOOR;
 }
 
 /* ---------- Static half ---------- */
 
 function ensureLightCanvas(){
   staticHalf.lightCv = document.createElement('canvas');
-  staticHalf.lightCv.width = MAP_W * LS; staticHalf.lightCv.height = MAP_H * LS;
+  staticHalf.lightCv.width = MAP_WIDTH_TILES * LIGHT_SAMPLES_PER_TILE; staticHalf.lightCv.height = MAP_HEIGHT_TILES * LIGHT_SAMPLES_PER_TILE;
   staticHalf.lightCtx = staticHalf.lightCv.getContext('2d');
   staticHalf.lightImg = staticHalf.lightCtx.createImageData(staticHalf.lightCv.width, staticHalf.lightCv.height);
 }
 
 function ensureTilesCanvas(){
   staticHalf.tilesCv = document.createElement('canvas');
-  staticHalf.tilesCv.width = MAP_W * TILE; staticHalf.tilesCv.height = MAP_H * TILE;
+  staticHalf.tilesCv.width = MAP_WIDTH_TILES * TILE_SIZE_PX; staticHalf.tilesCv.height = MAP_HEIGHT_TILES * TILE_SIZE_PX;
   staticHalf.tilesCtx = staticHalf.tilesCv.getContext('2d');
 }
 
 function ensureWallsCanvas(){
   staticHalf.wallsCv = document.createElement('canvas');
-  staticHalf.wallsCv.width = MAP_W * TILE; staticHalf.wallsCv.height = MAP_H * TILE;
+  staticHalf.wallsCv.width = MAP_WIDTH_TILES * TILE_SIZE_PX; staticHalf.wallsCv.height = MAP_HEIGHT_TILES * TILE_SIZE_PX;
   staticHalf.wallsCtx = staticHalf.wallsCv.getContext('2d');
 }
 
@@ -122,9 +122,9 @@ function bakeStatic(){
   ensureLightCanvas();
   const LW = staticHalf.lightCv.width, LH = staticHalf.lightCv.height, LD = staticHalf.lightImg.data;
   for (let y=0;y<LH;y++){
-    const ty=(y/LS)|0, row=ty*MAP_W;
+    const ty=(y/LIGHT_SAMPLES_PER_TILE)|0, row=ty*MAP_WIDTH_TILES;
     for (let x=0;x<LW;x++){
-      const b = Math.min(1, staticHalf.lightArr[row + ((x/LS)|0)]);
+      const b = Math.min(1, staticHalf.lightArr[row + ((x/LIGHT_SAMPLES_PER_TILE)|0)]);
       const v = Math.round(255*b);
       const k=(y*LW+x)*4;
       LD[k]=v; LD[k+1]=v; LD[k+2]=v;
@@ -146,13 +146,13 @@ function bakeTiles(){
     g.setTransform(1,0,0,1,0,0);
     // Carpet
     g.fillStyle = carpetPat;
-    g.fillRect(0, 0, MAP_W*TILE, MAP_H*TILE);
+    g.fillRect(0, 0, MAP_WIDTH_TILES*TILE_SIZE_PX, MAP_HEIGHT_TILES*TILE_SIZE_PX);
     // A little random tonal variation on some tiles
-    for (let y=0;y<MAP_H;y++) for (let x=0;x<MAP_W;x++){
+    for (let y=0;y<MAP_HEIGHT_TILES;y++) for (let x=0;x<MAP_WIDTH_TILES;x++){
       const h=hash2(x,y);
       if (h<0.14){
         g.fillStyle = h<0.05 ? 'rgba(163,163,112,0.16)' : 'rgba(228,230,168,0.10)';
-        g.fillRect(x*TILE, y*TILE, TILE, TILE);
+        g.fillRect(x*TILE_SIZE_PX, y*TILE_SIZE_PX, TILE_SIZE_PX, TILE_SIZE_PX);
       }
     }
   }
@@ -162,46 +162,46 @@ function bakeTiles(){
     const g = staticHalf.wallsCtx;
     const { grid } = staticHalf;
     g.setTransform(1,0,0,1,0,0);
-    const FACE = WALL_FACE;
+    const FACE = WALL_FACE_HEIGHT_PX;
     /* Wall tops, seen from directly above: cooler and darker than the carpet.
        Edges are drawn only where a wall meets carpet, not on every tile. */
-    for (let y=0;y<MAP_H;y++) for (let x=0;x<MAP_W;x++){
-      if (grid[y*MAP_W+x]!==WALL) continue;
+    for (let y=0;y<MAP_HEIGHT_TILES;y++) for (let x=0;x<MAP_WIDTH_TILES;x++){
+      if (grid[y*MAP_WIDTH_TILES+x]!==WALL) continue;
       g.fillStyle = ceilPat;
-      g.fillRect(x*TILE, y*TILE, TILE, TILE);
+      g.fillRect(x*TILE_SIZE_PX, y*TILE_SIZE_PX, TILE_SIZE_PX, TILE_SIZE_PX);
     }
     g.fillStyle='rgba(28,26,16,0.55)';
-    for (let y=0;y<MAP_H;y++) for (let x=0;x<MAP_W;x++){
-      if (grid[y*MAP_W+x]!==WALL) continue;
-      if (x>0      && grid[y*MAP_W+x-1]===FLOOR) g.fillRect(x*TILE, y*TILE, 2, TILE);
-      if (x<MAP_W-1 && grid[y*MAP_W+x+1]===FLOOR) g.fillRect(x*TILE+TILE-2, y*TILE, 2, TILE);
-      if (y>0      && grid[(y-1)*MAP_W+x]===FLOOR) g.fillRect(x*TILE, y*TILE, TILE, 2);
+    for (let y=0;y<MAP_HEIGHT_TILES;y++) for (let x=0;x<MAP_WIDTH_TILES;x++){
+      if (grid[y*MAP_WIDTH_TILES+x]!==WALL) continue;
+      if (x>0      && grid[y*MAP_WIDTH_TILES+x-1]===FLOOR) g.fillRect(x*TILE_SIZE_PX, y*TILE_SIZE_PX, 2, TILE_SIZE_PX);
+      if (x<MAP_WIDTH_TILES-1 && grid[y*MAP_WIDTH_TILES+x+1]===FLOOR) g.fillRect(x*TILE_SIZE_PX+TILE_SIZE_PX-2, y*TILE_SIZE_PX, 2, TILE_SIZE_PX);
+      if (y>0      && grid[(y-1)*MAP_WIDTH_TILES+x]===FLOOR) g.fillRect(x*TILE_SIZE_PX, y*TILE_SIZE_PX, TILE_SIZE_PX, 2);
     }
 
     /* Wall faces: the vertical side of a partition, drawn into the bottom of the
        wall tile and never into the floor tile below, so the plumber's feet stay
        on carpet. A soft shadow on the carpet sells the height. */
-    for (let y=0;y<MAP_H;y++) for (let x=0;x<MAP_W;x++){
-      if (!isWallFace(grid, y*MAP_W+x)) continue;
-      const wx=x*TILE, wy=(y+1)*TILE - FACE;
-      const fy=(y+1)*TILE;
+    for (let y=0;y<MAP_HEIGHT_TILES;y++) for (let x=0;x<MAP_WIDTH_TILES;x++){
+      if (!isWallFace(grid, y*MAP_WIDTH_TILES+x)) continue;
+      const wx=x*TILE_SIZE_PX, wy=(y+1)*TILE_SIZE_PX - FACE;
+      const fy=(y+1)*TILE_SIZE_PX;
 
       // Shadow cast onto the carpet
-      const sh=g.createLinearGradient(0, fy, 0, fy+TILE*0.5);
+      const sh=g.createLinearGradient(0, fy, 0, fy+TILE_SIZE_PX*0.5);
       sh.addColorStop(0,'rgba(12,10,4,0.20)');
       sh.addColorStop(1,'rgba(12,10,4,0)');
       g.fillStyle=sh;
-      g.fillRect(wx, fy, TILE, TILE);
+      g.fillRect(wx, fy, TILE_SIZE_PX, TILE_SIZE_PX);
 
       // The wallpapered face
       g.fillStyle = wallPat;
-      g.fillRect(wx, wy, TILE, FACE);
+      g.fillRect(wx, wy, TILE_SIZE_PX, FACE);
       // A hard line where the face meets the ceiling
       g.fillStyle='rgba(40,38,24,0.55)';
-      g.fillRect(wx, wy, TILE, 2);
+      g.fillRect(wx, wy, TILE_SIZE_PX, 2);
       // A skirting shadow at the base
       g.fillStyle='rgba(48,46,30,0.22)';
-      g.fillRect(wx, fy, TILE, 2);
+      g.fillRect(wx, fy, TILE_SIZE_PX, 2);
     }
   }
 }
@@ -216,14 +216,14 @@ function openFloorCanvases(){
   release(perBuild.wetCv);
 
   perBuild.maskCv = document.createElement('canvas');
-  perBuild.maskCv.width = MAP_W; perBuild.maskCv.height = MAP_H;
+  perBuild.maskCv.width = MAP_WIDTH_TILES; perBuild.maskCv.height = MAP_HEIGHT_TILES;
   perBuild.maskCtx = perBuild.maskCv.getContext('2d');
-  perBuild.maskImg = perBuild.maskCtx.createImageData(MAP_W, MAP_H);
+  perBuild.maskImg = perBuild.maskCtx.createImageData(MAP_WIDTH_TILES, MAP_HEIGHT_TILES);
 
   perBuild.wetCv = document.createElement('canvas');
-  perBuild.wetCv.width = MAP_W; perBuild.wetCv.height = MAP_H;
+  perBuild.wetCv.width = MAP_WIDTH_TILES; perBuild.wetCv.height = MAP_HEIGHT_TILES;
   perBuild.wetCtx = perBuild.wetCv.getContext('2d');
-  perBuild.wetImg = perBuild.wetCtx.createImageData(MAP_W, MAP_H);
+  perBuild.wetImg = perBuild.wetCtx.createImageData(MAP_WIDTH_TILES, MAP_HEIGHT_TILES);
 }
 
 /* ---------- Building ---------- */
@@ -283,7 +283,7 @@ function packWet(sim){
   const d = perBuild.wetImg.data;
   const { x0, y0, x1, y1 } = takeWetBox();
   for (let y=y0; y<=y1; y++){
-    let i = y*MAP_W + x0;
+    let i = y*MAP_WIDTH_TILES + x0;
     for (let x=x0; x<=x1; x++, i++){
       const a = sim.wetArr[i];
       const k = i*4;
@@ -311,8 +311,8 @@ function packMask(sim){
      face you look at is not blended toward black by the upscale. */
   const interior = j => grid[j]===WALL && !isWallFace(grid, j);
   let i = 0;
-  for (let y=0; y<MAP_H; y++){
-    for (let x=0; x<MAP_W; x++, i++){
+  for (let y=0; y<MAP_HEIGHT_TILES; y++){
+    for (let x=0; x<MAP_WIDTH_TILES; x++, i++){
       const v = maskArr[i];
       let out = v;
       const face = isWallFace(grid, i);
@@ -320,9 +320,9 @@ function packMask(sim){
         // Darkest orthogonal neighbour: only a darker neighbour can dim this tile.
         let nmin = v;
         if (x > 0       && maskArr[i-1]     < nmin && !(face && interior(i-1)))     nmin = maskArr[i-1];
-        if (x+1 < MAP_W && maskArr[i+1]     < nmin && !(face && interior(i+1)))     nmin = maskArr[i+1];
-        if (y > 0       && maskArr[i-MAP_W] < nmin && !(face && interior(i-MAP_W))) nmin = maskArr[i-MAP_W];
-        if (y+1 < MAP_H && maskArr[i+MAP_W] < nmin) nmin = maskArr[i+MAP_W];
+        if (x+1 < MAP_WIDTH_TILES && maskArr[i+1]     < nmin && !(face && interior(i+1)))     nmin = maskArr[i+1];
+        if (y > 0       && maskArr[i-MAP_WIDTH_TILES] < nmin && !(face && interior(i-MAP_WIDTH_TILES))) nmin = maskArr[i-MAP_WIDTH_TILES];
+        if (y+1 < MAP_HEIGHT_TILES && maskArr[i+MAP_WIDTH_TILES] < nmin) nmin = maskArr[i+MAP_WIDTH_TILES];
         if (nmin < v){
           const gap = v - nmin;                 // how much brighter than the darkest neighbour
           const s = gap*gap*(3 - 2*gap);        // smoothstep falloff across the penumbra
@@ -333,8 +333,8 @@ function packMask(sim){
       if (grid[i]===WALL && !face){
         let lit = 0;
         if (x > 0       && isWallFace(grid, i-1))       lit = Math.max(lit, maskArr[i-1]);
-        if (x+1 < MAP_W && isWallFace(grid, i+1))       lit = Math.max(lit, maskArr[i+1]);
-        if (y+1 < MAP_H && isWallFace(grid, i+MAP_W)) lit = Math.max(lit, maskArr[i+MAP_W]);
+        if (x+1 < MAP_WIDTH_TILES && isWallFace(grid, i+1))       lit = Math.max(lit, maskArr[i+1]);
+        if (y+1 < MAP_HEIGHT_TILES && isWallFace(grid, i+MAP_WIDTH_TILES)) lit = Math.max(lit, maskArr[i+MAP_WIDTH_TILES]);
         if (lit*FACE_BACKLIGHT > out) out = lit*FACE_BACKLIGHT;
       }
       const b = Math.min(255, out * 255);

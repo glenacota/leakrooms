@@ -51,7 +51,7 @@ export const EVENT_CONTRACTS = Object.freeze({
   },
   [EVENT.heard]: {
     purpose: 'Report a lifeform hearing or noticing a sound-driven state change.',
-    args: '[{from: state, to: state, dist: number}]; state: "DORMANT" | "RISING" | "WALK" | "SEARCH" | "HUNT".',
+    args: '[{from: state, to: state, dist: number}]; state: "DORMANT" | "RISING" | "WALK_SPEED_TILES_PER_SECOND" | "SEARCH" | "HUNT".',
     producers: ['src/sim/noise.js'],
     consumers: ['src/ui/hints.js', 'src/ui/haptics.js'],
   },

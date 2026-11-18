@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { loadGame } from '../helpers/harness.js';
 import { playPlayerRun, classifyDeath, chooseVisibleWater, advanceWaypoint, searchTargetDone, chooseRememberedReturn } from '../helpers/player-bot.js';
-import { FLOOR, MAP_W, MAP_H } from '../../src/config/constants.js';
+import { FLOOR, MAP_WIDTH_TILES, MAP_HEIGHT_TILES } from '../../src/config/constants.js';
 import { emit } from '../../src/util/events.js';
 
 const { A, G } = await loadGame();
@@ -41,7 +41,7 @@ test('the run keeps steering forward after passing a waypoint', () => {
     exit = G.exitTiles[0];
     leaks = G.leaks.map(leak => leak.fixed);
     G.grid.fill(0);
-    for (let x = 10; x <= 15; x++) G.grid[10 * MAP_W + x] = FLOOR;
+    for (let x = 10; x <= 15; x++) G.grid[10 * MAP_WIDTH_TILES + x] = FLOOR;
     G.plumber.x = 10.5; G.plumber.y = 10.5;
     G.exitTiles[0] = { x: 16, y: 10 };
     G.leaks.forEach(leak => { leak.fixed = true; });
@@ -77,17 +77,17 @@ test('a seen fallback target is not finished until its tile is visited', () => {
 });
 
 test('remembered return uses reachable seen tiles and falls back to spawn or search', () => {
-  const grid = new Uint8Array(MAP_W * MAP_H);
-  const put = (x, y) => { grid[y * MAP_W + x] = FLOOR; };
+  const grid = new Uint8Array(MAP_WIDTH_TILES * MAP_HEIGHT_TILES);
+  const put = (x, y) => { grid[y * MAP_WIDTH_TILES + x] = FLOOR; };
   for (const [x, y] of [[10, 10], [10, 11], [11, 11], [12, 11], [12, 10]]) put(x, y);
   const door = { x: 13, y: 10 }, spawn = { x: 10, y: 10 };
   assert.deepEqual(chooseRememberedReturn(grid, 10.5, 10.5, door, spawn),
     { kind: 'door', x: 12, y: 10 });
-  grid[10 * MAP_W + 12] = 0;
+  grid[10 * MAP_WIDTH_TILES + 12] = 0;
   assert.deepEqual(chooseRememberedReturn(grid, 11.5, 11.5, door, spawn),
     { kind: 'spawn', x: 10, y: 10 });
   assert.deepEqual(chooseRememberedReturn(grid, 10.5, 10.5, door, spawn), { kind: 'search' });
-  grid[11 * MAP_W + 10] = 0;
+  grid[11 * MAP_WIDTH_TILES + 10] = 0;
   assert.deepEqual(chooseRememberedReturn(grid, 11.5, 11.5, door, spawn), { kind: 'search' });
 });
 
@@ -103,9 +103,9 @@ test('remembered return does not take an unseen shortcut', () => {
     }
     G.grid.fill(0); G.maskArr.fill(0);
     for (const [x, y] of [[10,10], [11,10], [12,10], [10,11], [11,11], [12,11]])
-      G.grid[y * MAP_W + x] = FLOOR;
+      G.grid[y * MAP_WIDTH_TILES + x] = FLOOR;
     for (const [x, y] of [[10,10], [10,11], [11,11], [12,11], [12,10]])
-      G.maskArr[y * MAP_W + x] = 1;
+      G.maskArr[y * MAP_WIDTH_TILES + x] = 1;
     G.plumber.x = 10.5; G.plumber.y = 10.5;
     G.exitTiles[0] = { x: 13, y: 10 };
     G.leaks.forEach(leak => { leak.fixed = true; });
@@ -131,7 +131,7 @@ test('return memory survives a retry and resets on the next floor', () => {
     startRun();
     G.maskArr.fill(0);
     const x = Math.floor(G.plumber.x), y = Math.floor(G.plumber.y);
-    G.maskArr[y * MAP_W + x + 1] = 1;
+    G.maskArr[y * MAP_WIDTH_TILES + x + 1] = 1;
   };
   A.retryFloor = () => { retry(); G.maskArr.fill(0); };
   A.dismissClear = () => { dismiss(); G.maskArr.fill(0); };
@@ -160,7 +160,7 @@ test('return moves toward the door when already in its approach tile', () => {
   A.startRun = () => {
     startRun();
     grid = G.grid.slice(); exit = G.exitTiles[0]; leaks = G.leaks.map(leak => leak.fixed);
-    G.grid.fill(0); G.grid[10 * MAP_W + 10] = FLOOR;
+    G.grid.fill(0); G.grid[10 * MAP_WIDTH_TILES + 10] = FLOOR;
     G.plumber.x = 10.01; G.plumber.y = 10.5;
     G.exitTiles[0] = { x: 11, y: 10 };
     G.leaks.forEach(leak => { leak.fixed = true; });
@@ -181,11 +181,11 @@ test('return moves toward the door when already in its approach tile', () => {
 });
 
 test('a water plateau falls back to search instead of targeting the current tile', () => {
-  const grid = new Uint8Array(MAP_W * MAP_H);
+  const grid = new Uint8Array(MAP_WIDTH_TILES * MAP_HEIGHT_TILES);
   const wet = new Float32Array(grid.length);
   const mask = new Float32Array(grid.length);
   const visited = new Uint8Array(grid.length);
-  const current = 10 * MAP_W + 10, next = current + 1;
+  const current = 10 * MAP_WIDTH_TILES + 10, next = current + 1;
   grid[current] = grid[next] = FLOOR;
   wet[current] = wet[next] = mask[current] = mask[next] = 1;
   assert.equal(chooseVisibleWater(grid, wet, mask, visited, false, 10.5, 10.5, () => true), null);
@@ -197,11 +197,11 @@ test('a water plateau falls back to search instead of targeting the current tile
 });
 
 test('radar-only visibility admits water that normal vision does not', () => {
-  const grid = new Uint8Array(MAP_W * MAP_H);
+  const grid = new Uint8Array(MAP_WIDTH_TILES * MAP_HEIGHT_TILES);
   const wet = new Float32Array(grid.length);
   const mask = new Float32Array(grid.length);
   const visited = new Uint8Array(grid.length);
-  const tile = 10 * MAP_W + 11;
+  const tile = 10 * MAP_WIDTH_TILES + 11;
   grid[tile] = FLOOR; wet[tile] = 1; mask[tile] = 0.15;
   assert.equal(chooseVisibleWater(grid, wet, mask, visited, false, 10.5, 10.5, () => true), null);
   assert.deepEqual(chooseVisibleWater(grid, wet, mask, visited, true, 10.5, 10.5, () => true),
@@ -235,7 +235,7 @@ test('a radar scan does not mark the entire off-screen map as seen', () => {
   const samples = [];
   run({ withLifeforms: false, maxSeconds: 5.1, trace: sample => samples.push(sample) });
   assert.equal(samples.length, 2);
-  assert.ok(samples[1].seenTiles < MAP_W * MAP_H);
+  assert.ok(samples[1].seenTiles < MAP_WIDTH_TILES * MAP_HEIGHT_TILES);
 });
 
 test('the water control searches without selecting water goals', () => {
@@ -276,7 +276,7 @@ test('scan-sprint requires a clear radar scan and refuses a visible lifeform', (
       trace(){
         const lf = G.lifeforms[0];
         lf.x = G.plumber.x; lf.y = G.plumber.y;
-        G.maskArr[Math.floor(lf.y) * MAP_W + Math.floor(lf.x)] = 1;
+        G.maskArr[Math.floor(lf.y) * MAP_WIDTH_TILES + Math.floor(lf.x)] = 1;
       },
     });
     assert.ok(sprint.every(value => !value));

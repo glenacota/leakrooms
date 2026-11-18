@@ -1,5 +1,5 @@
 import { TAU, limb, blob } from './primitives.js';
-import { CATCH_R } from '../config/constants.js';
+import { CATCH_RADIUS_TILES } from '../config/constants.js';
 
 // specify which side each leg is on and its phase offset in the walk cycle
 const LIFEFORM_LEGS = [-1, 1, -1, 1];
@@ -26,10 +26,10 @@ export function drawLifeform(g, S) {
 }
 
 function drawCatchRadius(g, T, danger){
-  blob(g, 0, 0, T * CATCH_R, T * CATCH_R * 0.92, `rgba(18,20,14,${0.20 + 0.14 * danger})`);
+  blob(g, 0, 0, T * CATCH_RADIUS_TILES, T * CATCH_RADIUS_TILES * 0.92, `rgba(18,20,14,${0.20 + 0.14 * danger})`);
   g.strokeStyle = `rgba(216,80,60,${0.20 + 0.34 * danger})`;
   g.lineWidth = 2;
-  g.beginPath(); g.ellipse(0, 0, T * CATCH_R, T * CATCH_R * 0.92, 0, 0, TAU); g.stroke();
+  g.beginPath(); g.ellipse(0, 0, T * CATCH_RADIUS_TILES, T * CATCH_RADIUS_TILES * 0.92, 0, 0, TAU); g.stroke();
 }
 
 function drawLegs(g, T, S, hgt){

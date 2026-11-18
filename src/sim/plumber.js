@@ -1,4 +1,4 @@
-import { BATT_MAX, NOISE, RADAR_DRAIN, PLUMBER, SPRINT, SPRINT_RECOVERY_SECONDS, SPRINT_STAMINA, WALK } from '../config/constants.js';
+import { BATTERY_MAX_CHARGE, NOISE, RADAR_DRAIN_CHARGE_PER_SECOND, PLUMBER, SPRINT_SPEED_TILES_PER_SECOND, SPRINT_RECOVERY_SECONDS, SPRINT_STAMINA_SECONDS, WALK_SPEED_TILES_PER_SECOND } from '../config/constants.js';
 import { emit, EVENT } from '../util/events.js';
 import { createCollision } from './collision.js';
 import { seedSplash, wetAt } from './flood.js';
@@ -44,7 +44,7 @@ const PULSE_FOR = 1;
 export function tickBattery(plumberMeta, plumber, batteries, dt){
   plumberMeta.battPulseT = Math.max(0, plumberMeta.battPulseT - dt);
   if (plumberMeta.radar){
-    plumberMeta.batt -= RADAR_DRAIN*dt;
+    plumberMeta.batt -= RADAR_DRAIN_CHARGE_PER_SECOND*dt;
     if (plumberMeta.batt<=0){ plumberMeta.batt=0; plumberMeta.radar=false; emit(EVENT.flash, { cat: 'alert', text: 'THE RADAR IS DEAD. LOOK FOR MORE BATTERIES' }); }
     plumberMeta.radarRattleT = (plumberMeta.radarRattleT||0) - dt;
     if (plumberMeta.radarRattleT <= 0){ emit(EVENT.sfx, 'clink', 0.4); plumberMeta.radarRattleT = 0.6; }
@@ -53,7 +53,7 @@ export function tickBattery(plumberMeta, plumber, batteries, dt){
   }
   for (const b of batteries){
     if (b.taken) continue;
-    if (Math.hypot(b.x-plumber.x,b.y-plumber.y)<0.85){ b.taken=true; plumberMeta.batt=Math.min(BATT_MAX,plumberMeta.batt+20); emit(EVENT.flash, { cat: 'info', text: '+20% BATTERY' }); plumberMeta.battPulseT = PULSE_FOR; }
+    if (Math.hypot(b.x-plumber.x,b.y-plumber.y)<0.85){ b.taken=true; plumberMeta.batt=Math.min(BATTERY_MAX_CHARGE,plumberMeta.batt+20); emit(EVENT.flash, { cat: 'info', text: '+20% BATTERY' }); plumberMeta.battPulseT = PULSE_FOR; }
   }
 }
 
@@ -93,10 +93,10 @@ export function tickMovement(plumber, grid, floodState, dt){
     plumber.stamina = Math.max(0, plumber.stamina - dt);
     if (plumber.stamina < 1e-9) plumber.stamina = 0;
   } else if (!sprintRequested){
-    plumber.stamina = Math.min(SPRINT_STAMINA, plumber.stamina + dt * SPRINT_STAMINA / SPRINT_RECOVERY_SECONDS);
+    plumber.stamina = Math.min(SPRINT_STAMINA_SECONDS, plumber.stamina + dt * SPRINT_STAMINA_SECONDS / SPRINT_RECOVERY_SECONDS);
   }
   const wade = preWet > 0.25 ? 0.80 : 1;       // knee-deep water costs you a fifth of your speed
-  const spd = (sprinting ? SPRINT : WALK) * wade;
+  const spd = (sprinting ? SPRINT_SPEED_TILES_PER_SECOND : WALK_SPEED_TILES_PER_SECOND) * wade;
   let moving=false, bumped=false;
 
   unstick(plumber, PLUMBER.RADIUS);
@@ -123,7 +123,7 @@ export function tickMovement(plumber, grid, floodState, dt){
     /* One value, three uses: the noise meter, what the lifeforms hear, and how
        loud the footstep sounds. Passing it to the sound as well is what makes a
        sprinting step sound like a sprint and not just a louder walk. */
-    const stepPow = sprinting ? NOISE.SPRINT : (inWater ? NOISE.WADE : NOISE.WALK);
+    const stepPow = sprinting ? NOISE.SPRINT_SPEED_TILES_PER_SECOND : (inWater ? NOISE.WADE : NOISE.WALK_SPEED_TILES_PER_SECOND);
     sustainedNoise(floodState, stepPow, plumber.x, plumber.y, true);
     plumber.stepT -= dt;
     if (plumber.stepT<=0){

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { LEAK_HEADSTART, LEAK_SPREAD, MAP_W } from '../../src/config/constants.js';
+import { LEAK_HEADSTART, LEAK_SPREAD_SECONDS_PER_TILE, MAP_WIDTH_TILES } from '../../src/config/constants.js';
 import { softAssert } from '../helpers/soft-assert.js';
 import { loadGame } from '../helpers/harness.js';
 
@@ -15,11 +15,11 @@ test('initial water comes only from open leak fronts, including after reinitiali
     buildFloor(seed % A.LEVELS_N, seed*1543+3);
     for (let pass=0; pass<2; pass++){
       if (pass) A.initFlood();
-      const front = Math.min(G.wetMaxDist, LEAK_HEADSTART / LEAK_SPREAD);
+      const front = Math.min(G.wetMaxDist, LEAK_HEADSTART / LEAK_SPREAD_SECONDS_PER_TILE);
       let sum = 0;
       for (let i=0; i<G.wetArr.length; i++){
         const expected = G.leakWaterDist.some(dist => dist && dist[i] >= 0 && dist[i] <= front) ? 1 : 0;
-        assert.equal(G.wetArr[i], expected, `seed ${seed}, tile ${i%MAP_W},${Math.floor(i/MAP_W)}`);
+        assert.equal(G.wetArr[i], expected, `seed ${seed}, tile ${i%MAP_WIDTH_TILES},${Math.floor(i/MAP_WIDTH_TILES)}`);
         sum += expected;
       }
       assert.equal(G.wetSum, sum);
@@ -226,11 +226,11 @@ test('leaks are placed on walls, stay reachable, and flood downhill', () => {
        So the window is DERIVED from where the front actually is on this seed
        rather than written down: 60% of the way back to the leaks. Long enough
        to measure a rate, never long enough to clamp, and correct for any value
-       of LEAK_RETREAT.
+       of LEAK_RETREAT_SECONDS_PER_TILE.
 
        It used to be a hard-coded 20 seconds, and the reasoning written beside
        it ("the front starts about 32 tiles out, so a full minute would clamp")
-       was sound — at LEAK_RETREAT of 1.0, where 20 seconds is 20 tiles and the
+       was sound — at LEAK_RETREAT_SECONDS_PER_TILE of 1.0, where 20 seconds is 20 tiles and the
        front is still 12 out afterwards. Dropping the constant to 0.5 asked the
        same 20 seconds for 40 tiles of recession from a front 32 tiles out, so
        every run clamped at the leaks and the rate assertion below went on
@@ -238,20 +238,20 @@ test('leaks are placed on walls, stay reachable, and flood downhill', () => {
        number went stale under it; deriving it is what keeps the claim honest
        the next time the drain is retuned. */
     const f0 = A.internals.wetFront;
-    const T = Math.max(2, Math.min(20, Math.floor(f0 * A.LEAK_RETREAT * 0.6)));
+    const T = Math.max(2, Math.min(20, Math.floor(f0 * A.LEAK_RETREAT_SECONDS_PER_TILE * 0.6)));
     run(T);
     const rec = f0 - A.internals.wetFront;
-    t.assert(Math.abs(adv - 60/A.LEAK_SPREAD) < 0.5,
-      `the flood advanced ${adv.toFixed(2)} tiles in 60s, want ${(60/A.LEAK_SPREAD).toFixed(2)}`);
-    t.assert(Math.abs(rec - T/A.LEAK_RETREAT) < 0.5,
-      `the flood receded ${rec.toFixed(2)} tiles in ${T}s, want ${(T/A.LEAK_RETREAT).toFixed(2)}`);
+    t.assert(Math.abs(adv - 60/A.LEAK_SPREAD_SECONDS_PER_TILE) < 0.5,
+      `the flood advanced ${adv.toFixed(2)} tiles in 60s, want ${(60/A.LEAK_SPREAD_SECONDS_PER_TILE).toFixed(2)}`);
+    t.assert(Math.abs(rec - T/A.LEAK_RETREAT_SECONDS_PER_TILE) < 0.5,
+      `the flood receded ${rec.toFixed(2)} tiles in ${T}s, want ${(T/A.LEAK_RETREAT_SECONDS_PER_TILE).toFixed(2)}`);
     t.assert(A.internals.wetFront > 0,
       `the front reached the leaks after ${T}s — the window is too long to measure a rate`);
-    t.assert(A.LEAK_RETREAT < A.LEAK_SPREAD,
-      `the recession (${A.LEAK_RETREAT}s/tile) is not outrunning the arrival `+
-      `(${A.LEAK_SPREAD}s/tile) — the drain is a mop-up again`);
-    t.assert(Math.abs(rec - T/A.WET_FALL) > 1,
-      'the recession is still running at the old WET_FALL pace');
+    t.assert(A.LEAK_RETREAT_SECONDS_PER_TILE < A.LEAK_SPREAD_SECONDS_PER_TILE,
+      `the recession (${A.LEAK_RETREAT_SECONDS_PER_TILE}s/tile) is not outrunning the arrival `+
+      `(${A.LEAK_SPREAD_SECONDS_PER_TILE}s/tile) — the drain is a mop-up again`);
+    t.assert(Math.abs(rec - T/A.WET_TILE_FALL_SECONDS) > 1,
+      'the recession is still running at the old WET_TILE_FALL_SECONDS pace');
 
     /* 2. no stranded ring, measured while there is still a waterline. The tile
        the front abandons FIRST is the one the old bound dropped on the frame it
@@ -268,7 +268,7 @@ test('leaks are placed on walls, stay reachable, and flood downhill', () => {
        waterline and is supposed to be wet. Naming the band makes the claim
        independent of both the seed and the row order. */
     const f1 = A.internals.wetFront;
-    const lo = Math.max(0, f1 - T/A.LEAK_RETREAT), hi = f1 - 1;
+    const lo = Math.max(0, f1 - T/A.LEAK_RETREAT_SECONDS_PER_TILE), hi = f1 - 1;
     let outer=-1;
     for (let i=0;i<N;i++){
       const d = A.internals.waterDist[i];
@@ -357,8 +357,8 @@ test('leaks are placed on walls, stay reachable, and flood downhill', () => {
       `sprinting at ${A.SPRINT_NOISE} is under LOUD — running past a dormant lifeform has to wake it`);
     t.assert(A.SPRINT_NOISE > 0.30,
       `sprinting at ${A.SPRINT_NOISE} is quieter than wading — the sprint stops being a decision`);
-    t.assert(A.NOISE_FS === A.REPAIR_NOISE,
-      `the meter tops out at ${A.NOISE_FS}, which is not the loudest sustained thing you can do (${A.REPAIR_NOISE})`);
+    t.assert(A.NOISE_FULL_SCALE === A.REPAIR_NOISE,
+      `the meter tops out at ${A.NOISE_FULL_SCALE}, which is not the loudest sustained thing you can do (${A.REPAIR_NOISE})`);
     t.assert(A.LEAK_NOISE_BASE < A.LOUD, 'the base leak noise is already LOUD');
     /* wading must stay UNDER loud or following the trail would be strictly
        worse than sweeping, and the trail has to be the cheap option */

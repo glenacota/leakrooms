@@ -5,12 +5,12 @@ import { loadGame } from '../helpers/harness.js';
 
 const { A, G } = await loadGame();
 const buildFloor = A.buildFloor;
-const { MAP_W, MAP_H, FLOOR } = await import('../../src/config/constants.js');
+const { MAP_WIDTH_TILES, MAP_HEIGHT_TILES, FLOOR } = await import('../../src/config/constants.js');
 const { distanceField, nextStep, traverseFloor } = await import('../../src/sim/path.js');
 
 test('multi-source traversal keeps breadth-first order and nearest distances', () => {
-  const grid = new Uint8Array(MAP_W * MAP_H);
-  const a = MAP_W + 1, b = a + 4;
+  const grid = new Uint8Array(MAP_WIDTH_TILES * MAP_HEIGHT_TILES);
+  const a = MAP_WIDTH_TILES + 1, b = a + 4;
   for (let i = a; i <= b; i++) grid[i] = FLOOR;
   const { dist, order } = distanceField(grid, [a, b, a]);
   assert.deepEqual(order, [a, b, a + 1, b - 1, a + 2]);
@@ -18,8 +18,8 @@ test('multi-source traversal keeps breadth-first order and nearest distances', (
 });
 
 test('multi-source traversal accepts tile coordinates and typed arrays', () => {
-  const grid = new Uint8Array(MAP_W * MAP_H);
-  const a = MAP_W + 1, b = a + 1;
+  const grid = new Uint8Array(MAP_WIDTH_TILES * MAP_HEIGHT_TILES);
+  const a = MAP_WIDTH_TILES + 1, b = a + 1;
   grid[a] = grid[b] = FLOOR;
   assert.deepEqual(distanceField(grid, [{x: 1.5, y: 1.5}, {x: 2, y: 1}]).order, [a, b]);
   assert.deepEqual(distanceField(grid, new Uint32Array([a, b])).order, [a, b]);
@@ -27,12 +27,12 @@ test('multi-source traversal accepts tile coordinates and typed arrays', () => {
 });
 
 test('traversal applies tile restrictions, unit costs and stop-on-dequeue', () => {
-  const grid = new Uint8Array(MAP_W * MAP_H);
-  const a = MAP_W + 1, right = a + 1, down = a + MAP_W;
-  for (const i of [a, right, right + 1, down, down + MAP_W]) grid[i] = FLOOR;
+  const grid = new Uint8Array(MAP_WIDTH_TILES * MAP_HEIGHT_TILES);
+  const a = MAP_WIDTH_TILES + 1, right = a + 1, down = a + MAP_WIDTH_TILES;
+  for (const i of [a, right, right + 1, down, down + MAP_WIDTH_TILES]) grid[i] = FLOOR;
 
   const restricted = distanceField(grid, [a], {canEnter: i => i !== right});
-  assert.deepEqual(restricted.order, [a, down, down + MAP_W]);
+  assert.deepEqual(restricted.order, [a, down, down + MAP_WIDTH_TILES]);
   assert.equal(restricted.dist[right], -1);
   const blocked = distanceField(grid, [a], {cost: i => i === right ? Infinity : 1});
   assert.deepEqual(blocked.order, restricted.order);
@@ -47,11 +47,11 @@ test('traversal applies tile restrictions, unit costs and stop-on-dequeue', () =
 });
 
 test('depth-first traversal preserves mark-on-push and pop order', () => {
-  const grid = new Uint8Array(MAP_W * MAP_H);
-  const a = MAP_W + 1;
-  for (const i of [a, a + 1, a + MAP_W, a + MAP_W + 1]) grid[i] = FLOOR;
+  const grid = new Uint8Array(MAP_WIDTH_TILES * MAP_HEIGHT_TILES);
+  const a = MAP_WIDTH_TILES + 1;
+  for (const i of [a, a + 1, a + MAP_WIDTH_TILES, a + MAP_WIDTH_TILES + 1]) grid[i] = FLOOR;
   const { order } = traverseFloor(grid, [a], {depthFirst: true});
-  assert.deepEqual(order, [a, a + MAP_W, a + MAP_W + 1, a + 1]);
+  assert.deepEqual(order, [a, a + MAP_WIDTH_TILES, a + MAP_WIDTH_TILES + 1, a + 1]);
 });
 
 /* Unreachable tiles (walls, off-map) give -1. */
@@ -62,21 +62,21 @@ test('unreachable tiles give -1', () => {
 
   /* Pick a floor tile as target. */
   let tx = -1, ty = -1;
-  for (let y=0; y<MAP_H && tx<0; y++) for (let x=0; x<MAP_W && tx<0; x++) if (grid[y*MAP_W+x] === FLOOR){ tx=x; ty=y; }
+  for (let y=0; y<MAP_HEIGHT_TILES && tx<0; y++) for (let x=0; x<MAP_WIDTH_TILES && tx<0; x++) if (grid[y*MAP_WIDTH_TILES+x] === FLOOR){ tx=x; ty=y; }
   assert(tx >= 0, 'found a floor tile');
 
   const field = distanceField(grid, tx, ty);
 
   /* The target tile itself should be 0. */
-  t.assert(field[ty*MAP_W+tx] === 0, `target tile is ${field[ty*MAP_W+tx]}, expected 0`);
+  t.assert(field[ty*MAP_WIDTH_TILES+tx] === 0, `target tile is ${field[ty*MAP_WIDTH_TILES+tx]}, expected 0`);
 
   /* Find a wall tile - should be -1. */
   let wx = -1, wy = -1;
-  for (let y=0; y<MAP_H && wx<0; y++) for (let x=0; x<MAP_W && wx<0; x++) if (grid[y*MAP_W+x] !== FLOOR){ wx=x; wy=y; }
+  for (let y=0; y<MAP_HEIGHT_TILES && wx<0; y++) for (let x=0; x<MAP_WIDTH_TILES && wx<0; x++) if (grid[y*MAP_WIDTH_TILES+x] !== FLOOR){ wx=x; wy=y; }
   assert(wx >= 0, 'found a wall tile');
-  t.assert(field[wy*MAP_W+wx] === -1, `wall tile is ${field[wy*MAP_W+wx]}, expected -1`);
+  t.assert(field[wy*MAP_WIDTH_TILES+wx] === -1, `wall tile is ${field[wy*MAP_WIDTH_TILES+wx]}, expected -1`);
 
-  /* Off-map access (handled by nextStep bounds, but field is only MAP_W*MAP_H). */
+  /* Off-map access (handled by nextStep bounds, but field is only MAP_WIDTH_TILES*MAP_HEIGHT_TILES). */
   console.log('  unreachable tiles correctly give -1');;
 });
 
@@ -88,9 +88,9 @@ test('field decreases by exactly 1 along nextStep', () => {
 
   /* Pick two floor tiles far apart. */
   let tx = -1, ty = -1, sx = -1, sy = -1;
-  for (let y=0; y<MAP_H && (tx<0 || sx<0); y++){
-    for (let x=0; x<MAP_W && (tx<0 || sx<0); x++){
-      if (grid[y*MAP_W+x] === FLOOR){
+  for (let y=0; y<MAP_HEIGHT_TILES && (tx<0 || sx<0); y++){
+    for (let x=0; x<MAP_WIDTH_TILES && (tx<0 || sx<0); x++){
+      if (grid[y*MAP_WIDTH_TILES+x] === FLOOR){
         if (tx<0){ tx=x; ty=y; }
         else if (Math.abs(x-tx) + Math.abs(y-ty) > 20){ sx=x; sy=y; }
       }
@@ -99,7 +99,7 @@ test('field decreases by exactly 1 along nextStep', () => {
   assert(tx >= 0 && sx >= 0, 'found two floor tiles');
 
   const field = distanceField(grid, tx, ty);
-  const startDist = field[sy*MAP_W+sx];
+  const startDist = field[sy*MAP_WIDTH_TILES+sx];
   t.assert(startDist >= 0, `start tile reachable, dist=${startDist}`);
 
   /* Walk the gradient from start to target. */
@@ -109,12 +109,12 @@ test('field decreases by exactly 1 along nextStep', () => {
     const step = nextStep(field, cx, cy);
     t.assert(step !== null, `step ${steps}: nextStep returned null at ${cx},${cy}`);
     if (!step) break;
-    const cur = field[cy*MAP_W+cx];
-    const nxt = field[step.y*MAP_W+step.x];
+    const cur = field[cy*MAP_WIDTH_TILES+cx];
+    const nxt = field[step.y*MAP_WIDTH_TILES+step.x];
     t.assert(nxt === cur - 1, `step ${steps}: ${cx},${cy} val=${cur} -> ${step.x},${step.y} val=${nxt}, expected decrease by 1`);
     cx = step.x; cy = step.y;
     steps++;
-    t.assert(steps < MAP_W*MAP_H, 'infinite loop protection');
+    t.assert(steps < MAP_WIDTH_TILES*MAP_HEIGHT_TILES, 'infinite loop protection');
   }
   t.assert(cx === tx && cy === ty, `reached target after ${steps} steps`);
   console.log(`  gradient walk: ${steps} steps, each decreasing by 1`);;
@@ -129,7 +129,7 @@ test('distanceField is deterministic for the same seed', () => {
 
   /* Pick a target. */
   let tx = -1, ty = -1;
-  for (let y=0; y<MAP_H && tx<0; y++) for (let x=0; x<MAP_W && tx<0; x++) if (grid1[y*MAP_W+x] === FLOOR){ tx=x; ty=y; }
+  for (let y=0; y<MAP_HEIGHT_TILES && tx<0; y++) for (let x=0; x<MAP_WIDTH_TILES && tx<0; x++) if (grid1[y*MAP_WIDTH_TILES+x] === FLOOR){ tx=x; ty=y; }
 
   const field1 = distanceField(grid1, tx, ty);
 
@@ -154,10 +154,10 @@ test('nextStep returns null at target and unreachable', () => {
   const grid = G.grid;
 
   let tx = -1, ty = -1, wx = -1, wy = -1;
-  for (let y=0; y<MAP_H && (tx<0 || wx<0); y++){
-    for (let x=0; x<MAP_W && (tx<0 || wx<0); x++){
-      if (grid[y*MAP_W+x] === FLOOR && tx<0){ tx=x; ty=y; }
-      if (grid[y*MAP_W+x] !== FLOOR && wx<0){ wx=x; wy=y; }
+  for (let y=0; y<MAP_HEIGHT_TILES && (tx<0 || wx<0); y++){
+    for (let x=0; x<MAP_WIDTH_TILES && (tx<0 || wx<0); x++){
+      if (grid[y*MAP_WIDTH_TILES+x] === FLOOR && tx<0){ tx=x; ty=y; }
+      if (grid[y*MAP_WIDTH_TILES+x] !== FLOOR && wx<0){ wx=x; wy=y; }
     }
   }
   assert(tx >= 0 && wx >= 0);

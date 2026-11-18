@@ -6,7 +6,7 @@
    LOUD). Loud sounds wake sleepers and start hunts.
    ============================================================ */
 
-import { MAP_W, MAP_H, NOISE, SOUND_POWERS } from '../config/constants.js';
+import { MAP_WIDTH_TILES, MAP_HEIGHT_TILES, NOISE, SOUND_POWERS } from '../config/constants.js';
 import { emit, EVENT } from '../util/events.js';
 import { createCollision } from './collision.js';
 import { walkLine } from '../util/line.js';
@@ -53,7 +53,7 @@ export function tickNoiseDecay(state, dt){
 
    To make the count symmetric (wallSteps(a,b) === wallSteps(b,a)), the line
    is always walked from the canonical end: the tile with the smaller linear
-   index (y*MAP_W + x). This ensures the same tiles are visited in the same
+   index (y*MAP_WIDTH_TILES + x). This ensures the same tiles are visited in the same
    order regardless of argument order. */
 export function wallSteps(grid, ax, ay, x, y){
   const { solid } = createCollision(grid);
@@ -61,14 +61,14 @@ export function wallSteps(grid, ax, ay, x, y){
   const ex=Math.floor(x),   ey=Math.floor(y);
 
   // Fix the direction so both argument orders visit the same tiles.
-  const sIdx = sy*MAP_W + sx, eIdx = ey*MAP_W + ex;
+  const sIdx = sy*MAP_WIDTH_TILES + sx, eIdx = ey*MAP_WIDTH_TILES + ex;
   const startX = sIdx <= eIdx ? sx : ex, startY = sIdx <= eIdx ? sy : ey;
   const endX = sIdx <= eIdx ? ex : sx, endY = sIdx <= eIdx ? ey : sy;
   let first=true, steps=0;
   walkLine(startX,startY,endX,endY,(cx,cy)=>{
     if (first){ first=false; return true; }
     if (solid(cx,cy) && ++steps >= MAX_WALL_STEPS) return false;
-  }, {limit:MAP_W+MAP_H, inclusive:true});
+  }, {limit:MAP_WIDTH_TILES+MAP_HEIGHT_TILES, inclusive:true});
   return steps;
 }
 
@@ -117,9 +117,9 @@ export function alert(a, src, ctx){
     if (from !== 'HUNT') emit(EVENT.heard, { from, to: 'HUNT', dist });
     return;
   }
-  if (a.state==='WALK'){
+  if (a.state==='WALK_SPEED_TILES_PER_SECOND'){
     a.state='SEARCH'; a.t=4.5; a.target={x,y};
-    emit(EVENT.heard, { from: 'WALK', to: 'SEARCH', dist });
+    emit(EVENT.heard, { from: 'WALK_SPEED_TILES_PER_SECOND', to: 'SEARCH', dist });
   }
 }
 
@@ -128,7 +128,7 @@ export function alertLifeforms(noiseState, baseR, power, x, y, mine){
   const px = noiseState.plumber.x;
   const py = noiseState.plumber.y;
   for (const lf of noiseState.lifeforms){
-    if (lf.state==='WALK' && lf.born>0) continue;
+    if (lf.state==='WALK_SPEED_TILES_PER_SECOND' && lf.born>0) continue;
     const d = Math.hypot(lf.x-x, lf.y-y);
     if (d > baseR) continue;
     const eff = baseR - wallSteps(noiseState.grid, lf.x, lf.y, x, y)*NOISE.WALL_COST;

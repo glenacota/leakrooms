@@ -17,7 +17,7 @@ A.setHeadless(false, true);
 A.setHeadless(false, true);
 test('light is scoped to the room you are standing in', () => {
   const t = softAssert();
-  const W=76, H=76, DARK=A.DARK_ROOM, HOP=A.HOP_FALL;
+  const W=76, H=76, DARK=A.DARK_ROOM, HOP=A.ROOM_SCOPE_FALLOFF;
 
   const hopsFrom = (start)=>{
     const adj=A.internals.regionAdj, hops=new Int32Array(adj.length).fill(-1);
@@ -300,8 +300,8 @@ test('the cone of vision rotates and is blocked by walls', () => {
     }
     return false;
   };
-  const eye=()=>[spot.x + Math.cos(G.plumber.face)*A.HAND_OFF,
-                 spot.y + Math.sin(G.plumber.face)*A.HAND_OFF];
+  const eye=()=>[spot.x + Math.cos(G.plumber.face)*A.RADAR_HAND_OFF_TILES,
+                 spot.y + Math.sin(G.plumber.face)*A.RADAR_HAND_OFF_TILES];
 
   /* Can any line from the eye reach this tile? Sampled over a disc inside the
      tile rather than to its exact centre, because "the tile is visible" means

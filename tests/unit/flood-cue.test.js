@@ -59,9 +59,9 @@ console.log('[17] the water as a cue — legible, free, and it actually leads');
      exists; it is free, and this pins that so a future tuning pass cannot
      quietly price it. */
   {
-    t.assert(A.RADAR_DRAIN > 5, 'the radar got cheap — the trail has to be worth more than a sweep');
+    t.assert(A.RADAR_DRAIN_CHARGE_PER_SECOND > 5, 'the radar got cheap — the trail has to be worth more than a sweep');
     t.assert(A.LEAK_NOISE_BASE < 0.5, 'standing near a leak is already loud');
-    console.log(`  trail costs no battery and ${A.LEAK_NOISE_BASE} noise vs ${A.RADAR_DRAIN}/s of sweep`);
+    console.log(`  trail costs no battery and ${A.LEAK_NOISE_BASE} noise vs ${A.RADAR_DRAIN_CHARGE_PER_SECOND}/s of sweep`);
   }
 
   /* --- and the trail LEADS: wetness is strictly higher nearer the leaks --- */
@@ -108,10 +108,10 @@ console.log('[17] the water as a cue — legible, free, and it actually leads');
       if (A.STATE!=='play'){ A.STATE='play'; }
     }
     keys['d']=false;
-    /* 30 frames of walking at SPRINT/WALK speed, minus the wading penalty.
+    /* 30 frames of walking at SPRINT_SPEED_TILES_PER_SECOND/WALK_SPEED_TILES_PER_SECOND speed, minus the wading penalty.
        Assert only the DIRECTION of the effect and the floor: a wall stops you,
        so this measures a lower bound. */
-    const maxDry = 30/60 * A.WALK;
+    const maxDry = 30/60 * A.WALK_SPEED_TILES_PER_SECOND;
     t.assert(dist <= maxDry*1.02,
       `walked ${dist.toFixed(2)} tiles in wet, above the dry maximum ${maxDry.toFixed(2)} — wading is not slowing anything`);
     t.assert(dist < maxDry*0.98,

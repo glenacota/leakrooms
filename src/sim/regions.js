@@ -1,4 +1,4 @@
-import { FLOOR, HOP_FALL, MAP_H, MAP_W } from '../config/constants.js';
+import { FLOOR, ROOM_SCOPE_FALLOFF, MAP_HEIGHT_TILES, MAP_WIDTH_TILES } from '../config/constants.js';
 import { distanceField } from './path.js';
 
 /**
@@ -13,7 +13,7 @@ import { distanceField } from './path.js';
  */
 export function labelRegions(level) {
   const grid = level.grid;
-  const at = (x, y) => grid[y * MAP_W + x];
+  const at = (x, y) => grid[y * MAP_WIDTH_TILES + x];
 
   /* ---------- Rooms ----------
      Room rectangles come from separate BSP leaves, so they never overlap. Only
@@ -24,19 +24,19 @@ export function labelRegions(level) {
      middle of a room rendered darker than the floor around it. Walls are lit BY
      the spaces around them. This also keeps a stub from splitting a room into
      two regions, which is right: a stub is furniture, not a doorway. */
-  const regionOf = new Int32Array(MAP_W * MAP_H).fill(-1);
+  const regionOf = new Int32Array(MAP_WIDTH_TILES * MAP_HEIGHT_TILES).fill(-1);
   level.rooms.forEach((r, ri) => {
     for (let y = r.ry; y < r.ry + r.rh; y++)
       for (let x = r.rx; x < r.rx + r.rw; x++)
-        if (at(x, y) === FLOOR) regionOf[y * MAP_W + x] = ri;
+        if (at(x, y) === FLOOR) regionOf[y * MAP_WIDTH_TILES + x] = ri;
   });
   /* ---------- Corridors ----------
      The tiles between rooms are not in any rectangle. Each connected group of
      them is flood filled into its own region, because standing in a doorway
      lights the doorway, not the whole room behind you. */
   let nRegions = level.rooms.length;
-  for (let y = 0; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++) {
-    const i0 = y * MAP_W + x;
+  for (let y = 0; y < MAP_HEIGHT_TILES; y++) for (let x = 0; x < MAP_WIDTH_TILES; x++) {
+    const i0 = y * MAP_WIDTH_TILES + x;
     if (at(x, y) !== FLOOR || regionOf[i0] >= 0) continue;
     const id = nRegions++;
     const { order } = distanceField(grid, [i0], {canEnter: i => regionOf[i] < 0});
@@ -50,10 +50,10 @@ export function labelRegions(level) {
      lowest id wins, which keeps room indices stable. */
   const parent = Array.from({ length: nRegions }, (_, i) => i);
   const find = a => { while (parent[a] !== a) a = parent[a] = parent[parent[a]]; return a; };
-  for (let y = 1; y < MAP_H - 1; y++) for (let x = 1; x < MAP_W - 1; x++) {
+  for (let y = 1; y < MAP_HEIGHT_TILES - 1; y++) for (let x = 1; x < MAP_WIDTH_TILES - 1; x++) {
     let first = -1, open = true;
     for (let dy = -1; dy <= 1 && open; dy++) for (let dx = -1; dx <= 1; dx++) {
-      const r = regionOf[(y + dy) * MAP_W + x + dx];
+      const r = regionOf[(y + dy) * MAP_WIDTH_TILES + x + dx];
       if (r < 0) { open = false; break; }
       if (first < 0) first = r;
       else { const a = find(first), b = find(r); if (a !== b) parent[Math.max(a, b)] = Math.min(a, b); }
@@ -77,12 +77,12 @@ export function labelRegions(level) {
      graph and not just "the next room over". */
   const regAdj = Array.from({ length: nRegions }, () => []);
   const regSeen = new Set();
-  for (let y = 0; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++) {
-    const a = regionOf[y * MAP_W + x];
+  for (let y = 0; y < MAP_HEIGHT_TILES; y++) for (let x = 0; x < MAP_WIDTH_TILES; x++) {
+    const a = regionOf[y * MAP_WIDTH_TILES + x];
     if (a < 0) continue;
     for (const [nx, ny] of [[x + 1, y], [x, y + 1]]) {
-      if (nx >= MAP_W || ny >= MAP_H) continue;
-      const b = regionOf[ny * MAP_W + nx];
+      if (nx >= MAP_WIDTH_TILES || ny >= MAP_HEIGHT_TILES) continue;
+      const b = regionOf[ny * MAP_WIDTH_TILES + nx];
       if (b < 0 || a === b) continue;
       const key = a < b ? a + ',' + b : b + ',' + a;
       if (regSeen.has(key)) continue;
@@ -94,10 +94,10 @@ export function labelRegions(level) {
   return { regionOf, regionAdj: regAdj, regionCount: nActual };
 }
 
-// How much of a room's own light you can see through `hops` gates (see HOP_FALL).
+// How much of a room's own light you can see through `hops` gates (see ROOM_SCOPE_FALLOFF).
 export function scopeFor(hops) {
   if (hops < 0) return 0;
-  return HOP_FALL[Math.min(hops, HOP_FALL.length - 1)];
+  return ROOM_SCOPE_FALLOFF[Math.min(hops, ROOM_SCOPE_FALLOFF.length - 1)];
 }
 
 /**
@@ -110,6 +110,6 @@ export function scopeFor(hops) {
  */
 export function regionAt(regionOf, x, y){
   const tx = Math.floor(x), ty = Math.floor(y);
-  if (tx < 0 || ty < 0 || tx >= MAP_W || ty >= MAP_H) return -1;
-  return regionOf[ty * MAP_W + tx];
+  if (tx < 0 || ty < 0 || tx >= MAP_WIDTH_TILES || ty >= MAP_HEIGHT_TILES) return -1;
+  return regionOf[ty * MAP_WIDTH_TILES + tx];
 }

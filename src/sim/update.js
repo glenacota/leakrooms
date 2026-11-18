@@ -2,7 +2,7 @@ import { emit, EVENT } from '../util/events.js';
 import { tickDoor } from './door.js';
 import { tickFlood } from './flood.js';
 import { tickLeakNoise, tickRepair } from './leaks.js';
-import { NOISE_FS } from '../config/constants.js';
+import { NOISE_FULL_SCALE } from '../config/constants.js';
 import { tickLifeforms } from './lifeforms.js';
 import { tickClock } from './clock.js';
 import { combineMask, fadeRoomLight, scopeRoomLight, smoothMask, traceViewCone } from './vision.js';
@@ -18,8 +18,8 @@ export function tickAudio(state){
   emit(EVENT.sfx, 'drone', prox * (0.35 + state.seenBy*0.65));
   // The noise bed follows the loudest thing in earshot, which is the number the bar shows. The yellow fill on the bar is only the player's own share.
   // Ambient mix only: running raises footsteps, not the bed.
-  emit(EVENT.sfx, 'noiseFloor', Math.max(state.ambientNoise, state.leakTotal)/NOISE_FS);
-  emit(EVENT.sfx, 'leakBed', state.leakTotal/NOISE_FS, state.leakDist);
+  emit(EVENT.sfx, 'noiseFloor', Math.max(state.ambientNoise, state.leakTotal)/NOISE_FULL_SCALE);
+  emit(EVENT.sfx, 'leakBed', state.leakTotal/NOISE_FULL_SCALE, state.leakDist);
 }
 
 /**

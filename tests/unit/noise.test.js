@@ -29,12 +29,12 @@ test('noise decay lowers meters and keeps peak above current noise', () => {
   t.assert(Math.abs(G.noisePeak - G.noise) < 1e-9, 'noisePeak fell below current noise');
 });
 
-/* The bar is drawn from the noise level divided by NOISE_FS, and every value the
-   game produces is between 0 and NOISE_FS. A bar that divides by something else
+/* The bar is drawn from the noise level divided by NOISE_FULL_SCALE, and every value the
+   game produces is between 0 and NOISE_FULL_SCALE. A bar that divides by something else
    cannot show a sprint or mark the LOUD threshold, and the sim never notices:
-/* The diegetic noise ring is drawn from selfNoise divided by NOISE_FS, the
+/* The diegetic noise ring is drawn from selfNoise divided by NOISE_FULL_SCALE, the
    loudest sustained thing the player can make. Every value the game produces
-   is between 0 and NOISE_FS. A meter that divided by something else cannot
+   is between 0 and NOISE_FULL_SCALE. A meter that divided by something else cannot
    show a sprint or mark the LOUD threshold, and the sim never notices:
    bots do not read the HUD. */
 test('the noise meter uses the scale the game actually produces', () => {
@@ -42,11 +42,11 @@ test('the noise meter uses the scale the game actually produces', () => {
   A.lives=3; A.floorIdx=0;
   buildFloor(1, 60606);
   const W = 76;
-  const pct = p => p/A.NOISE_FS*100;          // exact, not rounded: the ring is
+  const pct = p => p/A.NOISE_FULL_SCALE*100;          // exact, not rounded: the ring is
   const near = (got, want, what) =>           // drawn from the same division
     t.assert(Math.abs(got-want) < 0.01,
       `${what} is ${got.toFixed(2)}%, expected ${want.toFixed(2)}%`);
-  const fill = () => G.selfNoise/A.NOISE_FS*100;   // what the ring paints
+  const fill = () => G.selfNoise/A.NOISE_FULL_SCALE*100;   // what the ring paints
 
   const show = (n, leakTotal) => {
     G.noise = n; G.selfNoise = n; G.noisePeak = n; G.leakTotal = leakTotal||0;
@@ -66,11 +66,11 @@ test('the noise meter uses the scale the game actually produces', () => {
   t.assert(Math.abs(sprint-82.4) < 0.5, `a sprint fills the meter to ${sprint.toFixed(1)}%, expected 82.4`);
   near(wrench, 100, 'the wrench, the loudest sustained thing you do');
   near(door, 100, 'the door — past full scale is clamped, not overflowing');
-  t.assert(Math.round(G.selfNoise/A.NOISE_FS*100)===100, `the meter reads 100 at the wrench`);
+  t.assert(Math.round(G.selfNoise/A.NOISE_FULL_SCALE*100)===100, `the meter reads 100 at the wrench`);
   t.assert(walk < wade && wade < loud && loud < sprint && sprint < wrench,
     `the meter does not rank the actions the AI ranks (${walk}, ${wade}, ${loud}, ${sprint}, ${wrench})`);
   /* and the threshold is marked where it actually is, from the constant */
-  near(A.LOUD/A.NOISE_FS*100, pct(A.LOUD), 'the LOUD position');
+  near(A.LOUD/A.NOISE_FULL_SCALE*100, pct(A.LOUD), 'the LOUD position');
 
   /* the red comes from the LOUD constant on your own noise, not a number
      hard-coded beside it */
@@ -83,7 +83,7 @@ test('the noise meter uses the scale the game actually produces', () => {
   /* the open leaks get their own reading under yours: that is the level the agents
      steer by, and it is not about the player */
   show(0.22, 0.24);
-  near(G.leakTotal/A.NOISE_FS*100, pct(0.24), 'the leak fill');
+  near(G.leakTotal/A.NOISE_FULL_SCALE*100, pct(0.24), 'the leak fill');
   show(0.22, 0);
   t.assert(G.leakTotal===0, 'the leak fill is zero with every leak sealed');
 
@@ -109,12 +109,12 @@ test('the noise meter uses the scale the game actually produces', () => {
     t.assert(G.selfNoise===0,
       `standing still for three seconds left ${G.selfNoise.toFixed(2)} of your own noise on the meter`);
     t.assert(fill()===0, `your fill reads ${fill()}% while standing still`);
-    t.assert(G.leakTotal>0 && G.leakTotal/A.NOISE_FS*100>0,
+    t.assert(G.leakTotal>0 && G.leakTotal/A.NOISE_FULL_SCALE*100>0,
       'the leaks are open and the meter shows no building noise either — it is showing nothing at all');
-    const seen = Math.round(G.noise/A.NOISE_FS*100);
+    const seen = Math.round(G.noise/A.NOISE_FULL_SCALE*100);
     t.assert(seen>0, `the number reads ${seen} next to an open leak — the loudest thing in earshot is silent`);
     console.log(`  standing still two tiles from an open leak: your fill 0%, the leaks' `+
-      `${(G.leakTotal/A.NOISE_FS*100).toFixed(0)}%, the number reads ${seen}`);
+      `${(G.leakTotal/A.NOISE_FULL_SCALE*100).toFixed(0)}%, the number reads ${seen}`);
 
     /* ...and it is there the moment you move, and gone when you stop */
     keys['d'] = true;
@@ -133,18 +133,18 @@ test('the noise meter uses the scale the game actually produces', () => {
   show(0.1); G.noisePeak = 0.6;
   /* The peak no longer decays in updateHUD; it decays in tickClock (via update).
      One frame of decay (0.24 * 1/60 = 0.004) happens per update step. */
-  const afterOne = G.noisePeak/A.NOISE_FS*100;
+  const afterOne = G.noisePeak/A.NOISE_FULL_SCALE*100;
   /* Reading the peak many times between update steps must NOT decay it. */
   for (let i=0;i<5;i++){ G.noisePeak; }
-  const afterFive = G.noisePeak/A.NOISE_FS*100;
+  const afterFive = G.noisePeak/A.NOISE_FULL_SCALE*100;
   t.assert(Math.abs(afterOne - afterFive) < 0.01,
     `repeated reads changed the peak: ${afterOne.toFixed(2)}% -> ${afterFive.toFixed(2)}%`);
 
   /* One update step (dt=1/60) decays the peak by 0.004 (noise units).
-     In percentage terms that's 0.004/NOISE_FS*100. */
+     In percentage terms that's 0.004/NOISE_FULL_SCALE*100. */
   A.update(1/60);
-  const afterStep = G.noisePeak/A.NOISE_FS*100;
-  const expectedDropPct = (0.24/60)/A.NOISE_FS*100; // 0.004 noise units -> percentage
+  const afterStep = G.noisePeak/A.NOISE_FULL_SCALE*100;
+  const expectedDropPct = (0.24/60)/A.NOISE_FULL_SCALE*100; // 0.004 noise units -> percentage
   t.assert(Math.abs((afterOne - afterStep) - expectedDropPct) < 0.001,
     `peak dropped ${(afterOne - afterStep).toFixed(4)}%, expected ${expectedDropPct.toFixed(4)}%`);
   console.log(`  peak decays in tickClock: ${afterOne.toFixed(2)}% -> ${afterStep.toFixed(2)}% (drop ${(afterOne - afterStep).toFixed(4)}% per step)`);
@@ -209,13 +209,13 @@ test('the noise meter uses the scale the game actually produces', () => {
     G.plumber.x = far.x; G.plumber.y = far.y;
 
     const a = G.lifeforms[0];
-    a.x = spot.x; a.y = spot.y; a.state = 'WALK'; a.born = 0; a.rise = 1; a.t = 1;
+    a.x = spot.x; a.y = spot.y; a.state = 'WALK_SPEED_TILES_PER_SECOND'; a.born = 0; a.rise = 1; a.t = 1;
     a.target = {x:spot.x, y:spot.y};
     update(1/60);
 
     t.assert(a.state==='SEARCH',
       `seed ${seed}: a Lifeform one tile from an open leak (power ${G.leakPower.toFixed(2)}, `+
-      `heard out to ${R.toFixed(2)}) stayed WALK — the leak is not making a noise anything can hear`);
+      `heard out to ${R.toFixed(2)}) stayed WALK_SPEED_TILES_PER_SECOND — the leak is not making a noise anything can hear`);
     const tx = Math.floor(a.target.x), ty = Math.floor(a.target.y);
     t.assert(a.target && G.grid[ty*W+tx] === 1,
       `seed ${seed}: the leak drew it to tile ${tx},${ty}, which is not floor — `+
@@ -288,16 +288,16 @@ test('walls muffle a sound, and a sprint still crosses one', () => {
   /* behind three walls: a walk reaches 6.6 tiles and three walls cost 9.0 */
   A.buildFloor(0, 4242);
   {
-    const a = put(murdled.ear, 'WALK');
+    const a = put(murdled.ear, 'WALK_SPEED_TILES_PER_SECOND');
     A.sustainedNoise(0.22, murdled.src.x, murdled.src.y);
-    t.assert(a.state==='WALK',
+    t.assert(a.state==='WALK_SPEED_TILES_PER_SECOND',
       `a walk three walls and five tiles away still turned the listener to ${a.state} — the walls are not in the way`);
   }
 
   /* the same distance, with nothing in between */
   A.buildFloor(0, 4242);
   {
-    const a = put(clear.ear, 'WALK');
+    const a = put(clear.ear, 'WALK_SPEED_TILES_PER_SECOND');
     A.sustainedNoise(0.22, clear.src.x, clear.src.y);
     t.assert(a.state==='SEARCH',
       `a walk four tiles away in the open left the listener ${a.state} — and now nothing carries at all`);
@@ -510,9 +510,9 @@ test('hunter retargets only to loud or player sounds, not quiet leaks', () => {
   t.assert(Math.abs(hunter.target.x - hunterX) < 0.1 && Math.abs(hunter.target.y - hunterY) < 0.1,
     'hunter should keep its original target, not retarget to leak');
 
-  /* Now simulate player walking near the hunter (mine=true, power=WALK=0.22 < LOUD). */
+  /* Now simulate player walking near the hunter (mine=true, power=WALK_SPEED_TILES_PER_SECOND=0.22 < LOUD). */
   hunter.target = {x: 10, y: 10}; // some other target
-  A.sustainedNoise(A.WALK, hunterX, hunterY, true); // mine=true
+  A.sustainedNoise(A.WALK_SPEED_TILES_PER_SECOND, hunterX, hunterY, true); // mine=true
 
   /* Hunter SHOULD retarget to the player's noise even though it's quiet. */
   t.assert(hunter.state === 'HUNT', 'hunter should stay HUNT');
@@ -539,9 +539,9 @@ test('hunter retargets only to loud or player sounds, not quiet leaks', () => {
   t.assert(Math.abs(hunter.target.x - (loudX + 0.5)) < 0.1 && Math.abs(hunter.target.y - (loudY + 0.5)) < 0.1,
     'hunter should retarget to loud sound (mine=false but loud)');
 
-  /* A WALK lifeform near an open leak still goes to SEARCH (existing behavior). */
+  /* A WALK_SPEED_TILES_PER_SECOND lifeform near an open leak still goes to SEARCH (existing behavior). */
   const walker = {
-    x: hunterX, y: hunterY, state: 'WALK', t: 0, rise: 1,
+    x: hunterX, y: hunterY, state: 'WALK_SPEED_TILES_PER_SECOND', t: 0, rise: 1,
     target: null, face: 0, wakeCd: 0, stepT: 0, born: 0,
   };
   G.lifeforms = [walker];
@@ -628,15 +628,15 @@ test('leak loudness independent of open leak count', () => {
   console.log('  per-leak power independent of count; total clamped to just below LOUD');;
 });
 
-/* The 'heard' event fires once per state change. A quiet sound near a WALK
-   lifeform emits WALK -> SEARCH once; a second identical sound while it is
+/* The 'heard' event fires once per state change. A quiet sound near a WALK_SPEED_TILES_PER_SECOND
+   lifeform emits WALK_SPEED_TILES_PER_SECOND -> SEARCH once; a second identical sound while it is
    still SEARCH emits nothing. A loud sound (wrench) wakes a DORMANT lifeform
    and emits DORMANT -> RISING. */
 test('heard event emits on state change only', () => {
   const t = softAssert();
     A.buildFloor(0, 4242);
 
-    /* Place a WALK lifeform near the player. */
+    /* Place a WALK_SPEED_TILES_PER_SECOND lifeform near the player. */
     const W = 76;
     let spot = null;
     for (let y=1; y<W-1 && !spot; y++){
@@ -650,7 +650,7 @@ test('heard event emits on state change only', () => {
     t.assert(spot, 'found floor tile for walker');
 
     const walker = {
-      x: spot.x, y: spot.y, state: 'WALK', t: 0, rise: 1,
+      x: spot.x, y: spot.y, state: 'WALK_SPEED_TILES_PER_SECOND', t: 0, rise: 1,
       target: null, face: 0, wakeCd: 0, stepT: 0, born: 0,
     };
     G.lifeforms = [walker];
@@ -659,17 +659,17 @@ test('heard event emits on state change only', () => {
     const heard = [];
     const unsub = on('heard', (e) => heard.push(e));
 
-    /* First quiet sound (WALK power) -> WALK -> SEARCH. */
-    A.emitNoise(A.NOISE.WALK, G.plumber.x, G.plumber.y, true);
+    /* First quiet sound (WALK_SPEED_TILES_PER_SECOND power) -> WALK_SPEED_TILES_PER_SECOND -> SEARCH. */
+    A.emitNoise(A.NOISE.WALK_SPEED_TILES_PER_SECOND, G.plumber.x, G.plumber.y, true);
     t.assert(walker.state === 'SEARCH', 'walker goes SEARCH');
     t.assert(heard.length === 1, 'one heard event emitted');
-    t.assert(heard[0].from === 'WALK' && heard[0].to === 'SEARCH',
+    t.assert(heard[0].from === 'WALK_SPEED_TILES_PER_SECOND' && heard[0].to === 'SEARCH',
       `heard event: from=${heard[0].from} to=${heard[0].to}`);
     t.assert(heard[0].dist > 0 && heard[0].dist < 5,
       `distance ${heard[0].dist.toFixed(2)} is reasonable`);
 
     /* Second identical sound while in SEARCH -> no new event. */
-    A.emitNoise(A.NOISE.WALK, G.plumber.x, G.plumber.y, true);
+    A.emitNoise(A.NOISE.WALK_SPEED_TILES_PER_SECOND, G.plumber.x, G.plumber.y, true);
     t.assert(walker.state === 'SEARCH', 'walker stays SEARCH');
     t.assert(heard.length === 1, 'no second heard event for same state');
 
@@ -694,7 +694,7 @@ test('heard event emits on state change only', () => {
     off('heard', unsub);
     off('heard', unsub2);
 
-    console.log('  heard event: WALK->SEARCH once, DORMANT->RISING once, no dup');;
+    console.log('  heard event: WALK_SPEED_TILES_PER_SECOND->SEARCH once, DORMANT->RISING once, no dup');;
 });
 
 /* Wake rattle volume scales with distance from lifeform to player.

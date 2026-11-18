@@ -1,4 +1,4 @@
-import { TILE } from '../../config/constants.js';
+import { TILE_SIZE_PX } from '../../config/constants.js';
 import { G } from '../../sim/state.js';
 import { ctx } from '../canvas.js';
 import { drawDoor } from '../entities.js';
@@ -55,7 +55,7 @@ export function markers(rc){
   for (const b of G.batteries){
     if (b.taken) continue;
     // Batteries are stored at the tile centre already, unlike the door's tile index.
-    const bx=b.x*TILE, by=b.y*TILE;
+    const bx=b.x*TILE_SIZE_PX, by=b.y*TILE_SIZE_PX;
     ctx.save();
     ctx.translate(bx,by);
     ctx.scale(0.6,0.6);

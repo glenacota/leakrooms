@@ -1,4 +1,4 @@
-import { LOUD, NOISE_FS } from '../config/constants.js';
+import { LOUD, NOISE_FULL_SCALE } from '../config/constants.js';
 
 /* A loud ring reaches 1.5 tiles; its radius signals noise, not hearing range.
    Scaling from there makes a sprint reach 2.1 tiles and a walk 0.6. */
@@ -42,7 +42,7 @@ export function maxRadius(noise){
 
 /** Ring lifetime in seconds at this noise. */
 export function ringLife(noise){
-  return 1.1 - 0.5*clamp(noise/NOISE_FS, 0, 1);
+  return 1.1 - 0.5*clamp(noise/NOISE_FULL_SCALE, 0, 1);
 }
 
 /** Ring radius in tiles at this noise and age. */
@@ -55,7 +55,7 @@ export function ringRadius(noise, age){
 /** Ring opacity before HUD opacity is applied. */
 export function ringAlpha(noise, age){
   const k = clamp(age/ringLife(noise), 0, 1);
-  return Math.pow(1 - k, 1.3)*clamp(noise/NOISE_FS, 0, 1);
+  return Math.pow(1 - k, 1.3)*clamp(noise/NOISE_FULL_SCALE, 0, 1);
 }
 
 /** Whether a ring has reached the loud radius. */

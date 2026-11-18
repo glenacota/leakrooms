@@ -99,21 +99,21 @@ test('a window drag is one resize, and a lost context is rebuilt', async () => {
 
 test('resize() uses viewScale: width-limited on 16:9, row-limited on a short screen', () => {
   const cvs = A.internals.cvs;
-  const VIEW_T = 27, TILE = 40, VIEW_ROWS_MIN = 12;
+  const VIEWPORT_WIDTH_TILES = 27, TILE_SIZE_PX = 40, VIEWPORT_MIN_ROWS = 12;
   const setSize = (w, h) => { cvs.clientWidth = w; cvs.clientHeight = h; };
 
   setSize(1280, 720);
   resize();
-  assert.equal(A.SCALE, 1280 / (VIEW_T * TILE), '16:9 keeps the old width-limited SCALE');
+  assert.equal(A.SCALE, 1280 / (VIEWPORT_WIDTH_TILES * TILE_SIZE_PX), '16:9 keeps the old width-limited SCALE');
 
   setSize(1624, 670);
   resize();
-  assert.equal(A.SCALE, 670 / (VIEW_ROWS_MIN * TILE), 'a short screen is row-limited');
+  assert.equal(A.SCALE, 670 / (VIEWPORT_MIN_ROWS * TILE_SIZE_PX), 'a short screen is row-limited');
 
   /* ...and restoring the size restores the old SCALE. */
   setSize(1280, 720);
   resize();
-  assert.equal(A.SCALE, 1280 / (VIEW_T * TILE));
+  assert.equal(A.SCALE, 1280 / (VIEWPORT_WIDTH_TILES * TILE_SIZE_PX));
 });
 
 test('an unchanged size announces nothing and reallocates nothing', () => {

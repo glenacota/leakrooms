@@ -1,5 +1,5 @@
 /* Shared dirty tracking for simulation changes and renderer repaints. */
-import { MAP_W, MAP_H } from '../config/constants.js';
+import { MAP_WIDTH_TILES, MAP_HEIGHT_TILES } from '../config/constants.js';
 
 export const repaintDirty = {
   water: true,
@@ -12,7 +12,7 @@ let wetDirtyX0 = -1, wetDirtyY0 = -1, wetDirtyX1 = -1, wetDirtyY1 = -1;
 
 export function markWetTile(i) {
   repaintDirty.water = true;
-  const x = i % MAP_W, y = (i / MAP_W) | 0;
+  const x = i % MAP_WIDTH_TILES, y = (i / MAP_WIDTH_TILES) | 0;
   if (x < wetDirtyX0) wetDirtyX0 = x; else if (x > wetDirtyX1) wetDirtyX1 = x;
   if (y < wetDirtyY0) wetDirtyY0 = y; else if (y > wetDirtyY1) wetDirtyY1 = y;
 }
@@ -26,7 +26,7 @@ export function markWetAll() {
 export function takeWetBox() {
   const full = wetDirtyX1 < 0;
   const box = { full, x0: full ? 0 : wetDirtyX0, y0: full ? 0 : wetDirtyY0,
-                x1: full ? MAP_W - 1 : wetDirtyX1, y1: full ? MAP_H - 1 : wetDirtyY1 };
+                x1: full ? MAP_WIDTH_TILES - 1 : wetDirtyX1, y1: full ? MAP_HEIGHT_TILES - 1 : wetDirtyY1 };
   wetDirtyX0 = wetDirtyY0 = wetDirtyX1 = wetDirtyY1 = -1;
   return box;
 }

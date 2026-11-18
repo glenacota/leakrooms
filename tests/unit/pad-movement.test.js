@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { loadGame } from '../helpers/harness.js';
-import { WALK, SPRINT, NOISE } from '../../src/config/constants.js';
+import { WALK_SPEED_TILES_PER_SECOND, SPRINT_SPEED_TILES_PER_SECOND, NOISE } from '../../src/config/constants.js';
 import { pad, clearInput } from '../../src/sim/keys.js';
 
 const { A, G } = await loadGame();
@@ -98,7 +98,7 @@ test('[PAD] a diagonal stick is not faster than D+S', () => {
   const b = run(15);
   clearInput();
   const da = Math.hypot(a.x - x0, a.y - y0), db = Math.hypot(b.x - x0, b.y - y0);
-  assert.ok(Math.abs(da - 15*DT*WALK) < 1e-9, `keys went ${da}`);
+  assert.ok(Math.abs(da - 15*DT*WALK_SPEED_TILES_PER_SECOND) < 1e-9, `keys went ${da}`);
   assert.ok(Math.abs(db - da) < 1e-12, `pad went ${db}, keys ${da}`);
 });
 
@@ -106,8 +106,8 @@ test('[PAD] pad sprint with a direction sprints and is loud', () => {
   const [x0] = place(); pad.x = 1; pad.sprint = true;
   const r = run(15);
   clearInput();
-  assert.ok(Math.abs((r.x - x0) - 15*DT*SPRINT) < 1e-9, `moved ${r.x - x0}`);
-  assert.ok(r.peak >= NOISE.SPRINT - 1e-9, `peak ${r.peak}, want ${NOISE.SPRINT}`);
+  assert.ok(Math.abs((r.x - x0) - 15*DT*SPRINT_SPEED_TILES_PER_SECOND) < 1e-9, `moved ${r.x - x0}`);
+  assert.ok(r.peak >= NOISE.SPRINT_SPEED_TILES_PER_SECOND - 1e-9, `peak ${r.peak}, want ${NOISE.SPRINT_SPEED_TILES_PER_SECOND}`);
 });
 
 test('[PAD] pad sprint with the stick centred does not sprint', () => {
