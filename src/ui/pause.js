@@ -51,7 +51,7 @@ export function togglePause(){
    leaks sealed this floor, and clock left. */
 function renderTimeline(){
   const row = (floor, ok, sealed, total, clockLeft, now)=>{
-    const label = now ? 'now' : (ok ? 'sealed' : 'died');
+    const label = now ? 'now' : (ok ? 'sealed' : 'crew loss');
     const cls = now ? 'now' : (ok ? 'ok' : 'bad');
     return `
 <div class="run-timeline-row${now?' now':''}">
