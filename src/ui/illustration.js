@@ -1,7 +1,7 @@
-import { paintManualBattery, paintManualStamina, paintManualNoise } from '../render/manual-art.js';
+import { paintManualBattery, paintManualStamina, paintManualNoise } from '../render/illustration.js';
 
 /** Paints the field manual illustrations in startup order. */
-export function initManualArt(){
+export function initIllustration(){
   paintManualBattery(document.getElementById('manual-battery'));
   paintManualStamina(document.getElementById('manual-stamina'));
   paintManualNoise(document.getElementById('manual-noise'));

@@ -93,12 +93,12 @@ test('the run, floor and loop never touch the document', () => {
     `the DOM belongs to ui/, not to the run, floor or loop:\n  ${offenders.join('\n  ')}`);
 });
 
-test('boot wires manual art without drawing it', () => {
+test('boot wires illustration without drawing it', () => {
   const boot = fs.readFileSync(path.join(ROOT, 'src/boot.js'), 'utf8');
   assert.doesNotMatch(boot, /\bgetContext\s*\(/);
   assert.doesNotMatch(boot, /manual-(?:battery|stamina|noise)/);
   const drawingModules = [
-    'src/render/manual-art.js', 'src/render/battery-meter.js',
+    'src/render/illustration.js', 'src/render/battery-meter.js',
     'src/render/stamina-meter.js', 'src/render/noise-visuals.js',
     'src/render/passes/ripples.js',
   ];

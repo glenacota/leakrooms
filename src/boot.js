@@ -7,7 +7,7 @@ import { applySettings, bindDom } from './ui/bind.js';
 import { bindCards } from './ui/cards.js';
 import { bindHints, tickLoudFlash, tickCues } from './ui/hints.js';
 import { bindTutorials, tickTutorials } from './ui/tutorials.js';
-import { initManualArt } from './ui/manual-art.js';
+import { initIllustration } from './ui/illustration.js';
 import { buildSettingsUI, syncSettingsUI } from './ui/settings-panel.js';
 import { Audio_ } from './audio/index.js';
 import { syncAmbience } from './ui/splash.js';
@@ -40,20 +40,13 @@ export function boot(){
   start();
 }
 
-// Shows the "SYSTEM FAULT" card with a reload button when the game hits an error it cannot recover from
-function showFatal(err){
-  if (err) console.error(err);
-  const el = document.getElementById('fatal');
-  if (el) el.classList.remove('hidden');
-}
-
 function prepare(){
   // Fatal errors surface to the player
   setFatalHook(showFatal);
   window.addEventListener('error',              e => showFatal(e.error || e));
   window.addEventListener('unhandledrejection', e => showFatal(e.reason || e));
   document.getElementById('btn-reload').onclick = ()=>globalThis.location?.reload();
-  initManualArt();
+  initIllustration();
 
   // A handheld may start at a lower render scale so it stays under its limit
   if (looksHandheld()) setRenderScaleIdx(RENDER_START_IDX_HANDHELD);
@@ -109,4 +102,11 @@ function start(){
   setFrameHooks({ render, simAlpha: setSimAlpha, adaptive: adaptResolution, afterStep: tickTutorials,
                   afterUpdate: ()=>{ updateHUD(); tickCues(); tickLoudFlash(); tickTouchHud(); } });
   requestAnimationFrame(frame);
+}
+
+// Shows the "SYSTEM FAULT" card with a reload button when the game hits an error it cannot recover from
+function showFatal(err){
+  if (err) console.error(err);
+  const el = document.getElementById('fatal');
+  if (el) el.classList.remove('hidden');
 }

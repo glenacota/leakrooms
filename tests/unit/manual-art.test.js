@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { calls, fakeCanvas } from '../helpers/stubs.js';
-import { initManualArt } from '../../src/ui/manual-art.js';
+import { initIllustration } from '../../src/ui/illustration.js';
 
 const ids = ['manual-battery', 'manual-stamina', 'manual-noise'];
 const errors = [
@@ -36,7 +36,7 @@ function withCanvases(failAt, run){
 test('manual art paints each illustration in lookup order', () => {
   const start = calls.list.length;
   withCanvases(-1, events => {
-    initManualArt();
+    initIllustration();
     assert.deepEqual(events, ids.flatMap(id => [['lookup', id], ['context', id, '2d']]));
   });
   const drawn = calls.list.slice(start);
@@ -52,7 +52,7 @@ test('manual art paints each illustration in lookup order', () => {
 for (let i = 0; i < ids.length; i++){
   test(`manual art stops at an unavailable ${ids[i]} context`, () => {
     withCanvases(i, events => {
-      assert.throws(() => initManualArt(), { message: errors[i] });
+      assert.throws(() => initIllustration(), { message: errors[i] });
       assert.deepEqual(events, ids.slice(0, i + 1).flatMap(id => [['lookup', id], ['context', id, '2d']]));
     });
   });
