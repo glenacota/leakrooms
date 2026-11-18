@@ -424,14 +424,18 @@ h1{
   text-shadow:2px 0 0 rgba(216,80,60,.5), -2px 0 0 rgba(80,150,216,.35);
 }
 h1.bad{ color:var(--danger); letter-spacing:.2em; font-size:32px; }
+h2.bad{ color:var(--danger); letter-spacing:1em; font-size:20px; margin-bottom:.5em}
 
 .sub{
-  font-size:12px;
+  font-size:14px;
   font-weight: 900;
   letter-spacing:.4em;
   color:var(--yellow-deep);
-  margin-bottom:32px;
+  margin:32px 0;
+  white-space: pre-line;
 }
+.sub-message { letter-spacing:0; font-size:15px; font-style: italic; line-height: 1.5em;}
+#btn-retry { font-weight: 900;}
 
 .controls{
   font-size:10px;

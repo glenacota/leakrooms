@@ -60,16 +60,19 @@ export function bindCards(){
   on(EVENT.dead, ({ lives, cause }) => {
     const title = document.getElementById('dead-title');
     const sub = document.getElementById('dead-sub');
+    const subMsg = document.getElementById('dead-sub-message');
     const btn = document.getElementById('btn-retry');
     if (lives > 0){
-      if (cause === DEATH_CAUSE.CAUGHT) title.textContent = 'FATALITY RECORDED';
+      if (cause === DEATH_CAUSE.CAUGHT) title.textContent = 'PREDATORY CASUALTY';
       else if (cause === DEATH_CAUSE.CLOCK) title.textContent = "AIR RESERVE DEPLETED";
       btn.textContent = 'SEND NEXT CREW MEMBER';
-      sub.textContent = `CREW REMAINING: ${lives} • SEALED LEAKS STAY SEALED`;
+      sub.textContent = `CREW REMAINING: ${lives}`;
+      subMsg.textContent = `We mourn the loss of a valued employee • The position will be filled as soon as operationally feasible`;
     } else {
       title.textContent = 'SHIFT OVER';
       btn.textContent = 'START OVER';
       sub.textContent = 'CREW DECIMATED - NO ONE LEFT TO SEND';
+      subMsg.textContent = 'We regret the loss of our valued personnel • Their contributions will be remembered • Employees are reminded that basic safety protocols exist for a reason';
     }
   });
   on(EVENT.win, report => {

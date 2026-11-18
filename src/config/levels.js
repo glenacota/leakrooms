@@ -10,7 +10,7 @@
    ============================================================ */
 
 export const LEVELS = [
-  { leaks:1, lifeforms:1 },   // 1: one leak, one lifeform; learn the round trip
+  { leaks:1, lifeforms:100 },   // 1: one leak, one lifeform; learn the round trip
   { leaks:2, lifeforms:2 },   // 2: twice the work; the building starts paying attention
   { leaks:3, lifeforms:2 },
   { leaks:4, lifeforms:3 },
