@@ -9,7 +9,9 @@
 
 import { FLOOR, MAP_H, MAP_W } from '../config/constants.js';
 import { G } from '../sim/state.js';
+import { STATE } from '../game/run.js';
 import { VH, VW } from './canvas.js';
+import { on, EVENT } from '../util/events.js';
 
 export function paintSplashPlan(){
   const cv = document.getElementById('splash-plan');
@@ -72,4 +74,17 @@ export function paintSplashPlan(){
     const f = far.getContext('2d');
     if (f){ f.clearRect(0,0,pw,ph); f.drawImage(cv, 0, 0); }
   }
+}
+
+/* Wires the splash-repaint listener: repaint the title plan when asked. */
+export function bindSplashRepaint(){
+  on(EVENT.splashRepaint, () => paintSplashPlan());
+}
+
+/* Wires the resize listener: repaint the title plan on resize while not in
+   play, so the faded blueprint stays the right size. */
+export function bindResize(){
+  on(EVENT.resize, () => {
+    if (G && (STATE === 'splash' || STATE === 'binder')) paintSplashPlan();
+  });
 }

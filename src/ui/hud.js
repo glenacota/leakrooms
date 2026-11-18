@@ -10,6 +10,7 @@ import { G } from '../sim/state.js';
 import { SETTINGS } from '../settings/store.js';
 import { clockText, lives, runLives } from '../game/run.js';
 import { buildHudSnap, hudVisibility } from './touch-hud-rules.js';
+import { on, EVENT } from '../util/events.js';
 
 
 // Every HUD element the code writes to, looked up once.
@@ -145,6 +146,21 @@ export function flash(payload){
   }
 }
 
+
+/* Wires the HUD listeners: show/hide the panel on state change, and refresh
+   the lives readout when the crew count changes. */
+export function bindHud(){
+  on(EVENT.hud, showing => {
+    const h = document.getElementById('hud');
+    if (showing) h.classList.add('on'); else h.classList.remove('on');
+  });
+  on(EVENT.lives, renderLives);
+}
+
+/* Wires the flash listener: show a categorized flashnote on each flash event. */
+export function bindFlash(){
+  on(EVENT.flash, flash);
+}
 
 let touchHudPanel = null;
 let touchHudPrev = null;

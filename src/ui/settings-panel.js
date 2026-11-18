@@ -1,7 +1,11 @@
 import { DIFFICULTIES } from '../config/presets.js';
-import { SETTINGS, setOption } from '../settings/store.js';
+import { applyDifficulty } from '../config/tuning.js';
+import { SETTINGS, setOption, currentTerms } from '../settings/store.js';
 import { SETTINGS_SCHEMA } from '../settings/schema.js';
 import { emit, on, EVENT } from '../util/events.js';
+import { repaintDirty } from '../util/repaint.js';
+import { G } from '../sim/state.js';
+import { Audio_ } from '../audio/index.js';
 import { paintTerms } from './terms.js';
 
 /* The buttons for each segmented row (value and label pairs). They are listed
@@ -65,4 +69,23 @@ export function syncSettingsUI(){
   }
   // The difficulty text in three places is painted from here, so they always match.
   paintTerms();
+}
+
+/* Copies saved difficulty, volume, mute, and ambience settings into the live
+   game. Runs at boot and every time a setting changes. */
+export function applySettings(){
+  applyDifficulty(currentTerms());
+  Audio_.setMaster(SETTINGS.master);
+  Audio_.setMuted(SETTINGS.muted);
+  Audio_.setBeds(SETTINGS.ambience);
+}
+
+/* Wires the settings listener: water tint changes repaint the water surface,
+   then settings are applied and the settings UI re-synced. */
+export function bindSettings(){
+  on(EVENT.settingsChanged, key => {
+    if ((key === '*' || key === 'waterHue' || key === 'waterContrast') && G) repaintDirty.water = true;
+    applySettings();
+    syncSettingsUI();
+  });
 }

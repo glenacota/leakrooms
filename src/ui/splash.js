@@ -2,6 +2,7 @@ import { Audio_ } from '../audio/index.js';
 import { setState, startRun, STATE } from '../game/run.js';
 import { openBinder } from './binder.js';
 import { showScreen } from './dom.js';
+import { on, EVENT } from '../util/events.js';
 
 /* Starts or stops the ambient room sound to match the current state. */
 export function syncAmbience(){
@@ -54,4 +55,9 @@ export function beginShift(){
 export function backSplash(){
   if (STATE==='binder'){ setState('splash'); showScreen('splash'); syncAmbience(); return true; }
   return false;
+}
+
+/* Wires the state listener for ambience: the room bed follows the run state. */
+export function bindStateAmbience(){
+  on(EVENT.state, () => syncAmbience());
 }

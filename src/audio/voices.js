@@ -228,3 +228,12 @@ export const voices = {
       frequencyValue:true, gainValue:true});
   },
 };
+
+/* Routes an sfx event name to the matching voice. Unknown names no-op: the
+   sim emits many sfx names and the listener must not throw on one it does
+   not know. Not a voice itself: stays off Audio_ so the graph-reachability
+   test does not treat it as one. */
+export function play(name, ...args){
+  const voice = voices[name];
+  if (typeof voice === 'function') voice.apply(voices, args);
+}

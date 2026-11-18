@@ -11,6 +11,33 @@
    ============================================================ */
 
 import { disarmReset } from '../game/run.js';
+import { on, EVENT } from '../util/events.js';
+import { showScreen, hideScreens } from './dom.js';
+
+const SCREEN_FOR_STATE = Object.freeze({
+  splash: 'splash',
+  binder: 'binder',
+  pause: 'binder',
+  clear: 'clear',
+  dead: 'dead',
+  win: 'win',
+});
+
+function showStateScreen(state){
+  if (state === null){
+    hideScreens();
+    return;
+  }
+  if (!Object.hasOwn(SCREEN_FOR_STATE, state))
+    throw new RangeError(`Unknown run state: ${state}`);
+  const screenId = SCREEN_FOR_STATE[state];
+  showScreen(screenId);
+}
+
+/* Wires the screen listener: maps each run state to its overlay screen. */
+export function bindScreen(){
+  on(EVENT.screen, showStateScreen);
+}
 
 export const SHIFT_TABS = ['order', 'manual', 'settings'];
 export const PAUSE_TABS = ['run', 'manual', 'settings'];
