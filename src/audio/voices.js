@@ -163,8 +163,7 @@ export const voices = {
      a new one per call. Both are driven from tickAudio (sim/update.js), the only
      place that knows the current noise level. */
 
-  /* The HUD noise bar, in the speakers. `level` is the noise divided by
-     NOISE_FS, so the mix IS the meter and not a mood running beside it. The gain
+  /* The HUD noise bar, in the speakers. The gain
      follows the square of the level, because a bar a third full should sound like
      a third of the way to shouting, not a third of shouting. */
   noiseFloor(level){
