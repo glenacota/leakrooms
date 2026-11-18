@@ -25,6 +25,7 @@ test('[COPY] player copy uses the glossary terms: floor, terms, seal', () => {
     [/\blevels?\b/i, '"level" is a code word: the player says "floor"'],
     [/\bdifficulty\b/i, '"difficulty" is a code word: the player says "terms"'],
     [/\bfix(es|ing)?\b/i, 'a leak is sealed, not fixed'],
+    [/\blives?\b/i, '"lives" is a code word: the player says "crew" or "crew member"'],
   ]){
     const m = outside.match(re);
     assert.ok(!m, `index.html says "${m && m[0]}" — ${why}`);

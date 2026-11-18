@@ -2,7 +2,7 @@
    This file owns the element table and the two update functions. clockText
    formats run state, so the run owns it and the HUD re-exports it.
 
-   The corner panel now carries the clock, the lives and the leaks marks only:
+   The corner panel now carries air supply, crew and leak marks only:
    the noise and radar readings moved to diegetic rings above the plumber
    (see render/passes/diegetic.js). */
 
@@ -204,15 +204,15 @@ export function updateHUD(){
       G.clock <= 30 && G.clock > 0 && i === lit - 1);
   }
   /* innerHTML is used here because the pips are small HTML spans, and the
-     cache above means it is only parsed when a life is lost. */
+     cache above means it is only parsed when a crew member is lost. */
   hudSet(HUD.vLives, 'vLives', 'html', livesHTML());
 }
 
-// One plumber head per life in the run, with spent ones marked "gone".
+// One plumber head per crew member in the run, with spent ones marked "gone".
 export function livesHTML(){
   const icons = Array.from({length:Math.max(1,runLives)}, (_,i)=>
     `<svg class="life-pip${i<lives?'':' gone'}" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><use href="#i-plumber-head"/></svg>`).join('');
-  return `<span class="life-pips" role="img" aria-label="${lives} of ${runLives} lives remaining">${icons}</span>`;
+  return `<span class="life-pips" role="img" aria-label="${lives} of ${runLives} crew members remaining">${icons}</span>`;
 }
 
 // The leaks marks as HTML: one per leak on the floor. The open ones are

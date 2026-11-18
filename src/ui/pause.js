@@ -48,7 +48,7 @@ export function togglePause(){
 
 /* Builds the timeline rows: every finished floor attempt from runHistory,
    then the floor currently in progress. Each row shows floor, result,
-   leaks sealed this floor, and clock left. */
+   leaks sealed this floor, and air left. */
 function renderTimeline(){
   const row = (floor, ok, sealed, total, clockLeft, now)=>{
     const label = now ? 'now' : (ok ? 'sealed' : 'crew loss');

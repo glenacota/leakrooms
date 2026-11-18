@@ -34,7 +34,7 @@ Never run the golden-trace update (`UPDATE_GOLDEN=1`) unless the user explicitly
 - `src/main.js`: entry point. Calls `boot()` and nothing else.
 - `src/boot.js`: the composition root. The only file that wires layers together. Nothing imports it.
 - `src/sim/`: pure simulation. Floor generation, water, noise, lifeforms, vision, clock, door. No DOM, no rendering.
-- `src/game/`: run state (lives, floor index, terms), the fixed-step loop, and `floor.js` (builds a floor).
+- `src/game/`: run state (crew count in `lives`, floor index, terms), the fixed-step loop, and `floor.js` (builds a floor).
 - `src/render/`: canvas drawing. `passes/` holds one file per visual layer. `pack.js` turns simulation arrays into images.
 - `src/cast/`: drawing code for the plumber and the lifeform.
 - `src/ui/`: DOM screens, HUD, input, touch controls, settings UI.
@@ -57,7 +57,7 @@ Never run the golden-trace update (`UPDATE_GOLDEN=1`) unless the user explicitly
 Do not change these without asking first.
 
 - The noise table in `config/constants.js` (`NOISE`, `LOUD`, `NOISE_FS`, and the hearing and wall constants). Walking and wading stay below `LOUD`. Sprinting and the wrench stay above it. Walls are cover.
-- Difficulty presets (`config/presets.js`) change pacing only: lives, clock, repair time and lifeform speed. They never change noise or the number of floors.
+- Difficulty presets (`config/presets.js`) change pacing only: crew count (`lives`), air supply (`clock`), repair time and lifeform speed. They never change noise or the number of floors.
 - The simulation step is a fixed 1/60 s. Variable time steps are for tests only.
 - Simulation randomness comes from seeded streams. A floor is built from `mulberry32(seed + floorNum * 7919)`. Lifeforms use their own streams. Visual-only code may use `Math.random`; simulation code may not.
 - `tests/fixtures/render-trace.json` is a golden file. Do not regenerate it.
@@ -82,7 +82,8 @@ Do not change these without asking first.
 
 Full definitions and the words to avoid are in `docs/GLOSSARY.md`.
 
-- **Plumber**: the player's character. Say "plumber" in code and docs. Player-facing copy says "you".
+- **Plumber**: one crew member controlled by the player. Say "plumber" in code and docs. Player-facing copy says "you" for direct guidance and "crew member", "crew" or "worker" for the operation and personnel.
+- **Crew**: the available workers in a shift. Code stores the remaining count in `lives` and the starting count in `runLives`. Do not say "lives" in player-facing copy.
 - **Lifeform**: the hostile creature. States: DORMANT, RISING, WALK, SEARCH, HUNT. Do not call them "agents", because in this repo "agent" means an AI agent. Do not call them "monsters". It hunts by sound at range and by sight up close.
 - **Leak**: a burst pipe in a wall (`leaks`, `L` in code). Player copy says "leak".
 - **Standing spot**: the floor tile beside a leak where the plumber repairs (`sx`, `sy`).
@@ -92,9 +93,9 @@ Full definitions and the words to avoid are in `docs/GLOSSARY.md`.
 - **Noise**: sound events with a power. `selfNoise` is the plumber's own noise. `leakTotal` is the leaks' noise. `LOUD` is the threshold that wakes sleepers and starts hunts.
 - **Lure**: an open leak's noise pulls SEARCHing lifeforms toward it.
 - **Floor**: one generated level map. `floorIdx` runs 0 to 4 and is shown as 1 to 5.
-- **Run**: from start until the win screen or the last life is lost. Has a seed (`RUN_SEED`).
+- **Run**: from start until the win screen or the last crew member is lost. Has a seed (`RUN_SEED`). Player-facing copy calls a run a shift.
 - **Door**: the exit (`exitTiles`). It opens after `DOOR_HOLD` seconds of standing at it, and only once every leak is sealed.
-- **Clock**: the per-floor countdown (`FLOOR_CLOCK`).
+- **Air supply**: the per-floor reserve shown as AIR. Code names it `clock` (`FLOOR_CLOCK`). Do not call it "clock" in new player-facing copy.
 - **Terms**: the difficulty chosen at the door before a run (RELAXED, NORMAL, HARD). Per run.
 - **Settings**: persisted preferences such as volume, water tint and touch options. Not per run. Do not confuse with terms.
 - **Tutorial card**: illustrated guidance shown without pausing play. Completed tutorials persist across runs; disabling Tutorial dialogs uses guidance flashnotes instead. See `docs/GLOSSARY.md`.

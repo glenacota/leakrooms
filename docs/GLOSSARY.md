@@ -7,9 +7,14 @@ Each entry gives the meaning, the code name, and the words to avoid. "Player cop
 ## Characters and hazards
 
 **Plumber**
-The player's character. A round body with a collision radius of 0.33 tiles.
+One crew member currently sent into a floor and controlled by the player. A round body with a collision radius of 0.33 tiles.
 Code: `plumber` (on `G`), `PLUMBER.RADIUS`.
-Avoid: "player" in code. Use "you" in player copy.
+Avoid: "player" in code. Use "you" for direct player guidance. Use "crew member", "crew" or "worker" for the operation and personnel.
+
+**Crew**
+The workers available for a shift. One crew member enters each floor attempt. A fatality removes one from the shift and sends the next available crew member to retry the floor.
+Code: `lives` (remaining), `runLives` (starting total).
+Avoid: "lives" in player copy.
 
 **Lifeform**
 The hostile creature that hunts by sound at range and by sight up close. It has four legs, a glossy body, and a hit zone of radius `CATCH_R`. Touching one is fatal.
@@ -135,8 +140,13 @@ The exit. The plumber starts the floor standing next to it, so the way out is al
 Code: `exitTiles`, `descend` (hold progress), `tickDoor`.
 Avoid: "exit" in player copy.
 
+**Air supply**
+The per-floor breathing reserve shown as AIR. It runs whether or not the plumber is moving. When it reaches zero, the current crew member is lost.
+Code: `clock`, `FLOOR_CLOCK`.
+Avoid: "clock" in new player-facing copy.
+
 **Clock**
-The per-floor countdown. It runs whether or not the plumber is moving. When it reaches zero, the run loses a life.
+The internal name for air supply. Historical fields and functions use this name.
 Code: `clock`, `FLOOR_CLOCK`.
 
 **Battery**
@@ -150,7 +160,7 @@ Code: `graffiti`, `NOTES`.
 ## The run
 
 **Run**
-From start to the win screen or the loss of the last life. Has a seed.
+From start to the win screen or the loss of the last crew member. Has a seed.
 Code: `RUN_SEED`, `startRun`.
 
 **Shift**
@@ -161,8 +171,9 @@ The same seed always builds the same five floors.
 Code: `RUN_SEED`, `setRunSeed`.
 
 **Lives**
-Attempts. Each death costs one. Retrying a floor keeps the leaks already sealed on it.
+The code-level name for remaining crew members. Each fatality costs one. Retrying a floor keeps the leaks already sealed on it.
 Code: `lives`, `runLives`.
+Player copy: "crew" or "crew members".
 
 **Terms**
 The difficulty chosen at the door before a run starts. Options: RELAXED, NORMAL, HARD. The choice is stamped on the work order and cannot be changed mid-run.
@@ -182,7 +193,7 @@ The one screen for everything the player reads or sets outside a run. It has two
 Code: `#screen-binder`, `src/ui/binder.js`.
 
 **Field manual**
-The how-to-play reference: controls for keyboard and touch, the HUD legend, and the rules (repair, noise, radar, door, clock, lives). One shared page of the binder, reachable from the title menu, the binder tabs and pause. It replaces the pause "briefing" page.
+The how-to-play reference: controls for keyboard and touch, the HUD legend, and the rules (repair, noise, radar, door, air supply, crew). One shared page of the binder, reachable from the title menu, the binder tabs and pause. It replaces the pause "briefing" page.
 Avoid: "briefing" for how-to-play. The briefing is the work order.
 
 **Tutorial card**
@@ -192,7 +203,7 @@ An illustrated, non-blocking explanation shown during play when the plumber firs
 A brief on-screen message that gives guidance or feedback during play. When tutorial cards are disabled, guidance flashnotes teach the same topics instead.
 
 **Floor clear card**
-The card between two floors, headed "FLOOR SEALED". It shows the clock left over and the next floor's briefing. The next floor is already built behind it, and the clock is frozen while it is up.
+The card between two floors, headed "FLOOR SEALED". It shows the unused air supply and the next floor's briefing. The next floor is already built behind it, and the air supply is frozen while it is up.
 Code: `screen-clear`, `clearCard`.
 
 ## Input and screens
@@ -222,7 +233,7 @@ A red wash at the screen edges that strengthens when a lifeform sees the plumber
 Code: `G.seenBy`, `render/passes/post.js`.
 
 **HUD panel**
-The small corner panel showing the clock, lives and leak marks.
+The small corner panel showing air supply, crew and leak marks.
 Code: `#hud`, `ui/hud.js`.
 
 ## Pending decisions

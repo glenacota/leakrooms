@@ -200,7 +200,7 @@
             <div class="setrow section"><span>DASHBOARD</span></div>
             <br/>
             <div class="run-stats">
-              <div><small>ON THE CLOCK</small><b id="pause-clock">3:00</b></div>
+              <div><small>AIR SUPPLY</small><b id="pause-clock">3:00</b></div>
               <div><small>FLOOR</small><b id="pause-floor">1/5</b></div>
               <div><small>LEAKS SEALED</small><b id="pause-leaks">0/1</b></div>
               <div><small>CREW</small><b class="lives-row" id="pause-lives"></b></div>
@@ -214,7 +214,7 @@
                 <span class="run-timeline-label">FLOOR</span>
                 <span class="run-timeline-label">RESULT</span>
                 <span class="run-timeline-label">LEAKS</span>
-                <span class="run-timeline-label">CLOCK LEFT</span>
+                <span class="run-timeline-label">AIR LEFT</span>
               </div>
               <div id="pause-timeline" class="run-timeline-body"></div>
             </div>
@@ -246,7 +246,7 @@
               <section>
                 <h3>SCREEN LEGEND</h3>
                 <ul class="legend">
-                  <li><i class="lg lg-clock">2:41</i><span><b>TIME LEFT</b> on this floor. At zero you lose a life.</span></li>
+                  <li><i class="lg lg-clock">2:41</i><span><b>AIR SUPPLY</b> on this floor. At zero the current crew member is lost.</span></li>
                   <li><i class="lg lg-lives" aria-hidden="true"><svg class="life-pip" viewBox="0 0 16 16" focusable="false"><use href="#i-plumber-head"/></svg><svg class="life-pip" viewBox="0 0 16 16" focusable="false"><use href="#i-plumber-head"/></svg><svg class="life-pip gone" viewBox="0 0 16 16" focusable="false"><use href="#i-plumber-head"/></svg></i><span><b>CREW</b> members left.</span></li>
                   <li><i class="lg crt-leaks"><span class="done"></span><span class="open"></span></i><span><b>LEAKS SEALED</b>.</span></li>
                   <li><canvas id="manual-battery" class="lg-battery" width="54" height="54" aria-hidden="true"></canvas><span><b>RADAR BATTERY</b> Beside you while radar is on or after battery pickup.</span></li>
@@ -262,7 +262,7 @@
                   <li><b>Stand by the leak for <span id="manual-repair">5 seconds</span> to repair it. Using the wrench is very loud.</b></li>
                   <li><b>Use the radar to reveal the map. It’s loud and lasts 10 seconds. Grab spare batteries!</b></li>
                   <li><b>The exit door opens only when every leak is sealed.</b></li>
-                  <li><b>You have <span id="manual-return">3 minutes</span> per floor. At zero you lose a life.</b></li>
+                  <li><b>Your breathing unit has <span id="manual-return">3 minutes</span> of air per floor. At zero the current crew member is lost.</b></li>
                 </ul>
                 <h3>STEALTH</h3>
                 <ul class="notes">
@@ -390,7 +390,7 @@
   </div>
 
   <!-- ------------ FLOOR CLEAR CARD ------------
-       Shown after the door cycles. It reports the clock left over and the
+       Shown after the door cycles. It reports the air left over and the
        briefing for the next floor. The next floor is already built behind it,
        but the player is held out until they press the button, and the clock
        is frozen while the card is up. That way nobody starts a floor they have
@@ -400,7 +400,7 @@
       <h1>FLOOR SEALED</h1>
       <p class="sub" id="clear-sub">The flood is contained. Management appreciates your continued availability. Air unit renewed for the next deployment.</p>
 
-      <div class="clear-left">CLOCK REMAINING <b id="clear-clock">0:00</b></div>
+      <div class="clear-left">AIR REMAINING <b id="clear-clock">0:00</b></div>
 
       <div class="clear-next">
         <span class="k">NEXT ASSIGNMENT &mdash; FLOOR <b id="clear-floor">2</b> OF 5</span>
@@ -415,8 +415,8 @@
   </div>
 
   <!-- ------------ DEATH SCREEN ------------
-       Shown when a lifeform catches you or the clock runs out. Both cost a
-       life, so they share one screen. The reason is written into the line
+       Shown when a lifeform catches you or the air supply runs out. Both cost a
+       crew member, so they share one screen. The reason is written into the line
        below the title. -->
   <div id="screen-dead" class="screen hidden">
     <div class="tape">

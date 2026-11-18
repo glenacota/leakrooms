@@ -136,9 +136,9 @@ export function nextFloor(){
 export const DEATH_CAUSE = Object.freeze({ CAUGHT: 'caught', CLOCK: 'clock' });
 
 /**
- * Ends the attempt: costs a life, shows the death screen and says why. Being
- * caught and running out of the clock are the same thing to the player (they
- * did not get back to the door in time), so they share one path.
+ * Ends the attempt: costs a crew member, shows the death screen and says why.
+ * Being caught and running out of air are the same thing to the player (they
+ * did not finish the floor in time), so they share one path.
  *
  * @param {'caught'|'clock'} cause - one of DEATH_CAUSE.
  */
@@ -168,7 +168,7 @@ export function lose(cause){
 
 export function caught(){ lose(DEATH_CAUSE.CAUGHT); }
 
-// Running out of time costs a life too. A deadline that cannot kill you is only advice.
+// Running out of air costs a crew member too.
 export function outOfTime(){ lose(DEATH_CAUSE.CLOCK); }
 
 // Formats seconds as m:ss, rounding up so the display matches whole seconds.

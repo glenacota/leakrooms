@@ -6,7 +6,7 @@ import { setLives, setRunLives } from '../../src/game/run.js';
 
 const { A, els } = await loadGame();
 
-test('life icons match remaining and spent lives on the HUD and pause page', () => {
+test('crew icons match remaining and spent crew members on the HUD and pause page', () => {
   const originalLives = A.lives;
   const originalRunLives = A.runLives;
   A.buildFloor(0, 1234);
@@ -18,7 +18,7 @@ test('life icons match remaining and spent lives on the HUD and pause page', () 
       A.updateHUD();
 
       const hud = els['val-lives'].innerHTML;
-      assert.match(hud, new RegExp(`aria-label="${remaining} of ${total} lives remaining"`));
+      assert.match(hud, new RegExp(`aria-label="${remaining} of ${total} crew members remaining"`));
       assert.equal((hud.match(/href="#i-plumber-head"/g) || []).length, total);
       assert.equal((hud.match(/class="life-pip gone"/g) || []).length, total - remaining);
       assert.equal((hud.match(/aria-hidden="true"/g) || []).length, total);
