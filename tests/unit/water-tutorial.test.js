@@ -30,9 +30,9 @@ function freshRun(){
   quietFloor();
 }
 
-test('water waits for three active seconds on floor one, including fixed-step rounding', () => {
+test('water waits for ten active seconds on floor one, including fixed-step rounding', () => {
   freshRun();
-  for (let i=0; i<179; i++){
+  for (let i=0; i<599; i++){
     A.update(1/60);
     tickTutorials(1/60);
   }
@@ -49,7 +49,7 @@ test('water waits for three active seconds on floor one, including fixed-step ro
   assert.deepEqual(JSON.parse(store.get(historyKey)), ['water']);
   startRun();
   quietFloor();
-  G.time = 4;
+  G.time = 11;
   tickTutorials();
   assert.equal(els['tutorial-overlay'].hidden, true);
 });
@@ -59,7 +59,7 @@ test('water queues behind a card and pending cards are discarded on floor rebuil
   emit('sprint');
   tickTutorials();
   assert.equal(els['tutorial-title'].textContent, 'Save your legs');
-  G.time = 3;
+  G.time = 10;
   tickTutorials();
   assert.equal(els['tutorial-title'].textContent, 'Save your legs');
   dismissTutorial();
@@ -70,7 +70,7 @@ test('water queues behind a card and pending cards are discarded on floor rebuil
   assert.equal(G.time, 0);
   tickTutorials();
   assert.equal(els['tutorial-overlay'].hidden, true);
-  G.time = 3;
+  G.time = 10;
   tickTutorials();
   assert.equal(els['tutorial-title'].textContent, 'How to find a leak');
   emit('floorBuilt');
@@ -87,10 +87,10 @@ test('disabled cards use the timed guide and enabling or resetting uses elapsed 
   const cues = [];
   const unsubscribe = on('flash', cue => cues.push(cue.text));
   try {
-    G.time = 2.99;
+    G.time = 9.99;
     tickTutorials();
     assert.deepEqual(cues, []);
-    G.time = 3;
+    G.time = 10;
     tickTutorials();
     assert.deepEqual(cues, ['FOLLOW THE WET CARPET TO FIND A LEAK']);
     tickTutorials();
@@ -126,4 +126,20 @@ test('water illustration uses the deepest tile anywhere and omits images on a dr
   calls.list.length = 0;
   paintTutorial(canvas, 'water');
   assert.equal(calls.list.filter(call => call[0] === 'drawImage').length, 0);
+});
+
+test('air supply illustration mirrors the timer and segmented bar', () => {
+  freshRun();
+  const canvas = fakeCanvas();
+  canvas.width = 300;
+  canvas.height = 180;
+  G.time = 60;
+  G.clock = 120;
+  calls.list.length = 0;
+  paintTutorial(canvas, 'airsupply');
+  const labels = calls.list.filter(call => call[0] === 'fillText').map(call => call[1]);
+  assert.deepEqual(labels, ['AIR', '2:00']);
+  const segments = calls.list.filter(call =>
+    call[0] === 'fillRect' && (call.style === '#fffed1' || call.style === '#41452f'));
+  assert.equal(segments.length, 20);
 });

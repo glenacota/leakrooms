@@ -88,7 +88,7 @@ test('timed water and an open leak queue in order', () => {
   G.maskArr[i] = G.lightArr[i] = 1;
   G.wetArr[i] = 1;
   G.leaks = [{ x, y, fixed:false }];
-  G.time = 3;
+  G.time = 10;
   tickTutorials();
   assert.equal(els['tutorial-title'].textContent, 'How to find a leak');
   dismissTutorial();

@@ -2,6 +2,7 @@ import { drawLifeform } from '../cast/lifeform.js';
 import { drawPlumber } from '../cast/plumber.js';
 import { MAP_H, MAP_W, SPRINT_STAMINA, TILE, WET_DRAW } from '../config/constants.js';
 import { WATER_TINTS } from '../config/presets.js';
+import { clockText } from '../game/run.js';
 import { SETTINGS } from '../settings/store.js';
 import { G } from '../sim/state.js';
 import { drawBatteryMeter } from './battery-meter.js';
@@ -15,6 +16,31 @@ function plumber(g, x, y){
   g.translate(x, y);
   drawPlumber(g, { T: TILE*2, phase: 0.25, gait: 0.6, t: 0, wave: 0 });
   g.restore();
+}
+
+function paintAirSupply(g, w, h){
+  const segments = 20;
+  const duration = G.time + G.clock;
+  const fraction = duration > 0 ? Math.max(0, G.clock / duration) : 0;
+  const lit = Math.ceil(fraction * segments);
+  const barWidth = w*0.78;
+  const barX = (w - barWidth)/2;
+  const gap = 3;
+  const segmentWidth = (barWidth - gap*(segments-1))/segments;
+
+  g.fillStyle = '#202419';
+  g.fillRect(w*0.08, h*0.09, w*0.84, h*0.82);
+  g.textAlign = 'center';
+  g.fillStyle = '#c5c99a';
+  g.font = 'bold 18px Courier New, monospace';
+  g.fillText('AIR', w/2, h*0.27);
+  g.fillStyle = '#fffed1';
+  g.font = `bold ${Math.round(h*0.25)}px Courier New, monospace`;
+  g.fillText(clockText(G.clock), w/2, h*0.53);
+  for (let i=0; i<segments; i++){
+    g.fillStyle = i < lit ? '#fffed1' : '#41452f';
+    g.fillRect(barX + i*(segmentWidth+gap), h*0.68, segmentWidth, h*0.08);
+  }
 }
 
 /** Paints a controlled illustration using the game's own sprites and meters. */
@@ -50,6 +76,8 @@ export function paintTutorial(canvas, id){
     g.fillStyle = '#fffed1';
     g.fillText('Dormant', w*0.25, h-12);
     g.fillText('Hunting', w*0.75, h-12);
+  } else if (id === 'airsupply'){
+    paintAirSupply(g, w, h);
   } else {
     const deep = (WATER_TINTS[SETTINGS.waterHue] || WATER_TINTS.slate).deep;
     if (id === 'repair'){

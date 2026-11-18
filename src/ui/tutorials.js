@@ -11,7 +11,9 @@ import { flashBusy } from './hud.js';
 const STORAGE_KEY = 'leakrooms.tutorials.v1';
 const TUTORIAL_SEC = 9;
 // Starting value for introducing the water clue early on the first floor.
-const WATER_TUTORIAL_SEC = 3;
+const WATER_TUTORIAL_SEC = 10;
+// One active minute gives the player a clear example of elapsed air supply.
+const AIR_TUTORIAL_SEC = 60;
 const TUTORIALS = {
   sprint: {
     title: 'Save your legs',
@@ -38,6 +40,11 @@ const TUTORIALS = {
     text: 'Loud actions can wake a dormant lifeform or turn a search into a hunt. Awake lifeforms can see you all too well.',
     flash: 'LOUD SOUNDS WAKE LIFEFORMS OR START A HUNT. AWAKE LIFEFORMS CAN SEE YOU',
   },
+  airsupply: {
+    title: 'Limited air supply',
+    text: 'One minute of air supply is already gone. The countdown timer shows how much is left.',
+    flash: 'USED ONE MINUTE OF AIR SUPPLY. MONITOR THE TIMER'
+  }
 };
 
 let completed = new Set();
@@ -91,6 +98,7 @@ function candidates(){
   if (G.floor === 0 && G.time >= WATER_TUTORIAL_SEC - 1e-8 && needed('water')) result.push('water');
   if (needed('repair') && G.leaks.some(l => !l.fixed && tileVisible(l.x+0.5, l.y+0.5, true))) result.push('repair');
   if (needed('lifeform') && G.lifeforms.some(l => tileVisible(l.x, l.y))) result.push('lifeform');
+  if (G.time >= AIR_TUTORIAL_SEC - 1e-8 && needed('airsupply')) result.push('airsupply');
   return result;
 }
 
