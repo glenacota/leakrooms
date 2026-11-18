@@ -88,8 +88,8 @@ test('[24] the HUD — one glass panel in the corner, and it reserves nothing', 
      space and then fails on the tag, which reads as a missing label
      rather than as a label with a space in it. */
   const labels = (hudHtml.match(/class="crt-lbl[^"]*">([A-Z][A-Z ]*)</g)||[]).map(s => s.replace(/.*>/,'').replace(/<.*/,''));
-  t.assert(JSON.stringify(labels)===JSON.stringify(['LIVES','LEAKS']),
-    `the HUD shows ${JSON.stringify(labels)}, expected LIVES/LEAKS`);
+  t.assert(JSON.stringify(labels)===JSON.stringify(['CREW','LEAKS']),
+    `the HUD shows ${JSON.stringify(labels)}, expected CREW/LEAKS`);
 
   t.assert(!/>FLOOD</.test(hudHtml), 'the HUD still shows a flood reading');
   t.assert(!/>DOOR</.test(hudHtml), 'the HUD still shows a door reading');

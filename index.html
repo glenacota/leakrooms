@@ -25,13 +25,19 @@
 </head>
 <body>
 
-<!-- Category icons for flash cues (style B). -->
+<!-- Shared icons for flash cues and life readouts. -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
   <symbol id="i-danger" viewBox="0 0 16 16"><path d="M8 2 L14.6 13.5 H1.4 Z"/><path d="M8 6.5 V9.8"/><path d="M8 11.7 V11.9"/></symbol>
   <symbol id="i-alert" viewBox="0 0 16 16"><path d="M8 1.5 L14.5 8 L8 14.5 L1.5 8 Z"/><path d="M8 5 V8.6"/><path d="M8 10.6 V10.8"/></symbol>
   <symbol id="i-guide" viewBox="0 0 16 16"><path d="M3 3.5 L8 8 L3 12.5"/><path d="M8.5 3.5 L13.5 8 L8.5 12.5"/></symbol>
   <symbol id="i-info" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 7.2 V11"/><path d="M8 4.9 V5.1"/></symbol>
   <symbol id="i-lore" viewBox="0 0 16 16"><path d="M1.8 11.5 C3.5 4.5 5.5 4.5 6.6 9 S10.5 13 14.2 5"/></symbol>
+  <symbol id="i-plumber-head" viewBox="0 0 16 16">
+    <circle cx="8" cy="8" r="7" fill="#e8c11f" stroke="rgba(24,26,16,0.55)" stroke-width="1"/>
+    <path d="M8 15 V9.75" stroke="#b88e12" stroke-width=".3"/>
+    <ellipse cx="8" cy="6.04" rx="4.34" ry="3.15" fill="#000"/>
+    <ellipse cx="6.6" cy="6.39" rx="1.54" ry=".84" fill="rgba(190,236,244,0.75)"/>
+  </symbol>
 </svg>
 
 <!--
@@ -65,7 +71,7 @@
         </div>
       </div>
       <div class="crt-cell stats">
-        <div class="crt-row"><span class="crt-lbl">LIVES</span><span class="crt-val lives" id="val-lives">&#9679;&#9679;&#9679;</span></div>
+        <div class="crt-row"><span class="crt-lbl">CREW</span><span class="crt-val lives" id="val-lives"></span></div>
         <div class="crt-row"><span class="crt-lbl">LEAKS</span><span class="crt-leaks" id="val-leaks"></span></div>
       </div>
     </div>
@@ -197,7 +203,7 @@
               <div><small>ON THE CLOCK</small><b id="pause-clock">3:00</b></div>
               <div><small>FLOOR</small><b id="pause-floor">1/5</b></div>
               <div><small>LEAKS SEALED</small><b id="pause-leaks">0/1</b></div>
-              <div><small>LIVES</small><b class="lives-row" id="pause-lives">&#9679;&#9679;&#9679;</b></div>
+              <div><small>CREW</small><b class="lives-row" id="pause-lives"></b></div>
               <div><small>TERMS</small><b id="pause-terms">NORMAL</b></div>
             </div>
             <br/>
@@ -241,8 +247,8 @@
                 <h3>SCREEN LEGEND</h3>
                 <ul class="legend">
                   <li><i class="lg lg-clock">2:41</i><span><b>TIME LEFT</b> on this floor. At zero you lose a life.</span></li>
-                  <li><i class="lg lg-lives">&#9679;&#9679;&#9675;</i><span><b>LIVES</b> </span></li>
-                  <li><i class="lg crt-leaks"><span class="done"></span><span class="open"></span></i><span><b>LEAKS SEALED</b></span></li>
+                  <li><i class="lg lg-lives" aria-hidden="true"><svg class="life-pip" viewBox="0 0 16 16" focusable="false"><use href="#i-plumber-head"/></svg><svg class="life-pip" viewBox="0 0 16 16" focusable="false"><use href="#i-plumber-head"/></svg><svg class="life-pip gone" viewBox="0 0 16 16" focusable="false"><use href="#i-plumber-head"/></svg></i><span><b>CREW</b> members left.</span></li>
+                  <li><i class="lg crt-leaks"><span class="done"></span><span class="open"></span></i><span><b>LEAKS SEALED</b>.</span></li>
                   <li><canvas id="manual-battery" class="lg-battery" width="54" height="54" aria-hidden="true"></canvas><span><b>RADAR BATTERY</b> Beside you while radar is on or after battery pickup.</span></li>
                   <li><canvas id="manual-stamina" class="lg-stamina" width="54" height="54" aria-hidden="true"></canvas><span><b>STAMINA</b> Besides you while running (go down) or recovering (go up).</span></li>
                   <li><canvas id="manual-noise" class="lg-noise" width="54" height="54" aria-hidden="true"></canvas><span><b>NOISE CLUES</b> Red glow and wide ripples mean you're loud.</span></li>

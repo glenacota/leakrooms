@@ -126,10 +126,10 @@
 
 /* ---------- Lives ---------- */
 
-/* Spent lives are drawn faded, so the row is a countdown you can read at a
-   glance without counting anything. */
-.crt-val.lives{ color:var(--danger); letter-spacing:.22em; }
-.crt-val.lives span.gone{ opacity:.2; }
+/* Spent lives remain visible so the size of the crew stays clear. */
+.life-pips{ display:inline-flex; align-items:center; gap:3px; vertical-align:middle; }
+.life-pip{ width:14px; height:14px; flex:none; }
+.life-pip.gone{ opacity:.2; }
 
 /* ---------- Clock ---------- */
 

@@ -208,10 +208,11 @@ export function updateHUD(){
   hudSet(HUD.vLives, 'vLives', 'html', livesHTML());
 }
 
-// The life pips as HTML: one dot per life in the run, with spent ones marked "gone".
+// One plumber head per life in the run, with spent ones marked "gone".
 export function livesHTML(){
-  return Array.from({length:Math.max(1,runLives)},
-    (_,i)=> `<span class="${i<lives?'':'gone'}">&#9679;</span>`).join('');
+  const icons = Array.from({length:Math.max(1,runLives)}, (_,i)=>
+    `<svg class="life-pip${i<lives?'':' gone'}" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><use href="#i-plumber-head"/></svg>`).join('');
+  return `<span class="life-pips" role="img" aria-label="${lives} of ${runLives} lives remaining">${icons}</span>`;
 }
 
 // The leaks marks as HTML: one per leak on the floor. The open ones are

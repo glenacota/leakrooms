@@ -42,7 +42,7 @@ export function paintTerms(){
   set('manual-return', proseClock(d.clock));
   set('manual-repair', `${d.repairTime} second${d.repairTime===1?'':'s'}`);
   set('note-difficulty',
-    `${d.lives} ${d.lives===1?'life':'lives'} \u00b7 ${clockWords(d.clock)} per floor \u00b7 ${d.repairTime}s to seal a leak`);
+    `${d.lives} crew member${d.lives===1?'':'s'} \u00b7 ${clockWords(d.clock)} per floor \u00b7 ${d.repairTime}s to seal a leak`);
 }
 
 /**

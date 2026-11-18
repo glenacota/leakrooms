@@ -58,9 +58,8 @@
 .run-stats{ display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:12px 18px; margin:4px 0 6px; }
 .run-stats small{ display:block; font-size:11px; letter-spacing:.2em; color:var(--yellow-dim); font-weight:900; margin-bottom:2px; }
 .run-stats b{ font-size:22px; letter-spacing:.1em; color:#8fc4cc; font-weight:400; }
-/* Life pips look the same as in the HUD, spent ones included. */
-.run-stats .lives-row{ color:var(--danger); letter-spacing:.3em; }
-.run-stats .lives-row .gone{ opacity:.18; }
+/* The pause page gives the shared life icons more room than the HUD. */
+.run-stats .life-pip{ width:20px; height:20px; }
 
 /* ---------- The timeline: how each floor of the attempt went ---------- */
 
@@ -103,7 +102,6 @@
   font-style:normal; font-size:12px; font-weight:900; letter-spacing:.1em; color:var(--yellow);
   min-height:24px; border:1px solid rgba(228,230,168,.25); background:rgba(228,230,168,.05);
 }
-.lg-lives{ color:var(--danger); letter-spacing:.1em; }
 .lg-battery{ width:54px; height:54px; min-height:54px; border:0; background:none; }
 .lg-stamina{ display:block; width:54px; height:54px; min-width:54px; min-height:54px; border:0; background:none; }
 .lg-noise{ display:block; width:54px; height:54px; min-height:54px; border:0; background:none; }
