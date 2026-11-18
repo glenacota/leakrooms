@@ -33,7 +33,7 @@ function winReport({ sealed, deaths, noises, floors, time, terms, runHistory }){
       Fatalities on duty: <b>${deaths}</b><br>
       Time: <b>${elapsed}</b></p>
       <table class="win-table">
-        <thead><tr><th scope="col">FLOOR</th><th scope="col">SEALED</th><th scope="col">DEATHS</th><th scope="col">CLOCK LEFT</th></tr></thead>
+        <thead><tr><th scope="col">FLOOR</th><th scope="col">SEALED</th><th scope="col">FATALITIES</th><th scope="col">CLOCK LEFT</th></tr></thead>
         <tbody>${rows.join('')}</tbody>
       </table>
     </section>
