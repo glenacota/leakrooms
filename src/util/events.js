@@ -1,14 +1,7 @@
-/* A tiny event bus. Listeners are stored per event type.
+/* Delivery uses a listener snapshot so (un)sub calls during an emit cannot skip
+   or repeat listeners. Cache snapshots and discard them when the listener set changes;
+   emit runs often enough to make copying costly. */
 
-   Delivery walks an array snapshot of them, so a listener that subscribes or
-   unsubscribes mid-delivery cannot make another listener be skipped or called
-   twice. That snapshot is kept between emits and thrown away when the listener
-   set changes, because emit() runs several times a frame and copying the set
-   each time was most of its cost. */
-
-/* Canonical event-type names. Every emit() and on() call site should use
-   these constants instead of bare strings, so a typo throws ReferenceError
-   instead of silently dropping the event. */
 export const EVENT = Object.freeze({
   sfx: 'sfx',
   heard: 'heard',
@@ -207,9 +200,8 @@ export const EVENT_CONTRACTS = Object.freeze({
 });
 
 const listeners = new Map();
-const delivery = new Map();      // type -> the array emit() last built
+const delivery = new Map();
 
-// Subscribes to an event. Returns a function that unsubscribes again.
 export function on(type, fn){
   if (!listeners.has(type)) listeners.set(type, new Set());
   listeners.get(type).add(fn);
@@ -233,7 +225,6 @@ export function emit(type, ...args){
   for (const fn of list) fn(...args);
 }
 
-// Removes every listener. Only the tests need this.
 export function clearAll(){
   listeners.clear();
   delivery.clear();

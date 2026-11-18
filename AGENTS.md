@@ -77,6 +77,7 @@ Do not change these without asking first.
   Do not use `install*`, `setup*` or `make*` for these phases. Use a `make*` name only for a function that returns a new object and keeps no module state.
 - Comments are plain English. Explain why, not what. Keep them short. Give every tuning number a reason. Avoid filler such as "seamlessly", "robust" or "leverage".
 - Before renaming an export, grep for every import and every test that uses it.
+- Define canonical constants for event names and other fixed identifiers to prevent typos and ensure consistent usage across the codebase.
 
 ## Core terms
 

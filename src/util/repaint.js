@@ -1,26 +1,15 @@
-/**
- * RepaintState — shared dirty tracking for pixel layers.
- * The sim marks tiles as changed; the renderer consumes the dirty box
- * and clears the flags.
- */
+/* Shared dirty tracking for simulation changes and renderer repaints. */
 import { MAP_W, MAP_H } from '../config/constants.js';
 
-/* ---------- Dirty flags ---------- */
 export const repaintDirty = {
   water: true,
   mask: true,
 };
 
-/* ---------- Flood dirty box (module-level,) ----------
-   The water packer turns wetArr into an image. The water only changes in a band,
-   so the code records the bounding box of the tiles that changed since the last
-   pack, and the packer rewrites and uploads just that rectangle.
-
-   An empty box (-1) means "repack everything". That is what a new floor, a
-   tint change and the first frame after a build ask for. */
+/* Mutable bounding-box limits for water tiles changed since the last render. 
+   A -1 value means no partial bounds are stored and it will lead to a repaint. */
 let wetDirtyX0 = -1, wetDirtyY0 = -1, wetDirtyX1 = -1, wetDirtyY1 = -1;
 
-// Grows the pending box by one tile. Both writers of wetArr (the flood and the player's splashes) use it.
 export function markWetTile(i) {
   repaintDirty.water = true;
   const x = i % MAP_W, y = (i / MAP_W) | 0;
@@ -33,8 +22,7 @@ export function markWetAll() {
   wetDirtyX0 = wetDirtyY0 = wetDirtyX1 = wetDirtyY1 = -1;
 }
 
-/* Hands the pending box to the renderer and starts a fresh one. The renderer
-   packs and uploads that region, so after this call nothing is pending. */
+// a wetBox is the snapshot returned to the renderer
 export function takeWetBox() {
   const full = wetDirtyX1 < 0;
   const box = { full, x0: full ? 0 : wetDirtyX0, y0: full ? 0 : wetDirtyY0,
@@ -43,7 +31,6 @@ export function takeWetBox() {
   return box;
 }
 
-/* Resets the repaint state for a new floor. */
 export function resetRepaint() {
   repaintDirty.water = true;
   repaintDirty.mask = true;

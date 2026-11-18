@@ -2,8 +2,7 @@ import { MAP_W, MAP_H, WALL } from '../config/constants.js';
 import { walkLine } from './line.js';
 
 /* Line of sight between two points, using Bresenham's line algorithm: it walks
-   the tiles on the straight line and stops at the first wall. The bake and
-   buildFloor share this one version. */
+   the tiles on the straight line and stops at the first wall. */
 export function makeLos(grid){
   const at = (x,y)=> grid[y*MAP_W+x];
   const inB = (x,y)=> x>=0 && y>=0 && x<MAP_W && y<MAP_H;

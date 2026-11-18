@@ -1,7 +1,7 @@
-/* mulberry32: a small seeded random number generator. Given the same seed it
-   produces the same sequence every time, which is what makes a floor
-   reproducible from its seed. Returns a function that gives a number from 0 up
-   to (not including) 1 on each call. */
+/**
+ * Creates a seeded generator whose sequence is reproducible for the same seed.
+ * @returns {function():number} A value in the range [0, 1).
+ */
 export function mulberry32(a){
   return function(){
     a |= 0; a = (a + 0x6D2B79F5) | 0;
