@@ -93,6 +93,15 @@ test('[24] the HUD — one glass panel in the corner, and it reserves nothing', 
 
   t.assert(!/>FLOOD</.test(hudHtml), 'the HUD still shows a flood reading');
   t.assert(!/>DOOR</.test(hudHtml), 'the HUD still shows a door reading');
+  t.assert(/class="crt-air-label">AIR</.test(hudHtml), 'the clock has no AIR label');
+  t.assert(/id="air-bar"[^>]*aria-hidden="true"/.test(hudHtml),
+    'the air segments are not marked decorative for assistive technology');
+  t.assert(/class="crt-air-caps">\s*<span class="crt-air-label-empty">E<\/span>\s*<div class="crt-air-bar"[^>]*><\/div>\s*<span class="crt-air-label-full">F<\/span>\s*<\/div>/.test(hudHtml),
+    'the empty and full labels do not flank the air bar in one row');
+  t.assert(/\.crt-air-caps\s*\{[^}]*display\s*:\s*flex[^}]*align-items\s*:\s*center/.test(css),
+    'the air bar and its labels are not aligned in a row');
+  t.assert(/\.crt-air-bar\s*\{[^}]*repeat\(20,/.test(css),
+    'the air bar does not have all columns');
   t.assert(!/\.bar\.flood/.test(css), 'the flood bar is still in the stylesheet');
   t.assert(!/#val-leak/.test(css), 'the door readout is still in the stylesheet');
 
@@ -102,12 +111,12 @@ test('[24] the HUD — one glass panel in the corner, and it reserves nothing', 
   t.assert(/clockText\(G\.clock\)/.test(src),
     "the clock is not written from the run's own clockText");
 
-  /* No continuous bars live in the corner panel any more: noise and radar are
-     diegetic rings above the plumber (see render/passes/diegetic.js). */
+  /* The air segments represent the clock. Noise and radar remain diegetic
+     rings above the plumber (see render/passes/diegetic.js). */
   const barRows = hudHtml.split('<div class="crt-row"').slice(1).filter(s => s.includes('class="bar'));
   t.assert(barRows.length===0, `the corner panel still carries ${barRows.length} bar(s)`);
   t.assert((hudHtml.match(/class="bar/g)||[]).length===0,
-    'there are no bars left in the corner panel');
+    'the corner panel has an unrelated continuous bar');
 
   /* --- the leak marks ----------------------------------------------
      One mark per leak, in the order the floor put them, so a mark never
@@ -136,6 +145,33 @@ test('[24] the HUD — one glass panel in the corner, and it reserves nothing', 
   /* The row DRAINS: the open leaks pack to the left and the sealed ones sit
      hollow on the right, so the lit run is the number still open. */
   buildFloor(3, 1234);                       // a four-leak floor
+  const airCells = els['air-bar'].childNodes;
+  t.assert(airCells.length===20, `the air bar has ${airCells.length} segments, expected 20`);
+  for (const duration of [150, 180, 240]){
+    for (const remaining of [duration, duration / 2, 0.01]){
+      A.G.time = duration - remaining;
+      A.G.clock = remaining;
+      A.updateHUD();
+      const expected = Math.ceil(remaining / duration * 20);
+      t.assert(airCells.filter(cell => cell.classList.contains('on')).length===expected,
+        `air bar does not show ${expected} segments at ${remaining}/${duration} seconds`);
+    }
+  }
+  A.G.time = 150;
+  A.G.clock = 30;
+  A.updateHUD();
+  t.assert(airCells.filter(cell => cell.classList.contains('on')).length===4,
+    'the air bar does not scale to remaining time');
+  t.assert(airCells[0].classList.contains('on') && airCells[1].classList.contains('on') &&
+    airCells.slice(4).every(cell => !cell.classList.contains('on')),
+    'the lit air segments do not extend from the empty end');
+  t.assert(airCells[3].classList.contains('edge'),
+    'the last lit segment does not warn in the final 30 seconds');
+  A.G.clock = 0;
+  A.updateHUD();
+  t.assert(airCells.every(cell => !cell.classList.contains('on') && !cell.classList.contains('edge')),
+    'the air bar is not empty when the clock reaches zero');
+  buildFloor(3, 1234);                       // restore the four-leak floor for the marks below
   A.sealLeak(A.G.leaks[0]);
   A.updateHUD();
   const marks = els['val-leaks'].innerHTML.match(/class="(open|done)"/g) || [];
@@ -207,6 +243,12 @@ test('[24] the HUD — one glass panel in the corner, and it reserves nothing', 
      descend from the wrapper. */
   t.assert(/#clock\.critical #val-clock\s*\{[^}]*animation/.test(css),
     'the clock does not blink in its last ten seconds — the critical rule does not match the wrapper it is set on');
+  t.assert(/#clock\.low \.crt-air-segment\.on\s*\{[^}]*background/.test(css) &&
+    /#clock\.critical \.crt-air-segment\.on\s*\{[^}]*background/.test(css),
+    'the air segments do not share the clock warning colors');
+  t.assert(/\.crt-air-segment\.edge\s*\{[^}]*animation/.test(css) &&
+    /prefers-reduced-motion\s*:\s*reduce[\s\S]*?\.crt-air-segment\.edge\s*\{\s*animation\s*:\s*none/.test(css),
+    'the last segment does not blink or respect reduced motion');
 
   /* --- narrow windows: the panel still has to fit -------------------- */
   t.assert(/max-width\s*:\s*900px/.test(css) && /max-width\s*:\s*680px/.test(css),

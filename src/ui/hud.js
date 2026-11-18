@@ -16,10 +16,18 @@ import { buildHudSnap, hudVisibility } from './touch-hud-rules.js';
 export const HUD = {
   vClock: document.getElementById('val-clock'),
   clockWrap: document.getElementById('clock'),
+  airBar: document.getElementById('air-bar'),
   vLeaks: document.getElementById('val-leaks'),
   vLives: document.getElementById('val-lives'),
   hud: document.getElementById('hud')
 };
+const AIR_SEGMENTS = 20;
+const airCells = Array.from({ length:AIR_SEGMENTS }, () => {
+  const cell = document.createElement('span');
+  cell.className = 'crt-air-segment';
+  HUD.airBar.appendChild(cell);
+  return cell;
+});
 
 /* Flash cues with priority tiers. A higher tier replaces what is on screen;
    an alert/guide/lore cue displaced by a higher one is held and re-shown when
@@ -185,8 +193,16 @@ export function updateHUD(){
 
   /* ---------- Clock ---------- */
   hudSet(HUD.vClock, 'vClock', 'text', clockText(G.clock));
-  hudFlag(HUD.clockWrap, 'clockLow', 'low',     G.clock <= 30);
-  hudFlag(HUD.clockWrap, 'clockCrit', 'critical', G.clock <= 10);
+  hudFlag(HUD.clockWrap, 'clockLow', 'low',     G.clock <= 60);
+  hudFlag(HUD.clockWrap, 'clockCrit', 'critical', G.clock <= 30);
+  const duration = G.time + G.clock;
+  const fraction = duration > 0 ? Math.max(0, G.clock / duration) : 0;
+  const lit = G.clock > 0 ? Math.ceil(fraction * AIR_SEGMENTS) : 0;
+  for (let i=0; i<AIR_SEGMENTS; i++){
+    hudFlag(airCells[i], `airCell${i}On`, 'on', i < lit);
+    hudFlag(airCells[i], `airCell${i}Edge`, 'edge',
+      G.clock <= 30 && G.clock > 0 && i === lit - 1);
+  }
   /* innerHTML is used here because the pips are small HTML spans, and the
      cache above means it is only parsed when a life is lost. */
   hudSet(HUD.vLives, 'vLives', 'html', livesHTML());

@@ -22,18 +22,20 @@ html, body{ overscroll-behavior:none; }
   .crt-clock, #val-clock{ font-size:26px; }
   .crt-row{ font-size:11px; gap:6px; }
   .crt-lbl{ font-size:10px; }
+  .crt-air-bar{ width:64px; }
   .bar{ width:96px; height:8px; }
   .crt{ padding:8px 10px 9px; }
-  :root{ --hud-h:63px; }
+  :root{ --hud-h:77px; }
 }
 @media (max-width:680px){
   .crt-clock, #val-clock{ font-size:21px; }
   .crt-row{ font-size:10px; gap:5px; }
   .crt-lbl{ font-size:9px; letter-spacing:.12em; }
+  .crt-air-bar{ width:50px; }
   .bar{ width:70px; height:7px; }
   .crt{ padding:6px 8px 7px; }
   .crt-c{ transform:none; left:max(8px, var(--safe-l)); }
-  :root{ --hud-h:55px; }
+  :root{ --hud-h:69px; }
 }
 
 /* ---------- Compact tier: a phone held sideways ----------
@@ -48,7 +50,7 @@ html, body{ overscroll-behavior:none; }
    a browser (the audit in the p8 report) and has to be re-measured if any of
    those change. */
 @media (max-height:520px){
-  :root{ --pause-chrome:112px; --hud-h:55px; }
+  :root{ --pause-chrome:112px; --hud-h:69px; }
 
   .order-wrap{
     width:min(960px, calc(100% - 16px));
@@ -133,6 +135,7 @@ html, body{ overscroll-behavior:none; }
      the 7px-tall bar because .bar.noise keeps overflow:visible. */
   .crt-clock, #val-clock{ font-size:21px; }
   .crt-row{ font-size:10px; gap:5px; }
+  .crt-air-bar{ width:50px; }
   .bar{ width:70px; height:7px; }
   .crt{ padding:6px 8px 7px; }
 }
