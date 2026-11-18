@@ -1,6 +1,3 @@
-/* Short notes scrawled on the carpet. A level scatters some in random rooms,
-   and the player reads one when the radar sweeps it onto the screen. */
-
 export const NOTES = [
     'The lights are always on. Always on. Always on.',
     'Six hundred million steps. I counted for a while.',
