@@ -1,18 +1,3 @@
-/* Builds one floor. The generated level and the G object that holds the floor's
-   state are made here. The pixel layers the renderer draws (light, tiles, walls,
-   mask and water) belong to the renderer, which receives the inputs through
-   an event wired at boot.
-
-   The build is split in two. getStaticLevel() makes the half a building
-   decides: the layout, the light array, the region map. It holds that for one
-   key (seed and floor number). buildFloorState() makes the half a player
-   changes: the flood, the cast, the clock. Each build replaces this state,
-   even when the static key matches.
-
-   The split is not tidiness. A retry rebuilds the same floor, so the static
-   half is almost always already correct, and regenerating it means running a
-   flood fill to arrive at the same answer. */
-
 import { mulberry32 } from '../util/rng.js';
 import { makeLos } from '../util/grid.js';
 import { genLevel } from '../sim/level.js';
@@ -25,30 +10,26 @@ import { G, createGameState, setFloorState } from '../sim/state.js';
 import { emit, EVENT } from '../util/events.js';
 import { resetRepaint } from '../util/repaint.js';
 
-/* ---------- The cached half ---------- */
-
+/* Static level data is cached because retries repeat expensive generation.
+   Mutable floor state is rebuilt even when the static key matches. */
 let cacheKey = null;
 let cache = null;
+
+// flag enabled by an URL query parameter to trigger an over-simplified game scenario 
 let easyFloor = false;
 
 const keyOf = (seed, floorNum)=> `${seed}:${floorNum}${easyFloor ? ':easy' : ''}`;
 
-/** Selects the floor variant for this page load. */
 export function applyEasyFloor(enabled){
   easyFloor = enabled;
 }
 
-/** Returns whether compact testing floors are enabled. */
 export function isEasyFloor(){
   return easyFloor;
 }
 
 /**
- * The half of a floor that the seed decides and the player never changes: the
- * layout, the light array, the region map. One entry is held, for one key.
- *
- * Retrying a floor asks for the key it already has and gets the same object
- * back. Anything else releases the previous one on the way past.
+ * Builds or returns the static level data for a seed and floor.
  *
  * @param {number} seed - the run seed.
  * @param {number} floorNum - 0-based floor index.
@@ -70,12 +51,8 @@ export function getStaticLevel(seed, floorNum){
   return cache;
 }
 
-/* ---------- The floor's own state ---------- */
-
 /**
- * Builds a floor on top of a static level: everything a plumber can change is
- * made new, and the arrays play mutates are cloned out of the cache so a
- * played floor cannot mark the building it came from.
+ * Builds mutable floor state from a static level.
  *
  * @param {object} level - the static level from getStaticLevel().
  * @param {number} floorNum - 0-based floor index.
@@ -84,7 +61,6 @@ export function getStaticLevel(seed, floorNum){
 export function buildFloorState(level, floorNum, seed){
   setFloorState(createGameState(level, floorNum, seed));
 
-  // Light the room the plumber starts in. From here on the lit room follows them.
   scopeRoomLight(G, G.plumber, G.radar, true);
   snapMask(G, G.plumber, G.radar);
 
@@ -93,10 +69,7 @@ export function buildFloorState(level, floorNum, seed){
 }
 
 /**
- * Builds a floor and stores it in G (see sim/state.js).
- *
- * The same seed and floor number always produce the same layout, so a retry
- * puts the leaks in the same rooms and allows static canvases to be reused.
+ * Builds and stores a floor in G (the state).
  *
  * @param {number} floorNum - 0-based floor index; picks the row in LEVELS.
  * @param {number} seed - the run seed.
@@ -105,8 +78,5 @@ export function buildFloor(floorNum, seed){
   const level = getStaticLevel(seed, floorNum);
   emit(EVENT.floorPreparing, keyOf(seed, floorNum), level);
   buildFloorState(level, floorNum, seed);
-
-  /* Render-only state keyed to a floor (the floor ripples) clears on this, so
-     nothing from the last floor is drawn over the new one. */
   emit(EVENT.floorBuilt);
 }

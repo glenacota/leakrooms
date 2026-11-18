@@ -1,10 +1,3 @@
-/* ============================================================
-   THE RUN
-   Everything about the player's current attempt: which screen or state
-   the game is in, lives, totals, and every way a run starts, ends,
-   rewinds or continues.
-   ============================================================ */
-
 import { LEVELS, LEVELS_N } from '../config/levels.js';
 import { FLOOR_CLOCK, FLOORS } from '../config/tuning.js';
 import { currentTerms } from '../settings/store.js';
@@ -15,14 +8,10 @@ import { restoreSealed } from '../sim/leaks.js';
 import { G } from '../sim/state.js';
 import { buildFloor, isEasyFloor } from './floor.js';
 
-/* The variables below are live bindings. Other modules can read them,
-   but only this file may assign to them. Changes go through the setter
-   functions at the bottom, so there is one place where the run changes. */
-
-// One of: splash | binder | clear | play | pause | dead | win
+/** @type {'splash'|'binder'|'clear'|'play'|'pause'|'dead'|'win'} */
 export let STATE='splash';
 
-// The seed that builds every floor of the run (floor N uses this seed plus N).
+/* Floor N uses this seed plus the floor offset. */
 export let RUN_SEED = (Math.random()*1e9)|0;
 export let lives = 3, floorIdx = 0, runTime = 0;
 
@@ -30,70 +19,40 @@ export let lives = 3, floorIdx = 0, runTime = 0;
    RELAXED, 1 on HARD), so it cannot be a hardcoded three. */
 export let runLives = 3;
 
-/* Totals for the whole run. G.stat is thrown away whenever a floor is
-   rebuilt, so the win card needs its own counters that last as long as the
-   run. They are cleared only when a run starts (startRun). */
+/* These counters survive floor rebuilds and are cleared only at run start. */
 export let runStat = { noises:0, deaths:0, sealed:0 };
 
-/* One entry per floor attempt, in the order they finished. Cleared when a new
-   run starts, so the timeline on the pause page only ever shows this run. */
+/* Cleared at run start so the pause timeline contains only this run. */
 export let runHistory = [];
 
-/* Starts a new building: new seed, a fresh floor 0, and a repainted title
-   plan. The title screen must show the level the next run will really
-   play, so this runs before the player sees it again (RUN IT AGAIN, RESET). */
+/* The title preview must match the next run, so roll the seed before repainting it. */
 export function rollRunSeed(){
   setRunSeed((Math.random()*1e9)|0);
   buildFloor(0, RUN_SEED);
-  /* The title plan is painted by the renderer, which the run does not know
-     about. The event is the whole of the dependency. */
   emit(EVENT.splashRepaint);
 }
 
-/* ============================================================
-   FLOOR CLEAR CARD
-   Between two levels the player sees a card with the clock they finished
-   with and a briefing for the next floor. It exists so that a running clock
-   never silently restarts, and so the player knows what is coming (leaks
-   and lifeforms) before they walk in.
-
-   The next floor is already built while the card is up. 'clear' only holds
-   the player out of it, and the clock is frozen because the loop only
-   steps the simulation while STATE is 'play'.
-   ============================================================ */
+/* The clear state holds the next floor ready while keeping its clock frozen. */
 export let clearCard = { floor:0, clock:0, leaks:0, lifeforms:0 };
 
-/* Fills in the card and asks the shell to show it. The numbers live here and
-   the writing on them lives in ui/, because this file must never touch the
-   document — that is what makes it readable, and testable, without a DOM. */
+/* Data lives here; UI owns copy and DOM rendering. */
 export function showClear(){
   emit(EVENT.clearShow);
   transition('clear');
   emit(EVENT.sfx, 'acclaim');
 }
 
-/* Called by ENTER and by the card's button. ESC does nothing here on purpose:
-   there is no way back to the floor you just sealed. Held keys are cleared
-   inside transition(), because the player was almost certainly holding W
-   when they reached the door. */
+/* There is no way back through the clear card; transition clears held keys. */
 export function dismissClear(){
   if (STATE!=='clear') return;
   transition('play');
 }
 
-/* ============================================================
-   STATE CHANGES
-   ============================================================ */
-
 /**
- * The only way the run changes state. Every change does the same four things:
- * set the state, show the matching screen, show or hide the HUD, and
- * announce 'state' so the audio can react.
- *
- * Held keys are cleared as well. Otherwise a run that starts while W is held
- * would walk the player straight back out of the door they came through.
+ * Changes run state and shell presentation.
  *
  * @param {string} to - the new state ('play', 'pause', 'dead', ...).
+ * Clears held input so stale movement cannot carry into the new state.
  */
 export function transition(to){
   setState(to);
@@ -103,10 +62,9 @@ export function transition(to){
   emit(EVENT.state, STATE);
 }
 
-// Called when the door cycles: moves to the next floor, or ends the run.
+/* Door completion either advances the run or sends it to the win screen. */
 export function nextFloor(){
-  /* Record how this floor went before the floor is replaced. G still refers
-     to the floor just finished. */
+  /* Record the finished floor before G is replaced. */
   runHistory.push({
     floor: floorIdx,
     sealed: G ? G.totalLeaks - G.openLeaks : 0,
@@ -122,8 +80,7 @@ export function nextFloor(){
   });
     return;
   }
-  /* Read the leftover clock BEFORE rebuilding. buildFloor replaces G, and the
-     seconds left on the finished floor are what the card shows. */
+  /* buildFloor replaces G, so read the remaining clock first. */
   const clockLeft = G ? G.clock : FLOOR_CLOCK;
   buildFloor(floorIdx, RUN_SEED);
   const spec = LEVELS[Math.min(floorIdx, LEVELS_N-1)];
@@ -131,21 +88,17 @@ export function nextFloor(){
   showClear();
 }
 
-/* Why a life was lost. The death screen picks its title from the code, so the
-   run and the shell agree on a value and not on a sentence. */
+/* The shell uses these codes to select death copy. */
 export const DEATH_CAUSE = Object.freeze({ CAUGHT: 'caught', CLOCK: 'clock' });
 
 /**
- * Ends the attempt: costs a crew member, shows the death screen and says why.
- * Being caught and running out of air are the same thing to the player (they
- * did not finish the floor in time), so they share one path.
+ * Ends the attempt and reports why to the shell.
  *
  * @param {'caught'|'clock'} cause - one of DEATH_CAUSE.
  */
 export function lose(cause){
   if (STATE!=='play') return;
-  /* Record how this floor attempt ended before G is replaced or the floor
-     is retried. */
+  /* Snapshot attempt results before replacing G. */
   runHistory.push({
     floor: floorIdx,
     sealed: G.totalLeaks - G.openLeaks,
@@ -153,14 +106,12 @@ export function lose(cause){
     clockLeft: G.clock,
     died: true,
   });
-  /* Tell the floor first. This frame is still a simulation frame, and without
-     G.ended the rest of update() would keep running. The worst case is the
-     door cycling and building the next floor on the frame you died. */
+  /* Stop the rest of this simulation frame before update() can advance the door. */
   G.ended = true;
   G.stat.deaths++;
   runStat.deaths++;
   setLives(lives-1);
-  emit(EVENT.sfx, 'sting');           // the noise beds are closed by the 'state' event
+  emit(EVENT.sfx, 'sting');
   transition('dead');
   emit(EVENT.lives);
   emit(EVENT.dead, { lives, cause });
@@ -168,25 +119,19 @@ export function lose(cause){
 
 export function caught(){ lose(DEATH_CAUSE.CAUGHT); }
 
-// Running out of air costs a crew member too.
+/* Running out of air follows the same loss path as being caught. */
 export function outOfTime(){ lose(DEATH_CAUSE.CLOCK); }
 
-// Formats seconds as m:ss, rounding up so the display matches whole seconds.
+/* Round upward so the HUD never exposes a lower whole-second value. */
 export function clockText(s){
   const t = Math.max(0, Math.ceil(s));
   return Math.floor(t/60) + ':' + String(t%60).padStart(2,'0');
 }
 
-/* ============================================================
-   RESET GAME (two taps)
-   The pause screen's reset button ends the whole run, so the first tap only
-   arms it. It disarms after 5 seconds or when the player changes page.
-   ============================================================ */
+/* Reset is armed briefly to require a confirmation gesture. */
 export let resetArmed = false;
 let resetArmTimer = 0;
 
-/* The label on the button is the shell's business; this file only decides
-   whether the run is armed, and says so. */
 function announceReset(){
   emit(EVENT.reset, resetArmed);
 }
@@ -199,13 +144,11 @@ export function armReset(){
   resetArmed = true;
   clearTimeout(resetArmTimer);
   resetArmTimer = setTimeout(disarmReset, 5000);
-  if (resetArmTimer.unref) resetArmTimer.unref();   // a browser returns a number
+  if (resetArmTimer.unref) resetArmTimer.unref();
   announceReset();
 }
 export function resetRun(){
-  /* Follows the same steps as boot: new seed, floor built from it, plan
-     painted from it. The title screen then shows the building the next run
-     will use, not the one just abandoned. */
+  /* Rebuild the title preview from the replacement run's seed. */
   rollRunSeed();
   setFloorIdx(0);
   setRunTime(0);
@@ -213,77 +156,54 @@ export function resetRun(){
   setLives(runLives);
   setRunStat({ noises:0, deaths:0, sealed:0 });
   emit(EVENT.lives);
-  transition('splash');          // also hides the HUD, which belongs to a run
+  transition('splash');
   disarmReset();
 }
 
-/* ============================================================
-   BUTTON ACTIONS
-   The functions behind the main buttons. src/ui/buttons.js attaches them.
-   ============================================================ */
-
-// CLOCK IN: starts a new run on floor 1.
+/* UI buttons invoke these run actions. */
 export function startRun(){
-  /* The seed is not rolled here: the plan behind the title has to be the level
-     the player is about to play. A finished run rolls its own (see rollRunSeed). */
+  /* Reuse the seed previewed on the title; a finished run rolls a new seed. */
   emit(EVENT.runStart);
   setRunLives(currentTerms().lives);
   setLives(runLives); setFloorIdx(0); setRunTime(0);
-  // A new run gets a new tally, so the win card never shows the previous run.
   setRunStat({ noises:0, deaths:0, sealed:0 });
   runHistory = [];
   emit(EVENT.lives);
   buildFloor(0, RUN_SEED);
-  // A short grace period before lifeforms can notice you.
   for (const lf of G.lifeforms){ lf.born = 3.0; }
   transition('play');
 }
 
-// REWIND: replays the same floor after a death, or starts a new run if no lives are left.
+/* A retry preserves sealed leaks; with no lives left, start a new run. */
 export function retryFloor(){
   if (lives<=0){ startRun(); return; }
-  /* Keep the leaks that were already sealed: snapshot their flags before the
-     floor is rebuilt (same seed, so the same leaks in the same order), then
-     re-seal them on the fresh floor. The flood is rebuilt afterwards so it only
-     spreads from the leaks that are still open. */
+  /* Snapshot sealed leaks before rebuilding, then rebuild flood sources. */
   const wasFixed = G.leaks.map(L => L.fixed);
   buildFloor(floorIdx, RUN_SEED);
   restoreSealed(G, wasFixed);
-  // Rebuild the flood now that the fixed flags are in place, so sealed leaks
-  // stop being water sources.
   initFlood(G);
-  /* Same seed, so the leaks are in the same places and only the flood restarts */
   for (const lf of G.lifeforms){ lf.born=3.0; }
   transition('play');
 }
 
-// RUN IT AGAIN (win screen): a new building, then a normal start.
+/* Start a fresh building and run after the win screen. */
 export function runAgain(){
   rollRunSeed();
   startRun();
 }
 
-/* ============================================================
-   SETTERS
-   Needed because other modules cannot assign to imported variables.
-   ============================================================ */
+/* Imported live bindings are assigned only through these setters. */
 export function setState(v){ STATE = v; }
 export function setLives(v){ lives = v; }
 export function setFloorIdx(v){ floorIdx = v; }
 export function setRunTime(v){ runTime = v; }
-// The loop calls this once per simulation step.
 export function addRunTime(v){ runTime += v; }
 export function setRunLives(v){ runLives = v; }
 export function setRunStat(v){ runStat = v; }
 export function setRunSeed(v){ RUN_SEED = v; }
 export function setClearCard(v){ clearCard = v; }
 
-/* ============================================================
-   EVENT WIRING
-   The simulation only reports four facts (a stat was counted, something
-   caught you, the clock ran out, the door cycled). This is where the run
-   decides what each one means. Called once from boot().
-   ============================================================ */
+/* Bind once at boot; translate simulation facts into run outcomes. */
 export function bindRun(){
   on(EVENT.stat, k => { runStat[k]++; });
   on(EVENT.caught, caught);
