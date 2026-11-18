@@ -16,7 +16,7 @@ import { initManualArt } from './ui/manual-art.js';
 import { buildSettingsUI, syncSettingsUI } from './ui/settings-panel.js';
 import { Audio_ } from './audio/index.js';
 import { syncAmbience } from './ui/splash.js';
-import { buildFloor } from './game/floor.js';
+import { applyEasyFloor, buildFloor } from './game/floor.js';
 import { bindFloorSurfaces, buildFloorSurfaces } from './render/floor-surfaces.js';
 import { paintSplashPlan } from './render/splash-plan.js';
 import { bindRun } from './game/run.js';
@@ -91,6 +91,7 @@ function connect(){
 }
 
 function initialize(){
+  applyEasyFloor(new URLSearchParams(globalThis.location?.search || '').has('easy'));
   /* A handheld plays with the touch layer. One that cannot run it gets the
      notice instead of a title nobody can start; the key handler checks
      isMobileBlocked() so a stray key cannot walk past it. The touch mode set

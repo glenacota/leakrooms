@@ -13,7 +13,7 @@ import { initFlood } from '../sim/flood.js';
 import { clearInput } from '../sim/keys.js';
 import { restoreSealed } from '../sim/leaks.js';
 import { G } from '../sim/state.js';
-import { buildFloor } from './floor.js';
+import { buildFloor, isEasyFloor } from './floor.js';
 
 /* The variables below are live bindings. Other modules can read them,
    but only this file may assign to them. Changes go through the setter
@@ -126,9 +126,8 @@ export function nextFloor(){
      seconds left on the finished floor are what the card shows. */
   const clockLeft = G ? G.clock : FLOOR_CLOCK;
   buildFloor(floorIdx, RUN_SEED);
-  // Same table and same clamp as buildFloor, so the card matches the floor.
   const spec = LEVELS[Math.min(floorIdx, LEVELS_N-1)];
-  setClearCard({ floor:floorIdx, clock:clockLeft, leaks:spec.leaks, lifeforms:spec.lifeforms });
+  setClearCard({ floor:floorIdx, clock:clockLeft, leaks:spec.leaks, lifeforms:isEasyFloor() ? 0 : spec.lifeforms });
   showClear();
 }
 

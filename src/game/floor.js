@@ -16,6 +16,7 @@
 import { mulberry32 } from '../util/rng.js';
 import { makeLos } from '../util/grid.js';
 import { genLevel } from '../sim/level.js';
+import { genEasyLevel } from '../sim/easy-level.js';
 import { labelRegions } from '../sim/regions.js';
 import { computeLightArr } from '../sim/lightmap.js';
 import { scopeRoomLight, snapMask } from '../sim/vision.js';
@@ -28,8 +29,19 @@ import { resetRepaint } from '../util/repaint.js';
 
 let cacheKey = null;
 let cache = null;
+let easyFloor = false;
 
-const keyOf = (seed, floorNum)=> `${seed}:${floorNum}`;
+const keyOf = (seed, floorNum)=> `${seed}:${floorNum}${easyFloor ? ':easy' : ''}`;
+
+/** Selects the floor variant for this page load. */
+export function applyEasyFloor(enabled){
+  easyFloor = enabled;
+}
+
+/** Returns whether compact testing floors are enabled. */
+export function isEasyFloor(){
+  return easyFloor;
+}
 
 /**
  * The half of a floor that the seed decides and the player never changes: the
@@ -49,7 +61,8 @@ export function getStaticLevel(seed, floorNum){
   cacheKey = key;
   cache = null;
 
-  const level = genLevel(mulberry32(seed + floorNum*7919), floorNum);
+  const rng = mulberry32(seed + floorNum*7919);
+  const level = easyFloor ? genEasyLevel(rng, floorNum) : genLevel(rng, floorNum);
   const { regionOf, regionAdj, regionCount } = labelRegions(level);
   const lightArr = computeLightArr(level, makeLos(level.grid));
 

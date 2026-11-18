@@ -84,5 +84,10 @@ This overwrites `tests/fixtures/render-trace.json` with the current trace and pr
 npm run serve     # → http://localhost:8080/
 ```
 
+For a quick test run, add the `?easy` query parameter to the URL. Each of the five
+floors becomes a compact room with its usual leaks and no lifeforms. The clock
+and other mechanics remain active. Remove the parameter and reload to restore
+normal floors; the parameter is not saved in settings.
+
 ## 🤗 OSS!
 Forged under the MIT License.
