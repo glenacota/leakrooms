@@ -37,7 +37,7 @@ export const MOVEMENT = Object.freeze({
 export const STICK = Object.freeze({
   DEAD: 0.2,
   /* Presets change only the push threshold, never sprint noise or speed. */
-  SPRINT_PRESETS: Object.freeze({ light: 0.75, normal: 0.88, firm: 0.96 }),
+  SPRINT_PRESETS: Object.freeze({ light: 0.85, normal: 0.94, firm: 0.99 }),
   SPRINT_HYST: 0.08,
   RADIUS_VMIN: 0.11,
   RADIUS_MIN: 44,
