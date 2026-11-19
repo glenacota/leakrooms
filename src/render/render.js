@@ -15,6 +15,7 @@ import { lighting } from './passes/lighting.js';
 import { markers } from './passes/markers.js';
 import { particles } from './passes/particles.js';
 import { diegetic } from './passes/diegetic.js';
+import { doorCompass } from './passes/door-compass.js';
 import { ripples } from './passes/ripples.js';
 import { post } from './passes/post.js';
 import { doorCrank } from './entities.js';
@@ -80,5 +81,6 @@ function drawReadableCues(rc, t){
   ctx.restore();
   ripples(rc);
   diegetic(rc);
+  doorCompass(rc);
 }
 

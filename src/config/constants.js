@@ -24,6 +24,7 @@ export const DOOR = Object.freeze({
   HOLD_SECONDS: 0.5,
   AJAR_FRACTION: 0.34,
   SWING_EASE_PER_SECOND: 6,
+  REACH: 1.25
 });
 
 export const MOVEMENT = Object.freeze({
