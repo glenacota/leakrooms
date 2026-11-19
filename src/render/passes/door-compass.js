@@ -1,9 +1,8 @@
 /* ============================================================
    DOOR COMPASS
    A green chevron pinned to the edge of the screen, pointing at the exit door.
-   It shows while the radar is on, and also while leaks are still open
-   (openLeaks > 0), so a player who is lost in the dark always has a bearing.
-   Once every leak is sealed it shows until the plumber reaches the door.
+   It shows once every leak is sealed, until the plumber reaches the door.
+   The radar never forces it open.
 
    Screen space, drawn last in device pixels, so the lighting, the vision mask
    and the post effects never cover it. Draws nothing and touches no context
@@ -41,10 +40,10 @@ function atDoor(){
   return false;
 }
 
-/* Whether the cue should be showing at all. Radar always shows it; without
-   the radar it shows only while leaks are open or sealed-but-not-at-the-door. */
+/* Whether the cue should be showing at all. Radar does not force it: the
+   compass shows only once every leak is sealed and the plumber is not at the
+   door. */
 function wanted(){
-  if (G.radar) return true;
   return G.openLeaks === 0 && !atDoor();
 }
 

@@ -1,8 +1,9 @@
 import { drawLifeform } from '../cast/lifeform.js';
 import { drawPlumber } from '../cast/plumber.js';
-import { MAP, MOVEMENT, WATER } from '../config/constants.js';
+import { MAP, MOVEMENT, WALL, WATER } from '../config/constants.js';
 import { WATER_TINTS } from '../config/presets.js';
 import { clockText } from '../game/run.js';
+import { PAL } from '../config/palette.js';
 import { SETTINGS } from '../settings/store.js';
 import { G } from '../sim/state.js';
 import { drawBatteryMeter } from './battery-meter.js';
@@ -16,6 +17,145 @@ function plumber(g, x, y){
   g.translate(x, y);
   drawPlumber(g, { T: MAP.TILE_SIZE_PX*2, phase: 0.25, gait: 0.6, t: 0, wave: 0 });
   g.restore();
+}
+
+/* Door and wall look copied straight from the gameplay renderers
+   (src/render/passes/markers.js drawDoor, src/render/floor-surfaces.js bakeTiles,
+   src/render/textures.js wallPat). Tile size 40, wall face 32. */
+const DOOR_T = MAP.TILE_SIZE_PX;
+const DOOR_FACE = WALL.FACE_HEIGHT_PX;
+
+let doorWallPaper = null;
+function doorWallPaperPattern(g){
+  if (doorWallPaper) return doorWallPaper;
+  const c = document.createElement('canvas'); c.width = 32; c.height = 48;
+  const gg = c.getContext('2d');
+  const grd = gg.createLinearGradient(0, 0, 0, 48);
+  grd.addColorStop(0, PAL.bright); grd.addColorStop(0.55, PAL.pale); grd.addColorStop(1, PAL.mid);
+  gg.fillStyle = grd; gg.fillRect(0, 0, 32, 48);
+  gg.fillStyle = 'rgba(195,203,110,0.55)';
+  for (let y = 6; y < 48; y += 11) for (let x = (y/11 | 0) % 2 ? 4 : 12; x < 32; x += 8) gg.fillRect(x, y, 2, 2);
+  gg.fillStyle = 'rgba(228,230,168,0.16)'; gg.fillRect(0, 0, 32, 3);
+  doorWallPaper = g.createPattern(c, 'repeat');
+  return doorWallPaper;
+}
+
+/* Paints the door compass tutorial exactly like the gameplay door: a wall tile
+   row with wallpaper face, the exit door (frame, ajar leaf, hinges, green ready
+   lamp) cut into it at the top left, the plumber at the bottom right, and the
+   compass chevron between them pointing at the door. */
+function paintDoorCompass(g, w, h){
+  const SCALE = 2;
+  const T = DOOR_T*SCALE, F = DOOR_FACE*SCALE;
+  const OW = T*0.40, OH = F*0.60;
+  const hw = OW/2, hh = OH/2;
+
+  /* Carpet floor like the baked tiles canvas. */
+  g.fillStyle = PAL.carpet; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 400; i++){
+    g.fillStyle = Math.random() < 0.5 ? 'rgba(163,163,112,0.16)' : 'rgba(228,230,168,0.10)';
+    g.fillRect(Math.random()*w, Math.random()*h, 2, 2);
+  }
+
+  /* Top wall tile row, full width of the illustration, matching bakeTiles:
+     wall top then wallpaper face. */
+  const wx = 0, ww = w;
+  g.fillStyle = PAL.wallTop; g.fillRect(wx, 0, ww, T);                                  // wall top
+  g.fillStyle = 'rgba(28,26,16,0.55)'; g.fillRect(wx+ww-2, 0, 2, T);                    // right edge where wall meets carpet
+  g.fillStyle = doorWallPaperPattern(g);
+  g.fillRect(wx, T-F, ww, F);                                                           // wallpaper face, bottom 32 px
+  g.fillStyle = 'rgba(40,38,24,0.55)'; g.fillRect(wx, T-F, ww, 2);                      // hard line at top of face
+  g.fillStyle = 'rgba(48,46,30,0.22)'; g.fillRect(wx, T, ww, 2);                        // skirting shadow at base
+  const sh = g.createLinearGradient(0, T, 0, T+T*0.5);
+  sh.addColorStop(0, 'rgba(12,10,4,0.20)'); sh.addColorStop(1, 'rgba(12,10,4,0)');
+  g.fillStyle = sh; g.fillRect(wx, T, ww, T*0.5);                                       // carpet shadow below wall
+
+  /* The exit door, origin at the door tile centre, top-left area.
+     Every leak is sealed so the door is armed (green lamp, ajar leaf). */
+  const ox = 220, oy = 56;                                                              // door origin (top left)
+  const open = 0.34;                                                                    // DOOR.AJAR_FRACTION: ready
+
+  /* Glow on the wall behind the door. */
+  const glow = g.createRadialGradient(ox, oy-6, 4, ox, oy-6, 96);
+  glow.addColorStop(0, 'rgba(143,208,122,0.5)'); glow.addColorStop(1, 'rgba(143,208,122,0)');
+  g.fillStyle = glow; g.beginPath(); g.arc(ox, oy-6, 48, 0, Math.PI*2); g.fill();
+
+  /* The opening, darker than the wall it is cut into. */
+  g.fillStyle = 'rgba(16,20,12,0.88)';
+  g.fillRect(ox-hw, oy-hh, OW, OH);
+
+  /* Frame: two jambs and a head. */
+  g.strokeStyle = '#9c9a68'; g.lineWidth = 2.5;
+  g.strokeRect(ox-hw-1.5, oy-hh-1.5, OW+3, OH+3);
+  g.strokeStyle = 'rgba(40,38,24,0.5)'; g.lineWidth = 1;
+  g.strokeRect(ox-hw-3, oy-hh-3, OW+6, OH+6);
+  g.fillStyle = 'rgba(120,118,70,0.55)';
+  g.fillRect(ox-hw-1.5, oy+hh+1.5, OW+3, 1.5);                                          // sill
+
+  /* Door leaf, hinged on the left jamb, ajar toward the viewer. */
+  const hx = ox-hw;
+  const fx = hx + OW*(1 - 0.52*open);
+  const top = oy-hh + OH*0.26*open;
+  g.beginPath();
+  g.moveTo(hx, oy-hh); g.lineTo(fx, top);
+  g.lineTo(fx, top+OH); g.lineTo(hx, oy+hh);
+  g.closePath();
+  const lg = g.createLinearGradient(hx, 0, fx, 0);
+  lg.addColorStop(0, '#cdc98f'); lg.addColorStop(1, '#a8a473');
+  g.fillStyle = lg; g.fill();
+  g.strokeStyle = 'rgba(28,26,20,0.55)'; g.lineWidth = 1; g.stroke();
+  if (fx-hx > 6){
+    g.strokeStyle = 'rgba(28,26,20,0.22)';
+    g.beginPath();
+    g.moveTo(hx+2.5, oy-hh+2.5); g.lineTo(fx-2.5, top+2.5);
+    g.lineTo(fx-2.5, top+OH-2.5); g.lineTo(hx+2.5, oy+hh-2.5);
+    g.stroke();
+  }
+  g.fillStyle = '#7d8288';                                                              // handle on swinging edge
+  g.fillRect(fx-3.5, top+OH/2-4.5, 2.5, 9);
+  g.fillStyle = '#6f6c47';                                                              // hinges on the jamb
+  g.fillRect(hx-3.5, oy-hh+3, 2.5, 4.5); g.fillRect(hx-3.5, oy+hh-7.5, 2.5, 4.5);
+
+  /* Lamp: green = level can end. */
+  const lx = ox+hw+5, ly = oy-hh+6;
+  g.fillStyle = '#cdf3bd';
+  g.beginPath(); g.arc(lx, ly, 2.4, 0, Math.PI*2); g.fill();
+  g.strokeStyle = 'rgba(28,26,20,0.65)'; g.lineWidth = 1;
+  g.beginPath(); g.arc(lx, ly, 2.4, 0, Math.PI*2); g.stroke();
+
+  /* Compass chevron between plumber and door, pointing at the door (top left). */
+  const cx = w*0.6, cy = h*0.35;
+  const arrow = 20;
+  const ang = Math.atan2(oy-cy, ox-cx);
+  const ux = Math.cos(ang), uy = Math.sin(ang);
+  g.save();
+  g.translate(cx, cy);
+  g.rotate(ang);
+  g.beginPath();
+  g.moveTo(arrow, 0);
+  g.lineTo(-arrow*0.7, -arrow*0.9);
+  g.lineTo(-arrow*0.25, 0);
+  g.lineTo(-arrow*0.7, arrow*0.9);
+  g.closePath();
+  g.lineJoin = 'round'; g.lineWidth = 4;
+  g.strokeStyle = '#0c0e0a'; g.stroke();
+  g.fillStyle = '#8fd07a'; g.fill();
+  g.restore();
+
+  /* "DOOR" label beside the chevron, offset away from the door like the
+     gameplay cue (src/render/passes/door-compass.js). */
+  const labelOff = 44;
+  const labX = cx - ux*labelOff, labY = cy - uy*labelOff;
+  g.font = 'bold 20px "Courier New", monospace';
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.lineJoin = 'round'; g.lineWidth = 5;
+  g.strokeStyle = 'rgba(12,14,10,0.9)';
+  g.strokeText('DOOR', labX, labY);
+  g.fillStyle = '#8fd07a';
+  g.fillText('DOOR', labX, labY);
+
+  /* The plumber, bottom right, heading for the door. */
+  plumber(g, w*0.80, h*0.84);
 }
 
 function paintAirSupply(g, w, h){
@@ -78,6 +218,8 @@ export function paintTutorial(canvas, id){
     g.fillText('Hunting', w*0.75, h-12);
   } else if (id === 'airsupply'){
     paintAirSupply(g, w, h);
+  } else if (id === 'doorCompass'){
+    paintDoorCompass(g, w, h);
   } else {
     const deep = (WATER_TINTS[SETTINGS.waterHue] || WATER_TINTS.slate).deep;
     if (id === 'repair'){

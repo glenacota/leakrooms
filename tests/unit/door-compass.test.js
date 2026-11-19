@@ -36,11 +36,11 @@ test('the door compass is hidden with no radar while leaks are still sealing up'
   assert.equal(compassShown(), false);
 });
 
-test('the door compass shows while the radar is on, even with leaks still open', () => {
+test('the door compass stays hidden with the radar on while leaks are still open', () => {
   setup();
   G.radar = true;
   draw();
-  assert.equal(compassShown(), true);
+  assert.equal(compassShown(), false);
   G.radar = false;
 });
 

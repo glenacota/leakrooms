@@ -44,6 +44,11 @@ const TUTORIALS = {
     title: 'Limited air supply',
     text: 'One minute of air supply is already gone. The countdown timer shows how much is left.',
     flash: 'USED ONE MINUTE OF AIR SUPPLY. MONITOR THE TIMER'
+  },
+  doorCompass: {
+    title: 'Door compass',
+    text: 'Every leak is sealed. The door compass points at the exit. Follow it back.',
+    flash: 'EVERY LEAK SEALED. DOOR COMPASS ON — FOLLOW IT BACK TO THE DOOR'
   }
 };
 
@@ -56,6 +61,7 @@ let sprinted = false;
 let remaining = 0;
 let hovering = false;
 let focused = false;
+let lastOpenLeaks = 0;
 
 function loadCompleted(){
   try {
@@ -91,6 +97,8 @@ function tileVisible(x, y, pipe = false){
 
 function candidates(){
   const result = [];
+  const sealedJustNow = lastOpenLeaks > 0 && G.openLeaks === 0;
+  lastOpenLeaks = G.openLeaks;
   const needed = id => SETTINGS.tutorials ? !completed.has(id) && current !== id && !queue.includes(id)
     : !fallback.has(id) && !fallbackQueue.includes(id);
   if (sprinted && needed('sprint')) result.push('sprint');
@@ -99,6 +107,7 @@ function candidates(){
   if (needed('repair') && G.leaks.some(l => !l.fixed && tileVisible(l.x+0.5, l.y+0.5, true))) result.push('repair');
   if (needed('lifeform') && G.lifeforms.some(l => tileVisible(l.x, l.y))) result.push('lifeform');
   if (G.time >= AIR_TUTORIAL_SEC - 1e-8 && needed('airsupply')) result.push('airsupply');
+  if (sealedJustNow && needed('doorCompass')) result.push('doorCompass');
   return result;
 }
 
@@ -132,6 +141,7 @@ function clearTutorialCards(){
 function clearPending(){
   fallbackQueue = [];
   clearTutorialCards();
+  lastOpenLeaks = 0;
 }
 
 /** Evaluates tutorial triggers after a completed simulation step. */

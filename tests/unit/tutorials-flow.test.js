@@ -155,3 +155,61 @@ test('disabled tutorials flash the air supply guide once per run', () => {
     flashReset();
   }
 });
+
+test('sealing the last leak queues the door compass tutorial', () => {
+  freshRun();
+  G.openLeaks = 1;
+  tickTutorials();
+  assert.equal(els['tutorial-overlay'].hidden, true);
+  G.openLeaks = 0;
+  tickTutorials();
+  assert.equal(els['tutorial-title'].textContent, 'Door compass');
+  assert.equal(els['tutorial-overlay'].hidden, false);
+  dismissTutorial();
+  assert.deepEqual(JSON.parse(store.get(historyKey)), ['doorCompass']);
+});
+
+test('disabled tutorials flash the door compass guide once', () => {
+  freshRun();
+  setOption('tutorials', false);
+  flashReset();
+  G.openLeaks = 1;
+  tickTutorials();
+  G.openLeaks = 0;
+  const cues = [];
+  const unsubscribe = on('flash', cue => cues.push(cue.text));
+  try {
+    tickTutorials();
+    assert.deepEqual(cues, ['EVERY LEAK SEALED. DOOR COMPASS ON — FOLLOW IT BACK TO THE DOOR']);
+  } finally {
+    unsubscribe();
+    setOption('tutorials', true);
+    flashReset();
+  }
+});
+
+test('rebuilding a floor re-arms the door compass trigger', () => {
+  freshRun();
+  G.openLeaks = 1;
+  tickTutorials();
+  G.openLeaks = 0;
+  tickTutorials();
+  assert.equal(els['tutorial-title'].textContent, 'Door compass');
+  dismissTutorial();
+
+  emit('tutorials:reset');
+  startRun();
+  G.floor = 1;
+  G.openLeaks = 1;
+  G.wetArr.fill(0);
+  G.maskArr.fill(0);
+  G.leaks = [];
+  G.lifeforms = [];
+  G.radar = false;
+  tickTutorials();
+  assert.equal(els['tutorial-overlay'].hidden, true);
+  G.openLeaks = 0;
+  tickTutorials();
+  assert.equal(els['tutorial-title'].textContent, 'Door compass');
+  assert.equal(els['tutorial-overlay'].hidden, false);
+});
