@@ -52,3 +52,39 @@ export function paintManualNoise(canvas){
   }
   noiseCtx.restore();
 }
+
+/** Paints the field manual door compass chevron and label.
+ * @param {HTMLCanvasElement} canvas
+ */
+export function paintManualDoorCompass(canvas){
+  const compassCtx = canvas.getContext('2d');
+  if (!compassCtx) throw new Error('2D canvas context unavailable for manual door compass');
+  const cx = 14, cy = 27, size = 9;
+
+  compassCtx.save();
+  compassCtx.translate(cx, cy);
+  compassCtx.rotate(Math.PI);
+  compassCtx.beginPath();
+  compassCtx.moveTo(size, 0);
+  compassCtx.lineTo(-size*0.7, -size*0.9);
+  compassCtx.lineTo(-size*0.2, 0);
+  compassCtx.lineTo(-size*0.7, size*0.9);
+  compassCtx.closePath();
+  compassCtx.lineJoin = 'round';
+  compassCtx.lineWidth = 2.5;
+  compassCtx.strokeStyle = '#0c0e0a';
+  compassCtx.stroke();
+  compassCtx.fillStyle = '#8fd07a';
+  compassCtx.fill();
+  compassCtx.restore();
+
+  compassCtx.font = 'bold 9px "Courier New", monospace';
+  compassCtx.textAlign = 'center';
+  compassCtx.textBaseline = 'middle';
+  compassCtx.lineJoin = 'round';
+  compassCtx.lineWidth = 2;
+  compassCtx.strokeStyle = 'rgba(12,14,10,0.9)';
+  compassCtx.strokeText('DOOR', 38, cy);
+  compassCtx.fillStyle = '#8fd07a';
+  compassCtx.fillText('DOOR', 38, cy);
+}

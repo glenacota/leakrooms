@@ -3,11 +3,12 @@ import assert from 'node:assert/strict';
 import { calls, fakeCanvas } from '../helpers/stubs.js';
 import { initIllustration } from '../../src/ui/illustration.js';
 
-const ids = ['manual-battery', 'manual-stamina', 'manual-noise'];
+const ids = ['manual-battery', 'manual-stamina', 'manual-noise', 'manual-door-compass'];
 const errors = [
   '2D canvas context unavailable for manual battery meter',
   '2D canvas context unavailable for manual stamina meter',
   '2D canvas context unavailable for manual noise indicator',
+  '2D canvas context unavailable for manual door compass',
 ];
 
 function withCanvases(failAt, run){
@@ -47,6 +48,7 @@ test('manual art paints each illustration in lookup order', () => {
   assert.ok(drawn.some(c => c[0] === 'createRadialGradient'));
   assert.ok(drawn.some(c => c[0] === 'ellipse' && c[1] === 0 && c[2] === 0 && c[3] === 10 && c[4] === 15));
   assert.ok(drawn.filter(c => c[0] === 'arc').length >= 3);
+  assert.ok(drawn.some(c => c[0] === 'fillText' && c[1] === 'DOOR'));
 });
 
 for (let i = 0; i < ids.length; i++){

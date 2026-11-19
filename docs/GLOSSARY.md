@@ -140,6 +140,10 @@ The exit. The plumber starts the floor standing next to it, so the way out is al
 Code: `exitTiles`, `descend` (hold progress), `tickDoor`.
 Avoid: "exit" in player copy.
 
+**Door compass**
+A green chevron pinned to the edge of the screen, labeled `DOOR`, that points toward the exit. It appears after every leak is sealed, but only while the plumber is standing still and away from the door. It fades away when the plumber moves or reaches the door.
+Code: `doorCompass`, `wanted`, `alpha`.
+
 **Air supply**
 The per-floor breathing reserve shown as AIR. It runs whether or not the plumber is moving. When it reaches zero, the current crew member is lost.
 Code: `clock`, `FLOOR_CLOCK`.
