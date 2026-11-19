@@ -18,7 +18,7 @@ function draw(){
     render(clock);
   }
 }
-const compassShown = () => calls.list.some(c => c[0] === 'fillText' && String(c[1]).startsWith('DOOR '));
+const compassShown = () => calls.list.some(c => c[0] === 'fillText' && String(c[1]).startsWith('DOOR'));
 
 function setup(){
   buildFloor(0, 1234);
@@ -65,5 +65,5 @@ test('the door compass draws nothing and leaves no transform behind when hidden'
   draw();
   calls.list.length = 0;
   render(clock += 100);
-  assert.ok(!calls.list.some(c => c[0] === 'fillText' && String(c[1]).startsWith('DOOR ')));
+  assert.ok(!calls.list.some(c => c[0] === 'fillText' && String(c[1]).startsWith('DOOR')));
 });

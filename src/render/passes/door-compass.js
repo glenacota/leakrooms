@@ -18,7 +18,7 @@ const GREEN = '#8fd07a';
 const INK = '#0c0e0a';
 /* Distance from the screen edge to the chevron, in CSS pixels. Keeps it clear
    of the canvas border and the vignette. */
-const EDGE_MARGIN = 26;
+const EDGE_MARGIN = 150;
 const CHEVRON = 13;
 const LABEL_PX = 11;
 /* Seconds for the cue to fade in and out. A short fade stops it popping in
@@ -121,9 +121,6 @@ export function doorCompass(rc){
   ctx.fill();
   ctx.restore();
 
-  /* Straight-line distance to the door, in tiles. Not the walking distance:
-     the cue points the way, it does not plan the route. */
-  const dist = Math.round(len / rc.T);
   const labelOff = 34 * DPR;
   ctx.font = `bold ${LABEL_PX * DPR}px "Courier New", monospace`;
   ctx.textAlign = 'center';
@@ -132,8 +129,8 @@ export function doorCompass(rc){
   ctx.lineWidth = 3 * DPR;
   ctx.strokeStyle = 'rgba(12,14,10,0.9)';
   const lx = x - ux * labelOff, ly = y - uy * labelOff;
-  ctx.strokeText(`DOOR ${dist}`, lx, ly);
+  ctx.strokeText(`DOOR`, lx, ly);
   ctx.fillStyle = GREEN;
-  ctx.fillText(`DOOR ${dist}`, lx, ly);
+  ctx.fillText(`DOOR`, lx, ly);
   ctx.restore();
 }
