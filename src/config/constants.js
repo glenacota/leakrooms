@@ -17,6 +17,8 @@ export const WALL_OVERLAP_TILES = 0.15;
 export const MIN_WALL = 2;
 
 export const DOOR_HOLD_SEC = 0.5;
+/* Standing within this many tiles of an exit counts as being at the door. Matches the hold in sim/door.js. */
+export const DOOR_REACH = 1.25;
 export const DOOR_AJAR_FRACTION = 0.34;
 export const DOOR_SWING_EASE = 6;
 
