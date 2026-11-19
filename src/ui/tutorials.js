@@ -46,9 +46,9 @@ const TUTORIALS = {
     flash: 'USED ONE MINUTE OF AIR SUPPLY. MONITOR THE TIMER'
   },
   doorCompass: {
-    title: 'Door compass',
-    text: 'Every leak is sealed. The door compass points at the exit. Follow it back.',
-    flash: 'EVERY LEAK SEALED. DOOR COMPASS ON — FOLLOW IT BACK TO THE DOOR'
+    title: 'Job done! Run for the exit',
+    text: 'You remember which way you came. Stop and think. The direction will come back to you when you stand still.',
+    flash: 'STOP TO REMEMBER THE WAY. RUN FOR THE EXIT'
   }
 };
 

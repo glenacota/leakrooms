@@ -1,8 +1,8 @@
 /* ============================================================
    DOOR COMPASS
    A green chevron pinned to the edge of the screen, pointing at the exit door.
-   It shows once every leak is sealed, until the plumber reaches the door.
-   The radar never forces it open.
+   It shows once every leak is sealed, until the plumber reaches the door, and
+   only while he is standing still. The radar never forces it open.
 
    Screen space, drawn last in device pixels, so the lighting, the vision mask
    and the post effects never cover it. Draws nothing and touches no context
@@ -20,10 +20,8 @@ const INK = '#0c0e0a';
 const EDGE_MARGIN = 150;
 const CHEVRON = 13;
 const LABEL_PX = 11;
-/* Seconds for the cue to fade in and out. A short fade stops it popping in
-   the moment the radar is pressed or the last leak seals. */
-const FADE_IN = 0.2;
-const FADE_OUT = 0.35;
+const FADE_IN = 0.5;
+const FADE_OUT = 3;
 /* Pulse and bob speeds in radians per second. Slow enough not to flicker. */
 const PULSE_SPEED = 4;
 const BOB_SPEED = 5;
@@ -41,10 +39,10 @@ function atDoor(){
 }
 
 /* Whether the cue should be showing at all. Radar does not force it: the
-   compass shows only once every leak is sealed and the plumber is not at the
-   door. */
+   compass shows only once every leak is sealed, the plumber is not at the
+   door, and he is standing still. */
 function wanted(){
-  return G.openLeaks === 0 && !atDoor();
+  return G.openLeaks === 0 && !atDoor() && !G.plumber.moving;
 }
 
 /**

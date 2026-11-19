@@ -11,12 +11,16 @@ const render = A.render;
    the recorded text calls of the last frame. The cue fades in and out, so a
    few frames are drawn first. */
 let clock = 1000;
-function draw(){
-  for (let i = 0; i < 8; i++){
+function drawFor(durationMs, stepMs = 100){
+  const frames = Math.ceil(durationMs / stepMs);
+  for (let i = 0; i < frames; i++){
     calls.list.length = 0;
-    clock += 100;
+    clock += stepMs;
     render(clock);
   }
+}
+function draw(){
+  drawFor(800);
 }
 const compassShown = () => calls.list.some(c => c[0] === 'fillText' && String(c[1]).startsWith('DOOR'));
 
@@ -25,6 +29,7 @@ function setup(){
   const e = G.exitTiles[0];
   G.plumber.x = 10.5; G.plumber.y = 10.5;
   G.plumber.px = 10.5; G.plumber.py = 10.5;
+  G.plumber.moving = false;
   G.radar = false;
   G.openLeaks = 1;
   return e;
@@ -47,8 +52,17 @@ test('the door compass stays hidden with the radar on while leaks are still open
 test('the door compass shows once every leak is sealed, away from the door', () => {
   setup();
   G.openLeaks = 0;
+  G.plumber.moving = false;
   draw();
   assert.equal(compassShown(), true);
+});
+
+test('the door compass is hidden while the plumber is moving, even with leaks sealed', () => {
+  setup();
+  G.openLeaks = 0;
+  G.plumber.moving = true;
+  drawFor(3200);
+  assert.equal(compassShown(), false);
 });
 
 test('the door compass goes once the plumber reaches the door', () => {
@@ -56,14 +70,12 @@ test('the door compass goes once the plumber reaches the door', () => {
   G.openLeaks = 0;
   G.plumber.x = e.x + 0.5; G.plumber.y = e.y + 0.5;
   G.plumber.px = G.plumber.x; G.plumber.py = G.plumber.y;
-  draw();
+  drawFor(3200);
   assert.equal(compassShown(), false);
 });
 
 test('the door compass draws nothing and leaves no transform behind when hidden', () => {
   setup();
-  draw();
-  calls.list.length = 0;
-  render(clock += 100);
+  drawFor(3200);
   assert.ok(!calls.list.some(c => c[0] === 'fillText' && String(c[1]).startsWith('DOOR')));
 });
