@@ -50,15 +50,26 @@ function paintDoorCompass(g, w, h){
   const OW = T*0.40, OH = F*0.60;
   const hw = OW/2, hh = OH/2;
 
-  /* Carpet floor like the baked tiles canvas. */
+  paintDoorCarpet(g, w, h);
+  paintDoorWall(g, w, T, F);
+
+  /* The exit door, origin at the door tile centre, top-left area.
+     Every leak is sealed so the door is armed (green lamp, ajar leaf). */
+  const ox = 220, oy = 56;
+  paintDoorOpening(g, ox, oy, hw, hh, OW, OH);
+  paintCompass(g, w, h, ox, oy);
+  plumber(g, w*0.80, h*0.84);
+}
+
+function paintDoorCarpet(g, w, h){
   g.fillStyle = PAL.carpet; g.fillRect(0, 0, w, h);
   for (let i = 0; i < 400; i++){
     g.fillStyle = Math.random() < 0.5 ? 'rgba(163,163,112,0.16)' : 'rgba(228,230,168,0.10)';
     g.fillRect(Math.random()*w, Math.random()*h, 2, 2);
   }
+}
 
-  /* Top wall tile row, full width of the illustration, matching bakeTiles:
-     wall top then wallpaper face. */
+function paintDoorWall(g, w, T, F){
   const wx = 0, ww = w;
   g.fillStyle = PAL.wallTop; g.fillRect(wx, 0, ww, T);                                  // wall top
   g.fillStyle = 'rgba(28,26,16,0.55)'; g.fillRect(wx+ww-2, 0, 2, T);                    // right edge where wall meets carpet
@@ -69,30 +80,24 @@ function paintDoorCompass(g, w, h){
   const sh = g.createLinearGradient(0, T, 0, T+T*0.5);
   sh.addColorStop(0, 'rgba(12,10,4,0.20)'); sh.addColorStop(1, 'rgba(12,10,4,0)');
   g.fillStyle = sh; g.fillRect(wx, T, ww, T*0.5);                                       // carpet shadow below wall
+}
 
-  /* The exit door, origin at the door tile centre, top-left area.
-     Every leak is sealed so the door is armed (green lamp, ajar leaf). */
-  const ox = 220, oy = 56;                                                              // door origin (top left)
-  const open = 0.34;                                                                    // DOOR.AJAR_FRACTION: ready
-
-  /* Glow on the wall behind the door. */
+function paintDoorOpening(g, ox, oy, hw, hh, OW, OH){
+  const open = 0.34;
   const glow = g.createRadialGradient(ox, oy-6, 4, ox, oy-6, 96);
   glow.addColorStop(0, 'rgba(143,208,122,0.5)'); glow.addColorStop(1, 'rgba(143,208,122,0)');
   g.fillStyle = glow; g.beginPath(); g.arc(ox, oy-6, 48, 0, Math.PI*2); g.fill();
 
-  /* The opening, darker than the wall it is cut into. */
   g.fillStyle = 'rgba(16,20,12,0.88)';
   g.fillRect(ox-hw, oy-hh, OW, OH);
 
-  /* Frame: two jambs and a head. */
   g.strokeStyle = '#9c9a68'; g.lineWidth = 2.5;
   g.strokeRect(ox-hw-1.5, oy-hh-1.5, OW+3, OH+3);
   g.strokeStyle = 'rgba(40,38,24,0.5)'; g.lineWidth = 1;
   g.strokeRect(ox-hw-3, oy-hh-3, OW+6, OH+6);
   g.fillStyle = 'rgba(120,118,70,0.55)';
-  g.fillRect(ox-hw-1.5, oy+hh+1.5, OW+3, 1.5);                                          // sill
+  g.fillRect(ox-hw-1.5, oy+hh+1.5, OW+3, 1.5);
 
-  /* Door leaf, hinged on the left jamb, ajar toward the viewer. */
   const hx = ox-hw;
   const fx = hx + OW*(1 - 0.52*open);
   const top = oy-hh + OH*0.26*open;
@@ -111,19 +116,19 @@ function paintDoorCompass(g, w, h){
     g.lineTo(fx-2.5, top+OH-2.5); g.lineTo(hx+2.5, oy+hh-2.5);
     g.stroke();
   }
-  g.fillStyle = '#7d8288';                                                              // handle on swinging edge
+  g.fillStyle = '#7d8288';
   g.fillRect(fx-3.5, top+OH/2-4.5, 2.5, 9);
-  g.fillStyle = '#6f6c47';                                                              // hinges on the jamb
+  g.fillStyle = '#6f6c47';
   g.fillRect(hx-3.5, oy-hh+3, 2.5, 4.5); g.fillRect(hx-3.5, oy+hh-7.5, 2.5, 4.5);
 
-  /* Lamp: green = level can end. */
   const lx = ox+hw+5, ly = oy-hh+6;
   g.fillStyle = '#cdf3bd';
   g.beginPath(); g.arc(lx, ly, 2.4, 0, Math.PI*2); g.fill();
   g.strokeStyle = 'rgba(28,26,20,0.65)'; g.lineWidth = 1;
   g.beginPath(); g.arc(lx, ly, 2.4, 0, Math.PI*2); g.stroke();
+}
 
-  /* Compass chevron between plumber and door, pointing at the door (top left). */
+function paintCompass(g, w, h, ox, oy){
   const cx = w*0.6, cy = h*0.35;
   const arrow = 20;
   const ang = Math.atan2(oy-cy, ox-cx);
@@ -153,9 +158,6 @@ function paintDoorCompass(g, w, h){
   g.strokeText('DOOR', labX, labY);
   g.fillStyle = '#8fd07a';
   g.fillText('DOOR', labX, labY);
-
-  /* The plumber, bottom right, heading for the door. */
-  plumber(g, w*0.80, h*0.84);
 }
 
 function paintAirSupply(g, w, h){
@@ -183,67 +185,92 @@ function paintAirSupply(g, w, h){
   }
 }
 
-/** Paints a controlled illustration using the game's own sprites and meters. */
-export function paintTutorial(canvas, id){
-  const g = canvas.getContext('2d');
-  if (!g) throw new Error('2D canvas context unavailable for tutorial illustration');
-  const w = canvas.width, h = canvas.height;
+function paintTutorialBackground(g, w, h){
   g.clearRect(0, 0, w, h);
   g.fillStyle = '#777c45';
   g.fillRect(0, 0, w, h);
   g.fillStyle = 'rgba(24,26,16,0.2)';
   g.fillRect(0, h*0.68, w, h*0.32);
-  if (id === 'sprint' || id === 'radar'){
-    plumber(g, w*0.48, h*0.62);
-    g.save();
-    g.translate(w*0.72, h*0.54);
-    g.scale(2.4, 2.4);
-    if (id === 'sprint') drawStaminaMeter(g, -70, 0, MOVEMENT.SPRINT_STAMINA_SECONDS*0.6);
-    else drawBatteryMeter(g, 0, 0, 70, true, -Math.PI/3);
-    g.restore();
-  } else if (id === 'lifeform'){
-    g.save();
-    g.translate(w*0.25, h*0.63);
-    g.scale(2.2, 2.2);
-    drawDormantLifeform(g, 0, 0, 0);
-    g.restore();
-    g.save();
-    g.translate(w*0.75, h*0.67);
-    drawLifeform(g, { T: MAP.TILE_SIZE_PX*2, h: 1, phase: 0.3, gait: 1, t: 0, danger: 1 });
-    g.restore();
-    g.font = 'bold 18px Courier New, monospace';
-    g.textAlign = 'center';
-    g.fillStyle = '#fffed1';
-    g.fillText('Dormant', w*0.25, h-12);
-    g.fillText('Hunting', w*0.75, h-12);
-  } else if (id === 'airsupply'){
-    paintAirSupply(g, w, h);
-  } else if (id === 'doorCompass'){
-    paintDoorCompass(g, w, h);
-  } else {
-    const deep = (WATER_TINTS[SETTINGS.waterHue] || WATER_TINTS.slate).deep;
-    if (id === 'repair'){
-      drawTutorialLeak(g, w*0.30, h*0.02, 120, deep);
-      plumber(g, w*0.48, h*0.78);
-      g.strokeStyle = '#e4e6a8';
-      g.lineWidth = 2;
-      g.beginPath();
-      g.ellipse(w*0.48, h*0.82, 26, 10, 0, 0, Math.PI*2);
-      g.stroke();
-    } else {
-      let deepest = -1;
-      for (let i=0; i<G.wetArr.length; i++){
-        if (G.wetArr[i] > WATER.DRAW_THRESHOLD && (deepest < 0 || G.wetArr[i] > G.wetArr[deepest])) deepest = i;
-      }
-      if (deepest >= 0){
-        syncSurfaces(G);
-        const x = Math.max(0, Math.min(MAP.WIDTH_TILES-5, deepest%MAP.WIDTH_TILES-2));
-        const y = Math.max(0, Math.min(MAP.HEIGHT_TILES-3, Math.floor(deepest/MAP.WIDTH_TILES)-1));
-        g.imageSmoothingEnabled = true;
-        g.drawImage(surfaces.tiles, x*MAP.TILE_SIZE_PX, y*MAP.TILE_SIZE_PX, 5*MAP.TILE_SIZE_PX, 3*MAP.TILE_SIZE_PX, 0, 0, w, h);
-        g.drawImage(surfaces.wet, x, y, 5, 3, 0, 0, w, h);
-      }
-      plumber(g, w*0.28, h*0.62);
-    }
+}
+
+function paintSprintOrRadar(g, w, h, id){
+  plumber(g, w*0.48, h*0.62);
+  g.save();
+  g.translate(w*0.72, h*0.54);
+  g.scale(2.4, 2.4);
+  if (id === 'sprint') drawStaminaMeter(g, -70, 0, MOVEMENT.SPRINT_STAMINA_SECONDS*0.6);
+  else drawBatteryMeter(g, 0, 0, 70, true, -Math.PI/3);
+  g.restore();
+}
+
+function paintLifeformTutorial(g, w, h){
+  g.save();
+  g.translate(w*0.25, h*0.63);
+  g.scale(2.2, 2.2);
+  drawDormantLifeform(g, 0, 0, 0);
+  g.restore();
+  g.save();
+  g.translate(w*0.75, h*0.67);
+  drawLifeform(g, { T: MAP.TILE_SIZE_PX*2, h: 1, phase: 0.3, gait: 1, t: 0, danger: 1 });
+  g.restore();
+  g.font = 'bold 18px Courier New, monospace';
+  g.textAlign = 'center';
+  g.fillStyle = '#fffed1';
+  g.fillText('Dormant', w*0.25, h-12);
+  g.fillText('Hunting', w*0.75, h-12);
+}
+
+function paintRepairTutorial(g, w, h, deep){
+  drawTutorialLeak(g, w*0.30, h*0.02, 120, deep);
+  plumber(g, w*0.48, h*0.78);
+  g.strokeStyle = '#e4e6a8';
+  g.lineWidth = 2;
+  g.beginPath();
+  g.ellipse(w*0.48, h*0.82, 26, 10, 0, 0, Math.PI*2);
+  g.stroke();
+}
+
+function paintWaterTutorial(g, w, h){
+  let deepest = -1;
+  for (let i=0; i<G.wetArr.length; i++){
+    if (G.wetArr[i] > WATER.DRAW_THRESHOLD && (deepest < 0 || G.wetArr[i] > G.wetArr[deepest])) deepest = i;
+  }
+  if (deepest >= 0){
+    syncSurfaces(G);
+    const x = Math.max(0, Math.min(MAP.WIDTH_TILES-5, deepest%MAP.WIDTH_TILES-2));
+    const y = Math.max(0, Math.min(MAP.HEIGHT_TILES-3, Math.floor(deepest/MAP.WIDTH_TILES)-1));
+    g.imageSmoothingEnabled = true;
+    g.drawImage(surfaces.tiles, x*MAP.TILE_SIZE_PX, y*MAP.TILE_SIZE_PX, 5*MAP.TILE_SIZE_PX, 3*MAP.TILE_SIZE_PX, 0, 0, w, h);
+    g.drawImage(surfaces.wet, x, y, 5, 3, 0, 0, w, h);
+  }
+  plumber(g, w*0.28, h*0.62);
+}
+
+/** Paints a controlled illustration using the game's own sprites and meters. */
+export function paintTutorial(canvas, id){
+  const g = canvas.getContext('2d');
+  if (!g) throw new Error('2D canvas context unavailable for tutorial illustration');
+  const w = canvas.width, h = canvas.height;
+  paintTutorialBackground(g, w, h);
+
+  switch (id){
+    case 'sprint':
+    case 'radar':
+      paintSprintOrRadar(g, w, h, id);
+      break;
+    case 'lifeform':
+      paintLifeformTutorial(g, w, h);
+      break;
+    case 'airsupply':
+      paintAirSupply(g, w, h);
+      break;
+    case 'doorCompass':
+      paintDoorCompass(g, w, h);
+      break;
+    case 'repair':
+      paintRepairTutorial(g, w, h, (WATER_TINTS[SETTINGS.waterHue] || WATER_TINTS.slate).deep);
+      break;
+    default:
+      paintWaterTutorial(g, w, h);
   }
 }
