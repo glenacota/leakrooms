@@ -14,7 +14,7 @@ let doorLast = -1e9;    // performance.now() of the last DOOR LOCKED cue
 export function tickLoudFlash(){
   if (!announced.has('NOISE.LOUD') && G && G.selfNoise >= NOISE.LOUD){
     announced.add('NOISE.LOUD');
-    emit(EVENT.flash, { cat: 'danger', text: 'YOU ARE NOISE.LOUD. SOMETHING UNWANTED MAY HEAR YOU' });
+    emit(EVENT.flash, { cat: 'danger', text: 'YOU ARE LOUD. SOMETHING UNWANTED MAY HEAR YOU' });
   }
 }
 
