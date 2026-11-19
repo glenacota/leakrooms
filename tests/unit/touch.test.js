@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { loadGame } from '../helpers/harness.js';
 import { pad, keys } from '../../src/sim/keys.js';
 import { transition } from '../../src/game/run.js';
-import { WALK_SPEED_TILES_PER_SECOND, SPRINT_SPEED_TILES_PER_SECOND, NOISE } from '../../src/config/constants.js';
+import { MOVEMENT, NOISE } from '../../src/config/constants.js';
 import { emit, on } from '../../src/util/events.js';
 import { bindRotate, initTouch } from '../../src/ui/touch.js';
 import { readCss, readHtml } from '../helpers/src-text.js';
@@ -421,8 +421,8 @@ test('[SPRINT PUSH] pad.sprint makes the SPRINT_SPEED noise entry for every pres
     let peak = 0;
     for (let i = 0; i < 15; i++){ A.tickMovement(1 / 60); peak = Math.max(peak, G.selfNoise); }
     pad.x = 0; pad.sprint = false;
-    assert.ok(peak >= NOISE.SPRINT_SPEED_TILES_PER_SECOND - 1e-9, `${name}: peak ${peak}, want ${NOISE.SPRINT_SPEED_TILES_PER_SECOND}`);
-    assert.ok(Math.abs((G.plumber.x - spot[0]) - 15 * SPRINT_SPEED_TILES_PER_SECOND / 60) < 1e-9, `${name}: speed changed`);
+    assert.ok(peak >= NOISE.SPRINT - 1e-9, `${name}: peak ${peak}, want ${NOISE.SPRINT}`);
+    assert.ok(Math.abs((G.plumber.x - spot[0]) - 15 * MOVEMENT.SPRINT_SPEED_TILES_PER_SECOND / 60) < 1e-9, `${name}: speed changed`);
     peaks.push(peak);
   }
   assert.equal(peaks[0], peaks[1]); assert.equal(peaks[1], peaks[2]);

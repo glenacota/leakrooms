@@ -54,7 +54,7 @@ test('disabling tutorials in settings clears pending cards without completing th
   const cues = [];
   const unsubscribe = on('flash', cue => cues.push(cue.text));
   tickTutorials();
-  assert.deepEqual(cues, ['RADAR IS LOUD AND DRAINS BATTERY']);
+  assert.deepEqual(cues, ['RADAR IS NOISE.LOUD AND DRAINS BATTERY']);
   assert.equal(store.has(historyKey), false);
   unsubscribe();
 
@@ -87,14 +87,14 @@ test('fallback messages wait for the previous flash instead of replacing it', ()
     emit('sprint', 0);
     tickTutorials();
     tickTutorials();
-    assert.deepEqual(cues, ['RUNNING IS LOUD AND DRAINS STAMINA. STOP RUNNING TO RECOVER']);
+    assert.deepEqual(cues, ['RUNNING IS NOISE.LOUD AND DRAINS STAMINA. STOP RUNNING TO RECOVER']);
     const [id, done] = timers.entries().next().value;
     timers.delete(id);
     done();
     tickTutorials();
     assert.deepEqual(cues, [
-      'RUNNING IS LOUD AND DRAINS STAMINA. STOP RUNNING TO RECOVER',
-      'RADAR IS LOUD AND DRAINS BATTERY',
+      'RUNNING IS NOISE.LOUD AND DRAINS STAMINA. STOP RUNNING TO RECOVER',
+      'RADAR IS NOISE.LOUD AND DRAINS BATTERY',
     ]);
   } finally {
     unsubscribe();

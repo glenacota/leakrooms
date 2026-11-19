@@ -18,11 +18,7 @@
    The mask can only remove light that the bake provides, never add it.
    ============================================================ */
 
-import {
-  DARK_ROOM, RADAR_HAND_OFF_TILES, LIGHT_FADE, LIGHT_FADE_STEPS, MAP_HEIGHT_TILES, MAP_WIDTH_TILES,
-  MASK_TAU, VIEW_FADE_FAR, VIEW_FADE_NEAR, VIEW_HALF, VIEW_MID,
-  VIEW_RANGE, VIEW_RAYS, WALL,
-} from '../config/constants.js';
+import { MAP, RADAR, RENDER, ROOM_LIGHT, TILE_TYPES, VISION } from '../config/constants.js';
 import { scopeFor, regionAt } from './regions.js';
 import { wallNeighbourMax } from './walls.js';
 import { emit, EVENT } from '../util/events.js';
@@ -63,8 +59,8 @@ import { emit, EVENT } from '../util/events.js';
    not jump to full brightness. */
 export function fixtureVis(f, visionState){
   const tx=Math.floor(f.x), ty=Math.floor(f.y);
-  if (tx<0||ty<0||tx>=MAP_WIDTH_TILES||ty>=MAP_HEIGHT_TILES) return 0;
-  return visionState.maskArr[ty*MAP_WIDTH_TILES+tx];
+  if (tx<0||ty<0||tx>=MAP.WIDTH_TILES||ty>=MAP.HEIGHT_TILES) return 0;
+  return visionState.maskArr[ty*MAP.WIDTH_TILES+tx];
 }
 
 /**
@@ -91,8 +87,8 @@ export function castFan(out, ox, oy, facing, halfAngle, range, rays, gain, fall,
     const a = facing - halfAngle + (rays===1 ? 0 : (r/(rays-1))*halfAngle*2);
     const dx=Math.cos(a), dy=Math.sin(a);
     let ix=Math.floor(ox), iy=Math.floor(oy);
-    if (ix<0||iy<0||ix>=MAP_WIDTH_TILES||iy>=MAP_HEIGHT_TILES) continue;
-    if (grid[iy*MAP_WIDTH_TILES+ix]===WALL) continue;    // eye inside a wall: see nothing
+    if (ix<0||iy<0||ix>=MAP.WIDTH_TILES||iy>=MAP.HEIGHT_TILES) continue;
+    if (grid[iy*MAP.WIDTH_TILES+ix]===TILE_TYPES.WALL) continue;    // eye inside a wall: see nothing
     const stepX = dx>0?1:-1, stepY = dy>0?1:-1;
     const invX = dx!==0 ? 1/Math.abs(dx) : Infinity;
     const invY = dy!==0 ? 1/Math.abs(dy) : Infinity;
@@ -101,10 +97,10 @@ export function castFan(out, ox, oy, facing, halfAngle, range, rays, gain, fall,
     const tDeltaX = invX, tDeltaY = invY;
     let t = 0;
     while (t <= range){
-      if (ix<0||iy<0||ix>=MAP_WIDTH_TILES||iy>=MAP_HEIGHT_TILES) break;
-      const i = iy*MAP_WIDTH_TILES+ix;
-      if (grid[i]===WALL) break;                // the wall blocks the ray
-      /* Only mark a tile if the ray passes near its CENTRE (within VIEW_MID),
+      if (ix<0||iy<0||ix>=MAP.WIDTH_TILES||iy>=MAP.HEIGHT_TILES) break;
+      const i = iy*MAP.WIDTH_TILES+ix;
+      if (grid[i]===TILE_TYPES.WALL) break;                // the wall blocks the ray
+      /* Only mark a tile if the ray passes near its CENTRE (within VISION.MID_TILE_FRACTION),
          not when it just clips a corner. Otherwise you could see a sliver of
          floor around the far side of a wall corner, which is geometrically
          behind the wall. "Visible" means there is a clear line to the middle of
@@ -113,7 +109,7 @@ export function castFan(out, ox, oy, facing, halfAngle, range, rays, gain, fall,
       const tc = cx*dx + cy*dy;                 // closest approach along the ray
       if (tc>=0 && tc<=range){
         const miss2 = cx*cx + cy*cy - tc*tc;    // the ray direction has length 1, so this is the squared miss distance
-        if (miss2 <= VIEW_MID*VIEW_MID){
+        if (miss2 <= VISION.MID_TILE_FRACTION*VISION.MID_TILE_FRACTION){
           const v = gain*(1 - fall*Math.min(1, tc/range));
           if (v > out[i]) out[i] = v;
         }
@@ -124,8 +120,8 @@ export function castFan(out, ox, oy, facing, halfAngle, range, rays, gain, fall,
       if (Math.abs(tMaxX-tMaxY) < 1e-9){
         const ax=ix+stepX, ay=iy;
         const bx=ix, by=iy+stepY;
-        const sa=(ax<0||ay<0||ax>=MAP_WIDTH_TILES||ay>=MAP_HEIGHT_TILES)||grid[ay*MAP_WIDTH_TILES+ax]===WALL;
-        const sb=(bx<0||by<0||bx>=MAP_WIDTH_TILES||by>=MAP_HEIGHT_TILES)||grid[by*MAP_WIDTH_TILES+bx]===WALL;
+        const sa=(ax<0||ay<0||ax>=MAP.WIDTH_TILES||ay>=MAP.HEIGHT_TILES)||grid[ay*MAP.WIDTH_TILES+ax]===TILE_TYPES.WALL;
+        const sb=(bx<0||by<0||bx>=MAP.WIDTH_TILES||by>=MAP.HEIGHT_TILES)||grid[by*MAP.WIDTH_TILES+bx]===TILE_TYPES.WALL;
         if (sa && sb) break;
         t=tMaxX; tMaxX+=tDeltaX; tMaxY+=tDeltaY; ix=ax; iy=ay;
       } else if (tMaxX < tMaxY){
@@ -162,16 +158,16 @@ export function traceViewCone(visionState, plumber, radar, force){
 
   visionState.coneArr.fill(0);
 
-  const ex = plumber.x + Math.cos(plumber.face)*RADAR_HAND_OFF_TILES;
-  const ey = plumber.y + Math.sin(plumber.face)*RADAR_HAND_OFF_TILES;
+  const ex = plumber.x + Math.cos(plumber.face)*RADAR.HAND_OFF_TILES;
+  const ey = plumber.y + Math.sin(plumber.face)*RADAR.HAND_OFF_TILES;
 
   /* The cone has no distance falloff. It is only about angle and walls: within
      100 degrees of where you face, until a wall. What you can see is bright and
      what you cannot is black. */
-  castFan(visionState.coneArr, ex, ey, plumber.face, VIEW_HALF, VIEW_RANGE, VIEW_RAYS, 1, 0, visionState.grid);
+  castFan(visionState.coneArr, ex, ey, plumber.face, VISION.HALF_RADIANS, VISION.RANGE_TILES, VISION.RAYS, 1, 0, visionState.grid);
 
   // Always see the tile under the plumber, or backing into a corner (where every ray exits early) would draw the figure in a black hole.
-  if (tx>=0&&ty>=0&&tx<MAP_WIDTH_TILES&&ty<MAP_HEIGHT_TILES) visionState.coneArr[ty*MAP_WIDTH_TILES+tx]=1;
+  if (tx>=0&&ty>=0&&tx<MAP.WIDTH_TILES&&ty<MAP.HEIGHT_TILES) visionState.coneArr[ty*MAP.WIDTH_TILES+tx]=1;
 
   /* Walls take the brightest neighbouring floor value, with no dimming.
      Walking wallIdx avoids scanning the whole map. */
@@ -209,11 +205,11 @@ export function traceViewCone(visionState, plumber, radar, force){
 export function combineMask(visionState, plumber, radar){
   const px2=plumber.x, py2=plumber.y;
   const vis=visionState.visArr, cone=visionState.coneArr, tgt=visionState.maskTgt;
-  const fadeSpan = VIEW_FADE_FAR-VIEW_FADE_NEAR;
+  const fadeSpan = ROOM_LIGHT.VIEW_FADE_FAR_TILES-ROOM_LIGHT.VIEW_FADE_NEAR_TILES;
   let i=0;
-  for (let y=0; y<MAP_HEIGHT_TILES; y++){
+  for (let y=0; y<MAP.HEIGHT_TILES; y++){
     const cy = y+0.5-py2;
-    for (let x=0; x<MAP_WIDTH_TILES; x++, i++){
+    for (let x=0; x<MAP.WIDTH_TILES; x++, i++){
       const sc = vis[i], cn = cone[i];
       let v = 0;
       if (sc > 0 && cn > 0){
@@ -222,9 +218,9 @@ export function combineMask(visionState, plumber, radar){
         } else {
           const dx = x+0.5-px2, dy = cy;
           const d = Math.sqrt(dx*dx + dy*dy);
-          const f = d<=VIEW_FADE_NEAR ? 1
-                  : d>=VIEW_FADE_FAR  ? 0
-                  : (VIEW_FADE_FAR-d)/fadeSpan;
+          const f = d<=ROOM_LIGHT.VIEW_FADE_NEAR_TILES ? 1
+                  : d>=ROOM_LIGHT.VIEW_FADE_FAR_TILES  ? 0
+                  : (ROOM_LIGHT.VIEW_FADE_FAR_TILES-d)/fadeSpan;
           v = sc*f*cn;
         }
       }
@@ -256,11 +252,11 @@ export function scopeRoomLight(visionState, plumber, radar, instant){
   visionState.visFrom.set(visionState.visArr);
   visionState.visRegion = here;
   visionState.visFadeT  = instant ? 1 : 0;
-  visionState.visStep   = instant ? LIGHT_FADE_STEPS : 0;
+  visionState.visStep   = instant ? RENDER.LIGHT_FADE_STEPS : 0;
 
   if (here < 0){
     // Off the map (only possible in a broken state): everything dark, since there is nothing to borrow light from.
-    visionState.visTgt.fill(DARK_ROOM);
+    visionState.visTgt.fill(ROOM_LIGHT.DARK_LEVEL);
   } else {
     // BFS over the region graph: how many gates away is each region?
     // regionAdj.length is the pre-merge region id space; regionCount is the
@@ -278,20 +274,20 @@ export function scopeRoomLight(visionState, plumber, radar, instant){
       visionState.visTgt[i] = r < 0 ? -1 : scopeFor(hops[r] < 0 ? 99 : hops[r]);
     }
     /* Solid rock has no region. Scoping by region alone would make every
-       partition as dark as DARK_ROOM, including the wall you are leaning on,
+       partition as dark as ROOM_LIGHT.DARK_LEVEL, including the wall you are leaning on,
        which would look like a black hole in a lit room. So walls take the
        brightest scope of the floor beside them, the same way the bake lights
        them. A wall with no lit neighbour stays dark, which is correct. */
     const src = visionState.visScratch;
     src.set(visionState.visTgt);
-    for (let y=0; y<MAP_HEIGHT_TILES; y++) for (let x=0; x<MAP_WIDTH_TILES; x++){
-      const i = y*MAP_WIDTH_TILES+x;
+    for (let y=0; y<MAP.HEIGHT_TILES; y++) for (let x=0; x<MAP.WIDTH_TILES; x++){
+      const i = y*MAP.WIDTH_TILES+x;
       if (src[i] >= 0) continue;
-      let m = DARK_ROOM;
-      if (x+1<MAP_WIDTH_TILES   && src[i+1]   >= 0) m = Math.max(m, src[i+1]);
+      let m = ROOM_LIGHT.DARK_LEVEL;
+      if (x+1<MAP.WIDTH_TILES   && src[i+1]   >= 0) m = Math.max(m, src[i+1]);
       if (x>0        && src[i-1]   >= 0) m = Math.max(m, src[i-1]);
-      if (y+1<MAP_HEIGHT_TILES  && src[i+MAP_WIDTH_TILES]>= 0) m = Math.max(m, src[i+MAP_WIDTH_TILES]);
-      if (y>0        && src[i-MAP_WIDTH_TILES]>= 0) m = Math.max(m, src[i-MAP_WIDTH_TILES]);
+      if (y+1<MAP.HEIGHT_TILES  && src[i+MAP.WIDTH_TILES]>= 0) m = Math.max(m, src[i+MAP.WIDTH_TILES]);
+      if (y>0        && src[i-MAP.WIDTH_TILES]>= 0) m = Math.max(m, src[i-MAP.WIDTH_TILES]);
       visionState.visTgt[i] = m;
     }
   }
@@ -302,15 +298,15 @@ export function scopeRoomLight(visionState, plumber, radar, instant){
   return true;
 }
 
-/* Moves the room crossfade forward. It is done in LIGHT_FADE_STEPS steps over
-   LIGHT_FADE seconds, so a room change costs ten repacks and not one per frame. */
+/* Moves the room crossfade forward. It is done in RENDER.LIGHT_FADE_STEPS steps over
+   RENDER.LIGHT_FADE_SECONDS seconds, so a room change costs ten repacks and not one per frame. */
 export function fadeRoomLight(visionState, dt){
-  if (visionState.visStep >= LIGHT_FADE_STEPS) return;
-  visionState.visFadeT = Math.min(1, visionState.visFadeT + dt/LIGHT_FADE);
-  const step = Math.max(visionState.visStep, Math.ceil(visionState.visFadeT*LIGHT_FADE_STEPS));
+  if (visionState.visStep >= RENDER.LIGHT_FADE_STEPS) return;
+  visionState.visFadeT = Math.min(1, visionState.visFadeT + dt/RENDER.LIGHT_FADE_SECONDS);
+  const step = Math.max(visionState.visStep, Math.ceil(visionState.visFadeT*RENDER.LIGHT_FADE_STEPS));
   if (step !== visionState.visStep){
     visionState.visStep = step;
-    const k = step/LIGHT_FADE_STEPS;
+    const k = step/RENDER.LIGHT_FADE_STEPS;
     const { visArr, visFrom, visTgt } = visionState;
     for (let i=0; i<visArr.length; i++) visArr[i] = visFrom[i] + (visTgt[i]-visFrom[i])*k;
     // The mask includes the room scope, so it has to be recombined, but only on fade steps and not every frame.
@@ -322,8 +318,8 @@ export function fadeRoomLight(visionState, dt){
  * Eases the drawn mask toward the freshly calculated one (visionState.maskTgt).
  * The mask is per tile, so tiles enter and leave the cone one at a time as you
  * walk and the edge of vision would flicker. Approaching the target gradually
- * turns that flicker into a sliding edge. MASK_TAU is much shorter than
- * LIGHT_FADE: this only smooths per-frame noise, while the room crossfade is a
+ * turns that flicker into a sliding edge. ROOM_LIGHT.MASK_TAU_SECONDS is much shorter than
+ * RENDER.LIGHT_FADE_SECONDS: this only smooths per-frame noise, while the room crossfade is a
  * deliberate 0.3 s animation of its own.
  *
  * @param {VisionState} visionState
@@ -331,7 +327,7 @@ export function fadeRoomLight(visionState, dt){
  * @returns {boolean} true if the mask moved enough to be worth re-uploading.
  */
 export function smoothMask(visionState, dt){
-  const k = 1 - Math.exp(-dt/MASK_TAU);
+  const k = 1 - Math.exp(-dt/ROOM_LIGHT.MASK_TAU_SECONDS);
   const { maskArr, maskTgt } = visionState;
   let moved = false;
   for (let i=0; i<maskArr.length; i++){

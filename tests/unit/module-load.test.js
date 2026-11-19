@@ -10,7 +10,7 @@
 
    During the module split this caught four real ones: a missing `addRunTime`
    export, a missing `drawDoor` export, `REPAIR_TIME` imported from constants
-   rather than tuning, and a `LOUD`/`clockText` pair left behind in hud.js.
+   rather than tuning, and a `NOISE.LOUD`/`clockText` pair left behind in hud.js.
    Every one of them was a red test run, not a judgement call. */
 import test from 'node:test';
 import { strict as assert } from 'node:assert';

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { MAP_HEIGHT_TILES, MAP_WIDTH_TILES, FLOOR, REPAIR_REACH } from '../../src/config/constants.js';
+import { LEAK, MAP, TILE_TYPES } from '../../src/config/constants.js';
 import { LEVELS } from '../../src/config/levels.js';
 import { applyEasyFloor, getStaticLevel } from '../../src/game/floor.js';
 import { loadGame } from '../helpers/harness.js';
@@ -16,26 +16,26 @@ test('easy parameter selects compact, seeded, playable floors', () => {
       const { grid, rooms, spawn, exit, leaks, spec, batteries, notes, fixtures } = level;
       assert.equal(rooms.length, 1);
       const room = rooms[0];
-      assert.ok(room.rw*room.rh < MAP_WIDTH_TILES*MAP_HEIGHT_TILES/10);
-      assert.equal(grid.filter(tile => tile === FLOOR).length, room.rw*room.rh);
-      assert.equal(grid[Math.floor(spawn.y)*MAP_WIDTH_TILES+Math.floor(spawn.x)], FLOOR);
+      assert.ok(room.rw*room.rh < MAP.WIDTH_TILES*MAP.HEIGHT_TILES/10);
+      assert.equal(grid.filter(tile => tile === TILE_TYPES.FLOOR).length, room.rw*room.rh);
+      assert.equal(grid[Math.floor(spawn.y)*MAP.WIDTH_TILES+Math.floor(spawn.x)], TILE_TYPES.FLOOR);
       assert.equal(spec.lifeforms, 0);
       assert.equal(leaks.length, LEVELS[floor].leaks);
       assert.equal(exit.length, 1);
-      assert.equal(grid[exit[0].y*MAP_WIDTH_TILES+exit[0].x], 0);
-      assert.equal(grid[(exit[0].y+1)*MAP_WIDTH_TILES+exit[0].x], FLOOR);
+      assert.equal(grid[exit[0].y*MAP.WIDTH_TILES+exit[0].x], 0);
+      assert.equal(grid[(exit[0].y+1)*MAP.WIDTH_TILES+exit[0].x], TILE_TYPES.FLOOR);
       for (const [i, leak] of leaks.entries()){
-        assert.equal(grid[leak.y*MAP_WIDTH_TILES+leak.x], 0);
-        assert.equal(grid[leak.sy*MAP_WIDTH_TILES+leak.sx], FLOOR);
+        assert.equal(grid[leak.y*MAP.WIDTH_TILES+leak.x], 0);
+        assert.equal(grid[leak.sy*MAP.WIDTH_TILES+leak.sx], TILE_TYPES.FLOOR);
         assert.notEqual(leak.x, exit[0].x);
         for (const other of leaks.slice(i+1))
-          assert.ok(Math.hypot(leak.sx-other.sx, leak.sy-other.sy) > 2*REPAIR_REACH);
+          assert.ok(Math.hypot(leak.sx-other.sx, leak.sy-other.sy) > 2*LEAK.REPAIR_REACH_TILES);
       }
       assert.ok(fixtures.length && batteries.length && notes.length);
       const pickups = [...batteries, ...notes];
       assert.equal(new Set(pickups.map(p => `${p.x},${p.y}`)).size, pickups.length);
       for (const p of pickups)
-        assert.equal(grid[Math.floor(p.y)*MAP_WIDTH_TILES+Math.floor(p.x)], FLOOR);
+        assert.equal(grid[Math.floor(p.y)*MAP.WIDTH_TILES+Math.floor(p.x)], TILE_TYPES.FLOOR);
       assert.strictEqual(getStaticLevel(seed, floor), level);
       A.buildFloor(floor, seed);
       const snapshot = JSON.stringify([G.leaks, G.exitTiles, G.batteries, G.notes]);

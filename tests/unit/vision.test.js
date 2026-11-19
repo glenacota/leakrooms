@@ -17,7 +17,7 @@ A.setHeadless(false, true);
 A.setHeadless(false, true);
 test('light is scoped to the room you are standing in', () => {
   const t = softAssert();
-  const W=76, H=76, DARK=A.DARK_ROOM, HOP=A.ROOM_SCOPE_FALLOFF;
+  const W=76, H=76, DARK=A.ROOM_LIGHT.DARK_LEVEL, HOP=A.ROOM_LIGHT.SCOPE_FALLOFF;
 
   const hopsFrom = (start)=>{
     const adj=A.internals.regionAdj, hops=new Int32Array(adj.length).fill(-1);
@@ -114,7 +114,7 @@ test('light is scoped to the room you are standing in', () => {
         if (nb>0 && vis[i] < nb-1e-6) blackHole++;
       }
     }
-    /* Accumulate across floors rather than per floor: DARK_ROOM is 0, so the
+    /* Accumulate across floors rather than per floor: ROOM_LIGHT.DARK_LEVEL is 0, so the
        far rooms sum to exactly zero and a per-floor ratio divides by zero.
        What is worth knowing is whether any far tile is ever lit. */
     if (ownN){ ownTotal += ownSum/ownN; ownFloors++; }
@@ -200,7 +200,7 @@ test('light is scoped to the room you are standing in', () => {
       const during = A.internals.visArr[ai];
       t.assert(during > litBefore - 1e-6,
         'the room you left went dark on the same frame you entered the new one — no crossfade');
-      for (let i=0;i<600;i++) update(1/60);            // 10s: far past LIGHT_FADE
+      for (let i=0;i<600;i++) update(1/60);            // 10s: far past RENDER.LIGHT_FADE_SECONDS
       const settled = A.internals.visArr[ai];
       const nowLit  = A.internals.visArr[bi];
       t.assert(settled < HOP[1]+1e-6, `the room you left settled at ${settled.toFixed(3)}, want <= ${HOP[1]}`);
@@ -260,7 +260,7 @@ test('light is scoped to the room you are standing in', () => {
    aggregate numbers: the stub is one tile of 5776. */
 test('the cone of vision rotates and is blocked by walls', () => {
   const t = softAssert();
-  const W=76, HALF=A.VIEW_HALF;
+  const W=76, HALF=A.VISION.HALF_RADIANS;
 
   buildFloor(1, 5150);
   /* Put the player in the most open spot on the floor, so the cone has room to
@@ -300,8 +300,8 @@ test('the cone of vision rotates and is blocked by walls', () => {
     }
     return false;
   };
-  const eye=()=>[spot.x + Math.cos(G.plumber.face)*A.RADAR_HAND_OFF_TILES,
-                 spot.y + Math.sin(G.plumber.face)*A.RADAR_HAND_OFF_TILES];
+  const eye=()=>[spot.x + Math.cos(G.plumber.face)*A.RADAR.HAND_OFF_TILES,
+                 spot.y + Math.sin(G.plumber.face)*A.RADAR.HAND_OFF_TILES];
 
   /* Can any line from the eye reach this tile? Sampled over a disc inside the
      tile rather than to its exact centre, because "the tile is visible" means

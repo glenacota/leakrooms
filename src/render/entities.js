@@ -1,7 +1,7 @@
 import { drawPlumber as drawPlumberSprite } from '../cast/plumber.js';
 import { drawLifeform as drawLifeformSprite } from '../cast/lifeform.js';
 import { TAU } from '../cast/primitives.js';
-import { DOOR_HOLD_SEC, FLOOR, MAP_HEIGHT_TILES, MAP_WIDTH_TILES, TILE_SIZE_PX, WALL_FACE_HEIGHT_PX } from '../config/constants.js';
+import { DOOR, MAP, TILE_TYPES, WALL } from '../config/constants.js';
 import { G } from '../sim/state.js';
 import { leakAt } from '../sim/leaks.js';
 import { ctx } from './canvas.js';
@@ -30,7 +30,7 @@ import { radialSprite as buildRadialSprite } from './sprites.js';
    every door. They never change shape — only how bright they are, which the
    pulse scales — so each is baked once into a small canvas and drawn back with
    globalAlpha set to the brightness for this frame. */
-const GLOW_R = TILE_SIZE_PX*2.4, LAMP_R = 7;
+const GLOW_R = MAP.TILE_SIZE_PX*2.4, LAMP_R = 7;
 
 function radialSprite(r, innerR, inner, outer){
   const size = Math.ceil(r*2);
@@ -68,13 +68,13 @@ export function drawDoor(e, t){
      carpet in front of it. 0.60 is used because the casing strokes sit 3 px
      outside the opening on every side, so the opening plus its frame just fits
      the band's height. */
-  const OW = TILE_SIZE_PX*0.40, OH = WALL_FACE_HEIGHT_PX*0.60;
+  const OW = MAP.TILE_SIZE_PX*0.40, OH = WALL.FACE_HEIGHT_PX*0.60;
   const hw = OW/2, hh = OH/2;
   
   const rot = 0;
 
   ctx.save();
-  ctx.translate((e.x+0.5)*TILE_SIZE_PX, (e.y+1.1)*TILE_SIZE_PX - WALL_FACE_HEIGHT_PX/2);
+  ctx.translate((e.x+0.5)*MAP.TILE_SIZE_PX, (e.y+1.1)*MAP.TILE_SIZE_PX - WALL.FACE_HEIGHT_PX/2);
   ctx.save();
   ctx.rotate(rot);
 
@@ -159,13 +159,13 @@ export function drawDoor(e, t){
    world transform (scale + camera translate); this only translates to the door
    and strokes the arcs, so it lands on the same pixel it did inside drawDoor. */
 export function doorCrank(e, t){
-  const cycling = G.descend>0.02 && G.descend<DOOR_HOLD_SEC;
+  const cycling = G.descend>0.02 && G.descend<DOOR.HOLD_SECONDS;
   if (!cycling) return;
-  const OW = TILE_SIZE_PX*0.40, OH = WALL_FACE_HEIGHT_PX*0.60;
+  const OW = MAP.TILE_SIZE_PX*0.40, OH = WALL.FACE_HEIGHT_PX*0.60;
   const hw = OW/2;
-  const cx = -hw-2, cy = 0, r = 8, p = G.descend/DOOR_HOLD_SEC;
+  const cx = -hw-2, cy = 0, r = 8, p = G.descend/DOOR.HOLD_SECONDS;
   ctx.save();
-  ctx.translate((e.x+0.5)*TILE_SIZE_PX, (e.y+1)*TILE_SIZE_PX - WALL_FACE_HEIGHT_PX/2);
+  ctx.translate((e.x+0.5)*MAP.TILE_SIZE_PX, (e.y+1)*MAP.TILE_SIZE_PX - WALL.FACE_HEIGHT_PX/2);
   ctx.strokeStyle = 'rgba(28,26,20,0.4)'; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.arc(cx, cy, r, Math.PI*0.5, Math.PI*1.5); ctx.stroke();
   ctx.strokeStyle = '#8fd07a';
@@ -180,7 +180,7 @@ export function doorCrank(e, t){
 /**
  * Draws the plumber. The Plumber sprite is drawn by drawPlumber. This function owns
  * the shadow, the facing, the walking cycle and the radar in the hand. Every part
- * stays inside the collision circle (PLUMBER.RADIUS = 0.33 tiles).
+ * stays inside the collision circle (PLUMBER.RADIUS_TILES = 0.33 tiles).
  *
  * @param {object} p - the plumber.
  * @param {number} t - the frame timestamp.
@@ -192,7 +192,7 @@ export function doorCrank(e, t){
 let waveK = 0;                                        // eased 0..1, so the wrench rises and falls rather than snapping
 
 export function drawPlumber(p, t, wx, wy){
-  const x=(wx===undefined?p.x:wx)*TILE_SIZE_PX, y=(wy===undefined?p.y:wy)*TILE_SIZE_PX;
+  const x=(wx===undefined?p.x:wx)*MAP.TILE_SIZE_PX, y=(wy===undefined?p.y:wy)*MAP.TILE_SIZE_PX;
 
   // Waving the wrench while the repair bar is filling: standing still at an open leak
   const working = !p.moving && !!leakAt(G.leaks, p.x, p.y)?.repair;
@@ -200,7 +200,7 @@ export function drawPlumber(p, t, wx, wy){
 
   // A tight contact shadow, kept small so it never spills onto a wall
   ctx.fillStyle='rgba(8,6,3,0.34)';
-  ctx.beginPath(); ctx.ellipse(x+1.5, y+3, TILE_SIZE_PX*0.19, TILE_SIZE_PX*0.11, 0,0,6.283); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(x+1.5, y+3, MAP.TILE_SIZE_PX*0.19, MAP.TILE_SIZE_PX*0.11, 0,0,6.283); ctx.fill();
 
   /* The walk phase is the footstep timer, the same one that paces the footstep
      sound, so a foot is on the floor on the frame its sound plays. While standing
@@ -212,7 +212,7 @@ export function drawPlumber(p, t, wx, wy){
   ctx.translate(x,y);
   ctx.rotate(p.face + Math.PI/2);
 
-  drawPlumberSprite(ctx, { T:TILE_SIZE_PX, phase, gait: p.moving ? 1 : 0, t, wave: waveK });
+  drawPlumberSprite(ctx, { T:MAP.TILE_SIZE_PX, phase, gait: p.moving ? 1 : 0, t, wave: waveK });
 
   ctx.restore();
 }
@@ -229,11 +229,11 @@ const DORMANT_FILL = Array.from({length:20}, (_,i)=>{
 export function drawDormantLifeform(g, x, y, t){
   g.fillStyle='rgba(6,5,3,0.5)';
   g.beginPath();
-  g.ellipse(x, y+4, TILE_SIZE_PX*0.36, TILE_SIZE_PX*0.20, 0,0,6.283);
+  g.ellipse(x, y+4, MAP.TILE_SIZE_PX*0.36, MAP.TILE_SIZE_PX*0.20, 0,0,6.283);
   g.fill();
   for (let i=0;i<20;i++){
-    const sx = x + Math.sin(i*3.7 + t*0.01)*TILE_SIZE_PX*0.25;
-    const sy = y + Math.cos(i*2.3 + t*0.008)*TILE_SIZE_PX*0.10;
+    const sx = x + Math.sin(i*3.7 + t*0.01)*MAP.TILE_SIZE_PX*0.25;
+    const sy = y + Math.cos(i*2.3 + t*0.008)*MAP.TILE_SIZE_PX*0.10;
     g.fillStyle = DORMANT_FILL[i];
     g.fillRect(sx, sy, 2, 2);
   }
@@ -253,7 +253,7 @@ export function drawDormantLifeform(g, x, y, t){
  * @param {number} [wy]
  */
 export function drawLifeform(lf, t, wx, wy){
-  const x=(wx===undefined?lf.x:wx)*TILE_SIZE_PX, y=(wy===undefined?lf.y:wy)*TILE_SIZE_PX;
+  const x=(wx===undefined?lf.x:wx)*MAP.TILE_SIZE_PX, y=(wy===undefined?lf.y:wy)*MAP.TILE_SIZE_PX;
   const h = lf.rise;
 
   if (h < 0.02){
@@ -264,29 +264,29 @@ export function drawLifeform(lf, t, wx, wy){
   // The shadow is sized to the body and not to the rise
   ctx.fillStyle='rgba(6,5,3,0.5)';
   ctx.beginPath();
-  ctx.ellipse(x, y+4, TILE_SIZE_PX*0.36, TILE_SIZE_PX*0.20, 0,0,6.283);
+  ctx.ellipse(x, y+4, MAP.TILE_SIZE_PX*0.36, MAP.TILE_SIZE_PX*0.20, 0,0,6.283);
   ctx.fill();
 
   /* Walk cycle. Lifeforms have no step timer, because they are not walking,
      they are coming. The phase runs off the frame clock and the amount of stride
      comes from the state: hunting strides fully, searching drifts, walking is in
      between. */
-  const gait = lf.state==='HUNT' ? 1 : lf.state==='WALK_SPEED_TILES_PER_SECOND' ? 0.55 : 0.3;
+  const gait = lf.state==='HUNT' ? 1 : lf.state==='WALK' ? 0.55 : 0.3;
 
-  /* CLIP TO THE FLOOR. The Lifeform's legs reach further than its collision
+  /* CLIP TO THE TILE_TYPES.FLOOR. The Lifeform's legs reach further than its collision
      circle, so drawn without a clip it would stride over a partition into the
      next room, which looks like walking through walls (and a wall it can cross is
      a wall that cannot save you). The clip is the walkable tiles within 2 tiles of
      it, so its legs stop at the wall line like its body does. It is built every
      frame from the grid, at most 25 rectangles. */
   const CR = 2;
-  const cx0 = Math.max(0, Math.floor(lf.x - CR)), cx1 = Math.min(MAP_WIDTH_TILES-1, Math.ceil(lf.x + CR));
-  const cy0 = Math.max(0, Math.floor(lf.y - CR)), cy1 = Math.min(MAP_HEIGHT_TILES-1, Math.ceil(lf.y + CR));
+  const cx0 = Math.max(0, Math.floor(lf.x - CR)), cx1 = Math.min(MAP.WIDTH_TILES-1, Math.ceil(lf.x + CR));
+  const cy0 = Math.max(0, Math.floor(lf.y - CR)), cy1 = Math.min(MAP.HEIGHT_TILES-1, Math.ceil(lf.y + CR));
   ctx.save();
   ctx.beginPath();
   for (let ty=cy0; ty<=cy1; ty++)
     for (let tx=cx0; tx<=cx1; tx++)
-      if (G.grid[ty*MAP_WIDTH_TILES+tx]===FLOOR) ctx.rect(tx*TILE_SIZE_PX, ty*TILE_SIZE_PX, TILE_SIZE_PX, TILE_SIZE_PX);
+      if (G.grid[ty*MAP.WIDTH_TILES+tx]===TILE_TYPES.FLOOR) ctx.rect(tx*MAP.TILE_SIZE_PX, ty*MAP.TILE_SIZE_PX, MAP.TILE_SIZE_PX, MAP.TILE_SIZE_PX);
   ctx.clip();
 
   ctx.save();
@@ -295,7 +295,7 @@ export function drawLifeform(lf, t, wx, wy){
 
   /* `danger` is how close it is to hunting you: 0.25 while wandering, 1 while
      chasing. It drives the rim on the hit zone. */
-  drawLifeformSprite(ctx, { T:TILE_SIZE_PX, h, phase: (t*0.0009) % 1, gait, t,
+  drawLifeformSprite(ctx, { T:MAP.TILE_SIZE_PX, h, phase: (t*0.0009) % 1, gait, t,
                       danger: lf.state==='HUNT' ? 1 : 0.25 });
 
   ctx.restore();   // the rotation and translation

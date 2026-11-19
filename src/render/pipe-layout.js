@@ -2,18 +2,18 @@
    canvas, so the geometry can be tested without drawing anything.
 
    A pipe is painted on the SOUTH wall face of its wall tile: the wallpaper band
-   the bake lays into the bottom of the wall tile (WALL_FACE_HEIGHT_PX tall).
-   Everything here is in TILE_SIZE_PX FRACTIONS measured from the top-left of that band:
+   the bake lays into the bottom of the wall tile (WALL.FACE_HEIGHT_PX tall).
+   Everything here is in MAP.TILE_SIZE_PX FRACTIONS measured from the top-left of that band:
    x runs 0..1 across the tile, y runs down from the band's top edge, so the band
    is 0..FACE and the carpet of the floor tile below it starts at FACE.
 
    The shape is a riser that comes down out of the ceiling line and turns through
    an elbow into a run along the wall. */
-import { TILE_SIZE_PX, WALL_FACE_HEIGHT_PX } from '../config/constants.js';
+import { MAP, WALL } from '../config/constants.js';
 import { hash2 } from '../util/hash.js';
 
 /** The band's height as a fraction of a tile. */
-export const FACE = WALL_FACE_HEIGHT_PX / TILE_SIZE_PX;
+export const FACE = WALL.FACE_HEIGHT_PX / MAP.TILE_SIZE_PX;
 
 /* Rectangles are {x, y, w, h}. */
 const BASE = {

@@ -40,7 +40,7 @@ console.log('[16] the repair — five seconds, standing still');
     'the centre of the repair spot is not in reach');
   /* and it must NOT be in reach from across the room, or the repair is a
      proximity accident rather than a decision */
-  sa.assert(!A.leakReach(L0.sx+0.5 + A.REPAIR_REACH + 0.5, L0.sy+0.5),
+  sa.assert(!A.leakReach(L0.sx+0.5 + A.LEAK.REPAIR_REACH_TILES + 0.5, L0.sy+0.5),
     'you can wrench the leak from outside the reach radius');
 
   /* --- holding still fills the bar, and it takes the stated five seconds --- */
@@ -107,7 +107,7 @@ console.log('[16] the repair — five seconds, standing still');
     sa.assert(L.repair===partial, `a wall bump changed saved progress from ${partial} to ${L.repair}`);
     sa.assert(!L.repairing, 'repair remained active after a wall bump');
 
-    G.plumber.x = L.sx + A.REPAIR_REACH + 1;
+    G.plumber.x = L.sx + A.LEAK.REPAIR_REACH_TILES + 1;
     G.plumber.y = L.sy + 0.5;
     A.tickRepair(1/60, false, false);
     sa.assert(L.repair===partial, `leaving reach changed saved progress from ${partial} to ${L.repair}`);
@@ -139,7 +139,7 @@ console.log('[16] the repair — five seconds, standing still');
     }
   }
 
-  /* --- the wrench is LOUD, and loud enough to wake a dormant lifeform --- */
+  /* --- the wrench is NOISE.LOUD, and loud enough to wake a dormant lifeform --- */
   {
     /* Level 5, because that is the level with four things in it — the assertion
        below needs a dormant one, and level 1 has a single walker. */

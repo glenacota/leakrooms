@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { hudVisibility, buildHudSnap, HUD_RULES } from '../../src/ui/touch-hud-rules.js';
-import { LOUD } from '../../src/config/constants.js';
+import { NOISE } from '../../src/config/constants.js';
 
 const { HOLD_MS, FLOOR_START_MS } = HUD_RULES;
 
@@ -21,8 +21,8 @@ test('[HUD-RULES] a quiet moment is hidden', () => {
 
 /* One row per trigger: the snap that fires it, and the one just short of it. */
 const TRIGGERS = [
-  ['noise at half LOUD',   { noise: 0.5*LOUD },          { noise: 0.5*LOUD - 0.01 }],
-  ['loud',                 { loud: true, noise: LOUD },  { loud: false }],
+  ['noise at half NOISE.LOUD',   { noise: 0.5*NOISE.LOUD },          { noise: 0.5*NOISE.LOUD - 0.01 }],
+  ['loud',                 { loud: true, noise: NOISE.LOUD },  { loud: false }],
   ['battery low',          { batteryLow: true },         { batteryLow: false }],
   ['radar on',             { radarOn: true },            { radarOn: false }],
   ['clock at 30 s',        { clockSeconds: 30 },         { clockSeconds: 30.5 }],
@@ -119,7 +119,7 @@ test('[HUD-RULES] the rule reads no clock: same input, same answer', () => {
 
 test('[HUD-RULES] buildHudSnap reads the floor state', () => {
   const G = { leaks: [{ fixed: false, repair: 0.4 }, { fixed: true, repair: 9 }, { fixed: false, repair: 0.1 }],
-    selfNoise: LOUD + 0.1, batt: 20, radar: true, clock: 25, time: 10 };
+    selfNoise: NOISE.LOUD + 0.1, batt: 20, radar: true, clock: 25, time: 10 };
   const s = buildHudSnap(G, 2, 50000);
   assert.equal(s.repairProgress, 0.4);       // the sealed leak does not count
   assert.equal(s.loud, true);

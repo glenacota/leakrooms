@@ -14,12 +14,12 @@ const { A, G, els } = await loadGame();
 const { surfaces, buildFloorSurfaces, syncSurfaces, setPixels }
   = await import('../../src/render/floor-surfaces.js');
 const { repaintDirty, markWetAll, markWetTile, takeWetBox } = await import('../../src/util/repaint.js');
-const { LIGHT_SAMPLES_PER_TILE, MAP_WIDTH_TILES, MAP_HEIGHT_TILES, TILE_SIZE_PX } = await import('../../src/config/constants.js');
+const { MAP } = await import('../../src/config/constants.js');
 const T = await import('../../src/render/textures.js');
 
-const N = MAP_WIDTH_TILES * MAP_HEIGHT_TILES;
+const N = MAP.WIDTH_TILES * MAP.HEIGHT_TILES;
 const sizeOf = cv => `${cv.width}x${cv.height}`;
-const rgbaBytes = cv => cv.getContext('2d').getImageData(0, 0, MAP_WIDTH_TILES, MAP_HEIGHT_TILES).data;
+const rgbaBytes = cv => cv.getContext('2d').getImageData(0, 0, MAP.WIDTH_TILES, MAP.HEIGHT_TILES).data;
 const maskBytes = () => Buffer.from(rgbaBytes(surfaces.mask));
 const countPainted = cv => {
   const d = rgbaBytes(cv);
@@ -31,7 +31,7 @@ const countPainted = cv => {
 /* Makes the light canvas come back with no 2d context, once, which fails the
    bake part-way. Returns a hook: `tripped` says whether the failure happened,
    and `undo()` puts the canvas factory back. The light canvas is the only one
-   that is LIGHT_SAMPLES_PER_TILE times the map, so the hook leaves the texture canvases alone. */
+   that is MAP.LIGHT_SAMPLES_PER_TILE times the map, so the hook leaves the texture canvases alone. */
 function failTheLightBakeOnce(){
   const real = document.createElement;
   const hook = { tripped: false, undo(){ document.createElement = real; } };
@@ -39,7 +39,7 @@ function failTheLightBakeOnce(){
     const cv = real.call(this, tag);
     const getContext = cv.getContext;
     cv.getContext = function(type){
-      if (this.width === MAP_WIDTH_TILES * LIGHT_SAMPLES_PER_TILE && !hook.tripped){
+      if (this.width === MAP.WIDTH_TILES * MAP.LIGHT_SAMPLES_PER_TILE && !hook.tripped){
         hook.tripped = true;
         document.createElement = real;
         return null;
@@ -66,7 +66,7 @@ function recordFirstTileFills(){
     const getContext = cv.getContext;
     cv.getContext = function(type){
       const ctx = getContext.call(this, type);
-      if (this.width === MAP_WIDTH_TILES * TILE_SIZE_PX && ctx && !armed.has(ctx)){
+      if (this.width === MAP.WIDTH_TILES * MAP.TILE_SIZE_PX && ctx && !armed.has(ctx)){
         armed.add(ctx);
         let value;
         let seen = false;
@@ -117,8 +117,8 @@ test('every build renews the mask and the water and releases the previous pair',
   assert.notEqual(surfaces.wet, wet, 'the water was reused across builds');
   assert.equal(sizeOf(mask), '0x0', 'the previous mask was not released');
   assert.equal(sizeOf(wet), '0x0', 'the previous water was not released');
-  assert.equal(sizeOf(surfaces.mask), `${MAP_WIDTH_TILES}x${MAP_HEIGHT_TILES}`);
-  assert.equal(sizeOf(surfaces.wet), `${MAP_WIDTH_TILES}x${MAP_HEIGHT_TILES}`);
+  assert.equal(sizeOf(surfaces.mask), `${MAP.WIDTH_TILES}x${MAP.HEIGHT_TILES}`);
+  assert.equal(sizeOf(surfaces.wet), `${MAP.WIDTH_TILES}x${MAP.HEIGHT_TILES}`);
 });
 
 test('a fresh water image is fully transparent', () => {
@@ -130,7 +130,7 @@ test('the water is packed from bare arrays when it is dirty', () => {
   setPixels(true);
   A.buildFloor(0, 106);
   const wetArr = new Float32Array(N);
-  const i = 30 * MAP_WIDTH_TILES + 30;
+  const i = 30 * MAP.WIDTH_TILES + 30;
   wetArr[i] = 0.9;
   markWetAll();
   syncSurfaces({ grid: G.grid, wetArr, maskArr: G.maskArr });
@@ -181,7 +181,7 @@ test('a context restore marks the whole water dirty, so every tile repacks', () 
   A.buildFloor(0, 114);
   /* A partial change first: a full box can then only come from the restore. */
   takeWetBox();
-  markWetTile(30 * MAP_WIDTH_TILES + 30);
+  markWetTile(30 * MAP.WIDTH_TILES + 30);
   els.game._fire('contextrestored', {});
   assert.equal(takeWetBox().full, true, 'the restored water was not marked fully dirty');
 });
@@ -282,7 +282,7 @@ test('with packing off, a dirty water stays pending for the next packed frame', 
     setPixels(true);
   }
   syncSurfaces({ grid: G.grid, wetArr, maskArr: G.maskArr });
-  const i = 30 * MAP_WIDTH_TILES + 30;
+  const i = 30 * MAP.WIDTH_TILES + 30;
   assert.ok(rgbaBytes(surfaces.wet)[i * 4 + 3] > 0, 'the water pending from the headless frame was never packed');
   assert.equal(repaintDirty.water, false, 'the water flag was not cleared after packing');
 });

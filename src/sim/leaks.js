@@ -1,4 +1,4 @@
-import { LEAK_NOISE_BASE, LEAK_NOISE_GAIN, LOUD, MAP_WIDTH_TILES, REPAIR_NOISE, REPAIR_REACH } from '../config/constants.js';
+import { LEAK, MAP, NOISE } from '../config/constants.js';
 import { REPAIR_TIME } from '../config/tuning.js';
 import { emit, EVENT } from '../util/events.js';
 import { sustainedNoise } from './noise.js';
@@ -26,7 +26,7 @@ export function hasOpenLeaks(state){
 
 /** Returns the standing tile indices of open leaks, in leak order. */
 export function openLeakSpots(state){
-  return state.leaks.filter(L => !L.fixed).map(L => L.sy*MAP_WIDTH_TILES + L.sx);
+  return state.leaks.filter(L => !L.fixed).map(L => L.sy*MAP.WIDTH_TILES + L.sx);
 }
 
 /** Returns the first open leak strictly within range of its standing spot. */
@@ -69,7 +69,7 @@ export function restoreSealed(state, wasFixed){
 export function leakAt(leaks, x, y){
   for (const L of leaks){
     if (L.fixed) continue;
-    if (standingDistance(L, x, y) < REPAIR_REACH) return L;
+    if (standingDistance(L, x, y) < LEAK.REPAIR_REACH_TILES) return L;
   }
   return null;
 }
@@ -122,14 +122,14 @@ export function tickLeakNoise(leakState, dt){
   leakState.leakDist  = 99;
   if (leakState.openLeaks > 0){
     /* Each leak's loudness is independent of how many are open. The per-leak
-       power rises with floodCover up to just below LOUD, so a leak is never a
+       power rises with floodCover up to just below NOISE.LOUD, so a leak is never a
        hunt trigger on its own. The total shown on the HUD (leakTotal) is the
-       sum, clamped to just below LOUD so the blue bar never passes the LOUD
+       sum, clamped to just below NOISE.LOUD so the blue bar never passes the NOISE.LOUD
        hairline. */
-    const perLeak = Math.min(LEAK_NOISE_BASE + LEAK_NOISE_GAIN*leakState.floodCover,
-                             LOUD - 0.02);
+    const perLeak = Math.min(LEAK.NOISE_BASE + LEAK.NOISE_GAIN*leakState.floodCover,
+                             NOISE.LOUD - 0.02);
     leakState.leakPower = perLeak;
-    leakState.leakTotal = Math.min(perLeak * leakState.openLeaks, LOUD - 0.02);
+    leakState.leakTotal = Math.min(perLeak * leakState.openLeaks, NOISE.LOUD - 0.02);
     for (const L of leakState.leaks){
       if (L.fixed) continue;
       /* The noise comes from the standing spot (floor), not the wall the leak is
@@ -180,9 +180,9 @@ export function tickRepair(leakState, dt, moving, bumped){
       L.repairing = true;
       if (L.repair === 0) L.wrenchT = 0;
       L.wrenchT = (L.wrenchT||0) - dt;
-      if (L.wrenchT <= 0){ emit(EVENT.sfx, 'wrench', REPAIR_NOISE); L.wrenchT = 1; }
+      if (L.wrenchT <= 0){ emit(EVENT.sfx, 'wrench', NOISE.REPAIR); L.wrenchT = 1; }
       L.repair = Math.min(REPAIR_TIME, L.repair + dt);
-      sustainedNoise(leakState, REPAIR_NOISE, L.sx+0.5, L.sy+0.5, true);
+      sustainedNoise(leakState, NOISE.REPAIR, L.sx+0.5, L.sy+0.5, true);
       if (L.repair >= REPAIR_TIME){
         sealLeak(L, leakState);
       }

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { loadGame } from '../helpers/harness.js';
 import { startRun, transition, STATE } from '../../src/game/run.js';
-import { MAP_WIDTH_TILES } from '../../src/config/constants.js';
+import { MAP } from '../../src/config/constants.js';
 import { cam } from '../../src/render/render.js';
 import { emit } from '../../src/util/events.js';
 import { tickTutorials } from '../../src/ui/tutorials.js';
@@ -74,7 +74,7 @@ test('death discards visible and queued cards without completing them', () => {
   startRun();
   quietFloor();
   const x = Math.floor(G.plumber.x), y = Math.floor(G.plumber.y);
-  const i = y*MAP_WIDTH_TILES + x;
+  const i = y*MAP.WIDTH_TILES + x;
   G.wetArr[i] = 1;
   G.maskArr[i] = G.lightArr[i] = 1;
   G.leaks = [{ x, y, fixed:false }];
@@ -103,7 +103,7 @@ test('rebuilding a floor discards the current card without completing it', () =>
   startRun();
   quietFloor();
   const x = Math.floor(G.plumber.x), y = Math.floor(G.plumber.y);
-  const i = y*MAP_WIDTH_TILES + x;
+  const i = y*MAP.WIDTH_TILES + x;
   G.leaks = [{ x, y, fixed:false }];
   G.maskArr[i] = 1;
   tickTutorials();

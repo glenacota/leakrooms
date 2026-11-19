@@ -14,7 +14,7 @@
 
 import { on, EVENT } from '../../util/events.js';
 import { ctx, SCALE } from '../canvas.js';
-import { TILE_SIZE_PX } from '../../config/constants.js';
+import { MAP } from '../../config/constants.js';
 
 const pool = [];
 const MAX_PARTICLES = 200; // hard cap: visuals never cost more than a few hundred dots
@@ -76,7 +76,7 @@ export function drawParticles(rc){
     ctx.fillStyle = p.color + (alpha*0.9 + 0.05) + ')';
     const r = p.size * rscale;
     ctx.beginPath();
-    ctx.arc(p.x*TILE_SIZE_PX, p.y*TILE_SIZE_PX, r, 0, 6.2831);
+    ctx.arc(p.x*MAP.TILE_SIZE_PX, p.y*MAP.TILE_SIZE_PX, r, 0, 6.2831);
     ctx.fill();
   }
   ctx.restore();

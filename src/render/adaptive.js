@@ -5,7 +5,7 @@
    thresholds live in config/constants.js.
 
    The drop/recover thresholds are fractions of the estimated refresh
-   interval (SCALE_DROP_RATIO / SCALE_RECOVER_RATIO), not fixed
+   interval (RENDER.SCALE_DROP_RATIO / RENDER.SCALE_RECOVER_RATIO), not fixed
    milliseconds: a display capped at 30 fps is throttled, not slow, so
    quality must not be lowered for it. The refresh interval is estimated
    from the first 120 frame deltas during play; until the estimate exists
@@ -17,7 +17,7 @@
    mistaken for a slow machine.
    ============================================================ */
 
-import { SCALE_BAD_FRAMES, SCALE_DROP_RATIO, SCALE_GOOD_FRAMES, SCALE_RECOVER_RATIO, RENDER_SCALES } from '../config/constants.js';
+import { RENDER } from '../config/constants.js';
 import { STATE } from '../game/run.js';
 import { renderScaleIdx, resize, setRenderScaleIdx } from './canvas.js';
 
@@ -76,15 +76,15 @@ export function adaptResolution(now){
     return null;
   }
 
-  const dropThreshold = SCALE_DROP_RATIO * (refreshMs || REFRESH_FLOOR);
-  const recoverThreshold = SCALE_RECOVER_RATIO * (refreshMs || REFRESH_FLOOR);
+  const dropThreshold = RENDER.SCALE_DROP_RATIO * (refreshMs || REFRESH_FLOOR);
+  const recoverThreshold = RENDER.SCALE_RECOVER_RATIO * (refreshMs || REFRESH_FLOOR);
 
   if (frameMsAvg > dropThreshold){
     goodRun = 0; badRun++;
     /* Only while playing, in both directions. On the title screen and the
        cards the canvas is not drawn, and changing resolution there would
        rebuild the grain and the splash plan for nothing. */
-    if (badRun > SCALE_BAD_FRAMES && renderScaleIdx < RENDER_SCALES.length-1 && STATE==='play'){
+    if (badRun > RENDER.SCALE_BAD_FRAMES && renderScaleIdx < RENDER.SCALES.length-1 && STATE==='play'){
       setRenderScaleIdx(renderScaleIdx+1);
       badRun = 0; frameMsAvg = 16.7;      // measure again at the new size
       resize();
@@ -92,7 +92,7 @@ export function adaptResolution(now){
     }
   } else if (frameMsAvg < recoverThreshold){
     badRun = 0; goodRun++;
-    if (goodRun > SCALE_GOOD_FRAMES && renderScaleIdx > 0 && STATE==='play'){
+    if (goodRun > RENDER.SCALE_GOOD_FRAMES && renderScaleIdx > 0 && STATE==='play'){
       setRenderScaleIdx(renderScaleIdx-1);
       goodRun = 0; frameMsAvg = 16.7;
       resize();

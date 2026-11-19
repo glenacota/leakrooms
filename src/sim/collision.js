@@ -1,4 +1,4 @@
-import { MAP_WIDTH_TILES, MAP_HEIGHT_TILES, WALL, WALL_OVERLAP_TILES } from '../config/constants.js';
+import { MAP, TILE_TYPES, WALL } from '../config/constants.js';
 
 /* One collision object per grid. A grid never changes while its floor is
    alive, so plumber, lifeforms and noise can ask for it every frame and get
@@ -7,12 +7,12 @@ import { MAP_WIDTH_TILES, MAP_HEIGHT_TILES, WALL, WALL_OVERLAP_TILES } from '../
 const collisionCache = new WeakMap();
 
 function buildCollision(grid) {
-  const at = (x, y) => grid[y * MAP_WIDTH_TILES + x];
+  const at = (x, y) => grid[y * MAP.WIDTH_TILES + x];
 
   // True if the tile under this point is a wall. Anything off the map counts as a wall.
   const solid = (x, y) => {
     x = Math.floor(x); y = Math.floor(y);
-    return !(x >= 0 && y >= 0 && x < MAP_WIDTH_TILES && y < MAP_HEIGHT_TILES) || at(x, y) === WALL;
+    return !(x >= 0 && y >= 0 && x < MAP.WIDTH_TILES && y < MAP.HEIGHT_TILES) || at(x, y) === TILE_TYPES.WALL;
   };
 
   /**
@@ -26,7 +26,7 @@ function buildCollision(grid) {
    * @returns {boolean} true if the circle is touching a wall.
    */
   function blocked(x, y, r) {
-    const er = r - WALL_OVERLAP_TILES;                 // the body may sink into a wall by WALL_OVERLAP_TILES
+    const er = r - WALL.OVERLAP_TILES;                 // the body may sink into a wall by WALL.OVERLAP_TILES
     const tx0 = Math.floor(x - r), tx1 = Math.floor(x + r);
     const ty0 = Math.floor(y - r), ty1 = Math.floor(y + r);
     for (let ty = ty0; ty <= ty1; ty++) {

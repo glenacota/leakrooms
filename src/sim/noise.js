@@ -1,12 +1,12 @@
 /* ============================================================
    NOISE
    Lifeforms hunt by sound. A noise has a power, and how far it carries is set
-   by hearRadius. Walls shorten that distance (NOISE.WALL_COST each), so
+   by hearRadius. Walls shorten that distance (NOISE.WALL_COST_TILES each), so
    masonry is cover. Quiet sounds only make a lifeform curious (power below
-   LOUD). Loud sounds wake sleepers and start hunts.
+   NOISE.LOUD). Loud sounds wake sleepers and start hunts.
    ============================================================ */
 
-import { MAP_WIDTH_TILES, MAP_HEIGHT_TILES, NOISE, SOUND_POWERS } from '../config/constants.js';
+import { MAP, NOISE } from '../config/constants.js';
 import { emit, EVENT } from '../util/events.js';
 import { createCollision } from './collision.js';
 import { walkLine } from '../util/line.js';
@@ -28,11 +28,11 @@ import { walkLine } from '../util/line.js';
  */
 
 // How far a sound of this power carries through open floor, in tiles.
-export const hearRadius = power => NOISE.HEAR_BASE + power*NOISE.HEAR_GAIN;
+export const hearRadius = power => NOISE.HEAR_BASE_TILES + power*NOISE.HEAR_GAIN_TILES_PER_POWER;
 
 /* The cap stops counting walls once the loudest sound has no reach left. */
-export const maxNoisePower = Math.max(...SOUND_POWERS);
-export const MAX_WALL_STEPS = Math.ceil(hearRadius(maxNoisePower) / NOISE.WALL_COST);
+export const maxNoisePower = Math.max(...NOISE.POWERS);
+export const MAX_WALL_STEPS = Math.ceil(hearRadius(maxNoisePower) / NOISE.WALL_COST_TILES);
 
 /**
  * Decays noise meters and their peak marker.
@@ -53,7 +53,7 @@ export function tickNoiseDecay(state, dt){
 
    To make the count symmetric (wallSteps(a,b) === wallSteps(b,a)), the line
    is always walked from the canonical end: the tile with the smaller linear
-   index (y*MAP_WIDTH_TILES + x). This ensures the same tiles are visited in the same
+   index (y*MAP.WIDTH_TILES + x). This ensures the same tiles are visited in the same
    order regardless of argument order. */
 export function wallSteps(grid, ax, ay, x, y){
   const { solid } = createCollision(grid);
@@ -61,21 +61,21 @@ export function wallSteps(grid, ax, ay, x, y){
   const ex=Math.floor(x),   ey=Math.floor(y);
 
   // Fix the direction so both argument orders visit the same tiles.
-  const sIdx = sy*MAP_WIDTH_TILES + sx, eIdx = ey*MAP_WIDTH_TILES + ex;
+  const sIdx = sy*MAP.WIDTH_TILES + sx, eIdx = ey*MAP.WIDTH_TILES + ex;
   const startX = sIdx <= eIdx ? sx : ex, startY = sIdx <= eIdx ? sy : ey;
   const endX = sIdx <= eIdx ? ex : sx, endY = sIdx <= eIdx ? ey : sy;
   let first=true, steps=0;
   walkLine(startX,startY,endX,endY,(cx,cy)=>{
     if (first){ first=false; return true; }
     if (solid(cx,cy) && ++steps >= MAX_WALL_STEPS) return false;
-  }, {limit:MAP_WIDTH_TILES+MAP_HEIGHT_TILES, inclusive:true});
+  }, {limit:MAP.WIDTH_TILES+MAP.HEIGHT_TILES, inclusive:true});
   return steps;
 }
 
 /* Reacts to a sound that reached a lifeform:
-     dormant   wakes up only if the sound is LOUD
-     walking   turns to investigate (SEARCH), or hunts if the sound is LOUD
-     hunting   retargets only if the sound is LOUD or the player's own noise (mine).
+     dormant   wakes up only if the sound is NOISE.LOUD
+     walking   turns to investigate (SEARCH), or hunts if the sound is NOISE.LOUD
+     hunting   retargets only if the sound is NOISE.LOUD or the player's own noise (mine).
                Quiet ambient sounds (leaks) do not pull a hunter off its chase;
                this preserves the sprint decision and the 8 s give-up timer.
     Lifeforms still in their opening grace period (born > 0) ignore everything
@@ -117,9 +117,9 @@ export function alert(a, src, ctx){
     if (from !== 'HUNT') emit(EVENT.heard, { from, to: 'HUNT', dist });
     return;
   }
-  if (a.state==='WALK_SPEED_TILES_PER_SECOND'){
+  if (a.state==='WALK'){
     a.state='SEARCH'; a.t=4.5; a.target={x,y};
-    emit(EVENT.heard, { from: 'WALK_SPEED_TILES_PER_SECOND', to: 'SEARCH', dist });
+    emit(EVENT.heard, { from: 'WALK', to: 'SEARCH', dist });
   }
 }
 
@@ -128,10 +128,10 @@ export function alertLifeforms(noiseState, baseR, power, x, y, mine){
   const px = noiseState.plumber.x;
   const py = noiseState.plumber.y;
   for (const lf of noiseState.lifeforms){
-    if (lf.state==='WALK_SPEED_TILES_PER_SECOND' && lf.born>0) continue;
+    if (lf.state==='WALK' && lf.born>0) continue;
     const d = Math.hypot(lf.x-x, lf.y-y);
     if (d > baseR) continue;
-    const eff = baseR - wallSteps(noiseState.grid, lf.x, lf.y, x, y)*NOISE.WALL_COST;
+    const eff = baseR - wallSteps(noiseState.grid, lf.x, lf.y, x, y)*NOISE.WALL_COST_TILES;
     if (d > eff) continue;
     alert(lf, { x, y, power, mine }, { baseR, px, py });
   }
@@ -141,7 +141,7 @@ export function alertLifeforms(noiseState, baseR, power, x, y, mine){
  * A one-off noise, such as a bump or a touch. Counts toward the noise stats.
  *
  * @param {NoiseState} noiseState
- * @param {number} power - loudness (see LOUD and the noise constants).
+ * @param {number} power - loudness (see NOISE.LOUD and the noise constants).
  * @param {number} x - where the sound is made, in tiles.
  * @param {number} y
  * @param {boolean} [mine] - true if the plumber made it, so it shows on the plumber's own noise bar.

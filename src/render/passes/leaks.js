@@ -1,4 +1,4 @@
-import { MAP_WIDTH_TILES, TILE_SIZE_PX, WALL_FACE_HEIGHT_PX } from '../../config/constants.js';
+import { MAP, WALL } from '../../config/constants.js';
 import { WATER_TINTS } from '../../config/presets.js';
 import { REPAIR_TIME } from '../../config/tuning.js';
 import { SETTINGS } from '../../settings/store.js';
@@ -131,9 +131,9 @@ const BAND_BOTTOM = 1.1;
 export function puddles(rc){
   const deepOf = (WATER_TINTS[SETTINGS.waterHue] || WATER_TINTS.slate).deep;
   for (const L of G.leaks){
-    if (L.fixed || !G.wetArr || G.maskArr[L.y*MAP_WIDTH_TILES + L.x] <= 0.02) continue;
+    if (L.fixed || !G.wetArr || G.maskArr[L.y*MAP.WIDTH_TILES + L.x] <= 0.02) continue;
     const P = pipeLayout(pipeFlipped(L.x, L.y));
-    drawPuddle(ctx, P, L.x*TILE_SIZE_PX, (L.y + BAND_BOTTOM)*TILE_SIZE_PX - WALL_FACE_HEIGHT_PX, TILE_SIZE_PX, deepOf);
+    drawPuddle(ctx, P, L.x*MAP.TILE_SIZE_PX, (L.y + BAND_BOTTOM)*MAP.TILE_SIZE_PX - WALL.FACE_HEIGHT_PX, MAP.TILE_SIZE_PX, deepOf);
   }
 }
 
@@ -161,10 +161,10 @@ export function leaks(rc){
        context is back to the identity and a world coordinate would be a raw pixel.
        Coordinates are converted with the same w2s helpers the lighting pass uses,
        and sizes are in device pixels. */
-    const lt = L.y*MAP_WIDTH_TILES + L.x;
+    const lt = L.y*MAP.WIDTH_TILES + L.x;
     if (!G.wetArr || G.maskArr[lt] <= 0.02) continue;
-    const U  = TILE_SIZE_PX*SCALE;                 // one tile, in device pixels
-    const ox = w2sx(L.x), oy = w2sy(L.y+BAND_BOTTOM) - WALL_FACE_HEIGHT_PX*SCALE; // top-left of the wall face band
+    const U  = MAP.TILE_SIZE_PX*SCALE;                 // one tile, in device pixels
+    const ox = w2sx(L.x), oy = w2sy(L.y+BAND_BOTTOM) - WALL.FACE_HEIGHT_PX*SCALE; // top-left of the wall face band
     const vis = G.maskArr[lt];
     const P = pipeLayout(pipeFlipped(L.x, L.y));
     const deep = (WATER_TINTS[SETTINGS.waterHue] || WATER_TINTS.slate).deep;
@@ -195,7 +195,7 @@ export function leaks(rc){
    Drawn after post() so the radar's green wash and the VHS pass cannot touch it. */
 export function repairRing(rc){
   const {w2sx, w2sy} = rc;
-  const U = TILE_SIZE_PX*SCALE;
+  const U = MAP.TILE_SIZE_PX*SCALE;
   for (const L of G.leaks){
     if (L.repairing && L.repair > 0 && !L.fixed){
       const rx = w2sx(L.sx+0.5), ry = w2sy(L.sy+0.5), rr = U*0.62;

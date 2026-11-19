@@ -1,4 +1,4 @@
-import { MAP_WIDTH_TILES, MAP_HEIGHT_TILES, WALL, FLOOR, MIN_WALL } from '../config/constants.js';
+import { MAP, TILE_TYPES, WALL } from '../config/constants.js';
 import { MAZE_DENSITY } from '../config/tuning.js';
 import { traverseFloor } from './path.js';
 
@@ -36,12 +36,12 @@ export function mazeParams(density){
  * @param {Uint8Array} grid
  */
 export function connectComponents(grid){
-  const idx = (x,y)=> y*MAP_WIDTH_TILES + x;
-  const label = new Int32Array(MAP_WIDTH_TILES*MAP_HEIGHT_TILES).fill(-1);
+  const idx = (x,y)=> y*MAP.WIDTH_TILES + x;
+  const label = new Int32Array(MAP.WIDTH_TILES*MAP.HEIGHT_TILES).fill(-1);
   const comps = [];
-  for (let y=0;y<MAP_HEIGHT_TILES;y++) for (let x=0;x<MAP_WIDTH_TILES;x++){
+  for (let y=0;y<MAP.HEIGHT_TILES;y++) for (let x=0;x<MAP.WIDTH_TILES;x++){
     const i0 = idx(x,y);
-    if (grid[i0]!==FLOOR || label[i0]>=0) continue;
+    if (grid[i0]!==TILE_TYPES.FLOOR || label[i0]>=0) continue;
     const cid = comps.length;
     const { order: cells } = traverseFloor(grid, [i0], {depthFirst:true});
     for (const c of cells) label[c]=cid;
@@ -50,17 +50,17 @@ export function connectComponents(grid){
   if (comps.length > 1){
     let main=0;
     for (let c=1;c<comps.length;c++) if (comps[c].length>comps[main].length) main=c;
-    const inMain = new Uint8Array(MAP_WIDTH_TILES*MAP_HEIGHT_TILES);
+    const inMain = new Uint8Array(MAP.WIDTH_TILES*MAP.HEIGHT_TILES);
     for (const c of comps[main]) inMain[c]=1;
     for (let cid=0; cid<comps.length; cid++){
       if (cid===main) continue;
       for (const c of comps[cid]){
         if (inMain[c]) continue;
-        const cx=c%MAP_WIDTH_TILES, cy=(c/MAP_WIDTH_TILES)|0;
+        const cx=c%MAP.WIDTH_TILES, cy=(c/MAP.WIDTH_TILES)|0;
         // Find the closest tile that is already connected
         let best=null, bd=1e9;
         for (const m of comps[main]){
-          const mx=m%MAP_WIDTH_TILES, my=(m/MAP_WIDTH_TILES)|0;
+          const mx=m%MAP.WIDTH_TILES, my=(m/MAP.WIDTH_TILES)|0;
           const d=(mx-cx)**2+(my-cy)**2;
           if (d<bd){ bd=d; best=[mx,my]; }
           if (bd<=4) break;
@@ -68,9 +68,9 @@ export function connectComponents(grid){
         if (!best) continue;
         // An L-shaped tunnel from this tile to the connected one
         let x=cx, y=cy;
-        while (x!==best[0]){ grid[idx(x,y)]=FLOOR; inMain[idx(x,y)]=1; x+=Math.sign(best[0]-x); }
-        while (y!==best[1]){ grid[idx(x,y)]=FLOOR; inMain[idx(x,y)]=1; y+=Math.sign(best[1]-y); }
-        grid[idx(x,y)]=FLOOR; inMain[idx(x,y)]=1;
+        while (x!==best[0]){ grid[idx(x,y)]=TILE_TYPES.FLOOR; inMain[idx(x,y)]=1; x+=Math.sign(best[0]-x); }
+        while (y!==best[1]){ grid[idx(x,y)]=TILE_TYPES.FLOOR; inMain[idx(x,y)]=1; y+=Math.sign(best[1]-y); }
+        grid[idx(x,y)]=TILE_TYPES.FLOOR; inMain[idx(x,y)]=1;
       }
       // Everything just joined now counts as part of the main area
       for (const c of comps[cid]) if (inMain[c]) comps[main].push(c);
@@ -85,19 +85,19 @@ export function connectComponents(grid){
  *   3. Punch gates through the walls between rooms
  *   4. Add small wall stubs inside rooms
  *   5. Make sure everything is one connected area
- *   6. Remove any wall thinner than MIN_WALL
+ *   6. Remove any wall thinner than WALL.MIN_THICKNESS_TILES
  *
  * @param {Function} rng - a seeded random number function (0 to 1).
  * @param {number} [density] - 0 (open rooms, loops) to 1 (small rooms, dead ends); defaults to MAZE_DENSITY.
  * @returns {{grid: Uint8Array, rooms: object[], shortcuts: number}} grid has
- *   WALL (0) or FLOOR (1) per tile, and rooms have rx, ry, rw, rh.
+ *   TILE_TYPES.WALL (0) or TILE_TYPES.FLOOR (1) per tile, and rooms have rx, ry, rw, rh.
  */
 export function genMaze(rng, density=MAZE_DENSITY){
   const P = mazeParams(density);
-  const grid = new Uint8Array(MAP_WIDTH_TILES*MAP_HEIGHT_TILES);       // 0 everywhere = solid
+  const grid = new Uint8Array(MAP.WIDTH_TILES*MAP.HEIGHT_TILES);       // 0 everywhere = solid
   const rooms = [];
   const doors = [];
-  const idx = (x,y)=> y*MAP_WIDTH_TILES + x;
+  const idx = (x,y)=> y*MAP.WIDTH_TILES + x;
 
   const leaves = [];
   /* ---------- Step 1: split into cells ----------
@@ -136,7 +136,7 @@ export function genMaze(rng, density=MAZE_DENSITY){
       doors.push({axis:'y', cut:y+cut, along:gateCol(), width:2});
       if (rng() < P.gate2) doors.push({axis:'y', cut:y+cut, along:gateCol(), width:2});
     }
-  })(1,1,MAP_WIDTH_TILES-2,MAP_HEIGHT_TILES-2,12);
+  })(1,1,MAP.WIDTH_TILES-2,MAP.HEIGHT_TILES-2,12);
 
   /* ---------- Step 2: carve the rooms ----------
      Each room is inset unevenly in its cell, so the partitions look like
@@ -151,7 +151,7 @@ export function genMaze(rng, density=MAZE_DENSITY){
     const rw = Math.max(MINROOM, L.w-ix1-ix2);
     const rh = Math.max(MINROOM, L.h-iy1-iy2);
     for (let y=ry; y<ry+rh; y++)
-      for (let x=rx; x<rx+rw; x++) grid[idx(x,y)] = FLOOR;
+      for (let x=rx; x<rx+rw; x++) grid[idx(x,y)] = TILE_TYPES.FLOOR;
     L.rx=rx; L.ry=ry; L.rw=rw; L.rh=rh;
     rooms.push(L);
   }
@@ -167,25 +167,25 @@ export function genMaze(rng, density=MAZE_DENSITY){
         // Vertical partition: tunnel sideways through it (the gate is 2 rows tall)
         for (let x=d.cut-1, g=0; g<14; x--, g++){
           if (x<1) break;
-          grid[idx(x,a)] = FLOOR;
-          if (grid[idx(x-1,a)]===FLOOR) break;
+          grid[idx(x,a)] = TILE_TYPES.FLOOR;
+          if (grid[idx(x-1,a)]===TILE_TYPES.FLOOR) break;
         }
         for (let x=d.cut, g=0; g<14; x++, g++){
-          if (x>=MAP_WIDTH_TILES-2) break;
-          grid[idx(x,a)] = FLOOR;
-          if (grid[idx(x+1,a)]===FLOOR) break;
+          if (x>=MAP.WIDTH_TILES-2) break;
+          grid[idx(x,a)] = TILE_TYPES.FLOOR;
+          if (grid[idx(x+1,a)]===TILE_TYPES.FLOOR) break;
         }
       } else {
         // Horizontal partition: tunnel vertically (the gate is 2 columns wide)
         for (let y=d.cut-1, g=0; g<14; y--, g++){
           if (y<1) break;
-          grid[idx(a,y)] = FLOOR;
-          if (grid[idx(a,y-1)]===FLOOR) break;
+          grid[idx(a,y)] = TILE_TYPES.FLOOR;
+          if (grid[idx(a,y-1)]===TILE_TYPES.FLOOR) break;
         }
         for (let y=d.cut, g=0; g<14; y++, g++){
-          if (y>=MAP_HEIGHT_TILES-2) break;
-          grid[idx(a,y)] = FLOOR;
-          if (grid[idx(a,y+1)]===FLOOR) break;
+          if (y>=MAP.HEIGHT_TILES-2) break;
+          grid[idx(a,y)] = TILE_TYPES.FLOOR;
+          if (grid[idx(a,y+1)]===TILE_TYPES.FLOOR) break;
         }
       }
     }
@@ -212,9 +212,9 @@ export function genMaze(rng, density=MAZE_DENSITY){
           if (Math.abs((y+0.5)-cym) < 1.6) break;   // keep the middle clear, where the player may spawn
           ys.push(y);
         }
-        if (ys.length < MIN_WALL) continue;
-        for (const y of ys) for (let k=0;k<MIN_WALL;k++){
-          if (sx+k < L.rx+L.rw) grid[idx(sx+k,y)] = WALL;
+        if (ys.length < WALL.MIN_THICKNESS_TILES) continue;
+        for (const y of ys) for (let k=0;k<WALL.MIN_THICKNESS_TILES;k++){
+          if (sx+k < L.rx+L.rw) grid[idx(sx+k,y)] = TILE_TYPES.WALL;
         }
       } else {
         const sy = L.ry + 1 + Math.floor(rng()*Math.max(1, L.rh-2));
@@ -228,9 +228,9 @@ export function genMaze(rng, density=MAZE_DENSITY){
           if (Math.abs((x+0.5)-cxm) < 1.6) break;
           xs.push(x);
         }
-        if (xs.length < MIN_WALL) continue;
-        for (const x of xs) for (let k=0;k<MIN_WALL;k++){
-          if (sy+k < L.ry+L.rh) grid[idx(x,sy+k)] = WALL;
+        if (xs.length < WALL.MIN_THICKNESS_TILES) continue;
+        for (const x of xs) for (let k=0;k<WALL.MIN_THICKNESS_TILES;k++){
+          if (sy+k < L.ry+L.rh) grid[idx(x,sy+k)] = TILE_TYPES.WALL;
         }
       }
     }
@@ -290,7 +290,7 @@ const SHORTCUT_MIN = 30;
  * @returns {{made:number, keep:Uint8Array}} gates punched, and the protected wall blocks.
  */
 export function addShortcuts(grid, maxGates=LEVERS.shortcuts[0], islandMin=ISLAND_MIN){
-  const N = MAP_WIDTH_TILES*MAP_HEIGHT_TILES;
+  const N = MAP.WIDTH_TILES*MAP.HEIGHT_TILES;
   const dist = new Int16Array(N);
   const queue = new Int32Array(N);
   const stamp = new Int32Array(N);
@@ -304,12 +304,12 @@ export function addShortcuts(grid, maxGates=LEVERS.shortcuts[0], islandMin=ISLAN
       const c = queue[head++];
       if (c === b) return dist[c];
       if (dist[c] >= limit) continue;
-      const x=c%MAP_WIDTH_TILES, y=(c/MAP_WIDTH_TILES)|0;
+      const x=c%MAP.WIDTH_TILES, y=(c/MAP.WIDTH_TILES)|0;
       for (const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
         const nx=x+dx, ny=y+dy;
-        if (nx<0||ny<0||nx>=MAP_WIDTH_TILES||ny>=MAP_HEIGHT_TILES) continue;
-        const k=ny*MAP_WIDTH_TILES+nx;
-        if (grid[k]===FLOOR && stamp[k]!==tag){ stamp[k]=tag; dist[k]=dist[c]+1; queue[tail++]=k; }
+        if (nx<0||ny<0||nx>=MAP.WIDTH_TILES||ny>=MAP.HEIGHT_TILES) continue;
+        const k=ny*MAP.WIDTH_TILES+nx;
+        if (grid[k]===TILE_TYPES.FLOOR && stamp[k]!==tag){ stamp[k]=tag; dist[k]=dist[c]+1; queue[tail++]=k; }
       }
     }
     return limit;
@@ -320,21 +320,21 @@ export function addShortcuts(grid, maxGates=LEVERS.shortcuts[0], islandMin=ISLAN
     tag++;
     let head=0, tail=0;
     for (let i=0; i<N; i++){
-      if (grid[i]!==WALL) continue;
-      const x=i%MAP_WIDTH_TILES, y=(i/MAP_WIDTH_TILES)|0;
-      if (x===0||y===0||x===MAP_WIDTH_TILES-1||y===MAP_HEIGHT_TILES-1){ stamp[i]=tag; queue[tail++]=i; }
+      if (grid[i]!==TILE_TYPES.WALL) continue;
+      const x=i%MAP.WIDTH_TILES, y=(i/MAP.WIDTH_TILES)|0;
+      if (x===0||y===0||x===MAP.WIDTH_TILES-1||y===MAP.HEIGHT_TILES-1){ stamp[i]=tag; queue[tail++]=i; }
     }
     while (head<tail){
-      const c = queue[head++], x=c%MAP_WIDTH_TILES, y=(c/MAP_WIDTH_TILES)|0;
+      const c = queue[head++], x=c%MAP.WIDTH_TILES, y=(c/MAP.WIDTH_TILES)|0;
       for (const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
         const nx=x+dx, ny=y+dy;
-        if (nx<0||ny<0||nx>=MAP_WIDTH_TILES||ny>=MAP_HEIGHT_TILES) continue;
-        const k=ny*MAP_WIDTH_TILES+nx;
-        if (grid[k]===WALL && stamp[k]!==tag){ stamp[k]=tag; queue[tail++]=k; }
+        if (nx<0||ny<0||nx>=MAP.WIDTH_TILES||ny>=MAP.HEIGHT_TILES) continue;
+        const k=ny*MAP.WIDTH_TILES+nx;
+        if (grid[k]===TILE_TYPES.WALL && stamp[k]!==tag){ stamp[k]=tag; queue[tail++]=k; }
       }
     }
     const out = [];
-    for (let i=0; i<N; i++) if (grid[i]===WALL && stamp[i]!==tag) out.push(i);
+    for (let i=0; i<N; i++) if (grid[i]===TILE_TYPES.WALL && stamp[i]!==tag) out.push(i);
     return out;
   };
   // Every stranded piece must be a block of at least ISLAND_MIN tiles
@@ -345,9 +345,9 @@ export function addShortcuts(grid, maxGates=LEVERS.shortcuts[0], islandMin=ISLAN
       const st = [first]; set.delete(first); let n = 0;
       while (st.length){
         const c = st.pop(); n++;
-        const x=c%MAP_WIDTH_TILES, y=(c/MAP_WIDTH_TILES)|0;
+        const x=c%MAP.WIDTH_TILES, y=(c/MAP.WIDTH_TILES)|0;
         for (const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
-          const k=(y+dy)*MAP_WIDTH_TILES+x+dx;
+          const k=(y+dy)*MAP.WIDTH_TILES+x+dx;
           if (set.delete(k)) st.push(k);
         }
       }
@@ -361,30 +361,30 @@ export function addShortcuts(grid, maxGates=LEVERS.shortcuts[0], islandMin=ISLAN
   const keep = new Uint8Array(N);
   for (; made<maxGates; made++){
     const cands = [];
-    for (let y=2; y<MAP_HEIGHT_TILES-3; y++) for (let x=2; x<MAP_WIDTH_TILES-3; x++){
+    for (let y=2; y<MAP.HEIGHT_TILES-3; y++) for (let x=2; x<MAP.WIDTH_TILES-3; x++){
       for (const [dx,dy] of [[1,0],[0,1]]){
         // px,py: the step to the parallel lane that makes the gate 2 wide
         const px = dy, py = dx;
-        const a = y*MAP_WIDTH_TILES+x, a2 = (y+py)*MAP_WIDTH_TILES+x+px;
-        if (grid[a]!==FLOOR || grid[a2]!==FLOOR) continue;
+        const a = y*MAP.WIDTH_TILES+x, a2 = (y+py)*MAP.WIDTH_TILES+x+px;
+        if (grid[a]!==TILE_TYPES.FLOOR || grid[a2]!==TILE_TYPES.FLOOR) continue;
         let t = 0;
         while (t<=GATE_MAX){
-          const i = (y+dy*(t+1))*MAP_WIDTH_TILES+x+dx*(t+1), j = i+py*MAP_WIDTH_TILES+px;
-          if (grid[i]!==WALL || grid[j]!==WALL) break;
+          const i = (y+dy*(t+1))*MAP.WIDTH_TILES+x+dx*(t+1), j = i+py*MAP.WIDTH_TILES+px;
+          if (grid[i]!==TILE_TYPES.WALL || grid[j]!==TILE_TYPES.WALL) break;
           t++;
         }
         if (t<1 || t>GATE_MAX) continue;
         const ex = x+dx*(t+1), ey = y+dy*(t+1);
-        if (ex>=MAP_WIDTH_TILES-1 || ey>=MAP_HEIGHT_TILES-1) continue;
-        // The wall must stay MIN_WALL thick on both sides of the gate, or thinWalls would eat it
+        if (ex>=MAP.WIDTH_TILES-1 || ey>=MAP.HEIGHT_TILES-1) continue;
+        // The wall must stay WALL.MIN_THICKNESS_TILES thick on both sides of the gate, or thinWalls would eat it
         let solid = true;
         for (let k=1; k<=t && solid; k++) for (const o of [-2,-1,2,3]){
           const wx = x+dx*k+px*o, wy = y+dy*k+py*o;
-          if (wx<0||wy<0||wx>=MAP_WIDTH_TILES||wy>=MAP_HEIGHT_TILES || grid[wy*MAP_WIDTH_TILES+wx]!==WALL) solid = false;
+          if (wx<0||wy<0||wx>=MAP.WIDTH_TILES||wy>=MAP.HEIGHT_TILES || grid[wy*MAP.WIDTH_TILES+wx]!==TILE_TYPES.WALL) solid = false;
         }
         if (!solid) continue;
-        const b = ey*MAP_WIDTH_TILES+ex, b2 = (ey+py)*MAP_WIDTH_TILES+ex+px;
-        if (grid[b]!==FLOOR || grid[b2]!==FLOOR) continue;
+        const b = ey*MAP.WIDTH_TILES+ex, b2 = (ey+py)*MAP.WIDTH_TILES+ex+px;
+        if (grid[b]!==TILE_TYPES.FLOOR || grid[b2]!==TILE_TYPES.FLOOR) continue;
         const d = walk(a, b, LIMIT);
         if (d >= SHORTCUT_MIN) cands.push({ x, y, dx, dy, px, py, t, d });
       }
@@ -392,16 +392,16 @@ export function addShortcuts(grid, maxGates=LEVERS.shortcuts[0], islandMin=ISLAN
     cands.sort((u,v)=> v.d-u.d || u.y-v.y || u.x-v.x || u.dx-v.dx);
     const carve = (c, to)=>{
       for (let k=1; k<=c.t; k++){
-        grid[(c.y+c.dy*k)*MAP_WIDTH_TILES+c.x+c.dx*k] = to;
-        grid[(c.y+c.dy*k+c.py)*MAP_WIDTH_TILES+c.x+c.dx*k+c.px] = to;
+        grid[(c.y+c.dy*k)*MAP.WIDTH_TILES+c.x+c.dx*k] = to;
+        grid[(c.y+c.dy*k+c.py)*MAP.WIDTH_TILES+c.x+c.dx*k+c.px] = to;
       }
     };
     let best = null;
     for (const c of cands){
-      carve(c, FLOOR);
+      carve(c, TILE_TYPES.FLOOR);
       const stranded = strandedWalls();
       if (bigEnough(stranded)){ best = c; for (const i of stranded) keep[i] = 1; break; }
-      carve(c, WALL);
+      carve(c, TILE_TYPES.WALL);
     }
     if (!best) break;
   }
@@ -409,7 +409,7 @@ export function addShortcuts(grid, maxGates=LEVERS.shortcuts[0], islandMin=ISLAN
 }
 
 /**
- * Cuts any all-floor square wider than openMax with a MIN_WALL thick partition.
+ * Cuts any all-floor square wider than openMax with a WALL.MIN_THICKNESS_TILES thick partition.
  * The partition runs along the square's middle, extends in both directions until
  * it meets a wall, and leaves a 2 wide gap at the middle so the floor stays one
  * area. Tries both axes; a square that cannot be cut without splitting the floor
@@ -420,13 +420,13 @@ export function addShortcuts(grid, maxGates=LEVERS.shortcuts[0], islandMin=ISLAN
  * @returns {boolean} true if a partition was added.
  */
 export function splitHalls(grid, openMax=LEVERS.openMax[0]){
-  const N = MAP_WIDTH_TILES*MAP_HEIGHT_TILES;
+  const N = MAP.WIDTH_TILES*MAP.HEIGHT_TILES;
   const d = new Int16Array(N);
   const squares = [];
-  for (let y=0; y<MAP_HEIGHT_TILES; y++) for (let x=0; x<MAP_WIDTH_TILES; x++){
-    const i = y*MAP_WIDTH_TILES+x;
-    if (grid[i]!==FLOOR) continue;
-    d[i] = (x&&y) ? 1+Math.min(d[i-1], d[i-MAP_WIDTH_TILES], d[i-MAP_WIDTH_TILES-1]) : 1;
+  for (let y=0; y<MAP.HEIGHT_TILES; y++) for (let x=0; x<MAP.WIDTH_TILES; x++){
+    const i = y*MAP.WIDTH_TILES+x;
+    if (grid[i]!==TILE_TYPES.FLOOR) continue;
+    d[i] = (x&&y) ? 1+Math.min(d[i-1], d[i-MAP.WIDTH_TILES], d[i-MAP.WIDTH_TILES-1]) : 1;
     if (d[i] > openMax) squares.push({ x0:x-d[i]+1, y0:y-d[i]+1, s:d[i] });
   }
   squares.sort((a,b)=> b.s-a.s || a.y0-b.y0 || a.x0-b.x0);
@@ -434,15 +434,15 @@ export function splitHalls(grid, openMax=LEVERS.openMax[0]){
   const parts = ()=>{
     const seen = new Uint8Array(N); let n = 0;
     for (let i=0; i<N; i++){
-      if (grid[i]!==FLOOR || seen[i]) continue;
+      if (grid[i]!==TILE_TYPES.FLOOR || seen[i]) continue;
       n++; const st=[i]; seen[i]=1;
       while (st.length){
-        const c=st.pop(), x=c%MAP_WIDTH_TILES, y=(c/MAP_WIDTH_TILES)|0;
+        const c=st.pop(), x=c%MAP.WIDTH_TILES, y=(c/MAP.WIDTH_TILES)|0;
         for (const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
           const nx=x+dx, ny=y+dy;
-          if (nx<0||ny<0||nx>=MAP_WIDTH_TILES||ny>=MAP_HEIGHT_TILES) continue;
-          const k=ny*MAP_WIDTH_TILES+nx;
-          if (grid[k]===FLOOR && !seen[k]){ seen[k]=1; st.push(k); }
+          if (nx<0||ny<0||nx>=MAP.WIDTH_TILES||ny>=MAP.HEIGHT_TILES) continue;
+          const k=ny*MAP.WIDTH_TILES+nx;
+          if (grid[k]===TILE_TYPES.FLOOR && !seen[k]){ seen[k]=1; st.push(k); }
         }
       }
     }
@@ -456,21 +456,21 @@ export function splitHalls(grid, openMax=LEVERS.openMax[0]){
       const line = [];
       // a = along the partition, c = across it
       const a0 = vertical ? y0 : x0, c0 = (vertical ? x0 : y0) + mid;
-      const at = (a,c)=> vertical ? (a<0||a>=MAP_HEIGHT_TILES||c<0||c>=MAP_WIDTH_TILES ? -1 : a*MAP_WIDTH_TILES+c)
-                                  : (a<0||a>=MAP_WIDTH_TILES||c<0||c>=MAP_HEIGHT_TILES ? -1 : c*MAP_WIDTH_TILES+a);
-      const open = (a)=> { for (let w=0; w<MIN_WALL; w++){ const i=at(a,c0+w); if (i<0 || grid[i]!==FLOOR) return false; } return true; };
+      const at = (a,c)=> vertical ? (a<0||a>=MAP.HEIGHT_TILES||c<0||c>=MAP.WIDTH_TILES ? -1 : a*MAP.WIDTH_TILES+c)
+                                  : (a<0||a>=MAP.WIDTH_TILES||c<0||c>=MAP.HEIGHT_TILES ? -1 : c*MAP.WIDTH_TILES+a);
+      const open = (a)=> { for (let w=0; w<WALL.MIN_THICKNESS_TILES; w++){ const i=at(a,c0+w); if (i<0 || grid[i]!==TILE_TYPES.FLOOR) return false; } return true; };
       let lo = a0, hi = a0+s-1;
       while (open(lo-1)) lo--;
       while (open(hi+1)) hi++;
       const gap0 = a0 + mid;
       for (let a=lo; a<=hi; a++){
         if (a>=gap0 && a<gap0+2) continue;
-        for (let w=0; w<MIN_WALL; w++) line.push(at(a,c0+w));
+        for (let w=0; w<WALL.MIN_THICKNESS_TILES; w++) line.push(at(a,c0+w));
       }
       if (line.some(i=> i<0)) continue;
-      for (const i of line) grid[i] = WALL;
+      for (const i of line) grid[i] = TILE_TYPES.WALL;
       if (parts() <= before) return true;
-      for (const i of line) grid[i] = FLOOR;
+      for (const i of line) grid[i] = TILE_TYPES.FLOOR;
     }
   }
   return false;
@@ -488,7 +488,7 @@ const BRIDGE_MAX = 10;
  * Removes "wall islands": groups of wall tiles that do not touch the outer wall
  * through edge-adjacent wall tiles (a diagonal touch is not a link, since it
  * reads as two separate blocks). Small islands are deleted. Large ones are joined
- * to the nearest connected wall with a MIN_WALL thick bridge, unless that would
+ * to the nearest connected wall with a WALL.MIN_THICKNESS_TILES thick bridge, unless that would
  * split the floor or needs a long bridge, in which case they are deleted too.
  * Deleting only ever adds floor, so it cannot disconnect anything. No random
  * numbers are used.
@@ -498,9 +498,9 @@ const BRIDGE_MAX = 10;
  * @param {Uint8Array|null} [keep] - islands containing a marked tile are left alone.
  */
 export function joinIslands(grid, bridge=true, keep=null){
-  const N = MAP_WIDTH_TILES*MAP_HEIGHT_TILES;
+  const N = MAP.WIDTH_TILES*MAP.HEIGHT_TILES;
   const DIRS = [[1,0],[-1,0],[0,1],[0,-1]];
-  const onBorder = i => { const x=i%MAP_WIDTH_TILES, y=(i/MAP_WIDTH_TILES)|0; return x===0||y===0||x===MAP_WIDTH_TILES-1||y===MAP_HEIGHT_TILES-1; };
+  const onBorder = i => { const x=i%MAP.WIDTH_TILES, y=(i/MAP.WIDTH_TILES)|0; return x===0||y===0||x===MAP.WIDTH_TILES-1||y===MAP.HEIGHT_TILES-1; };
 
   // Flood the wall from the border; whatever it does not reach is an island.
   const anchored = new Uint8Array(N);
@@ -509,32 +509,32 @@ export function joinIslands(grid, bridge=true, keep=null){
     for (const s of seeds) mark[s] = 1;
     while (stack.length){
       const c = stack.pop(); out.push(c);
-      const x=c%MAP_WIDTH_TILES, y=(c/MAP_WIDTH_TILES)|0;
+      const x=c%MAP.WIDTH_TILES, y=(c/MAP.WIDTH_TILES)|0;
       for (const [dx,dy] of DIRS){
         const nx=x+dx, ny=y+dy;
-        if (nx<0||ny<0||nx>=MAP_WIDTH_TILES||ny>=MAP_HEIGHT_TILES) continue;
-        const n=ny*MAP_WIDTH_TILES+nx;
-        if (grid[n]===WALL && !mark[n] && !(stopAt && stopAt[n])){ mark[n]=1; stack.push(n); }
+        if (nx<0||ny<0||nx>=MAP.WIDTH_TILES||ny>=MAP.HEIGHT_TILES) continue;
+        const n=ny*MAP.WIDTH_TILES+nx;
+        if (grid[n]===TILE_TYPES.WALL && !mark[n] && !(stopAt && stopAt[n])){ mark[n]=1; stack.push(n); }
       }
     }
     return out;
   };
   const borderSeeds = [];
-  for (let i=0;i<N;i++) if (grid[i]===WALL && onBorder(i)) borderSeeds.push(i);
+  for (let i=0;i<N;i++) if (grid[i]===TILE_TYPES.WALL && onBorder(i)) borderSeeds.push(i);
   flood(borderSeeds, anchored);
 
   const floorParts = ()=>{
     const seen = new Uint8Array(N); let parts = 0;
     for (let i=0;i<N;i++){
-      if (grid[i]!==FLOOR || seen[i]) continue;
+      if (grid[i]!==TILE_TYPES.FLOOR || seen[i]) continue;
       parts++; const stack=[i]; seen[i]=1;
       while (stack.length){
-        const c=stack.pop(), x=c%MAP_WIDTH_TILES, y=(c/MAP_WIDTH_TILES)|0;
+        const c=stack.pop(), x=c%MAP.WIDTH_TILES, y=(c/MAP.WIDTH_TILES)|0;
         for (const [dx,dy] of DIRS){
           const nx=x+dx, ny=y+dy;
-          if (nx<0||ny<0||nx>=MAP_WIDTH_TILES||ny>=MAP_HEIGHT_TILES) continue;
-          const n=ny*MAP_WIDTH_TILES+nx;
-          if (grid[n]===FLOOR && !seen[n]){ seen[n]=1; stack.push(n); }
+          if (nx<0||ny<0||nx>=MAP.WIDTH_TILES||ny>=MAP.HEIGHT_TILES) continue;
+          const n=ny*MAP.WIDTH_TILES+nx;
+          if (grid[n]===TILE_TYPES.FLOOR && !seen[n]){ seen[n]=1; stack.push(n); }
         }
       }
     }
@@ -543,7 +543,7 @@ export function joinIslands(grid, bridge=true, keep=null){
 
   const claimed = new Uint8Array(N);
   for (let i=0;i<N;i++){
-    if (grid[i]!==WALL || anchored[i] || claimed[i]) continue;
+    if (grid[i]!==TILE_TYPES.WALL || anchored[i] || claimed[i]) continue;
     const island = flood([i], claimed, anchored);
     if (keep && island.some(c=> keep[c])) continue;
 
@@ -551,13 +551,13 @@ export function joinIslands(grid, bridge=true, keep=null){
     if (bridge && island.length > ISLAND_SMALL){
       const mine = new Set(island);
       for (const c of island){
-        const x=c%MAP_WIDTH_TILES, y=(c/MAP_WIDTH_TILES)|0;
+        const x=c%MAP.WIDTH_TILES, y=(c/MAP.WIDTH_TILES)|0;
         for (const [dx,dy] of DIRS){
           let n=0, cx=x+dx, cy=y+dy;
-          while (n<=BRIDGE_MAX && cx>0 && cy>0 && cx<MAP_WIDTH_TILES-1 && cy<MAP_HEIGHT_TILES-1 && grid[cy*MAP_WIDTH_TILES+cx]===FLOOR){ n++; cx+=dx; cy+=dy; }
+          while (n<=BRIDGE_MAX && cx>0 && cy>0 && cx<MAP.WIDTH_TILES-1 && cy<MAP.HEIGHT_TILES-1 && grid[cy*MAP.WIDTH_TILES+cx]===TILE_TYPES.FLOOR){ n++; cx+=dx; cy+=dy; }
           if (n===0 || n>BRIDGE_MAX) continue;
-          const hit = cy*MAP_WIDTH_TILES+cx;
-          if (cx<0||cy<0||cx>=MAP_WIDTH_TILES||cy>=MAP_HEIGHT_TILES || !anchored[hit] || mine.has(hit)) continue;
+          const hit = cy*MAP.WIDTH_TILES+cx;
+          if (cx<0||cy<0||cx>=MAP.WIDTH_TILES||cy>=MAP.HEIGHT_TILES || !anchored[hit] || mine.has(hit)) continue;
           if (!link || n < link.n) link = { x, y, dx, dy, n };
         }
       }
@@ -567,13 +567,13 @@ export function joinIslands(grid, bridge=true, keep=null){
       const parts = floorParts();
       const filled = [];
       for (let k=1; k<=link.n; k++){
-        // MIN_WALL wide: the bridge itself and the lines beside it
-        for (let w=0; w<MIN_WALL; w++){
+        // WALL.MIN_THICKNESS_TILES wide: the bridge itself and the lines beside it
+        for (let w=0; w<WALL.MIN_THICKNESS_TILES; w++){
           const bx = link.x + link.dx*k + (link.dx===0 ? w : 0);
           const by = link.y + link.dy*k + (link.dy===0 ? w : 0);
-          if (bx<1||by<1||bx>=MAP_WIDTH_TILES-1||by>=MAP_HEIGHT_TILES-1) continue;
-          const bi = by*MAP_WIDTH_TILES+bx;
-          if (grid[bi]===FLOOR){ grid[bi]=WALL; filled.push(bi); }
+          if (bx<1||by<1||bx>=MAP.WIDTH_TILES-1||by>=MAP.HEIGHT_TILES-1) continue;
+          const bi = by*MAP.WIDTH_TILES+bx;
+          if (grid[bi]===TILE_TYPES.FLOOR){ grid[bi]=TILE_TYPES.WALL; filled.push(bi); }
         }
       }
       if (floorParts() <= parts){
@@ -581,14 +581,14 @@ export function joinIslands(grid, bridge=true, keep=null){
         for (const bi of filled) anchored[bi] = 1;
         continue;
       }
-      for (const bi of filled) grid[bi] = FLOOR;
+      for (const bi of filled) grid[bi] = TILE_TYPES.FLOOR;
     }
-    for (const c of island) grid[c] = FLOOR;
+    for (const c of island) grid[c] = TILE_TYPES.FLOOR;
   }
 }
 
 /**
- * Removes every wall tile that belongs to a run thinner than MIN_WALL, in either
+ * Removes every wall tile that belongs to a run thinner than WALL.MIN_THICKNESS_TILES, in either
  * direction, so a partition, rib or stub is never a hairline. A wall tile is
  * kept only if its horizontal run and its vertical run are both long enough.
  * The pass only ever turns wall into floor, so it cannot disconnect anything,
@@ -598,20 +598,20 @@ export function joinIslands(grid, bridge=true, keep=null){
  * @param {Uint8Array} grid - modified in place.
  */
 export function thinWalls(grid){
-  const at = (x,y)=> x<0||y<0||x>=MAP_WIDTH_TILES||y>=MAP_HEIGHT_TILES ? FLOOR : grid[y*MAP_WIDTH_TILES+x];
+  const at = (x,y)=> x<0||y<0||x>=MAP.WIDTH_TILES||y>=MAP.HEIGHT_TILES ? TILE_TYPES.FLOOR : grid[y*MAP.WIDTH_TILES+x];
   const run = (x,y,dx,dy)=>{
     let n = 1;
-    for (let i=1; at(x+dx*i,y+dy*i)===WALL; i++) n++;
-    for (let i=1; at(x-dx*i,y-dy*i)===WALL; i++) n++;
+    for (let i=1; at(x+dx*i,y+dy*i)===TILE_TYPES.WALL; i++) n++;
+    for (let i=1; at(x-dx*i,y-dy*i)===TILE_TYPES.WALL; i++) n++;
     return n;
   };
   for (let changed=true; changed;){
     changed = false;
     const doomed = [];
-    for (let y=1; y<MAP_HEIGHT_TILES-1; y++) for (let x=1; x<MAP_WIDTH_TILES-1; x++){
-      if (grid[y*MAP_WIDTH_TILES+x]!==WALL) continue;
-      if (run(x,y,1,0) < MIN_WALL || run(x,y,0,1) < MIN_WALL) doomed.push(y*MAP_WIDTH_TILES+x);
+    for (let y=1; y<MAP.HEIGHT_TILES-1; y++) for (let x=1; x<MAP.WIDTH_TILES-1; x++){
+      if (grid[y*MAP.WIDTH_TILES+x]!==TILE_TYPES.WALL) continue;
+      if (run(x,y,1,0) < WALL.MIN_THICKNESS_TILES || run(x,y,0,1) < WALL.MIN_THICKNESS_TILES) doomed.push(y*MAP.WIDTH_TILES+x);
     }
-    for (const i of doomed){ grid[i] = FLOOR; changed = true; }
+    for (const i of doomed){ grid[i] = TILE_TYPES.FLOOR; changed = true; }
   }
 }

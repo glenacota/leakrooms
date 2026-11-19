@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { LEAK_HEADSTART, LEAK_SPREAD_SECONDS_PER_TILE, MAP_WIDTH_TILES } from '../../src/config/constants.js';
+import { LEAK, MAP, NOISE, WATER } from '../../src/config/constants.js';
 import { softAssert } from '../helpers/soft-assert.js';
 import { loadGame } from '../helpers/harness.js';
 
@@ -15,11 +15,11 @@ test('initial water comes only from open leak fronts, including after reinitiali
     buildFloor(seed % A.LEVELS_N, seed*1543+3);
     for (let pass=0; pass<2; pass++){
       if (pass) A.initFlood();
-      const front = Math.min(G.wetMaxDist, LEAK_HEADSTART / LEAK_SPREAD_SECONDS_PER_TILE);
+      const front = Math.min(G.wetMaxDist, LEAK.HEADSTART_SECONDS / LEAK.SPREAD_SECONDS_PER_TILE);
       let sum = 0;
       for (let i=0; i<G.wetArr.length; i++){
         const expected = G.leakWaterDist.some(dist => dist && dist[i] >= 0 && dist[i] <= front) ? 1 : 0;
-        assert.equal(G.wetArr[i], expected, `seed ${seed}, tile ${i%MAP_WIDTH_TILES},${Math.floor(i/MAP_WIDTH_TILES)}`);
+        assert.equal(G.wetArr[i], expected, `seed ${seed}, tile ${i%MAP.WIDTH_TILES},${Math.floor(i/MAP.WIDTH_TILES)}`);
         sum += expected;
       }
       assert.equal(G.wetSum, sum);
@@ -32,7 +32,7 @@ test('initial water comes only from open leak fronts, including after reinitiali
    floor unwinnable, and no other assertion here would notice because none of
    them needs the repair. Water on a wall draws under the walls, so a wet wall
    tile either disappears or reads as a hole in the lighting. And a leak that
-   reaches LOUD stops being a lure and becomes a level-wide hunt trigger. */
+   reaches NOISE.LOUD stops being a lure and becomes a level-wide hunt trigger. */
 test('leaks are placed on walls, stay reachable, and flood downhill', () => {
   const t = softAssert();
   const W=76;
@@ -116,7 +116,7 @@ test('leaks are placed on walls, stay reachable, and flood downhill', () => {
   }
 
   /* there is a trail from the first second
-     The flood is pre-warmed by LEAK_HEADSTART. Without it a floor opens dry and
+     The flood is pre-warmed by LEAK.HEADSTART_SECONDS. Without it a floor opens dry and
      the player has no cue until water happens to reach them, which turns the
      opening half-minute into a blind search. */
   {
@@ -194,7 +194,7 @@ test('leaks are placed on walls, stay reachable, and flood downhill', () => {
     A.setHeadless(true, false);
     buildFloor(0, 20250812);
     const N = 76*76;
-    const wetCount = ()=>{ let n=0; for(let i=0;i<N;i++) if (A.internals.wetArr[i] > A.WET_DRAW) n++; return n; };
+    const wetCount = ()=>{ let n=0; for(let i=0;i<N;i++) if (A.internals.wetArr[i] > A.WATER.DRAW_THRESHOLD) n++; return n; };
     const drawnTiles = ()=>{
       A.packWet();
       const d = A.internals.wetCv.getContext('2d').getImageData(0,0,76,76).data;
@@ -226,11 +226,11 @@ test('leaks are placed on walls, stay reachable, and flood downhill', () => {
        So the window is DERIVED from where the front actually is on this seed
        rather than written down: 60% of the way back to the leaks. Long enough
        to measure a rate, never long enough to clamp, and correct for any value
-       of LEAK_RETREAT_SECONDS_PER_TILE.
+       of LEAK.RETREAT_SECONDS_PER_TILE.
 
        It used to be a hard-coded 20 seconds, and the reasoning written beside
        it ("the front starts about 32 tiles out, so a full minute would clamp")
-       was sound — at LEAK_RETREAT_SECONDS_PER_TILE of 1.0, where 20 seconds is 20 tiles and the
+       was sound — at LEAK.RETREAT_SECONDS_PER_TILE of 1.0, where 20 seconds is 20 tiles and the
        front is still 12 out afterwards. Dropping the constant to 0.5 asked the
        same 20 seconds for 40 tiles of recession from a front 32 tiles out, so
        every run clamped at the leaks and the rate assertion below went on
@@ -238,20 +238,20 @@ test('leaks are placed on walls, stay reachable, and flood downhill', () => {
        number went stale under it; deriving it is what keeps the claim honest
        the next time the drain is retuned. */
     const f0 = A.internals.wetFront;
-    const T = Math.max(2, Math.min(20, Math.floor(f0 * A.LEAK_RETREAT_SECONDS_PER_TILE * 0.6)));
+    const T = Math.max(2, Math.min(20, Math.floor(f0 * A.LEAK.RETREAT_SECONDS_PER_TILE * 0.6)));
     run(T);
     const rec = f0 - A.internals.wetFront;
-    t.assert(Math.abs(adv - 60/A.LEAK_SPREAD_SECONDS_PER_TILE) < 0.5,
-      `the flood advanced ${adv.toFixed(2)} tiles in 60s, want ${(60/A.LEAK_SPREAD_SECONDS_PER_TILE).toFixed(2)}`);
-    t.assert(Math.abs(rec - T/A.LEAK_RETREAT_SECONDS_PER_TILE) < 0.5,
-      `the flood receded ${rec.toFixed(2)} tiles in ${T}s, want ${(T/A.LEAK_RETREAT_SECONDS_PER_TILE).toFixed(2)}`);
+    t.assert(Math.abs(adv - 60/A.LEAK.SPREAD_SECONDS_PER_TILE) < 0.5,
+      `the flood advanced ${adv.toFixed(2)} tiles in 60s, want ${(60/A.LEAK.SPREAD_SECONDS_PER_TILE).toFixed(2)}`);
+    t.assert(Math.abs(rec - T/A.LEAK.RETREAT_SECONDS_PER_TILE) < 0.5,
+      `the flood receded ${rec.toFixed(2)} tiles in ${T}s, want ${(T/A.LEAK.RETREAT_SECONDS_PER_TILE).toFixed(2)}`);
     t.assert(A.internals.wetFront > 0,
       `the front reached the leaks after ${T}s — the window is too long to measure a rate`);
-    t.assert(A.LEAK_RETREAT_SECONDS_PER_TILE < A.LEAK_SPREAD_SECONDS_PER_TILE,
-      `the recession (${A.LEAK_RETREAT_SECONDS_PER_TILE}s/tile) is not outrunning the arrival `+
-      `(${A.LEAK_SPREAD_SECONDS_PER_TILE}s/tile) — the drain is a mop-up again`);
-    t.assert(Math.abs(rec - T/A.WET_TILE_FALL_SECONDS) > 1,
-      'the recession is still running at the old WET_TILE_FALL_SECONDS pace');
+    t.assert(A.LEAK.RETREAT_SECONDS_PER_TILE < A.LEAK.SPREAD_SECONDS_PER_TILE,
+      `the recession (${A.LEAK.RETREAT_SECONDS_PER_TILE}s/tile) is not outrunning the arrival `+
+      `(${A.LEAK.SPREAD_SECONDS_PER_TILE}s/tile) — the drain is a mop-up again`);
+    t.assert(Math.abs(rec - T/A.WATER.TILE_FALL_SECONDS) > 1,
+      'the recession is still running at the old WATER.TILE_FALL_SECONDS pace');
 
     /* 2. no stranded ring, measured while there is still a waterline. The tile
        the front abandons FIRST is the one the old bound dropped on the frame it
@@ -268,7 +268,7 @@ test('leaks are placed on walls, stay reachable, and flood downhill', () => {
        waterline and is supposed to be wet. Naming the band makes the claim
        independent of both the seed and the row order. */
     const f1 = A.internals.wetFront;
-    const lo = Math.max(0, f1 - T/A.LEAK_RETREAT_SECONDS_PER_TILE), hi = f1 - 1;
+    const lo = Math.max(0, f1 - T/A.LEAK.RETREAT_SECONDS_PER_TILE), hi = f1 - 1;
     let outer=-1;
     for (let i=0;i<N;i++){
       const d = A.internals.waterDist[i];
@@ -329,40 +329,40 @@ test('leaks are placed on walls, stay reachable, and flood downhill', () => {
     for (let i=0;i<1200;i++){
       update(1/30);
       samples++;
-      if (G.leakPower >= A.LOUD) loud++;
-      if (G.leakTotal > A.LOUD - 0.02) loud++;
+      if (G.leakPower >= A.NOISE.LOUD) loud++;
+      if (G.leakTotal > A.NOISE.LOUD - 0.02) loud++;
     }
     t.assert(loud===0,
-      `the open leaks reached LOUD ${loud}/${samples} samples — a loud leak is a level-wide hunt trigger, not a lure`);
+      `the open leaks reached NOISE.LOUD ${loud}/${samples} samples — a loud leak is a level-wide hunt trigger, not a lure`);
     t.assert(G.leakPower > 0,
       'the open leaks went silent');
     console.log(`  ${G.openLeaks} open leaks at ${G.leakPower.toFixed(2)} each = `+
-      `${G.leakTotal.toFixed(2)} total (clamped), against a LOUD of ${A.LOUD} — always a lure`);
+      `${G.leakTotal.toFixed(2)} total (clamped), against a NOISE.LOUD of ${A.NOISE.LOUD} — always a lure`);
   }
 
   /* --- the leak is audible only when it is quiet: drip < walk < wrench --- */
   {
-    t.assert(A.REPAIR_NOISE >= A.LOUD,
-      `wrenching at ${A.REPAIR_NOISE} is under LOUD — the repair must be the loud decision`);
-    /* THE ORDERING, which the comment above REPAIR_NOISE has claimed since the
+    t.assert(A.NOISE.REPAIR >= A.NOISE.LOUD,
+      `wrenching at ${A.NOISE.REPAIR} is under NOISE.LOUD — the repair must be the loud decision`);
+    /* THE ORDERING, which the comment above NOISE.REPAIR has claimed since the
        noise table was written and which was never true: the wrench is louder
        than a sprint. It used to be 0.85 against a bare 1.0, so the loudest
        thing on the floor was a run at it — which also meant the meter had no
        top end it could name, and the sprint pegged the bar while the repair,
        the decision the whole stealth layer is built around, sat under it. */
-    t.assert(A.SPRINT_NOISE < A.REPAIR_NOISE,
-      `sprinting at ${A.SPRINT_NOISE} is louder than the wrench at ${A.REPAIR_NOISE} — `+
+    t.assert(A.NOISE.SPRINT < A.NOISE.REPAIR,
+      `sprinting at ${A.NOISE.SPRINT} is louder than the wrench at ${A.NOISE.REPAIR} — `+
       'the repair is not the loud decision');
-    t.assert(A.SPRINT_NOISE >= A.LOUD,
-      `sprinting at ${A.SPRINT_NOISE} is under LOUD — running past a dormant lifeform has to wake it`);
-    t.assert(A.SPRINT_NOISE > 0.30,
-      `sprinting at ${A.SPRINT_NOISE} is quieter than wading — the sprint stops being a decision`);
-    t.assert(A.NOISE_FULL_SCALE === A.REPAIR_NOISE,
-      `the meter tops out at ${A.NOISE_FULL_SCALE}, which is not the loudest sustained thing you can do (${A.REPAIR_NOISE})`);
-    t.assert(A.LEAK_NOISE_BASE < A.LOUD, 'the base leak noise is already LOUD');
+    t.assert(A.NOISE.SPRINT >= A.NOISE.LOUD,
+      `sprinting at ${A.NOISE.SPRINT} is under NOISE.LOUD — running past a dormant lifeform has to wake it`);
+    t.assert(A.NOISE.SPRINT > 0.30,
+      `sprinting at ${A.NOISE.SPRINT} is quieter than wading — the sprint stops being a decision`);
+    t.assert(A.NOISE.FULL_SCALE === A.NOISE.REPAIR,
+      `the meter tops out at ${A.NOISE.FULL_SCALE}, which is not the loudest sustained thing you can do (${A.NOISE.REPAIR})`);
+    t.assert(A.LEAK.NOISE_BASE < A.NOISE.LOUD, 'the base leak noise is already NOISE.LOUD');
     /* wading must stay UNDER loud or following the trail would be strictly
        worse than sweeping, and the trail has to be the cheap option */
-    t.assert(A.LEAK_NOISE_BASE+0.08 < A.LOUD, 'wading is loud enough to wake things');
-    console.log(`  wrench ${A.REPAIR_NOISE} > LOUD ${A.LOUD} > drip ${A.LEAK_NOISE_BASE}`);
+    t.assert(A.LEAK.NOISE_BASE+0.08 < A.NOISE.LOUD, 'wading is loud enough to wake things');
+    console.log(`  wrench ${A.NOISE.REPAIR} > NOISE.LOUD ${A.NOISE.LOUD} > drip ${A.LEAK.NOISE_BASE}`);
   };
 });

@@ -48,15 +48,15 @@ test('sealing one of two pipes dries only the water it alone was feeding', () =>
   A.sealLeak(LA);
   assert.equal(G.openLeaks, 1, 'one pipe should still be open');
 
-  /* The sealed pipe's front backs off toward it at LEAK_RETREAT_SECONDS_PER_TILE, not at the
-     WET_TILE_FALL_SECONDS pace of a single tile. Measured over one second so the front is
+  /* The sealed pipe's front backs off toward it at LEAK.RETREAT_SECONDS_PER_TILE, not at the
+     WATER.TILE_FALL_SECONDS pace of a single tile. Measured over one second so the front is
      still moving. */
   const f0 = G.leakFront[a];
   assert.ok(f0 > 3, `the sealed pipe's front is only ${f0.toFixed(2)} tiles out; the window cannot measure a rate`);
   run(1);
   const drop = f0 - G.leakFront[a];
-  assert.ok(Math.abs(drop - 1 / A.LEAK_RETREAT_SECONDS_PER_TILE) < 0.01,
-    `the sealed front receded ${drop.toFixed(3)} tiles in 1s, want ${(1 / A.LEAK_RETREAT_SECONDS_PER_TILE).toFixed(3)}`);
+  assert.ok(Math.abs(drop - 1 / A.LEAK.RETREAT_SECONDS_PER_TILE) < 0.01,
+    `the sealed front receded ${drop.toFixed(3)} tiles in 1s, want ${(1 / A.LEAK.RETREAT_SECONDS_PER_TILE).toFixed(3)}`);
 
   run(60);
 

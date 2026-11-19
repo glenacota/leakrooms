@@ -6,12 +6,12 @@
    read, no game state import. The caller passes time in, and builds the
    snapshot (buildHudSnap below).
    ============================================================ */
-import { BATTERY_LOW_CHARGE, LOUD } from '../config/constants.js';
+import { BATTERY, NOISE } from '../config/constants.js';
 
 /* The tunables, in one place. Times are milliseconds. */
 export const HUD_RULES = {
   HOLD_MS: 2500,          // the panel stays up this long after the LAST trigger
-  NOISE_FRAC: 0.5,        // your own noise at this share of LOUD brings the panel back (a wet step does, a dry one does not)
+  NOISE_FRAC: 0.5,        // your own noise at this share of NOISE.LOUD brings the panel back (a wet step does, a dry one does not)
   CLOCK_S: 30,            // the clock at or below this: the same moment the 30 second warning fires
   FLOOR_START_MS: 3000,   // a new floor shows the panel this long, whatever else is going on
   LIFE_LOST_HOLD_MS: 4000,// a lost life is worth a longer look
@@ -43,9 +43,9 @@ export function buildHudSnap(G, livesLeft, nowMs){
     /* Your own noise, not the building's. The open leaks hiss all the time, so
        the total would keep the panel up for the whole floor. */
     noise: G.selfNoise,
-    loud: G.selfNoise >= LOUD,
+    loud: G.selfNoise >= NOISE.LOUD,
     battery: G.batt,
-    batteryLow: G.batt <= BATTERY_LOW_CHARGE,
+    batteryLow: G.batt <= BATTERY.LOW_CHARGE,
     radarOn: !!G.radar,
     clockSeconds: G.clock,
     lives: livesLeft,
@@ -71,7 +71,7 @@ export function hudVisibility(snap, prev, nowMs, mode){
 
   /* Each entry: is it true now, and how long does it stay after. Minimal mode
      keeps only the two readings that matter every second: noise and the clock. */
-  const noisy = snap.loud || snap.noise >= HUD_RULES.NOISE_FRAC * LOUD;
+  const noisy = snap.loud || snap.noise >= HUD_RULES.NOISE_FRAC * NOISE.LOUD;
   const triggers = [
     ['noise', noisy],
     ['clock', snap.clockSeconds <= HUD_RULES.CLOCK_S],

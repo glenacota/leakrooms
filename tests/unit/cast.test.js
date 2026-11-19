@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { softAssert } from '../helpers/soft-assert.js';
 import { paintedReach } from '../helpers/geometry.js';
 import { loadGame } from '../helpers/harness.js';
-import { CATCH_RADIUS_TILES, FLOOR, MAP_HEIGHT_TILES, MAP_WIDTH_TILES, PLUMBER, TILE_SIZE_PX } from '../../src/config/constants.js';
+import { LIFEFORM, MAP, TILE_TYPES, PLUMBER, RADAR, WALL } from '../../src/config/constants.js';
 
 const { A, G, els, calls } = await loadGame();
 const buildFloor = A.buildFloor;
@@ -11,17 +11,17 @@ const update = A.update;
 const render = A.render;
 
 /* Reach of a sprite, in tiles from its origin, measured from what it paints. */
-const reachTiles = (S) => paintedReach((g) => A.drawPlumberSprite(g, { T: TILE_SIZE_PX, ...S })) / TILE_SIZE_PX;
+const reachTiles = (S) => paintedReach((g) => A.drawPlumberSprite(g, { T: MAP.TILE_SIZE_PX, ...S })) / MAP.TILE_SIZE_PX;
 
 /* ============ TEST 8: avatar art fits the collision disc =============
-   The plumber was drawn with a body ellipse TILE_SIZE_PX*0.34 tall while the collision
+   The plumber was drawn with a body ellipse MAP.TILE_SIZE_PX*0.34 tall while the collision
    radius is 0.33 tiles, so the figure clipped into walls it was colliding
    with correctly. The reach is measured from the painted geometry. */
 test('[8] avatar fits inside the collision disc', () => {
   const t = softAssert();
 console.log('[8] avatar fits inside the collision disc');
 {
-  const RT = PLUMBER.RADIUS;
+  const RT = PLUMBER.RADIUS_TILES;
   let standing = 0, walking = 0;
   for (const phase of [0, 0.125, 0.25, 0.5, 0.75, 0.875]) {
     standing = Math.max(standing, reachTiles({ gait: 0, phase, wave: 0, t: 1234 }));
@@ -31,12 +31,12 @@ console.log('[8] avatar fits inside the collision disc');
   t.assert(walking < RT,  `walking plumber reaches ${walking.toFixed(3)} tiles from centre, past the ${RT} tile collision radius`);
   console.log(`  standing reach ${standing.toFixed(3)}, walking reach ${walking.toFixed(3)} tiles (limit ${RT})`);
 
-  /* The radar is held out in front of the body centre by RADAR_HAND_OFF_TILES, and the
+  /* The radar is held out in front of the body centre by RADAR.HAND_OFF_TILES, and the
      vision cone starts there too. The cone's origin is checked behaviourally in
      vision.test.js, where the cone is read back from the grid. Here we check
      only that the offset is a plausible forward distance. */
-  t.assert(A.RADAR_HAND_OFF_TILES > 0.05 && A.RADAR_HAND_OFF_TILES < RT,
-    `RADAR_HAND_OFF_TILES=${A.RADAR_HAND_OFF_TILES} is not a plausible forward offset`);
+  t.assert(A.RADAR.HAND_OFF_TILES > 0.05 && A.RADAR.HAND_OFF_TILES < RT,
+    `RADAR.HAND_OFF_TILES=${A.RADAR.HAND_OFF_TILES} is not a plausible forward offset`);
 
   /* The plumber must be drawn at its TRUE position, never half a tile off the
      point collision is resolved against. Both sprites open with a contact
@@ -50,9 +50,9 @@ console.log('[8] avatar fits inside the collision disc');
     lf.x = 31.4; lf.y = 23.1; lf.px = lf.x; lf.py = lf.y; lf.rise = 1;
     A.snapMask();
 
-    const px = G.plumber.x*A.TILE_SIZE_PX, py = G.plumber.y*A.TILE_SIZE_PX;
-    const ax = lf.x*A.TILE_SIZE_PX,       ay = lf.y*A.TILE_SIZE_PX;
-    const HALF = A.TILE_SIZE_PX*0.5;
+    const px = G.plumber.x*A.MAP.TILE_SIZE_PX, py = G.plumber.y*A.MAP.TILE_SIZE_PX;
+    const ax = lf.x*A.MAP.TILE_SIZE_PX,       ay = lf.y*A.MAP.TILE_SIZE_PX;
+    const HALF = A.MAP.TILE_SIZE_PX*0.5;
 
     calls.list.length = 0;
     A.drawPlumber(G.plumber, 1000);
@@ -87,8 +87,8 @@ test('[8b] the raised wrench stays inside the collision disc', () => {
     let worst = 0;
     for (const t of [0, 112, 224, 336, 448])
       worst = Math.max(worst, reachTiles({ gait: 0, phase: 0, wave: 1, t }));
-    assert.ok(worst < PLUMBER.RADIUS,
-      `raised pose reaches ${worst.toFixed(3)} tiles from centre, past the ${PLUMBER.RADIUS} tile collision radius`);
+    assert.ok(worst < PLUMBER.RADIUS_TILES,
+      `raised pose reaches ${worst.toFixed(3)} tiles from centre, past the ${PLUMBER.RADIUS_TILES} tile collision radius`);
   });
 
 
@@ -211,13 +211,13 @@ console.log('[28] the cast — the Plumber walks, the Lifeform does not grow');
     t.assert(lifeformH < plumberH * 4,
       `the lifeform is ${lifeformH.toFixed(0)}px tall against the plumber's ${plumberH.toFixed(0)}px — past twice the plumber and into the room`);
 
-    /* THE HIT ZONE IS DRAWN AT THE KILL RADIUS. brush() is fatal at CATCH_RADIUS_TILES
+    /* THE HIT ZONE IS DRAWN AT THE KILL RADIUS. brush() is fatal at LIFEFORM.CATCH_RADIUS_TILES
        tiles; the disc under the Lifeform is that radius, so the part that can
        touch you is visible. Asserted against the constant, so a sprite that
        draws a different disc than the one that kills you cannot pass. */
     const c = recCtx();
     A.drawLifeformSprite(c, { T:40, t:0, h:1, gait:1, phase:0.25, danger:1 });
-    const want = TILE_SIZE_PX * CATCH_RADIUS_TILES;
+    const want = MAP.TILE_SIZE_PX * LIFEFORM.CATCH_RADIUS_TILES;
     /* Both the filled disc and the red ring must sit at the kill radius. Each is
        an ellipse call followed by the paint call that uses it. */
     const atRadius = c.log.map((call, i) => ({ call, paint: (c.log[i+1] || [])[0] }))
@@ -228,15 +228,15 @@ console.log('[28] the cast — the Plumber walks, the Lifeform does not grow');
       `the lifeform's hit ring is not drawn at the ${want.toFixed(1)}px kill radius`);
   }
 
-  /* THE LEGS STOP AT THE WALL. drawLifeform clips to the floor tiles near it,
+  /* THE LEGS STOP AT THE TILE_TYPES.WALL. drawLifeform clips to the floor tiles near it,
      so a leg cannot stride over a partition. Read back from the rectangles it
      actually hands to clip(), not from the words of its source. */
   {
     buildFloor(0, 4242);
-    const isFloor = (tx, ty) => tx>=0 && ty>=0 && tx<MAP_WIDTH_TILES && ty<MAP_HEIGHT_TILES && G.grid[ty*MAP_WIDTH_TILES+tx]===FLOOR;
+    const isFloor = (tx, ty) => tx>=0 && ty>=0 && tx<MAP.WIDTH_TILES && ty<MAP.HEIGHT_TILES && G.grid[ty*MAP.WIDTH_TILES+tx]===TILE_TYPES.FLOOR;
     let edge = null;
-    for (let ty=1; ty<MAP_HEIGHT_TILES-1 && !edge; ty++)
-      for (let tx=1; tx<MAP_WIDTH_TILES-1 && !edge; tx++)
+    for (let ty=1; ty<MAP.HEIGHT_TILES-1 && !edge; ty++)
+      for (let tx=1; tx<MAP.WIDTH_TILES-1 && !edge; tx++)
         if (isFloor(tx, ty) && !isFloor(tx+1, ty)) edge = {tx, ty};
     t.assert(edge, 'the floor has no floor-to-wall edge to test the clip against');
     if (edge){
@@ -248,7 +248,7 @@ console.log('[28] the cast — the Plumber walks, the Lifeform does not grow');
       t.assert(clipAt>=0, 'the lifeform is not clipped to the floor at all');
       const clipped = calls.list.slice(0, Math.max(0, clipAt))
         .filter(c=>c[0]==='rect')
-        .map(c=>[Math.round(c[1]/TILE_SIZE_PX), Math.round(c[2]/TILE_SIZE_PX)]);
+        .map(c=>[Math.round(c[1]/MAP.TILE_SIZE_PX), Math.round(c[2]/MAP.TILE_SIZE_PX)]);
       const onWall = clipped.filter(([x,y])=>!isFloor(x,y));
       t.assert(onWall.length===0, `the clip admits ${onWall.length} wall tile(s), so legs could stride over a partition`);
       const near = [];

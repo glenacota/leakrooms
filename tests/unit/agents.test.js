@@ -39,9 +39,9 @@ test('agents stay out of geometry and react to noise', () => {
 });
 
 /* A wandering lifeform touches you if it reaches you.
-   Dark corridor: a WALK_SPEED_TILES_PER_SECOND state lifeform walking through a motionless player
+   Dark corridor: a WALK state lifeform walking through a motionless player
    in darkness must start hunting and emit IT TOUCHED YOU.
-   Lit variant: a WALK_SPEED_TILES_PER_SECOND state lifeform in light must still catch as before. */
+   Lit variant: a WALK state lifeform in light must still catch as before. */
 test('a wandering lifeform touches you if it reaches you', () => {
   const t = softAssert();
   buildFloor(0, 4242);
@@ -70,11 +70,11 @@ test('a wandering lifeform touches you if it reaches you', () => {
 
   /* --- DARK TEST ---
      Zero out light and visibility so the LOS check in tickAgents never fires.
-     Put a WALK_SPEED_TILES_PER_SECOND lifeform at one end, player at the other, facing each other. */
+     Put a WALK lifeform at one end, player at the other, facing each other. */
   const walkLifeform = G.lifeforms[0];
   walkLifeform.x = xStart + 1.5;
   walkLifeform.y = midY;
-  walkLifeform.state = 'WALK_SPEED_TILES_PER_SECOND';
+  walkLifeform.state = 'WALK';
   walkLifeform.born = 0;
   walkLifeform.rise = 1;
   walkLifeform.t = 10; // long target timer
@@ -104,11 +104,11 @@ test('a wandering lifeform touches you if it reaches you', () => {
     if (touched && hunted) break;
   }
   t.assert(touched, 'dark corridor: IT TOUCHED YOU flash was not emitted');
-  t.assert(hunted, 'dark corridor: WALK_SPEED_TILES_PER_SECOND lifeform did not transition to HUNT after touching player');
-  console.log(`  dark corridor: WALK_SPEED_TILES_PER_SECOND lifeform touched player at frame ${touched && hunted ? 'OK' : 'FAIL'}`);
+  t.assert(hunted, 'dark corridor: WALK lifeform did not transition to HUNT after touching player');
+  console.log(`  dark corridor: WALK lifeform touched player at frame ${touched && hunted ? 'OK' : 'FAIL'}`);
 
   /* --- LIT TEST ---
-     Same setup but with light. The WALK_SPEED_TILES_PER_SECOND lifeform should still touch and trigger brush.
+     Same setup but with light. The WALK lifeform should still touch and trigger brush.
      In light, the LOS check might also trigger HUNT, but brush must still fire. */
   buildFloor(0, 4242);
   A.STATE = 'play';
@@ -116,7 +116,7 @@ test('a wandering lifeform touches you if it reaches you', () => {
   const walkLifeform2 = G.lifeforms[0];
   walkLifeform2.x = xStart + 1.5;
   walkLifeform2.y = midY;
-  walkLifeform2.state = 'WALK_SPEED_TILES_PER_SECOND';
+  walkLifeform2.state = 'WALK';
   walkLifeform2.born = 0;
   walkLifeform2.rise = 1;
   walkLifeform2.t = 10;
@@ -149,10 +149,10 @@ test('a wandering lifeform touches you if it reaches you', () => {
   console.log(`  lit corridor: lifeform touched player at frame ${touchedLit && huntedLit ? 'OK' : 'FAIL'}`);;
 });
 
-/* SEARCH timeout goes to WALK_SPEED_TILES_PER_SECOND, not DORMANT. The "may go back to sleep"
+/* SEARCH timeout goes to WALK, not DORMANT. The "may go back to sleep"
    comment was dead code: the old logic set DORMANT then immediately
-   overwrote it with WALK_SPEED_TILES_PER_SECOND whenever born <= 0 (always true after grace). */
-test('SEARCH timeout goes to WALK_SPEED_TILES_PER_SECOND, never DORMANT', () => {
+   overwrote it with WALK whenever born <= 0 (always true after grace). */
+test('SEARCH timeout goes to WALK, never DORMANT', () => {
   const t = softAssert();
   buildFloor(0, 4242);
   A.STATE = 'play';
@@ -169,19 +169,19 @@ test('SEARCH timeout goes to WALK_SPEED_TILES_PER_SECOND, never DORMANT', () => 
   /* Step once - timer should expire. */
   update(1/60);
 
-  t.assert(searchLifeform.state === 'WALK_SPEED_TILES_PER_SECOND', `SEARCH timed out to ${searchLifeform.state}, expected WALK_SPEED_TILES_PER_SECOND`);
+  t.assert(searchLifeform.state === 'WALK', `SEARCH timed out to ${searchLifeform.state}, expected WALK`);
   t.assert(searchLifeform.rise === 1, `rise should be 1 (fully up), got ${searchLifeform.rise}`);
 
-  /* Step many more frames - it should stay WALK_SPEED_TILES_PER_SECOND, never go to DORMANT. */
+  /* Step many more frames - it should stay WALK, never go to DORMANT. */
   let everDormant = false;
   for (let i=0;i<200;i++){
     update(1/60);
     if (searchLifeform.state === 'DORMANT') everDormant = true;
   }
-  t.assert(!everDormant, 'lifeform entered DORMANT after SEARCH timeout — should stay WALK_SPEED_TILES_PER_SECOND');
-  t.assert(searchLifeform.state === 'WALK_SPEED_TILES_PER_SECOND', `after 200 frames, state is ${searchLifeform.state}, expected WALK_SPEED_TILES_PER_SECOND`);
+  t.assert(!everDormant, 'lifeform entered DORMANT after SEARCH timeout — should stay WALK');
+  t.assert(searchLifeform.state === 'WALK', `after 200 frames, state is ${searchLifeform.state}, expected WALK`);
 
-  console.log('  SEARCH timeout -> WALK_SPEED_TILES_PER_SECOND; never DORMANT afterwards');;
+  console.log('  SEARCH timeout -> WALK; never DORMANT afterwards');;
 });
 
 /* SEARCH with distance field: a searching lifeform sent to a spot with no
@@ -317,7 +317,7 @@ test('HUNT hold: lifeform holds and turns for 2s at target, then gives up; loud 
 
   /* During hold, emit a loud sound at a nearby location (5 tiles away, within hearing range). */
   const loudX = 25.5, loudY = 20.5;
-  A.sustainedNoise(A.SPRINT_NOISE, loudX, loudY, false); // loud, not mine
+  A.sustainedNoise(A.NOISE.SPRINT, loudX, loudY, false); // loud, not mine
 
   /* Lifeform should retarget immediately. */
   update(1/60);

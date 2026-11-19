@@ -1,6 +1,7 @@
 import test from 'node:test';
 import { strict as assert } from 'node:assert';
 import { loadGame } from '../helpers/harness.js';
+import { MAP, NOISE } from '../../src/config/constants.js';
 import {
   spawnGap, maxRadius, ringLife, ringRadius, ringAlpha, isRedRing,
   liveRingCount, MAX_RINGS, RADIUS_AT_LOUD,
@@ -11,9 +12,6 @@ const { A, G, calls } = await loadGame();
 const buildFloor = A.buildFloor;
 const render = A.render;
 
-const TILE_SIZE_PX = 40;
-const LOUD = 0.5;
-const NOISE_FULL_SCALE = 0.85;
 const close = (a, b, eps = 1e-9) => assert.ok(Math.abs(a - b) < eps, `${a} is not ${b}`);
 
 /* Frames of render with time in them. Each is 100 ms, which is longer than the
@@ -27,7 +25,7 @@ function frames(n, ms = 100){
    outline. The battery ring sits 0.8 tiles to the right, so it is not counted. */
 function plumberArcs(){
   return calls.list.filter(c =>
-    c[0] === 'arc' && Math.hypot(c[1] - G.plumber.x * TILE_SIZE_PX, c[2] - G.plumber.y * TILE_SIZE_PX) < 0.5);
+    c[0] === 'arc' && Math.hypot(c[1] - G.plumber.x * MAP.TILE_SIZE_PX, c[2] - G.plumber.y * MAP.TILE_SIZE_PX) < 0.5);
 }
 
 /* The glow's gradients: radial gradients centred on the plumber. Other passes
@@ -35,7 +33,7 @@ function plumberArcs(){
 function glowGradients(){
   return calls.list.filter(c =>
     c[0] === 'createRadialGradient' &&
-    Math.hypot(c[1] - G.plumber.x * TILE_SIZE_PX, c[2] - G.plumber.y * TILE_SIZE_PX) < 0.5);
+    Math.hypot(c[1] - G.plumber.x * MAP.TILE_SIZE_PX, c[2] - G.plumber.y * MAP.TILE_SIZE_PX) < 0.5);
 }
 
 function setup(){
@@ -66,9 +64,9 @@ test('the spawn gap shortens as the noise rises', () => {
   }
 });
 
-test('a ring reaches 1.5 tiles at LOUD and scales from there', () => {
+test('a ring reaches 1.5 tiles at NOISE.LOUD and scales from there', () => {
   close(RADIUS_AT_LOUD, 1.5);
-  close(maxRadius(LOUD), 1.5);
+  close(maxRadius(NOISE.LOUD), 1.5);
   close(maxRadius(0.2), 0.6);
   close(maxRadius(0.7), 2.1);
   close(maxRadius(0.85), 2.55);
@@ -97,21 +95,21 @@ test('a ring only grows: its radius never drops as it ages', () => {
 });
 
 test('a ring is fully opaque at birth at the wrench, and fainter at a walk', () => {
-  close(ringAlpha(NOISE_FULL_SCALE, 0), 1);
-  close(ringAlpha(0.2, 0), 0.2 / NOISE_FULL_SCALE);
+  close(ringAlpha(NOISE.FULL_SCALE, 0), 1);
+  close(ringAlpha(0.2, 0), 0.2 / NOISE.FULL_SCALE);
   close(ringAlpha(0.7, ringLife(0.7)), 0);
 });
 
-test('a ring turns red only once it has crossed the LOUD circle', () => {
+test('a ring turns red only once it has crossed the NOISE.LOUD circle', () => {
   assert.equal(isRedRing(1.49), false);
   assert.equal(isRedRing(1.5), true);
-  /* A walk never reaches LOUD, so its rings are never red. */
+  /* A walk never reaches NOISE.LOUD, so its rings are never red. */
   let walkRed = false;
   for (let t = 0; t <= ringLife(0.2); t += 0.01){
     if (isRedRing(ringRadius(0.2, t))) walkRed = true;
   }
   assert.equal(walkRed, false, 'a walk ring turned red');
-  /* A sprint crosses LOUD on its way out. */
+  /* A sprint crosses NOISE.LOUD on its way out. */
   let sprintRed = false;
   for (let t = 0; t <= ringLife(0.7); t += 0.01){
     if (isRedRing(ringRadius(0.7, t))) sprintRed = true;
@@ -126,13 +124,13 @@ test('the glow is 0.42 tiles wide when quiet and 0.92 at full noise', () => {
   close(glowRadius(7), 0.92);       /* a level past 1 is held at the top */
 });
 
-test('the glow is yellow while quiet, red past LOUD, and never goes back toward yellow', () => {
+test('the glow is yellow while quiet, red past NOISE.LOUD, and never goes back toward yellow', () => {
   assert.deepEqual(glowRgb(0), [255, 245, 160]);
   assert.deepEqual(glowRgb(0.43), [255, 245, 160]);
   assert.deepEqual(glowRgb(0.54), [216, 80, 60]);
   assert.deepEqual(glowRgb(0.85), [216, 80, 60]);
-  /* At LOUD the colour is already closer to the red than to the yellow. */
-  assert.ok(glowRgb(LOUD)[1] < (245 + 80) / 2, 'the glow is still mostly yellow at LOUD');
+  /* At NOISE.LOUD the colour is already closer to the red than to the yellow. */
+  assert.ok(glowRgb(NOISE.LOUD)[1] < (245 + 80) / 2, 'the glow is still mostly yellow at NOISE.LOUD');
   let prev = Infinity;
   for (let n = 0; n <= 0.85; n += 0.01){
     const g = glowRgb(n)[1];
@@ -142,7 +140,7 @@ test('the glow is yellow while quiet, red past LOUD, and never goes back toward 
 });
 
 test('the glow is fainter when quieter, and flashes as a ring spawns', () => {
-  assert.ok(glowAlpha(0.2 / NOISE_FULL_SCALE, 0) < glowAlpha(0.7 / NOISE_FULL_SCALE, 0));
+  assert.ok(glowAlpha(0.2 / NOISE.FULL_SCALE, 0) < glowAlpha(0.7 / NOISE.FULL_SCALE, 0));
   close(glowAlpha(0, 1), 0);
   assert.ok(glowAlpha(0.5, 1) > glowAlpha(0.5, 0), 'no flash at the moment of spawn');
   close(glowAlpha(0.5, 0), 0.4);
@@ -206,7 +204,7 @@ test('the glow is drawn around the plumber while they are noisy, and fades out a
   assert.equal(grads.length, 1, 'expected one glow around the plumber');
   const [, , , , , outer] = grads[0].slice(1);
   assert.equal(grads[0][3], 0, 'the gradient should start at the centre');
-  assert.ok(outer >= glowRadius(0) * TILE_SIZE_PX - 1e-6 && outer <= glowRadius(1) * TILE_SIZE_PX + 1e-6,
+  assert.ok(outer >= glowRadius(0) * MAP.TILE_SIZE_PX - 1e-6 && outer <= glowRadius(1) * MAP.TILE_SIZE_PX + 1e-6,
     `glow radius ${outer} px is outside its range`);
 
   G.selfNoise = 0;
@@ -237,14 +235,14 @@ test('the rings travel with the plumber and are never left behind', () => {
   frames(8);
   assert.ok(liveRingCount() >= 1, 'setup did not make any rings');
 
-  const oldX = G.plumber.x * TILE_SIZE_PX, oldY = G.plumber.y * TILE_SIZE_PX;
+  const oldX = G.plumber.x * MAP.TILE_SIZE_PX, oldY = G.plumber.y * MAP.TILE_SIZE_PX;
   G.plumber.x = G.plumber.px = 14;       /* four tiles east, in one step */
   calls.list.length = 0;
   frames(1);
 
   const near = (x, y) => calls.list.filter(c =>
     c[0] === 'arc' && Math.hypot(c[1] - x, c[2] - y) < 0.5).length;
-  assert.ok(near(14 * TILE_SIZE_PX, 10 * TILE_SIZE_PX) >= 1, 'no ring is centred on the plumber after they moved');
+  assert.ok(near(14 * MAP.TILE_SIZE_PX, 10 * MAP.TILE_SIZE_PX) >= 1, 'no ring is centred on the plumber after they moved');
   assert.equal(near(oldX, oldY), 0, 'a ring was left at the place the plumber came from');
 });
 
@@ -281,9 +279,9 @@ test('the glow is drawn before the rings, and both after the post-processing pas
 
   const lastImage = calls.list.map(c => c[0]).lastIndexOf('drawImage');
   const glow = calls.list.findIndex(c =>
-    c[0] === 'createRadialGradient' && Math.hypot(c[1] - G.plumber.x * TILE_SIZE_PX, c[2] - G.plumber.y * TILE_SIZE_PX) < 0.5);
+    c[0] === 'createRadialGradient' && Math.hypot(c[1] - G.plumber.x * MAP.TILE_SIZE_PX, c[2] - G.plumber.y * MAP.TILE_SIZE_PX) < 0.5);
   const lastRing = calls.list.map((c, i) =>
-    c[0] === 'arc' && Math.hypot(c[1] - G.plumber.x * TILE_SIZE_PX, c[2] - G.plumber.y * TILE_SIZE_PX) < 0.5 ? i : -1)
+    c[0] === 'arc' && Math.hypot(c[1] - G.plumber.x * MAP.TILE_SIZE_PX, c[2] - G.plumber.y * MAP.TILE_SIZE_PX) < 0.5 ? i : -1)
     .reduce((a, b) => Math.max(a, b), -1);
   assert.ok(glow > lastImage, 'the glow is drawn before the CRT pass ends');
   assert.ok(lastRing > glow, 'the rings are not drawn after the glow');
@@ -298,7 +296,7 @@ test('the rings are drawn after the post-processing pass', () => {
 
   const lastImage = calls.list.map(c => c[0]).lastIndexOf('drawImage');
   const ring = calls.list.findIndex(c =>
-    c[0] === 'arc' && Math.hypot(c[1] - G.plumber.x * TILE_SIZE_PX, c[2] - G.plumber.y * TILE_SIZE_PX) < 0.5);
+    c[0] === 'arc' && Math.hypot(c[1] - G.plumber.x * MAP.TILE_SIZE_PX, c[2] - G.plumber.y * MAP.TILE_SIZE_PX) < 0.5);
   assert.ok(lastImage >= 0 && ring >= 0, 'expected post-processing draws and a ripple arc');
   assert.ok(ring > lastImage,
     `the ripple is call ${ring} but the last post-pass drawImage is call ${lastImage}: the CRT would touch it`);

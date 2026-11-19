@@ -1,15 +1,15 @@
 /* Player-like navigation over the real simulation. The bot still uses the
    complete grid for routing and is not a substitute for human playtests. */
 import { bfsPath } from './bot.js';
-import { FLOOR, MAP_HEIGHT_TILES, MAP_WIDTH_TILES, TILE_SIZE_PX, WET_DRAW } from '../../src/config/constants.js';
+import { MAP, TILE_TYPES, WATER, NOISE } from '../../src/config/constants.js';
 import { on } from '../../src/util/events.js';
 
-const W = MAP_WIDTH_TILES, H = MAP_HEIGHT_TILES, N = W * H;
+const W = MAP.WIDTH_TILES, H = MAP.HEIGHT_TILES, N = W * H;
 const IDX = (x, y) => y * W + x;
 
 const SEE = 0.2;          // vision-mask value that counts as in view
 const RADAR_SEE = 0.1;    // radar gives otherwise dark tiles a 0.15 mask
-const WALK_HEARD = 6.6;   // tiles a walking plumber is heard: HEAR_BASE 4 + HEAR_GAIN * walk power, see constants.js
+const WALK_HEARD = 6.6;   // tiles a walking plumber is heard: NOISE.HEAR_BASE_TILES 4 + NOISE.HEAR_GAIN_TILES_PER_POWER * walk power, see constants.js
 const THREAT = 9;         // tiles at which a known lifeform is worth stepping away from
 const REPLAN_FRAMES = 90; // re-plan at least this often, so a stale path cannot stall the bot
 const RECENT_FRAMES = 900; // fifteen seconds of context before a death
@@ -32,8 +32,8 @@ export function chooseVisibleWater(grid, wet, mask, visited, radar, px, py, onSc
   let best = null, bestWet = currentWet, bestDistance = Infinity;
   for (let i = 0; i < N; i++){
     const x = i % W, y = (i / W) | 0;
-    if (i === current || mask[i] <= threshold || grid[i] !== FLOOR || visited[i] ||
-        wet[i] <= WET_DRAW || wet[i] <= currentWet + 0.01 || !onScreen(x, y)) continue;
+    if (i === current || mask[i] <= threshold || grid[i] !== TILE_TYPES.FLOOR || visited[i] ||
+        wet[i] <= WATER.DRAW_THRESHOLD || wet[i] <= currentWet + 0.01 || !onScreen(x, y)) continue;
     const distance = Math.abs(x + 0.5 - px) + Math.abs(y + 0.5 - py);
     if (wet[i] > bestWet || (wet[i] === bestWet && distance < bestDistance)){
       bestWet = wet[i]; bestDistance = distance; best = { kind: 'water', x, y };
@@ -61,7 +61,7 @@ export function chooseRememberedReturn(grid, px, py, door, spawn){
     return { kind: 'door', x: sx, y: sy };
   let best = null, length = Infinity;
   for (const [x, y] of [[door.x+1,door.y], [door.x-1,door.y], [door.x,door.y+1], [door.x,door.y-1]]){
-    if (x < 0 || y < 0 || x >= W || y >= H || grid[IDX(x, y)] !== FLOOR) continue;
+    if (x < 0 || y < 0 || x >= W || y >= H || grid[IDX(x, y)] !== TILE_TYPES.FLOOR) continue;
     const path = bfsPath(sx, sy, x, y, grid, W, H);
     if (path && path.length < length){ best = { kind: 'door', x, y }; length = path.length; }
   }
@@ -135,7 +135,7 @@ export function playPlayerRun({ A, G, keys, seed, withLifeforms, maxSeconds, rad
      camera; rendering itself is not stepped in this simulation. */
   function updateViewport(){
     const width = A.cvs.clientWidth, height = A.cvs.clientHeight;
-    const scale = A.viewScale(width, height) * TILE_SIZE_PX;
+    const scale = A.viewScale(width, height) * MAP.TILE_SIZE_PX;
     if (!(scale > 0)) throw new Error('Player bot requires a nonzero viewport');
     const halfW = width / (2 * scale), halfH = height / (2 * scale);
     const cx = W > halfW * 2 ? Math.max(halfW, Math.min(W - halfW, G.plumber.x)) : G.plumber.x;
@@ -159,8 +159,8 @@ export function playPlayerRun({ A, G, keys, seed, withLifeforms, maxSeconds, rad
     const threshold = G.radar ? RADAR_SEE : SEE;
     for (let i = 0; i < N; i++){
       if (m[i] > threshold && onScreen(i % W, (i / W) | 0)) know.seen[i] = 1;
-      if (returnPolicy === 'remembered' && know.seen[i] && !know.walkable[i] && G.grid[i] === FLOOR){
-        know.walkable[i] = FLOOR; know.version++;
+      if (returnPolicy === 'remembered' && know.seen[i] && !know.walkable[i] && G.grid[i] === TILE_TYPES.FLOOR){
+        know.walkable[i] = TILE_TYPES.FLOOR; know.version++;
       }
     }
     /* The tile under the plumber is always drawn, even behind the vision cone,
@@ -169,8 +169,8 @@ export function playPlayerRun({ A, G, keys, seed, withLifeforms, maxSeconds, rad
     const tile = IDX(Math.floor(G.plumber.x), Math.floor(G.plumber.y));
     know.seen[tile] = 1;
     know.visited[tile] = 1;
-    if (returnPolicy === 'remembered' && !know.walkable[tile] && G.grid[tile] === FLOOR){
-      know.walkable[tile] = FLOOR; know.version++;
+    if (returnPolicy === 'remembered' && !know.walkable[tile] && G.grid[tile] === TILE_TYPES.FLOOR){
+      know.walkable[tile] = TILE_TYPES.FLOOR; know.version++;
     }
 
     G.leaks.forEach((L, k) => {
@@ -185,14 +185,14 @@ export function playPlayerRun({ A, G, keys, seed, withLifeforms, maxSeconds, rad
     if (key === distFromKey) return distField;
     const dist = new Int32Array(N).fill(-1);
     const start = IDX(tx, ty);
-    if (G.grid[start] !== FLOOR) return (distField = null);
+    if (G.grid[start] !== TILE_TYPES.FLOOR) return (distField = null);
     const q = [start]; dist[start] = 0;
     for (let h = 0; h < q.length; h++){
       const c = q[h], cx = c % W, cy = (c / W) | 0;
       for (const [nx, ny] of [[cx+1,cy],[cx-1,cy],[cx,cy+1],[cx,cy-1]]){
         if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
         const ni = IDX(nx, ny);
-        if (G.grid[ni] !== FLOOR || dist[ni] >= 0) continue;
+        if (G.grid[ni] !== TILE_TYPES.FLOOR || dist[ni] >= 0) continue;
         dist[ni] = dist[c] + 1; q.push(ni);
       }
     }
@@ -204,7 +204,7 @@ export function playPlayerRun({ A, G, keys, seed, withLifeforms, maxSeconds, rad
   function pathToNearest(px, py, want){
     const sx = Math.floor(px), sy = Math.floor(py);
     const start = IDX(sx, sy);
-    if (G.grid[start] !== FLOOR) return null;
+    if (G.grid[start] !== TILE_TYPES.FLOOR) return null;
     const prev = new Int32Array(N).fill(-1);
     prev[start] = start;
     const q = [start];
@@ -220,7 +220,7 @@ export function playPlayerRun({ A, G, keys, seed, withLifeforms, maxSeconds, rad
       for (const [nx, ny] of [[cx+1,cy],[cx-1,cy],[cx,cy+1],[cx,cy-1]]){
         if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
         const ni = IDX(nx, ny);
-        if (G.grid[ni] !== FLOOR || prev[ni] >= 0) continue;
+        if (G.grid[ni] !== TILE_TYPES.FLOOR || prev[ni] >= 0) continue;
         prev[ni] = c; q.push(ni);
       }
     }
@@ -231,7 +231,7 @@ export function playPlayerRun({ A, G, keys, seed, withLifeforms, maxSeconds, rad
   function doorStands(){
     const e = G.exitTiles[0];
     return [[e.x+1,e.y],[e.x-1,e.y],[e.x,e.y+1],[e.x,e.y-1]]
-      .filter(([x,y]) => x >= 0 && y >= 0 && x < W && y < H && G.grid[IDX(x,y)] === FLOOR);
+      .filter(([x,y]) => x >= 0 && y >= 0 && x < W && y < H && G.grid[IDX(x,y)] === TILE_TYPES.FLOOR);
   }
 
   /* What to do next: a known open leak, else search, else the door. */
@@ -395,7 +395,7 @@ export function playPlayerRun({ A, G, keys, seed, withLifeforms, maxSeconds, rad
       const cx = Math.floor(px), cy = Math.floor(py);
       let best = null, bestD = threat.d;
       for (const [nx, ny] of [[cx+1,cy],[cx-1,cy],[cx,cy+1],[cx,cy-1]]){
-        if (G.grid[IDX(nx, ny)] !== FLOOR) continue;
+        if (G.grid[IDX(nx, ny)] !== TILE_TYPES.FLOOR) continue;
         const away = Math.hypot(nx + 0.5 - threat.lf.x, ny + 0.5 - threat.lf.y);
         if (away > bestD){ bestD = away; best = [nx + 0.5, ny + 0.5]; }
       }
@@ -431,9 +431,9 @@ export function playPlayerRun({ A, G, keys, seed, withLifeforms, maxSeconds, rad
         searchTargetDone(searchTarget, know.seen, know.visited, IDX(last[0], last[1]));
       if (gid !== pathGoal || off || searchDone || pathAge > REPLAN_FRAMES || !path || path.length === 0){
         if (goal.kind === 'search'){
-          path = pathToNearest(px, py, c => G.grid[c] === FLOOR && !know.seen[c]);
+          path = pathToNearest(px, py, c => G.grid[c] === TILE_TYPES.FLOOR && !know.seen[c]);
           searchTarget = path ? 'unseen' : 'unvisited';
-          if (!path) path = pathToNearest(px, py, c => G.grid[c] === FLOOR && !know.visited[c]);
+          if (!path) path = pathToNearest(px, py, c => G.grid[c] === TILE_TYPES.FLOOR && !know.visited[c]);
         } else {
           const grid = returnPolicy === 'remembered' && (goal.kind === 'door' || goal.kind === 'spawn')
             ? know.walkable : G.grid;

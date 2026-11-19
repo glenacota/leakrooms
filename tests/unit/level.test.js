@@ -69,7 +69,7 @@ test('every generated floor is connected, playable and lit', () => {
        whether one five-second hold can reach two leaks. */
     for (let a=0;a<G.leaks.length;a++) for (let b=a+1;b<G.leaks.length;b++){
       const d = Math.hypot(G.leaks[a].sx-G.leaks[b].sx, G.leaks[a].sy-G.leaks[b].sy);
-      t.assert(d > A.REPAIR_REACH,
+      t.assert(d > A.LEAK.REPAIR_REACH_TILES,
         `seed ${s}: two leaks can be sealed by one hold (spots ${d.toFixed(2)} apart)`);
       const dw = Math.hypot(G.leaks[a].x-G.leaks[b].x, G.leaks[a].y-G.leaks[b].y);
       t.assert(dw>=3, `seed ${s}: two leaks are ${dw.toFixed(1)} tiles apart`);

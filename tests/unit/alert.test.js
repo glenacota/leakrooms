@@ -4,7 +4,7 @@ import { loadGame } from '../helpers/harness.js';
 
 const { A, G } = await loadGame();
 const buildFloor = A.buildFloor;
-const REPAIR_NOISE = A.REPAIR_NOISE;
+const REPAIR_NOISE = A.NOISE.REPAIR;
 const hearRadius = A.hearRadius;
 const sustainedNoise = A.sustainedNoise;
 const wallSteps = A.wallSteps;

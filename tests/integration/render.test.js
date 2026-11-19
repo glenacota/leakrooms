@@ -43,7 +43,7 @@ test('the camera centres the plumber and keeps the world upright', () => {
   }
   t.assert(SCALE>0, 'no setTransform captured');
   t.assert(tx!==null, 'no translate captured');
-  const TW = A.TILE_SIZE_PX;
+  const TW = A.MAP.TILE_SIZE_PX;
   const w2s = (wx,wy)=> [ SCALE*(wx*TW + tx), SCALE*(wy*TW + ty) ];
 
   const [pxDev, pyDev] = w2s(G.plumber.x, G.plumber.y);
@@ -90,12 +90,12 @@ test('the camera centres the plumber and keeps the world upright', () => {
   t.assert(wetDraw[2]===0 && wetDraw[3]===0,
     `flood image drawn at (${wetDraw[2]},${wetDraw[3]}) rather than the map origin — water is offset from the tiles it covers`);
   /* Its SIZE is in WORLD units, not device pixels — the draw happens inside the
-     scaled transform, exactly like the geometry, so 76 tiles * TILE_SIZE_PX is correct
+     scaled transform, exactly like the geometry, so 76 tiles * MAP.TILE_SIZE_PX is correct
      and SCALE is applied by the context on the way out. (The first version of
      this assertion expected the scaled value and failed on a correct
      renderer.) */
-  t.assert(wetDraw[4]===76*A.TILE_SIZE_PX && wetDraw[5]===76*A.TILE_SIZE_PX,
-    `flood image spans ${wetDraw[4]}x${wetDraw[5]} world units, want ${76*A.TILE_SIZE_PX} — the water is not tile-aligned`);
+  t.assert(wetDraw[4]===76*A.MAP.TILE_SIZE_PX && wetDraw[5]===76*A.MAP.TILE_SIZE_PX,
+    `flood image spans ${wetDraw[4]}x${wetDraw[5]} world units, want ${76*A.MAP.TILE_SIZE_PX} — the water is not tile-aligned`);
 
   console.log(`  plumber at ${pxDev.toFixed(0)},${pyDev.toFixed(0)}; viewport centre ${CW/2},${CH/2}`);
   console.log(`  10 tiles spans ${span.toFixed(0)}px; lightmap and flood both aligned with geometry`);;
@@ -136,7 +136,7 @@ test('the leak is drawn where it is, not just where it is computed', () => {
   /* Where the leak should land, in device pixels. The camera has to be settled
      first or this measures the smoothing instead of the drawing. */
   const tileScreen = (tx,ty)=>{
-    const T=A.TILE_SIZE_PX*A.SCALE, cx=A.cvs.width/2, cy=A.cvs.height/2;
+    const T=A.MAP.TILE_SIZE_PX*A.SCALE, cx=A.cvs.width/2, cy=A.cvs.height/2;
     return [Math.round(cx+(tx-G.plumber.x)*T), Math.round(cy+(ty-G.plumber.y)*T)];
   };
   for (let i=0;i<90;i++) render(1000+i*16.7);
@@ -158,7 +158,7 @@ test('the leak is drawn where it is, not just where it is computed', () => {
     const near = calls.list.filter(c=>{
       if (c[0]!=='fillRect' && c[0]!=='createLinearGradient' && c[0]!=='createRadialGradient') return false;
       const x=c[c.length-2], y=c[c.length-1];
-      return Math.hypot(x-lx, y-ly) < A.TILE_SIZE_PX*A.SCALE*1.2;
+      return Math.hypot(x-lx, y-ly) < A.MAP.TILE_SIZE_PX*A.SCALE*1.2;
     });
     t.assert(near.length>0,
       `nothing is drawn within a tile of the leak at (${lx},${ly}) — `+
@@ -180,7 +180,7 @@ test('the leak is drawn where it is, not just where it is computed', () => {
     calls.list.length = 0;
     render(1000+200*16.7);
     const arcs = calls.list.filter(c=>
-      c[0]==='arc' && Math.hypot(c[1]-rx, c[2]-ry) < A.TILE_SIZE_PX*A.SCALE*0.75);
+      c[0]==='arc' && Math.hypot(c[1]-rx, c[2]-ry) < A.MAP.TILE_SIZE_PX*A.SCALE*0.75);
     t.assert(arcs.length>=2,
       `no ring is painted on the spot while the repair runs `+
       `(repair ${L.repair.toFixed(2)}s, ${arcs.length} arcs at the spot, `+
@@ -198,7 +198,7 @@ test('the leak is drawn where it is, not just where it is computed', () => {
    The Plumber used to vanish whenever a Lifeform sorted north of it, which is
    most frames in the bottom half of a floor. Cause: drawLifeform pushed two
    canvas states and popped one, so drawAgent's two restores popped the wrong
-   pair and its FLOOR CLIP stayed live for the rest of the frame — the player,
+   pair and its TILE_TYPES.FLOOR CLIP stayed live for the rest of the frame — the player,
    drawn after it in the y-sort, was clipped to the five tiles around the
    Lifeform. Nothing about the player changed; everything after the agent did.
 
@@ -225,7 +225,7 @@ console.log('[29] canvas state — nothing outlives the frame that opened it');
        the clip is opened first and the Plumber is drawn inside it. */
     const p = G.plumber;
     G.lifeforms.length = 0;
-    G.lifeforms[0] = { x:p.x, y:p.y-4, rise:1, face:0, state:'WALK_SPEED_TILES_PER_SECOND', born:1, huntT:0,
+    G.lifeforms[0] = { x:p.x, y:p.y-4, rise:1, face:0, state:'WALK', born:1, huntT:0,
                      searchT:0, target:null, path:[], stuck:0, ripT:0 };
     update(0.016);
 
@@ -362,7 +362,7 @@ test('[radar] the sweep is a green wash', () => {
   c.arc = function(...a){ arcs.push({r:a[2], lw:this.lineWidth}); return realArc.apply(this,a); };
   const clear = ()=>{ fills.length=0; arcs.length=0; };
   const isTint = f => f.comp==='multiply' && f.style==='rgb(14, 83, 18)';
-  const MAP_PX = 76*A.TILE_SIZE_PX*A.SCALE;
+  const MAP_PX = 76*A.MAP.TILE_SIZE_PX*A.SCALE;
 
   try {
     /* off: no tint, and nothing that looks like a sonar ring */

@@ -1,9 +1,9 @@
 import { TAU } from '../cast/primitives.js';
-import { TILE_SIZE_PX, BATTERY_MAX_CHARGE, BATTERY_GAUGE_CELLS, BATTERY_LOW_CHARGE } from '../config/constants.js';
+import { BATTERY, MAP } from '../config/constants.js';
 
 const RING_R = 0.38;
 const CELL_LW = 2;
-const CELL_SPAN = TAU/BATTERY_GAUGE_CELLS;
+const CELL_SPAN = TAU/BATTERY.GAUGE_CELLS;
 const CELL_TRIM = 3*Math.PI/180;
 const DISC_PAD = 2;
 const DANGER = '#d8503c';
@@ -18,11 +18,11 @@ const SCOPE_FADE = 0.4;
 const LABEL_OUTLINE = 'rgba(12,14,10,0.9)';
 
 function cells(ctx, cx, cy, lit, color){
-  const r = RING_R*TILE_SIZE_PX;
+  const r = RING_R*MAP.TILE_SIZE_PX;
   ctx.fillStyle = DISC;
   ctx.beginPath(); ctx.arc(cx, cy, r + CELL_LW/2 + DISC_PAD, 0, TAU); ctx.fill();
   ctx.lineWidth = CELL_LW;
-  for (let i = 0; i < BATTERY_GAUGE_CELLS; i++){
+  for (let i = 0; i < BATTERY.GAUGE_CELLS; i++){
     const a0 = -Math.PI/2 + i*CELL_SPAN + CELL_TRIM;
     ctx.strokeStyle = i < lit ? color : UNLIT;
     ctx.beginPath();
@@ -32,7 +32,7 @@ function cells(ctx, cx, cy, lit, color){
 }
 
 function scope(ctx, cx, cy, color, live, angle){
-  const r = RING_R*TILE_SIZE_PX;
+  const r = RING_R*MAP.TILE_SIZE_PX;
   const baseAlpha0 = ctx.globalAlpha;
   ctx.globalAlpha = baseAlpha0*SCOPE_FADE;
   const reach = (r - CELL_LW/2)*SCOPE_REACH;
@@ -96,9 +96,9 @@ function label(ctx, text, color, cx, cy){
  * @param {number} angle
  */
 export function drawBatteryMeter(ctx, cx, cy, battery, radar, angle){
-  const progress = Math.min(1, Math.max(0, battery/BATTERY_MAX_CHARGE));
-  const color = battery <= BATTERY_LOW_CHARGE ? DANGER : GREEN;
-  const lit = Math.ceil(progress*BATTERY_GAUGE_CELLS - 1e-9);
+  const progress = Math.min(1, Math.max(0, battery/BATTERY.MAX_CHARGE));
+  const color = battery <= BATTERY.LOW_CHARGE ? DANGER : GREEN;
+  const lit = Math.ceil(progress*BATTERY.GAUGE_CELLS - 1e-9);
   cells(ctx, cx, cy, lit, color);
   scope(ctx, cx, cy, color, radar, angle);
   label(ctx, `${Math.ceil(progress*100)}%`, color, cx, cy);

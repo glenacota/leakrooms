@@ -1,4 +1,4 @@
-import { BAKE_FLOOR, FLOOR, MAP_HEIGHT_TILES, MAP_WIDTH_TILES, WALL } from '../config/constants.js';
+import { MAP, ROOM_LIGHT, TILE_TYPES } from '../config/constants.js';
 import { makeLos } from '../util/grid.js';
 import { wallNeighbourMax } from './walls.js';
 
@@ -13,58 +13,58 @@ import { wallNeighbourMax } from './walls.js';
  */
 export function computeLightArr(level, los) {
   const grid = level.grid;
-  const at = (x, y) => grid[y * MAP_WIDTH_TILES + x];
+  const at = (x, y) => grid[y * MAP.WIDTH_TILES + x];
   if (!los) los = makeLos(grid);
 
-  const lightArr = new Float32Array(MAP_WIDTH_TILES * MAP_HEIGHT_TILES);
+  const lightArr = new Float32Array(MAP.WIDTH_TILES * MAP.HEIGHT_TILES);
 
   // Step 1: each fixture lights the tiles it can see, fading with distance. A tile keeps the brightest light that reaches it.
   for (const f of level.fixtures) {
     const R2 = f.r * f.r;
-    const x0 = Math.max(0, Math.floor(f.x - f.r)), x1 = Math.min(MAP_WIDTH_TILES - 1, Math.ceil(f.x + f.r));
-    const y0 = Math.max(0, Math.floor(f.y - f.r)), y1 = Math.min(MAP_HEIGHT_TILES - 1, Math.ceil(f.y + f.r));
+    const x0 = Math.max(0, Math.floor(f.x - f.r)), x1 = Math.min(MAP.WIDTH_TILES - 1, Math.ceil(f.x + f.r));
+    const y0 = Math.max(0, Math.floor(f.y - f.r)), y1 = Math.min(MAP.HEIGHT_TILES - 1, Math.ceil(f.y + f.r));
     for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
       const d2 = (x + 0.5 - f.x) ** 2 + (y + 0.5 - f.y) ** 2;
       if (d2 > R2) continue;
-      if (at(x, y) === WALL) continue;
+      if (at(x, y) === TILE_TYPES.WALL) continue;
       if (!los(f.x, f.y, x + 0.5, y + 0.5)) continue;
       const fall = 1 - Math.sqrt(d2) / f.r;
       const v = Math.min(1, f.i * fall * fall * 1.95);
-      const i0 = y * MAP_WIDTH_TILES + x;
+      const i0 = y * MAP.WIDTH_TILES + x;
       if (v > lightArr[i0]) lightArr[i0] = v;
     }
   }
   /* Step 2: a 3x3 blur for a soft falloff. A wider blur would dilute a single
      lit tile into nothing and leave the floor black between fixtures. */
   const tmp = new Float32Array(lightArr);
-  for (let y = 0; y < MAP_HEIGHT_TILES; y++) for (let x = 0; x < MAP_WIDTH_TILES; x++) {
+  for (let y = 0; y < MAP.HEIGHT_TILES; y++) for (let x = 0; x < MAP.WIDTH_TILES; x++) {
     let s = 0, n = 0;
     for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
       const nx = x + dx, ny = y + dy;
-      if (nx < 0 || ny < 0 || nx >= MAP_WIDTH_TILES || ny >= MAP_HEIGHT_TILES) continue;
-      s += tmp[ny * MAP_WIDTH_TILES + nx]; n++;
+      if (nx < 0 || ny < 0 || nx >= MAP.WIDTH_TILES || ny >= MAP.HEIGHT_TILES) continue;
+      s += tmp[ny * MAP.WIDTH_TILES + nx]; n++;
     }
-    lightArr[y * MAP_WIDTH_TILES + x] = s / n;
+    lightArr[y * MAP.WIDTH_TILES + x] = s / n;
   }
-  /* Step 3: a minimum brightness for floor tiles. It is high (BAKE_FLOOR), because
+  /* Step 3: a minimum brightness for floor tiles. It is high (ROOM_LIGHT.BAKE_FLOOR), because
      darkness is the mask's job: a room you cannot see is multiplied by zero
      whatever its lights are doing. The bake only describes lit surfaces, so a
      visible room shows the palette at full strength with the fixtures as bright
      pools on top. */
-  for (let y = 0; y < MAP_HEIGHT_TILES; y++) for (let x = 0; x < MAP_WIDTH_TILES; x++) {
-    const i = y * MAP_WIDTH_TILES + x;
-    if (at(x, y) === FLOOR && lightArr[i] < BAKE_FLOOR) lightArr[i] = BAKE_FLOOR;
+  for (let y = 0; y < MAP.HEIGHT_TILES; y++) for (let x = 0; x < MAP.WIDTH_TILES; x++) {
+    const i = y * MAP.WIDTH_TILES + x;
+    if (at(x, y) === TILE_TYPES.FLOOR && lightArr[i] < ROOM_LIGHT.BAKE_FLOOR) lightArr[i] = ROOM_LIGHT.BAKE_FLOOR;
   }
   /* Step 4: walls catch light from the floor beside them, because their faces
      are visible. This must read the values AFTER the blur and the minimum.
      Reading the earlier values gave walls next to unlit floor almost no light,
      and every partition looked like a hole in the ground. */
   const wallSrc = new Float32Array(lightArr);
-  for (let y = 0; y < MAP_HEIGHT_TILES; y++) for (let x = 0; x < MAP_WIDTH_TILES; x++) {
-    const i = y * MAP_WIDTH_TILES + x;
-    if (at(x, y) !== WALL) continue;
+  for (let y = 0; y < MAP.HEIGHT_TILES; y++) for (let x = 0; x < MAP.WIDTH_TILES; x++) {
+    const i = y * MAP.WIDTH_TILES + x;
+    if (at(x, y) !== TILE_TYPES.WALL) continue;
     // A wall deep inside a block still gets a little bounce light from its room.
-    lightArr[i] = Math.max(wallNeighbourMax(grid, wallSrc, i) * 0.95, BAKE_FLOOR * 0.80);
+    lightArr[i] = Math.max(wallNeighbourMax(grid, wallSrc, i) * 0.95, ROOM_LIGHT.BAKE_FLOOR * 0.80);
   }
   return lightArr;
 }

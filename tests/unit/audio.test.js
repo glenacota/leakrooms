@@ -143,11 +143,11 @@ console.log('[23] audio — the graph reaches the destination');
       return hi;
     };
     const walk   = peak(()=>A.Audio_.step(1, 0.22));
-    const sprint = peak(()=>A.Audio_.step(1, A.SPRINT_NOISE));
+    const sprint = peak(()=>A.Audio_.step(1, A.NOISE.SPRINT));
     t.assert(sprint > walk*1.5,
       `a sprinting footstep peaks at ${(sprint/walk).toFixed(2)}x a walking one — the mix does not know you are running`);
-    const wrench = peak(()=>A.Audio_.wrench(A.REPAIR_NOISE));
-    const door   = peak(()=>A.Audio_.door(A.DOOR_NOISE));
+    const wrench = peak(()=>A.Audio_.wrench(A.NOISE.REPAIR));
+    const door   = peak(()=>A.Audio_.door(A.NOISE.DOOR));
     t.assert(wrench > walk, 'the wrench is quieter than a footstep');
     t.assert(door >= wrench, 'cycling the door is quieter than the wrench');
   }
@@ -173,7 +173,7 @@ console.log('[23] audio — the graph reaches the destination');
       'the note scheduler built nothing after half a minute — the "music" is three drones');
 
     /* and it is quiet by construction: a bed that can out-loud the wrench is
-       not a bed. Every voice it owns must start well under LOUD. */
+       not a bed. Every voice it owns must start well under NOISE.LOUD. */
     A.Audio_.ambience(false);
     t.assert(A.Audio_.ambOn===false, 'ambience(false) did not turn the bed off');
     t.assert(A.Audio_._ambTimer===null, 'the note scheduler survived the bed — it will keep firing forever');

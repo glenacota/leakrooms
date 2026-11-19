@@ -19,7 +19,7 @@
      open pipes still reach stays put.
    ============================================================ */
 
-import { FLOOR, LEAK_HEADSTART, LEAK_RETREAT_SECONDS_PER_TILE, LEAK_SPREAD_SECONDS_PER_TILE, MAP_HEIGHT_TILES, MAP_WIDTH_TILES, WET_EDGE, WET_TILE_FALL_SECONDS, WET_TILE_RISE_SECONDS } from '../config/constants.js';
+import { LEAK, MAP, TILE_TYPES, WATER } from '../config/constants.js';
 import { emit, EVENT } from '../util/events.js';
 import { hasOpenLeaks, openLeakSpots } from './leaks.js';
 import { distanceField } from './path.js';
@@ -47,7 +47,7 @@ import { distanceField } from './path.js';
 
 /* Sets up the flood for a new floor, and pre-warms it. Runs inside buildFloor. */
 export function initFlood(floodState) {
-  floodState.wetArr = new Float32Array(MAP_WIDTH_TILES * MAP_HEIGHT_TILES);
+  floodState.wetArr = new Float32Array(MAP.WIDTH_TILES * MAP.HEIGHT_TILES);
   const sources = openLeakSpots(floodState);
   const ff = distanceField(floodState.grid, sources);
   floodState.waterDist = ff.dist;
@@ -68,18 +68,18 @@ export function initFlood(floodState) {
   floodState.wetSum = 0;
   floodState.wetEdgeD = -1;
   floodState.wetFloor = floodState.wetByDist.length;
-  /* Pre-warm: set the flood directly to where it would be after LEAK_HEADSTART
+  /* Pre-warm: set the flood directly to where it would be after LEAK.HEADSTART_SECONDS
      seconds. The end state is exactly "everything inside the front is fully
      wet". wetSum is added up in the same pass, so the sum and the array start
      in agreement. */
   {
-    const front = Math.min(floodState.wetMaxDist, LEAK_HEADSTART / LEAK_SPREAD_SECONDS_PER_TILE);
+    const front = Math.min(floodState.wetMaxDist, LEAK.HEADSTART_SECONDS / LEAK.SPREAD_SECONDS_PER_TILE);
     /* Every open pipe starts at the same front. The union of their walking
        fields is then exactly the nearest-leak field this function already built,
        so the pre-warm, and the golden floor's coverage, do not move. */
     floodState.leakFront = floodState.leaks.map(L => (L.fixed ? 0 : front));
     floodState.leakWaterDist = floodState.leaks.map(L =>
-      (L.fixed ? null : distanceField(floodState.grid, [L.sy * MAP_WIDTH_TILES + L.sx]).dist));
+      (L.fixed ? null : distanceField(floodState.grid, [L.sy * MAP.WIDTH_TILES + L.sx]).dist));
     floodState.wetFront = front;
     let sum = 0;
     // Every wet tile is within the front, so the edge is known exactly here.
@@ -102,15 +102,15 @@ export function seedSplash(floodState, wx, wy, amount) {
   if (!floodState.wetArr) return;
   const cx = Math.floor(wx), cy = Math.floor(wy);
   for (let y = cy - 1; y <= cy + 1; y++) for (let x = cx - 1; x <= cx + 1; x++) {
-    if (x < 0 || y < 0 || x >= MAP_WIDTH_TILES || y >= MAP_HEIGHT_TILES) continue;
-    const i = y * MAP_WIDTH_TILES + x;
-    if (floodState.grid[i] !== FLOOR) continue;
+    if (x < 0 || y < 0 || x >= MAP.WIDTH_TILES || y >= MAP.HEIGHT_TILES) continue;
+    const i = y * MAP.WIDTH_TILES + x;
+    if (floodState.grid[i] !== TILE_TYPES.FLOOR) continue;
     const dd = Math.hypot(x + 0.5 - wx, y + 0.5 - wy);
     const w = Math.min(1, Math.max(0, amount * (1 - dd / 1.8)));
     if (w > floodState.wetArr[i]) {
       floodState.wetSum += w - floodState.wetArr[i]; floodState.wetArr[i] = w;
       emit(EVENT.tileChanged, i);
-      if (w > WET_EDGE && floodState.waterDist[i] > floodState.wetEdgeD) floodState.wetEdgeD = floodState.waterDist[i];
+      if (w > WATER.EDGE_THRESHOLD && floodState.waterDist[i] > floodState.wetEdgeD) floodState.wetEdgeD = floodState.waterDist[i];
     }
   }
 }
@@ -120,8 +120,8 @@ export function seedSplash(floodState, wx, wy, amount) {
 export function wetAt(floodState, wx, wy) {
   if (!floodState.wetArr) return 0;
   const x = Math.floor(wx), y = Math.floor(wy);
-  if (x < 0 || y < 0 || x >= MAP_WIDTH_TILES || y >= MAP_HEIGHT_TILES) return 0;
-  return floodState.wetArr[y * MAP_WIDTH_TILES + x];
+  if (x < 0 || y < 0 || x >= MAP.WIDTH_TILES || y >= MAP.HEIGHT_TILES) return 0;
+  return floodState.wetArr[y * MAP.WIDTH_TILES + x];
 }
 
 /* True when a leak whose front is still moving reaches tile i. "Still moving"
@@ -141,8 +141,8 @@ function leakReaches(floodState, i) {
 /**
  * Advances the water by one step.
  *
- * Each open pipe pushes its front out at LEAK_SPREAD_SECONDS_PER_TILE. A sealed pipe pulls its
- * own front back in at LEAK_RETREAT_SECONDS_PER_TILE, from wherever it stood when sealed. Going
+ * Each open pipe pushes its front out at LEAK.SPREAD_SECONDS_PER_TILE. A sealed pipe pulls its
+ * own front back in at LEAK.RETREAT_SECONDS_PER_TILE, from wherever it stood when sealed. Going
  * in is much faster than coming out, or the floor would still be draining long
  * after the work is done. The recession stays radial: each front is measured
  * from its pipe, so water pulls back toward that pipe and not as a uniform fade.
@@ -165,8 +165,8 @@ export function tickFlood(floodState, dt) {
   for (let k = 0; k < fronts.length; k++) {
     const prev = fronts[k];
     const next = floodState.leaks[k].fixed
-      ? Math.max(0, prev - dt / LEAK_RETREAT_SECONDS_PER_TILE)
-      : Math.min(floodState.wetMaxDist, prev + dt / LEAK_SPREAD_SECONDS_PER_TILE);
+      ? Math.max(0, prev - dt / LEAK.RETREAT_SECONDS_PER_TILE)
+      : Math.min(floodState.wetMaxDist, prev + dt / LEAK.SPREAD_SECONDS_PER_TILE);
     if (next !== prev) moved = true;
     fronts[k] = next;
     if (next > newMax) newMax = next;
@@ -175,14 +175,14 @@ export function tickFlood(floodState, dt) {
   if (!moved && floodState.wetEdgeD < 0) return;
 
   /* Every tile inside a front still moves toward its target, because a tile
-     keeps darkening for WET_TILE_RISE_SECONDS seconds after the front passes it.
+     keeps darkening for WATER.TILE_RISE_SECONDS seconds after the front passes it.
 
      The bound is the larger of the wet edge and the furthest front, so the
      drying rings outside the front are still visited. */
   const boundD = Math.max(floodState.wetEdgeD, Math.ceil(Math.max(prevMax, newMax)));
   const hi = floodState.wetIndexAtDist[Math.min(boundD + 1, floodState.wetIndexAtDist.length - 1)] - 1;
   if (hi < 0) return;
-  const tau = open ? WET_TILE_RISE_SECONDS : WET_TILE_FALL_SECONDS;
+  const tau = open ? WATER.TILE_RISE_SECONDS : WATER.TILE_FALL_SECONDS;
   const k = 1 - Math.exp(-dt / tau);
   let sum = floodState.wetSum;
   let changed = false;
@@ -197,14 +197,14 @@ export function tickFlood(floodState, dt) {
       const next = cur + (target - cur) * k;
       /* A tile that has faded below the edge goes to exactly zero, and one very
          close to full goes to exactly one. */
-      const snapped = target === 0 ? (next <= WET_EDGE ? 0 : next)
+      const snapped = target === 0 ? (next <= WATER.EDGE_THRESHOLD ? 0 : next)
                                    : ((1 - next) < 0.004 ? 1 : next);
       sum += snapped - cur;
       floodState.wetArr[i] = snapped;
       changed = true;
       emit(EVENT.tileChanged, i);
     }
-    if (floodState.wetArr[i] > WET_EDGE) edge = floodState.waterDist[i];
+    if (floodState.wetArr[i] > WATER.EDGE_THRESHOLD) edge = floodState.waterDist[i];
   }
   floodState.wetEdgeD = edge;
   if (!changed) return;

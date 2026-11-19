@@ -1,4 +1,4 @@
-import { LOUD } from '../config/constants.js';
+import { NOISE } from '../config/constants.js';
 import { STATE } from '../game/run.js';
 import { G } from '../sim/state.js';
 import { emit, on, EVENT } from '../util/events.js';
@@ -10,11 +10,11 @@ let f1Door = false;
 let doorSince = 0;      // performance.now() the plumber arrived at a locked door
 let doorLast = -1e9;    // performance.now() of the last DOOR LOCKED cue
 
-/** Flashes once when the player's own noise first crosses LOUD in a run. */
+/** Flashes once when the player's own noise first crosses NOISE.LOUD in a run. */
 export function tickLoudFlash(){
-  if (!announced.has('LOUD') && G && G.selfNoise >= LOUD){
-    announced.add('LOUD');
-    emit(EVENT.flash, { cat: 'danger', text: 'YOU ARE LOUD. SOMETHING UNWANTED MAY HEAR YOU' });
+  if (!announced.has('NOISE.LOUD') && G && G.selfNoise >= NOISE.LOUD){
+    announced.add('NOISE.LOUD');
+    emit(EVENT.flash, { cat: 'danger', text: 'YOU ARE NOISE.LOUD. SOMETHING UNWANTED MAY HEAR YOU' });
   }
 }
 

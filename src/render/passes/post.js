@@ -1,4 +1,4 @@
-import { VHS_PASS } from '../../config/constants.js';
+import { RENDER } from '../../config/constants.js';
 import { G } from '../../sim/state.js';
 import { SETTINGS } from '../../settings/store.js';
 import { cvs, ctx } from '../canvas.js';
@@ -75,11 +75,11 @@ export function post(rc){
      snapshot is taken before the passes that read it.
 
      The strength is now a setting again (SETTINGS.crt). The default is 1.0, which
-     is the full VHS_PASS and the exact look the game has always shipped. The
-     setting is a fraction of the constant, not a replacement for it: VHS_PASS is
+     is the full RENDER.VHS_PASS and the exact look the game has always shipped. The
+     setting is a fraction of the constant, not a replacement for it: RENDER.VHS_PASS is
      still the ceiling and the identity of the tape look. */
   if (SETTINGS.crt === 0) return;
-  const vhs = VHS_PASS * SETTINGS.crt * (G.radar ? 5000 : 1);
+  const vhs = RENDER.VHS_PASS * SETTINGS.crt * (G.radar ? 5000 : 1);
   /* The snapshot gives the chroma ghost something to read that does not include
      the ghost itself. It is a QUARTER-size copy of the canvas, scaled back up
      with smoothing, which looks like a slightly soft ghost. It is still taken
@@ -103,7 +103,7 @@ export function post(rc){
   const bandY = ((t*0.055) % (cvs.height+220)) - 110;
   const tg=ctx.createLinearGradient(0,bandY,0,bandY+110);
   tg.addColorStop(0,'rgba(255,255,255,0)');
-  tg.addColorStop(0.5,`rgba(255,248,220,${0.05 * VHS_PASS * SETTINGS.crt})`);
+  tg.addColorStop(0.5,`rgba(255,248,220,${0.05 * RENDER.VHS_PASS * SETTINGS.crt})`);
   tg.addColorStop(1,'rgba(255,255,255,0)');
   ctx.fillStyle=tg; ctx.fillRect(0,bandY,cvs.width,110);
 

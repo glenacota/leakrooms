@@ -1,4 +1,4 @@
-import { FLOOR, ROOM_SCOPE_FALLOFF, MAP_HEIGHT_TILES, MAP_WIDTH_TILES } from '../config/constants.js';
+import { MAP, ROOM_LIGHT, TILE_TYPES } from '../config/constants.js';
 import { distanceField } from './path.js';
 
 /**
@@ -13,31 +13,31 @@ import { distanceField } from './path.js';
  */
 export function labelRegions(level) {
   const grid = level.grid;
-  const at = (x, y) => grid[y * MAP_WIDTH_TILES + x];
+  const at = (x, y) => grid[y * MAP.WIDTH_TILES + x];
 
   /* ---------- Rooms ----------
      Room rectangles come from separate BSP leaves, so they never overlap. Only
-     FLOOR tiles inside a rectangle are labelled. Labelling the whole rectangle
+     TILE_TYPES.FLOOR tiles inside a rectangle are labelled. Labelling the whole rectangle
      would include the small wall stubs that rooms are carved with, and a stub
      would then take its room's brightness directly and skip the
      brightest-neighbour rule used for walls (see scopeRoomLight), so a wall in the
      middle of a room rendered darker than the floor around it. Walls are lit BY
      the spaces around them. This also keeps a stub from splitting a room into
      two regions, which is right: a stub is furniture, not a doorway. */
-  const regionOf = new Int32Array(MAP_WIDTH_TILES * MAP_HEIGHT_TILES).fill(-1);
+  const regionOf = new Int32Array(MAP.WIDTH_TILES * MAP.HEIGHT_TILES).fill(-1);
   level.rooms.forEach((r, ri) => {
     for (let y = r.ry; y < r.ry + r.rh; y++)
       for (let x = r.rx; x < r.rx + r.rw; x++)
-        if (at(x, y) === FLOOR) regionOf[y * MAP_WIDTH_TILES + x] = ri;
+        if (at(x, y) === TILE_TYPES.FLOOR) regionOf[y * MAP.WIDTH_TILES + x] = ri;
   });
   /* ---------- Corridors ----------
      The tiles between rooms are not in any rectangle. Each connected group of
      them is flood filled into its own region, because standing in a doorway
      lights the doorway, not the whole room behind you. */
   let nRegions = level.rooms.length;
-  for (let y = 0; y < MAP_HEIGHT_TILES; y++) for (let x = 0; x < MAP_WIDTH_TILES; x++) {
-    const i0 = y * MAP_WIDTH_TILES + x;
-    if (at(x, y) !== FLOOR || regionOf[i0] >= 0) continue;
+  for (let y = 0; y < MAP.HEIGHT_TILES; y++) for (let x = 0; x < MAP.WIDTH_TILES; x++) {
+    const i0 = y * MAP.WIDTH_TILES + x;
+    if (at(x, y) !== TILE_TYPES.FLOOR || regionOf[i0] >= 0) continue;
     const id = nRegions++;
     const { order } = distanceField(grid, [i0], {canEnter: i => regionOf[i] < 0});
     for (const i of order) regionOf[i] = id;
@@ -50,10 +50,10 @@ export function labelRegions(level) {
      lowest id wins, which keeps room indices stable. */
   const parent = Array.from({ length: nRegions }, (_, i) => i);
   const find = a => { while (parent[a] !== a) a = parent[a] = parent[parent[a]]; return a; };
-  for (let y = 1; y < MAP_HEIGHT_TILES - 1; y++) for (let x = 1; x < MAP_WIDTH_TILES - 1; x++) {
+  for (let y = 1; y < MAP.HEIGHT_TILES - 1; y++) for (let x = 1; x < MAP.WIDTH_TILES - 1; x++) {
     let first = -1, open = true;
     for (let dy = -1; dy <= 1 && open; dy++) for (let dx = -1; dx <= 1; dx++) {
-      const r = regionOf[(y + dy) * MAP_WIDTH_TILES + x + dx];
+      const r = regionOf[(y + dy) * MAP.WIDTH_TILES + x + dx];
       if (r < 0) { open = false; break; }
       if (first < 0) first = r;
       else { const a = find(first), b = find(r); if (a !== b) parent[Math.max(a, b)] = Math.min(a, b); }
@@ -77,12 +77,12 @@ export function labelRegions(level) {
      graph and not just "the next room over". */
   const regAdj = Array.from({ length: nRegions }, () => []);
   const regSeen = new Set();
-  for (let y = 0; y < MAP_HEIGHT_TILES; y++) for (let x = 0; x < MAP_WIDTH_TILES; x++) {
-    const a = regionOf[y * MAP_WIDTH_TILES + x];
+  for (let y = 0; y < MAP.HEIGHT_TILES; y++) for (let x = 0; x < MAP.WIDTH_TILES; x++) {
+    const a = regionOf[y * MAP.WIDTH_TILES + x];
     if (a < 0) continue;
     for (const [nx, ny] of [[x + 1, y], [x, y + 1]]) {
-      if (nx >= MAP_WIDTH_TILES || ny >= MAP_HEIGHT_TILES) continue;
-      const b = regionOf[ny * MAP_WIDTH_TILES + nx];
+      if (nx >= MAP.WIDTH_TILES || ny >= MAP.HEIGHT_TILES) continue;
+      const b = regionOf[ny * MAP.WIDTH_TILES + nx];
       if (b < 0 || a === b) continue;
       const key = a < b ? a + ',' + b : b + ',' + a;
       if (regSeen.has(key)) continue;
@@ -94,10 +94,10 @@ export function labelRegions(level) {
   return { regionOf, regionAdj: regAdj, regionCount: nActual };
 }
 
-// How much of a room's own light you can see through `hops` gates (see ROOM_SCOPE_FALLOFF).
+// How much of a room's own light you can see through `hops` gates (see ROOM_LIGHT.SCOPE_FALLOFF).
 export function scopeFor(hops) {
   if (hops < 0) return 0;
-  return ROOM_SCOPE_FALLOFF[Math.min(hops, ROOM_SCOPE_FALLOFF.length - 1)];
+  return ROOM_LIGHT.SCOPE_FALLOFF[Math.min(hops, ROOM_LIGHT.SCOPE_FALLOFF.length - 1)];
 }
 
 /**
@@ -110,6 +110,6 @@ export function scopeFor(hops) {
  */
 export function regionAt(regionOf, x, y){
   const tx = Math.floor(x), ty = Math.floor(y);
-  if (tx < 0 || ty < 0 || tx >= MAP_WIDTH_TILES || ty >= MAP_HEIGHT_TILES) return -1;
-  return regionOf[ty * MAP_WIDTH_TILES + tx];
+  if (tx < 0 || ty < 0 || tx >= MAP.WIDTH_TILES || ty >= MAP.HEIGHT_TILES) return -1;
+  return regionOf[ty * MAP.WIDTH_TILES + tx];
 }

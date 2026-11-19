@@ -3,7 +3,7 @@
    One factory per domain object behind the G facade.
    ============================================================ */
 
-import { BATTERY_MAX_CHARGE, DARK_ROOM, MAP_HEIGHT_TILES, MAP_WIDTH_TILES, SPRINT_STAMINA_SECONDS, WALL } from '../config/constants.js';
+import { BATTERY, MAP, MOVEMENT, ROOM_LIGHT, TILE_TYPES } from '../config/constants.js';
 import { FLOOR_CLOCK } from '../config/tuning.js';
 import { makeLos } from '../util/grid.js';
 import { mulberry32 } from '../util/rng.js';
@@ -17,13 +17,13 @@ import { spawnLifeforms } from './spawn.js';
  */
 export function createLevelState(level, floorNum, seed) {
   const grid = level.grid;
-  const at = (x, y) => grid[y * MAP_WIDTH_TILES + x];
-  const inB = (x, y) => x >= 0 && y >= 0 && x < MAP_WIDTH_TILES && y < MAP_HEIGHT_TILES;
+  const at = (x, y) => grid[y * MAP.WIDTH_TILES + x];
+  const inB = (x, y) => x >= 0 && y >= 0 && x < MAP.WIDTH_TILES && y < MAP.HEIGHT_TILES;
   const los = makeLos(grid);
 
   // Index of all wall tiles in row order (for vision cone)
   const wallIdx = [];
-  for (let i = 0; i < MAP_WIDTH_TILES * MAP_HEIGHT_TILES; i++) if (grid[i] === WALL) wallIdx.push(i);
+  for (let i = 0; i < MAP.WIDTH_TILES * MAP.HEIGHT_TILES; i++) if (grid[i] === TILE_TYPES.WALL) wallIdx.push(i);
 
   return {
     floor: floorNum,
@@ -71,8 +71,8 @@ export function createLeakState(level) {
  */
 export function createPlumberState(level) {
   return {
-    plumber: { x: level.spawn.x, y: level.spawn.y, face: -Math.PI / 2, stepT: 0, stepDur: 0.46, moving: false, stamina: SPRINT_STAMINA_SECONDS },
-    batt: BATTERY_MAX_CHARGE,
+    plumber: { x: level.spawn.x, y: level.spawn.y, face: -Math.PI / 2, stepT: 0, stepDur: 0.46, moving: false, stamina: MOVEMENT.SPRINT_STAMINA_SECONDS },
+    batt: BATTERY.MAX_CHARGE,
     radar: false,
     radarRattleT: 0,
     battPulseT: 0,
@@ -101,7 +101,7 @@ export function createLifeformState(level, seed, floorNum) {
  */
 export function createFloodState() {
   return {
-    wetArr: new Float32Array(MAP_WIDTH_TILES * MAP_HEIGHT_TILES),
+    wetArr: new Float32Array(MAP.WIDTH_TILES * MAP.HEIGHT_TILES),
     waterDist: null,
     wetByDist: [],
     wetFront: 0,
@@ -122,13 +122,13 @@ export function createFloodState() {
  */
 export function createVisionState() {
   return {
-    visArr: new Float32Array(MAP_WIDTH_TILES * MAP_HEIGHT_TILES).fill(DARK_ROOM),
-    visFrom: new Float32Array(MAP_WIDTH_TILES * MAP_HEIGHT_TILES).fill(DARK_ROOM),
-    visTgt: new Float32Array(MAP_WIDTH_TILES * MAP_HEIGHT_TILES).fill(DARK_ROOM),
-    visScratch: new Float32Array(MAP_WIDTH_TILES * MAP_HEIGHT_TILES),
-    maskArr: new Float32Array(MAP_WIDTH_TILES * MAP_HEIGHT_TILES),
-    maskTgt: new Float32Array(MAP_WIDTH_TILES * MAP_HEIGHT_TILES),
-    coneArr: new Float32Array(MAP_WIDTH_TILES * MAP_HEIGHT_TILES),
+    visArr: new Float32Array(MAP.WIDTH_TILES * MAP.HEIGHT_TILES).fill(ROOM_LIGHT.DARK_LEVEL),
+    visFrom: new Float32Array(MAP.WIDTH_TILES * MAP.HEIGHT_TILES).fill(ROOM_LIGHT.DARK_LEVEL),
+    visTgt: new Float32Array(MAP.WIDTH_TILES * MAP.HEIGHT_TILES).fill(ROOM_LIGHT.DARK_LEVEL),
+    visScratch: new Float32Array(MAP.WIDTH_TILES * MAP.HEIGHT_TILES),
+    maskArr: new Float32Array(MAP.WIDTH_TILES * MAP.HEIGHT_TILES),
+    maskTgt: new Float32Array(MAP.WIDTH_TILES * MAP.HEIGHT_TILES),
+    coneArr: new Float32Array(MAP.WIDTH_TILES * MAP.HEIGHT_TILES),
     visRegion: -1,
     visStep: 0,
     visFadeT: 0,

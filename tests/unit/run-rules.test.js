@@ -108,23 +108,23 @@ test('the run is five levels, three minutes and one door', () => {
   /* The water has to be readable. At 1.4s a tile the floor was a lake inside
      half a minute, and following the front downhill stopped being something
      a player does. */
-  t.assert(A.LEAK_SPREAD_SECONDS_PER_TILE >= 3, `the water front is ${A.LEAK_SPREAD_SECONDS_PER_TILE}s per tile — that is the old, unreadable speed`);
+  t.assert(A.LEAK.SPREAD_SECONDS_PER_TILE >= 3, `the water front is ${A.LEAK.SPREAD_SECONDS_PER_TILE}s per tile — that is the old, unreadable speed`);
   /* The recession has to clear the building inside the clock it is played
      against. The flood reaches G.wetMaxDist, 82 to 148 tiles out depending on
      the floor, so the drain is measured against the largest of those. */
-  t.assert(A.LEAK_RETREAT_SECONDS_PER_TILE < A.LEAK_SPREAD_SECONDS_PER_TILE,
-    `the recession is ${A.LEAK_RETREAT_SECONDS_PER_TILE}s/tile against an arrival of ${A.LEAK_SPREAD_SECONDS_PER_TILE} — the drain is a mop-up`);
+  t.assert(A.LEAK.RETREAT_SECONDS_PER_TILE < A.LEAK.SPREAD_SECONDS_PER_TILE,
+    `the recession is ${A.LEAK.RETREAT_SECONDS_PER_TILE}s/tile against an arrival of ${A.LEAK.SPREAD_SECONDS_PER_TILE} — the drain is a mop-up`);
   /* A typical floor, not the worst one. A floor flooded to its far corner
      should still be draining when the clock goes, but a normal one must not be
      soaking on the walk home, so the bound is a mid-range floor plus the tail
      after the front reaches the leaks. */
-  t.assert(110*A.LEAK_RETREAT_SECONDS_PER_TILE + 25 < A.FLOOR_CLOCK,
-    `a typical floor (110 tiles at ${A.LEAK_RETREAT_SECONDS_PER_TILE}s plus the tail) does not drain inside the ${A.FLOOR_CLOCK}s clock`);
+  t.assert(110*A.LEAK.RETREAT_SECONDS_PER_TILE + 25 < A.FLOOR_CLOCK,
+    `a typical floor (110 tiles at ${A.LEAK.RETREAT_SECONDS_PER_TILE}s plus the tail) does not drain inside the ${A.FLOOR_CLOCK}s clock`);
   /* The wet band between dry carpet and open flood, in tiles, on both sides.
      It is a band only while the two directions agree. */
   {
-    const bandUp   = A.WET_TILE_RISE_SECONDS / A.LEAK_SPREAD_SECONDS_PER_TILE;
-    const bandDown = A.WET_TILE_FALL_SECONDS / A.LEAK_RETREAT_SECONDS_PER_TILE;
+    const bandUp   = A.WATER.TILE_RISE_SECONDS / A.LEAK.SPREAD_SECONDS_PER_TILE;
+    const bandDown = A.WATER.TILE_FALL_SECONDS / A.LEAK.RETREAT_SECONDS_PER_TILE;
     t.assert(bandDown >= bandUp*0.9,
       `the wet band going out is ${bandDown.toFixed(1)} tiles against ${bandUp.toFixed(1)} coming in — `+
       'the recession dries faster than the waterline leaves and the edge goes hard');

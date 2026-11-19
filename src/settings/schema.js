@@ -10,7 +10,7 @@ export const SETTINGS_SPEC = {
   /* The continuous audio beds (hum, hiss, noise-floor, leak gurgle, drone, title
      ambience) at a level independent of the SFX. */
   ambience:       { default:0.6, type:'range', min:0, max:1 },
-  /* The VHS/tape post-pass strength, as a fraction of VHS_PASS. 1.0 is the full
+  /* The VHS/tape post-pass strength, as a fraction of RENDER.VHS_PASS. 1.0 is the full
      tape look; 0 strips the scanlines, grain, tracking band and chroma ghost. */
   crt:            { default:1.0, type:'range', min:0, max:1 },
   // Whether the flash notes overlay shows at all

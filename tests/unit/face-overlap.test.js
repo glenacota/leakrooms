@@ -1,21 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { loadGame } from '../helpers/harness.js';
-import { MAP_HEIGHT_TILES, MAP_WIDTH_TILES, PLUMBER, WALL_OVERLAP_TILES } from '../../src/config/constants.js';
+import { MAP, TILE_TYPES, PLUMBER, WALL } from '../../src/config/constants.js';
 
 const { A, G } = await loadGame();
-const W = MAP_WIDTH_TILES;
+const W = MAP.WIDTH_TILES;
 
 // Closest the disc gets to a wall, moving in one direction in small steps
 const reach = (x, y, dx, dy) => {
-  while (!A.blocked(x + dx, y + dy, PLUMBER.RADIUS)) { x += dx; y += dy; }
+  while (!A.blocked(x + dx, y + dy, PLUMBER.RADIUS_TILES)) { x += dx; y += dy; }
   return [x, y];
 };
 
 /* From a wall tile and a direction pointing away from it, walk toward the wall
-   along a clear lane of 3 floor tiles and check the body stops WALL_OVERLAP_TILES closer
+   along a clear lane of 3 floor tiles and check the body stops WALL.OVERLAP_TILES closer
    than a full radius, on every side. */
-test('the plumber sinks into a wall by WALL_OVERLAP_TILES on all four sides', () => {
+test('the plumber sinks into a wall by WALL.OVERLAP_TILES on all four sides', () => {
   const counts = { up: 0, down: 0, left: 0, right: 0 };
   const sides = [
     { name: 'up',    ax: 0, ay: 1 },   // wall above, body approaches from below
@@ -26,7 +26,7 @@ test('the plumber sinks into a wall by WALL_OVERLAP_TILES on all four sides', ()
   for (let seed=1; seed<=20; seed++){
     A.buildFloor(0, seed);
     const g = (x, y) => G.grid[y*W + x];
-    for (let y=4; y<MAP_HEIGHT_TILES-4; y++) for (let x=4; x<W-4; x++){
+    for (let y=4; y<MAP.HEIGHT_TILES-4; y++) for (let x=4; x<W-4; x++){
       if (g(x,y) !== 0) continue;
       for (const { name, ax, ay } of sides){
         if (!(g(x+ax,y+ay)===1 && g(x+2*ax,y+2*ay)===1 && g(x+3*ax,y+3*ay)===1)) continue;
@@ -36,7 +36,7 @@ test('the plumber sinks into a wall by WALL_OVERLAP_TILES on all four sides', ()
         // distance from the body centre to the wall's near edge
         const edge = ax ? (ax > 0 ? x + 1 : x) : (ay > 0 ? y + 1 : y);
         const gap = ax ? Math.abs(rx - edge) : Math.abs(ry - edge);
-        assert.ok(Math.abs(gap - (PLUMBER.RADIUS - WALL_OVERLAP_TILES)) < 0.01, `seed ${seed} ${name} at ${x},${y}: gap ${gap}`);
+        assert.ok(Math.abs(gap - (PLUMBER.RADIUS_TILES - WALL.OVERLAP_TILES)) < 0.01, `seed ${seed} ${name} at ${x},${y}: gap ${gap}`);
         counts[name]++;
       }
     }

@@ -1,4 +1,4 @@
-import { DOOR_AJAR_FRACTION, DOOR_SWING_EASE, DOOR_HOLD_SEC, DOOR_NOISE } from '../config/constants.js';
+import { DOOR, NOISE } from '../config/constants.js';
 import { emit, EVENT } from '../util/events.js';
 import { hasOpenLeaks } from './leaks.js';
 import { sustainedNoise } from './noise.js';
@@ -14,7 +14,7 @@ import { sustainedNoise } from './noise.js';
  */
 
 /**
- * The exit door. Once every leak is sealed, standing at the door for DOOR_HOLD_SEC
+ * The exit door. Once every leak is sealed, standing at the door for DOOR.HOLD_SECONDS
  * cycles it open and moves to the next floor. Stepping away drains the
  * progress quickly, so committing to the door is a real decision. With the clock
  * running it is also the last decision of the level.
@@ -37,10 +37,10 @@ export function tickDoor(doorState, dt){
       if (Math.hypot(e.x+0.5-p.x, e.y+0.5-p.y) < 1.25){ onExit=true; break; }
     }
     if (onExit){
-      if (doorState.descend===0) emit(EVENT.sfx, 'door', DOOR_NOISE);
+      if (doorState.descend===0) emit(EVENT.sfx, 'door', NOISE.DOOR);
       doorState.descend += dt;
-      sustainedNoise(doorState, DOOR_NOISE, p.x, p.y, true);
-      if (doorState.descend>=DOOR_HOLD_SEC){ emit(EVENT.doorCycled); return false; }
+      sustainedNoise(doorState, NOISE.DOOR, p.x, p.y, true);
+      if (doorState.descend>=DOOR.HOLD_SECONDS){ emit(EVENT.doorCycled); return false; }
     } else {
       doorState.descend = Math.max(0, doorState.descend - dt*2.5);
     }
@@ -53,16 +53,16 @@ export function tickDoor(doorState, dt){
 
   /* The door leaf. Where it swings to depends on the state:
        leaks open      shut (0)
-       all sealed      ajar (DOOR_AJAR_FRACTION), so READY reads from across the room
+       all sealed      ajar (DOOR.AJAR_FRACTION), so READY reads from across the room
        at the door     follows the hold progress up to fully open
      It eases toward that target, because a leaf that jumps between positions is
      an animation, and this is a door. This runs even on the frame that cycles
      the door only if the code above did not return first, which is correct: the
      floor is being torn down, not drawn once more. */
   const swing = leakDone
-    ? (onExit ? DOOR_AJAR_FRACTION + (1-DOOR_AJAR_FRACTION)*(doorState.descend/DOOR_HOLD_SEC) : DOOR_AJAR_FRACTION)
+    ? (onExit ? DOOR.AJAR_FRACTION + (1-DOOR.AJAR_FRACTION)*(doorState.descend/DOOR.HOLD_SECONDS) : DOOR.AJAR_FRACTION)
     : 0;
   for (const e of doorState.exitTiles)
-    e.open += (swing - e.open) * Math.min(1, dt*DOOR_SWING_EASE);
+    e.open += (swing - e.open) * Math.min(1, dt*DOOR.SWING_EASE_PER_SECOND);
   return true;
 }

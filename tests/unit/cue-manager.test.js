@@ -82,13 +82,13 @@ test('cue-manager: a holdable cue displaced by danger re-shows from the hold slo
 test('cue-manager: the single hold slot keeps the higher-priority holdable cue', () => {
   const t = softAssert();
   withTimers(() => {
-    flash({ cat: 'guide', text: 'FOLLOW THE WET FLOOR' }); // cur = guide (tier 3)
+    flash({ cat: 'guide', text: 'FOLLOW THE WET TILE_TYPES.FLOOR' }); // cur = guide (tier 3)
     flash({ cat: 'danger', text: 'DANGER' });               // guide displaced into the slot
     flash({ cat: 'alert', text: 'ALERT' });                 // alert outranks guide for the slot
 
     runTimer(pendingIds()[0]);                              // danger done → re-show alert
     t.assert(flashText().includes('ALERT'), 'alert re-shown from the hold slot');
-    t.assert(!flashText().includes('FOLLOW THE WET FLOOR'), 'guide lost the slot to the higher alert');
+    t.assert(!flashText().includes('FOLLOW THE WET TILE_TYPES.FLOOR'), 'guide lost the slot to the higher alert');
 
     runTimer(pendingIds()[0]);                              // alert done → done()
     t.assert(flashText() === '', 'screen cleared');

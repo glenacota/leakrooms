@@ -3,7 +3,7 @@
    No random numbers, no side effects, headless-safe.
    ============================================================ */
 
-import { MAP_WIDTH_TILES, MAP_HEIGHT_TILES, FLOOR } from '../config/constants.js';
+import { MAP, TILE_TYPES } from '../config/constants.js';
 
 /* Four-connected neighbours. The agent moveEnt uses this geometry. */
 const NEIGHBOURS = [[1,0], [-1,0], [0,1], [0,-1]];
@@ -22,7 +22,7 @@ const NEIGHBOURS = [[1,0], [-1,0], [0,1], [0,-1]];
  * @returns {{dist:Int32Array,order:number[]}} Distances include queued tiles when stopped early.
  */
 export function traverseFloor(grid, sources, {canEnter, stopAt, cost, depthFirst=false}={}){
-  const size = MAP_WIDTH_TILES * MAP_HEIGHT_TILES;
+  const size = MAP.WIDTH_TILES * MAP.HEIGHT_TILES;
   const dist = new Int32Array(size);
   dist.fill(-1);
   const order = [];
@@ -30,8 +30,8 @@ export function traverseFloor(grid, sources, {canEnter, stopAt, cost, depthFirst
   let head = 0, tail = 0;
 
   for (const source of sources){
-    const idx = typeof source === 'number' ? source : Math.floor(source.y)*MAP_WIDTH_TILES+Math.floor(source.x);
-    if (!Number.isInteger(idx) || idx<0 || idx>=size || grid[idx]!==FLOOR ||
+    const idx = typeof source === 'number' ? source : Math.floor(source.y)*MAP.WIDTH_TILES+Math.floor(source.x);
+    if (!Number.isInteger(idx) || idx<0 || idx>=size || grid[idx]!==TILE_TYPES.FLOOR ||
         dist[idx]===0 || (canEnter && !canEnter(idx, -1))) continue;
     dist[idx]=0;
     queue[tail++]=idx;
@@ -41,12 +41,12 @@ export function traverseFloor(grid, sources, {canEnter, stopAt, cost, depthFirst
     const idx=depthFirst ? queue[--tail] : queue[head++];
     order.push(idx);
     if (stopAt && stopAt(idx, dist[idx])) break;
-    const x=idx%MAP_WIDTH_TILES, y=(idx/MAP_WIDTH_TILES)|0, nd=dist[idx]+1;
+    const x=idx%MAP.WIDTH_TILES, y=(idx/MAP.WIDTH_TILES)|0, nd=dist[idx]+1;
     for (const [dx,dy] of NEIGHBOURS){
       const nx=x+dx, ny=y+dy;
-      if (nx<0 || nx>=MAP_WIDTH_TILES || ny<0 || ny>=MAP_HEIGHT_TILES) continue;
-      const nidx=ny*MAP_WIDTH_TILES+nx;
-      if (dist[nidx]!==-1 || grid[nidx]!==FLOOR || (canEnter && !canEnter(nidx, idx))) continue;
+      if (nx<0 || nx>=MAP.WIDTH_TILES || ny<0 || ny>=MAP.HEIGHT_TILES) continue;
+      const nidx=ny*MAP.WIDTH_TILES+nx;
+      if (dist[nidx]!==-1 || grid[nidx]!==TILE_TYPES.FLOOR || (canEnter && !canEnter(nidx, idx))) continue;
       if (cost){
         const step = cost(nidx, idx);
         if (step === Infinity) continue;
@@ -88,15 +88,15 @@ export function distanceField(grid, targetX, targetY){
  * @returns {{x:number, y:number}|null} neighbour with lowest value, or null if none
  */
 export function nextStep(field, x, y){
-  const idx = y * MAP_WIDTH_TILES + x;
+  const idx = y * MAP.WIDTH_TILES + x;
   const here = field[idx];
   if (here <= 0) return null; // at target or unreachable
 
   let best = null, bestVal = here;
   for (const [dx, dy] of NEIGHBOURS){
     const nx = x + dx, ny = y + dy;
-    if (nx < 0 || nx >= MAP_WIDTH_TILES || ny < 0 || ny >= MAP_HEIGHT_TILES) continue;
-    const val = field[ny * MAP_WIDTH_TILES + nx];
+    if (nx < 0 || nx >= MAP.WIDTH_TILES || ny < 0 || ny >= MAP.HEIGHT_TILES) continue;
+    const val = field[ny * MAP.WIDTH_TILES + nx];
     if (val >= 0 && val < bestVal){
       bestVal = val;
       best = {x: nx, y: ny};

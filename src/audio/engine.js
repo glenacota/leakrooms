@@ -78,7 +78,7 @@ export const engine = {
     o1.connect(this.droneGain); o2.connect(g2); g2.connect(this.droneGain);
     o1.start(); o2.start();
 
-    /* --- THE NOISE FLOOR.
+    /* --- THE NOISE TILE_TYPES.FLOOR.
        A band-limited noise layer whose gain follows the HUD's NOISE bar, plus a
        low sine under it that only comes up as the bar fills. It ramps over
        0.06 s: fast enough to answer the bar, slow enough that a 0.26 s sprint

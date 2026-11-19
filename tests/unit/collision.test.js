@@ -196,9 +196,9 @@ test('pressing into a wall drifts sideways not at all', () => {
     // the player should end up flush with the wall: centre-to-face distance == radius
     const wallFace = Math.floor(G.plumber.y);          // boundary below the wall tile
     const gap = G.plumber.y - wallFace;
-    console.log(`  final gap to wall face ${gap.toFixed(3)} tiles (collision radius ${PLUMBER.RADIUS})`);
-    t.assert(gap >= PLUMBER.RADIUS - 0.02 && gap <= PLUMBER.RADIUS + 0.12,
-      `ended ${gap.toFixed(3)} tiles from the wall face; expected flush at ~${PLUMBER.RADIUS} (not sunk in, not short)`);
+    console.log(`  final gap to wall face ${gap.toFixed(3)} tiles (collision radius ${PLUMBER.RADIUS_TILES})`);
+    t.assert(gap >= PLUMBER.RADIUS_TILES - 0.02 && gap <= PLUMBER.RADIUS_TILES + 0.12,
+      `ended ${gap.toFixed(3)} tiles from the wall face; expected flush at ~${PLUMBER.RADIUS_TILES} (not sunk in, not short)`);
   }
   release();
 

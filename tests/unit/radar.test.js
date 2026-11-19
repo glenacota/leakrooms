@@ -25,12 +25,12 @@ console.log('[14] the radar — off by default, total while on, expensive');
   t.assert(G.radar===false, 'the radar starts on — it is a tool you pay for, not a light');
 
   /* --- cost: a full battery must be a decision, not a convenience --- */
-  t.assert(A.RADAR_DRAIN_CHARGE_PER_SECOND > 4.0,
-    `the radar drains ${A.RADAR_DRAIN_CHARGE_PER_SECOND}/s — the torch it replaced cost 2.4 and could be held indefinitely`);
-  const seconds = 100/A.RADAR_DRAIN_CHARGE_PER_SECOND;
+  t.assert(A.BATTERY.RADAR_DRAIN_CHARGE_PER_SECOND > 4.0,
+    `the radar drains ${A.BATTERY.RADAR_DRAIN_CHARGE_PER_SECOND}/s — the torch it replaced cost 2.4 and could be held indefinitely`);
+  const seconds = 100/A.BATTERY.RADAR_DRAIN_CHARGE_PER_SECOND;
   t.assert(seconds < 25,
     `a full battery buys ${seconds.toFixed(0)}s of sweep — that is long enough to stop thinking about it`);
-  console.log(`  ${A.RADAR_DRAIN_CHARGE_PER_SECOND}/s — a full battery is ${seconds.toFixed(0)} seconds of seeing everything`);
+  console.log(`  ${A.BATTERY.RADAR_DRAIN_CHARGE_PER_SECOND}/s — a full battery is ${seconds.toFixed(0)} seconds of seeing everything`);
 
   /* --- drain, and it switches itself off at zero rather than going negative */
   {
@@ -46,15 +46,15 @@ console.log('[14] the radar — off by default, total while on, expensive');
     G.batt = 100; G.radar = true;
     for (let i=0;i<60;i++) update(1/60);
     const used = 100 - G.batt;
-    t.assert(Math.abs(used - A.RADAR_DRAIN_CHARGE_PER_SECOND) < 0.05,
-      `1 second of sweep cost ${used.toFixed(2)}, want ${A.RADAR_DRAIN_CHARGE_PER_SECOND}`);
+    t.assert(Math.abs(used - A.BATTERY.RADAR_DRAIN_CHARGE_PER_SECOND) < 0.05,
+      `1 second of sweep cost ${used.toFixed(2)}, want ${A.BATTERY.RADAR_DRAIN_CHARGE_PER_SECOND}`);
     t.assert(G.radar===true, 'the radar switched itself off with a full battery');
     G.radar = false; G.batt = 100;
   }
 
   /* --- a full battery is exactly 10 seconds of sweep (Numbers Policy: B) ---
-     Pass/fail: 100 units drain at RADAR_DRAIN_CHARGE_PER_SECOND/s in 10s. If the number feels
-     too stingy in play, move RADAR_DRAIN_CHARGE_PER_SECOND down; if too generous, move it up. */
+     Pass/fail: 100 units drain at BATTERY.RADAR_DRAIN_CHARGE_PER_SECOND/s in 10s. If the number feels
+     too stingy in play, move BATTERY.RADAR_DRAIN_CHARGE_PER_SECOND down; if too generous, move it up. */
   {
     G.batt = 100; G.radar = true;
     const frames = 10 * 60; // 10 seconds at 60 Hz
@@ -145,6 +145,6 @@ test('[14b] the radar hums at RADAR while on, and goes quiet when off', () => {
   G.radar = false;
   for (let i=0;i<60;i++) update(1/60);   // 1 second of decay
   t.assert(G.selfNoise===0, `one second after switching off, selfNoise is ${G.selfNoise.toFixed(2)}, want 0`);
-  console.log(`  radar hums at ${A.RADAR_NOISE} while on, decays to 0 within a second of going off`);;
+  console.log(`  radar hums at ${A.NOISE.RADAR} while on, decays to 0 within a second of going off`);;
 });
 

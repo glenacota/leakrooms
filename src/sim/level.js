@@ -1,5 +1,5 @@
 import { genMaze } from './maze.js';
-import { MAP_WIDTH_TILES, MAP_HEIGHT_TILES, WALL, FLOOR, LEAK_GAP, REPAIR_REACH, LEAK_FAR, PLUMBER } from '../config/constants.js';
+import { LEAK, MAP, TILE_TYPES, PLUMBER } from '../config/constants.js';
 import { LEVELS, LEVELS_N } from '../config/levels.js';
 import { NOTES } from '../config/notes.js';
 import { hash2 } from '../util/hash.js';
@@ -18,10 +18,10 @@ import { hash2 } from '../util/hash.js';
 export function genLevel(rng, floorNum=0){
   const maze = genMaze(rng);
   const grid = maze.grid;
-  const at = (x,y)=> grid[y*MAP_WIDTH_TILES+x];
-  const inB = (x,y)=> x>=0 && y>=0 && x<MAP_WIDTH_TILES && y<MAP_HEIGHT_TILES;
+  const at = (x,y)=> grid[y*MAP.WIDTH_TILES+x];
+  const inB = (x,y)=> x>=0 && y>=0 && x<MAP.WIDTH_TILES && y<MAP.HEIGHT_TILES;
 
-  const INTERIOR = (x,y)=> x>0 && y>0 && x<MAP_WIDTH_TILES-1 && y<MAP_HEIGHT_TILES-1;
+  const INTERIOR = (x,y)=> x>0 && y>0 && x<MAP.WIDTH_TILES-1 && y<MAP.HEIGHT_TILES-1;
 
 
   /* ---------- The door ----------
@@ -40,8 +40,8 @@ export function genLevel(rng, floorNum=0){
      else would stand on a dark ceiling top with no lit wall behind it, and
      look like a frame painted on the floor. Touching floor on any side is not
      enough: a wall on the east side of a room touches floor but has no face. */
-  const southFacing = (tx,ty)=> INTERIOR(tx,ty) && at(tx,ty)===WALL
-                                     && INTERIOR(tx,ty+1) && at(tx,ty+1)===FLOOR;
+  const southFacing = (tx,ty)=> INTERIOR(tx,ty) && at(tx,ty)===TILE_TYPES.WALL
+                                     && INTERIOR(tx,ty+1) && at(tx,ty+1)===TILE_TYPES.FLOOR;
 
   /* Finds door slots for a room, trying wider searches until something fits:
        1. the ring of tiles just around the room
@@ -64,7 +64,7 @@ export function genLevel(rng, floorNum=0){
     }
     if (!cand.length){
       const any = [];
-      for (let y=1;y<MAP_HEIGHT_TILES-1 && any.length<4000;y++) for (let x=1;x<MAP_WIDTH_TILES-1;x++){
+      for (let y=1;y<MAP.HEIGHT_TILES-1 && any.length<4000;y++) for (let x=1;x<MAP.WIDTH_TILES-1;x++){
         if (southFacing(x,y)) any.push([x,y]);
       }
       // Sorted before the slice, so the cap keeps the nearest USABLE tiles
@@ -85,11 +85,11 @@ export function genLevel(rng, floorNum=0){
   const cx = entryRoom.rx + entryRoom.rw/2;
   const cy = entryRoom.ry + entryRoom.rh/2;
   let spawn = { x: cx, y: cy };
-  if (!inB(cx|0, cy|0) || at(cx|0, cy|0) !== FLOOR) {
+  if (!inB(cx|0, cy|0) || at(cx|0, cy|0) !== TILE_TYPES.FLOOR) {
     let best = null, bd = Infinity;
     for (let y=entryRoom.ry; y<entryRoom.ry+entryRoom.rh; y++)
       for (let x=entryRoom.rx; x<entryRoom.rx+entryRoom.rw; x++) {
-        if (at(x,y) !== FLOOR) continue;
+        if (at(x,y) !== TILE_TYPES.FLOOR) continue;
         const d = Math.hypot(x+0.5-cx, y+0.5-cy);
         if (d < bd){ bd = d; best = { x: x+0.5, y: y+0.5 }; }
       }
@@ -111,8 +111,8 @@ export function genLevel(rng, floorNum=0){
      and only if that fails too does it use a fixed tile. */
   if (!exitTiles.length){
     let fb = null;
-    outer: for (let y=1; y<MAP_HEIGHT_TILES-1 && !fb; y++)
-      for (let x=1; x<MAP_WIDTH_TILES-1; x++)
+    outer: for (let y=1; y<MAP.HEIGHT_TILES-1 && !fb; y++)
+      for (let x=1; x<MAP.WIDTH_TILES-1; x++)
         if (southFacing(x,y)){ fb = [x,y]; break outer; }
     if (!fb) fb = [1,1];
     exitTiles.push({x:fb[0], y:fb[1], open:0, facing:'S'});
@@ -120,17 +120,17 @@ export function genLevel(rng, floorNum=0){
 
   /* ---------- The leaks ----------
      Each leak is a single wall tile, as far from the spawn as the map allows. It
-     must be a WALL with walkable floor directly SOUTH of it (southFacing): the
+     must be a TILE_TYPES.WALL with walkable floor directly SOUTH of it (southFacing): the
      leak is painted on that wall's face, and the bake only paints the south face,
      so a leak anywhere else would hang on a dark ceiling top. If the farthest tile is unusable the search steps
      back toward the spawn, because an unreachable leak makes the level
      unwinnable and every repair is required.
 
      Farthest-first means the usual case is a real trek and the rare case is a
-     shorter one. With several leaks, picks must be LEAK_GAP apart, so four leaks
+     shorter one. With several leaks, picks must be LEAK.GAP_TILES apart, so four leaks
      are four corners of the building and not four faces of one wall. */
   const faceTiles = [];
-  for (let y=1;y<MAP_HEIGHT_TILES-1;y++) for (let x=1;x<MAP_WIDTH_TILES-1;x++){
+  for (let y=1;y<MAP.HEIGHT_TILES-1;y++) for (let x=1;x<MAP.WIDTH_TILES-1;x++){
     if (!southFacing(x,y)) continue;
     faceTiles.push({x, y, d: Math.hypot(x+0.5-spawn.x, y+0.5-spawn.y)});
   }
@@ -142,20 +142,20 @@ export function genLevel(rng, floorNum=0){
        earlier version nudged the spot flush against the wall, which is where the
        collision circle already stops the player, so every candidate counted as
        "inside" and every level used the fallback.) How close counts as "at the
-       pipe" is REPAIR_REACH's job, not this function's.
+       pipe" is LEAK.REPAIR_REACH_TILES's job, not this function's.
 
        It checks the local grid and not blocked(), because G does not exist yet
        while the level is being built. */
     for (const [nx,ny] of [[c.x,c.y+1]]){      // the leak is on the south face, so the spot is the tile below
-      if (!inB(nx,ny) || at(nx,ny)!==FLOOR) continue;
+      if (!inB(nx,ny) || at(nx,ny)!==TILE_TYPES.FLOOR) continue;
       const px = nx + 0.5, py = ny + 0.5;
       let inside = false;
-      for (let ty=Math.floor(py-PLUMBER.RADIUS); ty<=Math.floor(py+PLUMBER.RADIUS) && !inside; ty++)
-        for (let tx=Math.floor(px-PLUMBER.RADIUS); tx<=Math.floor(px+PLUMBER.RADIUS); tx++){
-          if (!inB(tx,ty) || at(tx,ty)!==WALL) continue;
+      for (let ty=Math.floor(py-PLUMBER.RADIUS_TILES); ty<=Math.floor(py+PLUMBER.RADIUS_TILES) && !inside; ty++)
+        for (let tx=Math.floor(px-PLUMBER.RADIUS_TILES); tx<=Math.floor(px+PLUMBER.RADIUS_TILES); tx++){
+          if (!inB(tx,ty) || at(tx,ty)!==TILE_TYPES.WALL) continue;
           const cx = px<tx?tx:(px>tx+1?tx+1:px);
           const cy = py<ty?ty:(py>ty+1?ty+1:py);
-          if ((px-cx)**2 + (py-cy)**2 < PLUMBER.RADIUS*PLUMBER.RADIUS){ inside=true; break; }
+          if ((px-cx)**2 + (py-cy)**2 < PLUMBER.RADIUS_TILES*PLUMBER.RADIUS_TILES){ inside=true; break; }
         }
       if (inside) continue;
       return {x:nx, y:ny};
@@ -170,7 +170,7 @@ export function genLevel(rng, floorNum=0){
   const spec = LEVELS[Math.min(floorNum, LEVELS_N-1)];
   const want = spec.leaks;
   const leaks = [];
-  const reach = LEAK_FAR[Math.min(want, LEAK_FAR.length)-1];
+  const reach = LEAK.FAR_DISTANCE_TILES[Math.min(want, LEAK.FAR_DISTANCE_TILES.length)-1];
   const capped = faceTiles.filter(c=>c.d <= reach);
   const shortlist = (capped.length ? capped : faceTiles);
   /* Scan the shortlist (farthest first). The first pick that keeps the required
@@ -178,14 +178,14 @@ export function genLevel(rng, floorNum=0){
 
      The gap is measured between STANDING SPOTS, not wall tiles. Two leaks three
      wall tiles apart can have standing spots 1.0 apart, which is inside
-     REPAIR_REACH, and then one five-second hold would seal both leaks. Each leak
+     LEAK.REPAIR_REACH_TILES, and then one five-second hold would seal both leaks. Each leak
      must need its own repair. */
-  for (let gap of [LEAK_GAP, Math.max(4, LEAK_GAP>>1), 0]){
+  for (let gap of [LEAK.GAP_TILES, Math.max(4, LEAK.GAP_TILES>>1), 0]){
     for (const c of shortlist){
       if (leaks.length >= want) break;
       const spot = standSpot(c);
       if (!spot) continue;
-      if (leaks.some(L=>Math.hypot(L.sx-spot.x, L.sy-spot.y) < gap+REPAIR_REACH)) continue;
+      if (leaks.some(L=>Math.hypot(L.sx-spot.x, L.sy-spot.y) < gap+LEAK.REPAIR_REACH_TILES)) continue;
       const L = { x:c.x, y:c.y, sx:spot.x, sy:spot.y,
                   fixed:false, repair:0, fixedAt:0 };
       L.room = roomAt(spot.x, spot.y);
@@ -210,7 +210,7 @@ export function genLevel(rng, floorNum=0){
       for (let i=0;i<16;i++){
         const tx = r.rx+inset + Math.floor(rng()*w);
         const ty = r.ry+inset + Math.floor(rng()*h);
-        if (maze.grid[ty*MAP_WIDTH_TILES+tx]!==FLOOR) continue;
+        if (maze.grid[ty*MAP.WIDTH_TILES+tx]!==TILE_TYPES.FLOOR) continue;
         if (away && Math.hypot(tx+0.5-away.x, ty+0.5-away.y) < minD) continue;
         return {x:tx, y:ty};
       }

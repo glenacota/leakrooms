@@ -42,19 +42,19 @@ test('stealth: first wake per state flashes once, repeats are silent', () => {
   t.assert(flash() === before,
     'the second DORMANT->RISING wake flashed again');
 
-  /* A quiet noise makes a walker curious: WALK_SPEED_TILES_PER_SECOND -> SEARCH. */
-  G.lifeforms = [lifeform(...atOffset(), 'WALK_SPEED_TILES_PER_SECOND')];
-  emitNoise(A.NOISE.WALK_SPEED_TILES_PER_SECOND, ...atOffset(), false);
+  /* A quiet noise makes a walker curious: WALK -> SEARCH. */
+  G.lifeforms = [lifeform(...atOffset(), 'WALK')];
+  emitNoise(A.NOISE.WALK, ...atOffset(), false);
   update(1/60);
   t.assert(flash().includes('IT HEARD THAT'),
-    'the WALK_SPEED_TILES_PER_SECOND->SEARCH wake did not flash');
+    'the WALK->SEARCH wake did not flash');
 
-  /* A loud noise makes a walker hunt: WALK_SPEED_TILES_PER_SECOND -> HUNT. */
-  G.lifeforms = [lifeform(...atOffset(), 'WALK_SPEED_TILES_PER_SECOND')];
+  /* A loud noise makes a walker hunt: WALK -> HUNT. */
+  G.lifeforms = [lifeform(...atOffset(), 'WALK')];
   emitNoise(A.NOISE.REPAIR, ...atOffset(), false);
   update(1/60);
   t.assert(flash().includes("IT'S COMING"),
-    'the WALK_SPEED_TILES_PER_SECOND->HUNT wake did not flash');
+    'the WALK->HUNT wake did not flash');
 
   /* Once every transition has been announced, repeating any of them adds
      nothing to the screen. */

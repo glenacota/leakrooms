@@ -30,7 +30,7 @@ import { updateHUD, tickTouchHud } from './ui/hud.js';
 import { loadSettings } from './settings/store.js';
 import { RUN_SEED } from './game/run.js';
 import { frame } from './game/loop.js';
-import { RENDER_START_IDX_HANDHELD } from './config/constants.js';
+import { RENDER } from './config/constants.js';
 
 // Starts the game through ordered phases.
 export function boot(){
@@ -49,7 +49,7 @@ function prepare(){
   initIllustration();
 
   // A handheld may start at a lower render scale so it stays under its limit
-  if (looksHandheld()) setRenderScaleIdx(RENDER_START_IDX_HANDHELD);
+  if (looksHandheld()) setRenderScaleIdx(RENDER.START_INDEX_HANDHELD);
 
   resize();
   buildPatterns();

@@ -1,4 +1,4 @@
-import { MAP_HEIGHT_TILES, MAP_WIDTH_TILES, TILE_SIZE_PX } from '../config/constants.js';
+import { MAP } from '../config/constants.js';
 import { STATE } from '../game/run.js';
 import { cvs, SCALE } from '../render/canvas.js';
 import { cam } from '../render/render.js';
@@ -18,12 +18,12 @@ const TUTORIALS = {
   sprint: {
     title: 'Save your legs',
     text: 'Running makes enough noise to bring something bad over. It also drains stamina. Walk or stand still to recover.',
-    flash: 'RUNNING IS LOUD AND DRAINS STAMINA. STOP RUNNING TO RECOVER',
+    flash: 'RUNNING IS NOISE.LOUD AND DRAINS STAMINA. STOP RUNNING TO RECOVER',
   },
   radar: {
     title: 'Use the radar sparingly',
     text: 'The radar reveals the floor for ten seconds, but its pulse can draw attention. Grab batteries when you find them.',
-    flash: 'RADAR IS LOUD AND DRAINS BATTERY',
+    flash: 'RADAR IS NOISE.LOUD AND DRAINS BATTERY',
   },
   water: {
     title: 'How to find a leak',
@@ -33,12 +33,12 @@ const TUTORIALS = {
   repair: {
     title: 'How to seal a leak',
     text: 'Stand still beside the leak to repair it. The wrench is not a quiet tool and can attract something dangerous.',
-    flash: 'STAND STILL BESIDE THE LEAK TO REPAIR IT. REPAIRING IS LOUD',
+    flash: 'STAND STILL BESIDE THE LEAK TO REPAIR IT. REPAIRING IS NOISE.LOUD',
   },
   lifeform: {
     title: 'Watch for lifeforms',
     text: 'Loud actions can wake a dormant lifeform or turn a search into a hunt. Awake lifeforms can see you all too well.',
-    flash: 'LOUD SOUNDS WAKE LIFEFORMS OR START A HUNT. AWAKE LIFEFORMS CAN SEE YOU',
+    flash: 'NOISE.LOUD SOUNDS WAKE LIFEFORMS OR START A HUNT. AWAKE LIFEFORMS CAN SEE YOU',
   },
   airsupply: {
     title: 'Limited air supply',
@@ -77,15 +77,15 @@ function saveCompleted(){
 
 function onScreen(x, y){
   if (!SCALE || !cvs.width || !cvs.height) return false;
-  const sx = (x - cam.x)*TILE_SIZE_PX*SCALE + cvs.width/2 + cam.jx*SCALE;
-  const sy = (y - cam.y)*TILE_SIZE_PX*SCALE + cvs.height/2 + cam.jy*SCALE;
+  const sx = (x - cam.x)*MAP.TILE_SIZE_PX*SCALE + cvs.width/2 + cam.jx*SCALE;
+  const sy = (y - cam.y)*MAP.TILE_SIZE_PX*SCALE + cvs.height/2 + cam.jy*SCALE;
   return sx >= 0 && sx < cvs.width && sy >= 0 && sy < cvs.height;
 }
 
 function tileVisible(x, y, pipe = false){
   const tx = Math.floor(x), ty = Math.floor(y);
-  if (tx < 0 || tx >= MAP_WIDTH_TILES || ty < 0 || ty >= MAP_HEIGHT_TILES || !onScreen(x, y)) return false;
-  const i = ty*MAP_WIDTH_TILES + tx;
+  if (tx < 0 || tx >= MAP.WIDTH_TILES || ty < 0 || ty >= MAP.HEIGHT_TILES || !onScreen(x, y)) return false;
+  const i = ty*MAP.WIDTH_TILES + tx;
   return pipe ? G.maskArr[i] > 0.02 : G.maskArr[i] * G.lightArr[i] > 0.05;
 }
 

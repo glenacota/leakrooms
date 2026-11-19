@@ -2,7 +2,7 @@
    buildFrame() instead of running 90 render frames to settle the camera. */
 import test from 'node:test';
 import { strict as assert } from 'node:assert';
-import { MAP_HEIGHT_TILES, MAP_WIDTH_TILES, TILE_SIZE_PX } from '../../src/config/constants.js';
+import { MAP } from '../../src/config/constants.js';
 import { loadGame } from '../helpers/harness.js';
 import { buildFrame, cam } from '../../src/render/frame.js';
 
@@ -25,12 +25,12 @@ test('buildFrame returns the full rc with a working w2s mapping', () => {
   settle(1000, 90);
   const rc = buildFrame(1000 + 91 * 16.7);
   assert.deepEqual(Object.keys(rc).sort(), EXPECTED_KEYS.sort(), 'rc carries all 14 fields');
-  assert.strictEqual(rc.T, TILE_SIZE_PX * SCALE, 'T = TILE_SIZE_PX*SCALE');
+  assert.strictEqual(rc.T, MAP.TILE_SIZE_PX * SCALE, 'T = MAP.TILE_SIZE_PX*SCALE');
   assert.strictEqual(rc.p, G.plumber, 'rc.p is the plumber');
 
   for (const wx of [0, 10, 51.25]){
-    assert.strictEqual(rc.w2sx(wx), SCALE * (wx * TILE_SIZE_PX + rc.tx), 'w2sx matches tx');
-    assert.strictEqual(rc.w2sy(wx), SCALE * (wx * TILE_SIZE_PX + rc.ty), 'w2sy matches ty');
+    assert.strictEqual(rc.w2sx(wx), SCALE * (wx * MAP.TILE_SIZE_PX + rc.tx), 'w2sx matches tx');
+    assert.strictEqual(rc.w2sy(wx), SCALE * (wx * MAP.TILE_SIZE_PX + rc.ty), 'w2sy matches ty');
   }
   assert.ok(rc.dt <= 0.25, 'dt is clamped to a quarter second');
   assert.ok(rc.vw > 0 && rc.vh > 0, 'viewport has size');
@@ -44,7 +44,7 @@ test('the camera centres the plumber and keeps the world upright', () => {
   const rc = buildFrame(1000 + 91 * 16.7);
   const pxDev = rc.w2sx(G.plumber.x);
   const pyDev = rc.w2sy(G.plumber.y);
-  const tol = TILE_SIZE_PX * SCALE * 0.6;
+  const tol = MAP.TILE_SIZE_PX * SCALE * 0.6;
 
   assert.ok(Math.abs(pxDev - CW / 2) < tol, 'plumber x at viewport centre');
   assert.ok(Math.abs(pyDev - CH / 2) < tol, 'plumber y at viewport centre');
@@ -59,20 +59,20 @@ test('the camera centres the plumber and keeps the world upright', () => {
   assert.ok(dDev > pyDev, '5 tiles down lands below centre');
 
   const span = rDev - lxDev;
-  assert.ok(Math.abs(span - 10 * TILE_SIZE_PX * SCALE) < 0.5, '10 tiles span 10*TILE_SIZE_PX*SCALE — SCALE applied once');
+  assert.ok(Math.abs(span - 10 * MAP.TILE_SIZE_PX * SCALE) < 0.5, '10 tiles span 10*MAP.TILE_SIZE_PX*SCALE — SCALE applied once');
 });
 
 test('the camera clamps to all four map edges', () => {
   buildFloor(2, 31337);
-  const halfW = CW / (2 * TILE_SIZE_PX * SCALE);
-  const halfH = CH / (2 * TILE_SIZE_PX * SCALE);
-  const right = MAP_WIDTH_TILES - halfW;
-  const bottom = MAP_HEIGHT_TILES - halfH;
+  const halfW = CW / (2 * MAP.TILE_SIZE_PX * SCALE);
+  const halfH = CH / (2 * MAP.TILE_SIZE_PX * SCALE);
+  const right = MAP.WIDTH_TILES - halfW;
+  const bottom = MAP.HEIGHT_TILES - halfH;
   const corners = [
     [0.25, 0.25],                          // top-left
-    [MAP_WIDTH_TILES - 0.25, 0.25],                  // top-right
-    [0.25, MAP_HEIGHT_TILES - 0.25],                  // bottom-left
-    [MAP_WIDTH_TILES - 0.25, MAP_HEIGHT_TILES - 0.25],          // bottom-right
+    [MAP.WIDTH_TILES - 0.25, 0.25],                  // top-right
+    [0.25, MAP.HEIGHT_TILES - 0.25],                  // bottom-left
+    [MAP.WIDTH_TILES - 0.25, MAP.HEIGHT_TILES - 0.25],          // bottom-right
   ];
   for (const [px, py] of corners){
     G.plumber.x = px; G.plumber.y = py;
@@ -120,8 +120,8 @@ test('reduced motion removes camera jitter and follows preference changes', () =
     const rc = buildFrame(1016);
     assert.equal(cam.jx, 0);
     assert.equal(cam.jy, 0);
-    assert.equal(rc.tx, -cam.x * TILE_SIZE_PX + CW / (2 * SCALE));
-    assert.equal(rc.ty, -cam.y * TILE_SIZE_PX + CH / (2 * SCALE));
+    assert.equal(rc.tx, -cam.x * MAP.TILE_SIZE_PX + CW / (2 * SCALE));
+    assert.equal(rc.ty, -cam.y * MAP.TILE_SIZE_PX + CH / (2 * SCALE));
     assert.equal(randomCalls, 2, 'reduced motion does not sample camera jitter');
 
     preference.matches = false;

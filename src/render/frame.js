@@ -5,7 +5,7 @@
    render.js calls this once per frame and sequences the passes.
    ============================================================ */
 
-import { MAP_HEIGHT_TILES, MAP_WIDTH_TILES, TILE_SIZE_PX } from '../config/constants.js';
+import { MAP } from '../config/constants.js';
 import { G } from '../sim/state.js';
 import { cvs, SCALE } from './canvas.js';
 
@@ -50,20 +50,20 @@ export function buildFrame(t){
   }
 
   // Clamp to the map, so the viewport never shows empty space beyond the edge
-  const T = TILE_SIZE_PX * SCALE;
+  const T = MAP.TILE_SIZE_PX * SCALE;
   const halfW = cvs.width / (2 * T);
   const halfH = cvs.height / (2 * T);
-  if (MAP_WIDTH_TILES > halfW * 2) cam.x = Math.max(halfW, Math.min(MAP_WIDTH_TILES - halfW, cam.x));
-  if (MAP_HEIGHT_TILES > halfH * 2) cam.y = Math.max(halfH, Math.min(MAP_HEIGHT_TILES - halfH, cam.y));
+  if (MAP.WIDTH_TILES > halfW * 2) cam.x = Math.max(halfW, Math.min(MAP.WIDTH_TILES - halfW, cam.x));
+  if (MAP.HEIGHT_TILES > halfH * 2) cam.y = Math.max(halfH, Math.min(MAP.HEIGHT_TILES - halfH, cam.y));
 
   // The translation applied inside the scaled context, in world pixels
-  const tx = -cam.x * TILE_SIZE_PX + cvs.width / (2 * SCALE) + cam.jx;
-  const ty = -cam.y * TILE_SIZE_PX + cvs.height / (2 * SCALE) + cam.jy;
+  const tx = -cam.x * MAP.TILE_SIZE_PX + cvs.width / (2 * SCALE) + cam.jx;
+  const ty = -cam.y * MAP.TILE_SIZE_PX + cvs.height / (2 * SCALE) + cam.jy;
   // The same mapping, in device pixels
   const dx = tx * SCALE;
   const dy = ty * SCALE;
-  const w2sx = wx => SCALE * (wx * TILE_SIZE_PX + tx);
-  const w2sy = wy => SCALE * (wy * TILE_SIZE_PX + ty);
+  const w2sx = wx => SCALE * (wx * MAP.TILE_SIZE_PX + tx);
+  const w2sy = wy => SCALE * (wy * MAP.TILE_SIZE_PX + ty);
 
   // The visible tile range (with a margin), so the passes only draw what is on screen
   const tlx = Math.floor(cam.x - cvs.width / (2 * T)) - 1;
@@ -73,8 +73,8 @@ export function buildFrame(t){
 
   const x0 = Math.max(0, tlx);
   const y0 = Math.max(0, tly);
-  const x1 = Math.min(MAP_WIDTH_TILES - 1, tlx + tw);
-  const y1 = Math.min(MAP_HEIGHT_TILES - 1, tly + th);
+  const x1 = Math.min(MAP.WIDTH_TILES - 1, tlx + tw);
+  const y1 = Math.min(MAP.HEIGHT_TILES - 1, tly + th);
   const vw = x1 - x0 + 1;
   const vh = y1 - y0 + 1;
 

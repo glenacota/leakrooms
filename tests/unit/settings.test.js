@@ -20,7 +20,7 @@ const render = A.render;
       path has to return defaults.
    2. DIFFICULTY MUST NOT BE ABLE TO TOUCH THE NOISE TABLE. That table is the
       design contract — quiet noise only makes it curious — and a difficulty
-      control that could push a walk above LOUD would let a player configure
+      control that could push a walk above NOISE.LOUD would let a player configure
       the stealth layer out of existence. This is asserted by comparing the
       noise constants across every preset, not by trusting the implementation. */
 test('[20] settings — persistence, validation, and the difficulty contract', () => {
@@ -135,7 +135,7 @@ console.log('[20] settings — persistence, validation, and the difficulty contr
   /* --- THE CONTRACT: no preset touches the noise table --- */
   {
     const noiseBefore = { ...A.NOISE };
-    const leakBefore = { base:A.LEAK_NOISE_BASE, gain:A.LEAK_NOISE_GAIN };
+    const leakBefore = { base:A.LEAK.NOISE_BASE, gain:A.LEAK.NOISE_GAIN };
     const seen = [];
     for (const k of Object.keys(A.DIFFICULTIES)){
       A.setOption('difficulty', k);
@@ -144,9 +144,9 @@ console.log('[20] settings — persistence, validation, and the difficulty contr
       for (const key of Object.keys(noiseBefore))
         t.assert(A.NOISE[key]===noiseBefore[key],
           `preset ${k} changed NOISE.${key} — a difficulty must not reach the noise contract`);
-      t.assert(A.LEAK_NOISE_BASE===leakBefore.base,
+      t.assert(A.LEAK.NOISE_BASE===leakBefore.base,
         `preset ${k} changed the leak's base noise`);
-      t.assert(A.LEAK_NOISE_GAIN===leakBefore.gain,
+      t.assert(A.LEAK.NOISE_GAIN===leakBefore.gain,
         `preset ${k} changed the leak's noise gain`);
       /* The five levels are the run. A preset that trimmed one made the game
          have a different number of endings depending on the menu, so every
@@ -155,9 +155,9 @@ console.log('[20] settings — persistence, validation, and the difficulty contr
         `preset ${k} plays ${A.FLOORS} levels — the five-level run is not a setting`);
     }
     /* and the ordering that makes the stealth layer work still holds */
-    t.assert(A.LEAK_NOISE_BASE + A.LEAK_NOISE_GAIN < A.NOISE.LOUD,
-      'the leak can cross LOUD under some preset — the lure becomes a hunt trigger');
-    t.assert(A.LEAK_NOISE_BASE < A.NOISE.WADE, 'wading is no longer quieter than a wet step');
+    t.assert(A.LEAK.NOISE_BASE + A.LEAK.NOISE_GAIN < A.NOISE.LOUD,
+      'the leak can cross NOISE.LOUD under some preset — the lure becomes a hunt trigger');
+    t.assert(A.LEAK.NOISE_BASE < A.NOISE.WADE, 'wading is no longer quieter than a wet step');
     t.assert(A.NOISE.REPAIR >= A.NOISE.LOUD, 'the repair is no longer the loud decision');
     t.assert(seen.length===3, `expected 3 difficulty presets, saw ${seen.length}`);
     for (const p of seen) t.assert(p.levels>=1 && p.lives>=1 && p.clock>0, `preset ${p.k} is degenerate`);
@@ -218,8 +218,8 @@ console.log('[27] the removed settings — frame counter, flicker, tape, shake')
 
   /* the effects themselves are still drawn — these were look, not preference,
      so removing the settings must not quietly remove the VHS pass */
-  t.assert(/VHS_PASS\s*=\s*0\.7/.test(src), 'the VHS pass lost its constant');
-  t.assert(/FLICKER_DEPTH\s*=\s*0\.65/.test(src), 'the flicker lost its constant');
+  t.assert(/VHS_PASS:\s*0\.7/.test(src), 'the VHS pass lost its constant');
+  t.assert(/FLICKER_DEPTH:\s*0\.65/.test(src), 'the flicker lost its constant');
   t.assert(/ctx\.fillStyle=scanPat/.test(src), 'the scanline pass is gone — the game no longer looks like a tape');
   render(1000);
   render(2000);

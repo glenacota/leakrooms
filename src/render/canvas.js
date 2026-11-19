@@ -1,9 +1,9 @@
 import { emit, EVENT } from '../util/events.js';
-import { RENDER_SCALES, VIEWPORT_WIDTH_TILES, TILE_SIZE_PX, VIEWPORT_MIN_ROWS } from '../config/constants.js';
+import { MAP, RENDER } from '../config/constants.js';
 
 /**
  * The CSS pixels per world pixel that fit the viewport: wide enough to show
- * VIEWPORT_WIDTH_TILES tiles across, and tall enough to show VIEWPORT_MIN_ROWS rows. The width
+ * MAP.VIEWPORT_WIDTH_TILES tiles across, and tall enough to show MAP.VIEWPORT_MIN_ROWS rows. The width
  * cap wins on a normal 16:9 screen; only a screen wider than 27:12 is limited
  * by the row floor instead. Pure: no DOM, no state, just the two numbers.
  *
@@ -12,7 +12,7 @@ import { RENDER_SCALES, VIEWPORT_WIDTH_TILES, TILE_SIZE_PX, VIEWPORT_MIN_ROWS } 
  * @returns {number} CSS pixels per world pixel
  */
 export function viewScale(w, h){
-  return Math.min(w / (VIEWPORT_WIDTH_TILES * TILE_SIZE_PX), h / (VIEWPORT_MIN_ROWS * TILE_SIZE_PX));
+  return Math.min(w / (MAP.VIEWPORT_WIDTH_TILES * MAP.TILE_SIZE_PX), h / (MAP.VIEWPORT_MIN_ROWS * MAP.TILE_SIZE_PX));
 }
 
 /* ---------- The main canvas ---------- */
@@ -40,7 +40,7 @@ export function setRenderScaleIdx(v){ renderScaleIdx = v; }
  * separately below.
  */
 export function resize(){
-  const dpr = Math.min(window.devicePixelRatio || 1, 2) * RENDER_SCALES[renderScaleIdx];
+  const dpr = Math.min(window.devicePixelRatio || 1, 2) * RENDER.SCALES[renderScaleIdx];
   const w = cvs.clientWidth, h = cvs.clientHeight;
   /* Return early when nothing changed: no reallocation, no 'resize' announce.
      This keeps a drag, a stale iOS size report or a synthetic event from

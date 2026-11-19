@@ -4,7 +4,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { loadGame } from '../helpers/harness.js';
-import { FLOOR } from '../../src/config/constants.js';
+import { TILE_TYPES, WALL } from '../../src/config/constants.js';
 
 const { A, G } = await loadGame();
 const buildFloor = A.buildFloor;
@@ -22,12 +22,12 @@ test('every leak stands on the tile directly south of its wall tile', () => {
         `seed ${s}: leak at (${L.x},${L.y}) has sx=${L.sx}, expected ${L.x}`);
       assert.equal(L.sy, L.y + 1,
         `seed ${s}: leak at (${L.x},${L.y}) has sy=${L.sy}, expected ${L.y+1}`);
-      // That tile must be FLOOR (not WALL or out-of-bounds).
-      assert.equal(at(L.sx, L.sy), FLOOR,
-        `seed ${s}: standing spot (${L.sx},${L.sy}) is not FLOOR (got ${at(L.sx,L.sy)})`);
-      // The leak tile itself must be WALL.
-      assert.notEqual(at(L.x, L.y), FLOOR,
-        `seed ${s}: leak tile (${L.x},${L.y}) should be WALL but is FLOOR`);
+      // That tile must be TILE_TYPES.FLOOR (not TILE_TYPES.WALL or out-of-bounds).
+      assert.equal(at(L.sx, L.sy), TILE_TYPES.FLOOR,
+        `seed ${s}: standing spot (${L.sx},${L.sy}) is not TILE_TYPES.FLOOR (got ${at(L.sx,L.sy)})`);
+      // The leak tile itself must be TILE_TYPES.WALL.
+      assert.notEqual(at(L.x, L.y), TILE_TYPES.FLOOR,
+        `seed ${s}: leak tile (${L.x},${L.y}) should be TILE_TYPES.WALL but is TILE_TYPES.FLOOR`);
       checked++;
     }
   }
