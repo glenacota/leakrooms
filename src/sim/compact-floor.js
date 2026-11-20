@@ -2,20 +2,24 @@ import { MAP, TILE_TYPES } from '../config/constants.js';
 import { LEVELS, LEVELS_N } from '../config/levels.js';
 import { NOTES } from '../config/notes.js';
 
+// How many lifeforms a hard compact floor fills its single room with.
+const LIFEFORMS_HARD_MODE = 2;
+
 /**
  * Builds a compact test floor inside the normal-sized grid.
  * @param {Function} rng - seeded random function.
  * @param {number} floorNum - 0-based floor index.
+ * @param {'easy'|'hard'|null} mode - 'easy' seals with no lifeforms, 'hard' fills the room with lifeforms.
  * @returns {object} a level compatible with the normal floor builder.
  */
-export function genEasyLevel(rng, floorNum){
+export function genCompactFloor(rng, floorNum, mode){
   // Four leaks fit on the north wall with distinct repair ranges and room for the door.
   const room = { rx: Math.floor((MAP.WIDTH_TILES-18)/2), ry: Math.floor((MAP.HEIGHT_TILES-12)/2), rw: 18, rh: 12 };
   const grid = new Uint8Array(MAP.WIDTH_TILES*MAP.HEIGHT_TILES);
   for (let y=room.ry; y<room.ry+room.rh; y++)
     for (let x=room.rx; x<room.rx+room.rw; x++) grid[y*MAP.WIDTH_TILES+x] = TILE_TYPES.FLOOR;
 
-  const spec = { ...LEVELS[Math.min(floorNum, LEVELS_N-1)], lifeforms: 0 };
+  const spec = { ...LEVELS[Math.min(floorNum, LEVELS_N-1)], lifeforms: mode === 'hard' ? LIFEFORMS_HARD_MODE : 0 };
   const doorRight = rng() < 0.5;
   const shift = Math.floor(rng()*2);
   const leaks = Array.from({ length: spec.leaks }, (_, i) => {

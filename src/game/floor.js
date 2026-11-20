@@ -1,7 +1,7 @@
 import { mulberry32 } from '../util/rng.js';
 import { makeLos } from '../util/grid.js';
 import { genLevel } from '../sim/level.js';
-import { genEasyLevel } from '../sim/easy-level.js';
+import { genCompactFloor } from '../sim/compact-floor.js';
 import { labelRegions } from '../sim/regions.js';
 import { computeLightArr } from '../sim/lightmap.js';
 import { scopeRoomLight, snapMask } from '../sim/vision.js';
@@ -15,17 +15,22 @@ import { resetRepaint } from '../util/repaint.js';
 let cacheKey = null;
 let cache = null;
 
-// flag enabled by an URL query parameter to trigger an over-simplified game scenario 
-let easyFloor = false;
+// floor mode from the URL query parameter: null (normal), 'easy' or 'hard'.
+// easy and hard both use the compact single-room floor; only hard adds lifeforms.
+let floorMode = null;
 
-const keyOf = (seed, floorNum)=> `${seed}:${floorNum}${easyFloor ? ':easy' : ''}`;
+const keyOf = (seed, floorNum)=> `${seed}:${floorNum}${floorMode ? ':'+floorMode : ''}`;
 
-export function applyEasyFloor(enabled){
-  easyFloor = enabled;
+export function applyFloorMode(mode){
+  floorMode = mode;
+}
+
+export function getFloorMode(){
+  return floorMode;
 }
 
 export function isEasyFloor(){
-  return easyFloor;
+  return floorMode === 'easy';
 }
 
 /**
@@ -43,7 +48,7 @@ export function getStaticLevel(seed, floorNum){
   cache = null;
 
   const rng = mulberry32(seed + floorNum*7919);
-  const level = easyFloor ? genEasyLevel(rng, floorNum) : genLevel(rng, floorNum);
+  const level = floorMode ? genCompactFloor(rng, floorNum, floorMode) : genLevel(rng, floorNum);
   const { regionOf, regionAdj, regionCount } = labelRegions(level);
   const lightArr = computeLightArr(level, makeLos(level.grid));
 

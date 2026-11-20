@@ -11,7 +11,7 @@ import { initIllustration } from './ui/illustration.js';
 import { buildSettingsUI, syncSettingsUI } from './ui/settings-panel.js';
 import { Audio_ } from './audio/index.js';
 import { syncAmbience } from './ui/splash.js';
-import { applyEasyFloor, buildFloor } from './game/floor.js';
+import { applyFloorMode, buildFloor } from './game/floor.js';
 import { bindFloorSurfaces, buildFloorSurfaces } from './render/floor-surfaces.js';
 import { paintSplashPlan } from './render/splash-plan.js';
 import { bindRun } from './game/run.js';
@@ -72,7 +72,8 @@ function connect(){
 }
 
 function initialize(){
-  applyEasyFloor(new URLSearchParams(globalThis.location?.search || '').has('easy'));
+  const mode = new URLSearchParams(globalThis.location?.search || '').get('m');
+  applyFloorMode(mode === 'easy' || mode === 'hard' ? mode : null);
   /* A handheld plays with the touch layer; one that cannot run it gets the notice.
      Touch mode is not locked: a tablet that later gets a key press goes back to keyboard. */
   const verdict = mobileVerdict();
