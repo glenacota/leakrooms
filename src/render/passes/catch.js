@@ -9,7 +9,10 @@
 
 import { ctx, cvs } from '../canvas.js';
 import { SETTINGS } from '../../settings/store.js';
-import { catchPresenting, catchProgress } from '../../util/catch-presentation.js';
+import { catchPresenting, catchProgress, catchZoomScale } from '../../util/catch-presentation.js';
+
+let zoomCv = null;
+let motionPreference = null;
 
 /**
  * Draws the catch beat over the finished frame.
@@ -24,6 +27,26 @@ export function catchFx(t){
 
   ctx.save();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+  if (!motionPreference && typeof window !== 'undefined' && typeof window.matchMedia === 'function')
+    motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
+  if (!motionPreference?.matches){
+    const zoom = catchZoomScale(t);
+    if (!zoomCv || zoomCv.width !== w || zoomCv.height !== h){
+      if (zoomCv){ zoomCv.width = 0; zoomCv.height = 0; }
+      zoomCv = document.createElement('canvas');
+      zoomCv.width = w;
+      zoomCv.height = h;
+    }
+    const zoomCtx = zoomCv.getContext('2d');
+    zoomCtx.globalCompositeOperation = 'copy';
+    zoomCtx.setTransform(1, 0, 0, 1, 0, 0);
+    zoomCtx.drawImage(cvs, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    ctx.drawImage(zoomCv,
+      w * (1 - zoom) / 2, h * (1 - zoom) / 2,
+      w * zoom, h * zoom);
+  }
 
   /* Colour drains from the world as the plumber goes down. */
   ctx.globalCompositeOperation = 'saturation';

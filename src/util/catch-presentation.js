@@ -9,8 +9,9 @@
    so the loop and the renderer see the same value.
    ============================================================ */
 
-export const CATCH_MS = 800;
-export const CATCH_SKIP_GRACE_MS = 100;
+export const CATCH_MS = 1000;
+export const CATCH_SKIP_GRACE_MS = 500;
+export const CATCH_ZOOM_MAX = 150;
 
 let startedAt = null;
 
@@ -34,6 +35,18 @@ export function catchPresenting(){
 export function catchProgress(now = performance.now()){
   if (startedAt === null) return 1;
   return Math.min(1, Math.max(0, (now - startedAt) / CATCH_MS));
+}
+
+/**
+ * Scale factor for the catch camera punch.
+ * @param {number} [now]
+ * @returns {number}
+ */
+export function catchZoomScale(now = performance.now()){
+  if (startedAt === null) return 1;
+  const k = catchProgress(now);
+  const zoomIn = k * k * (3 - 2 * k);
+  return 1 + (CATCH_ZOOM_MAX - 1) * zoomIn;
 }
 
 /** True once the beat has run its full length. */

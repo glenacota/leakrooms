@@ -2,8 +2,8 @@ import test from 'node:test';
 import { softAssert } from '../helpers/soft-assert.js';
 import { loadGame } from '../helpers/harness.js';
 import {
-  CATCH_MS, CATCH_SKIP_GRACE_MS, beginCatchPresentation, catchDue, catchPresenting,
-  catchProgress, catchSkippable, endCatchPresentation,
+  CATCH_MS, CATCH_SKIP_GRACE_MS, CATCH_ZOOM_MAX, beginCatchPresentation, catchDue, catchPresenting,
+  catchProgress, catchSkippable, catchZoomScale, endCatchPresentation,
 } from '../../src/util/catch-presentation.js';
 
 /* The timing module is pure: every time is passed in, so nothing waits on a clock. */
@@ -22,6 +22,9 @@ test('[catch] the beat is a fixed length on the browser timeline', () => {
   t.assert(catchDue(1000 + CATCH_MS), 'the beat does not end at its length');
   t.assert(!catchSkippable(1000 + CATCH_SKIP_GRACE_MS - 1), 'opening input can cut off the beat');
   t.assert(catchSkippable(1000 + CATCH_SKIP_GRACE_MS), 'the beat cannot ever be skipped');
+  t.assert(catchZoomScale(1000) === 1, 'catch zoom starts at normal scale');
+  t.assert(catchZoomScale(1000 + CATCH_MS / 2) === 75.5, 'catch zoom reaches midpoint scale');
+  t.assert(catchZoomScale(1000 + CATCH_MS) === CATCH_ZOOM_MAX, 'catch zoom stays at maximum scale at the end');
 
   t.assert(endCatchPresentation() === true, 'ending a playing beat should report it');
   t.assert(endCatchPresentation() === false, 'ending twice should report nothing the second time');
@@ -107,7 +110,7 @@ test('[catch] a key during the beat skips it and does not also retry', () => {
   floorInPlay();
 
   A.caught();
-  beginCatchPresentation(performance.now() - 200);
+  beginCatchPresentation(performance.now() - CATCH_SKIP_GRACE_MS);
   const keydown = global.window._h && global.window._h.keydown;
   t.assert(typeof keydown === 'function', 'no keydown handler was registered');
   keydown({ key: 'Enter', repeat: false, metaKey: false, ctrlKey: false, altKey: false, preventDefault(){} });
