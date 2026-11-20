@@ -2,7 +2,7 @@ import test from 'node:test';
 import { softAssert } from '../helpers/soft-assert.js';
 import { loadGame } from '../helpers/harness.js';
 import { makeInWall } from '../helpers/oracles.js';
-const { A, G, els } = await loadGame();
+const { A, G } = await loadGame();
 const buildFloor = A.buildFloor;
 const update = A.update;
 const emitNoise = A.emitNoise;
@@ -40,7 +40,7 @@ test('agents stay out of geometry and react to noise', () => {
 
 /* A wandering lifeform touches you if it reaches you.
    Dark corridor: a WALK state lifeform walking through a motionless player
-   in darkness must start hunting and emit IT TOUCHED YOU.
+   in darkness must start hunting.
    Lit variant: a WALK state lifeform in light must still catch as before. */
 test('a wandering lifeform touches you if it reaches you', () => {
   const t = softAssert();
@@ -90,22 +90,16 @@ test('a wandering lifeform touches you if it reaches you', () => {
   G.lightArr[pi] = 0;
   G.visArr[pi] = 0;
 
-  let touched = false;
   let hunted = false;
   for (let i=0;i<200;i++){
     update(1/60);
-    const flashEl = els['flashnote'];
-    if (flashEl && flashEl.textContent && flashEl.textContent.includes('IT TOUCHED YOU')){
-      touched = true;
-    }
     if (walkLifeform.state === 'HUNT'){
       hunted = true;
     }
-    if (touched && hunted) break;
+    if (hunted) break;
   }
-  t.assert(touched, 'dark corridor: IT TOUCHED YOU flash was not emitted');
   t.assert(hunted, 'dark corridor: WALK lifeform did not transition to HUNT after touching player');
-  console.log(`  dark corridor: WALK lifeform touched player at frame ${touched && hunted ? 'OK' : 'FAIL'}`);
+  console.log(`  dark corridor: WALK lifeform touched player at frame ${hunted ? 'OK' : 'FAIL'}`);
 
   /* --- LIT TEST ---
      Same setup but with light. The WALK lifeform should still touch and trigger brush.
@@ -131,22 +125,16 @@ test('a wandering lifeform touches you if it reaches you', () => {
   G.lightArr[pi] = 1;
   G.visArr[pi] = 1;
 
-  let touchedLit = false;
   let huntedLit = false;
   for (let i=0;i<200;i++){
     update(1/60);
-    const flashEl = els['flashnote'];
-    if (flashEl && flashEl.textContent && flashEl.textContent.includes('IT TOUCHED YOU')){
-      touchedLit = true;
-    }
     if (walkLifeform2.state === 'HUNT'){
       huntedLit = true;
     }
-    if (touchedLit && huntedLit) break;
+    if (huntedLit) break;
   }
-  t.assert(touchedLit, 'lit corridor: IT TOUCHED YOU flash was not emitted');
   t.assert(huntedLit, 'lit corridor: lifeform did not transition to HUNT after touching player');
-  console.log(`  lit corridor: lifeform touched player at frame ${touchedLit && huntedLit ? 'OK' : 'FAIL'}`);;
+  console.log(`  lit corridor: lifeform touched player at frame ${huntedLit ? 'OK' : 'FAIL'}`);;
 });
 
 /* SEARCH timeout goes to WALK, not DORMANT. The "may go back to sleep"

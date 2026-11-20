@@ -167,9 +167,8 @@ export function sustainedNoise(noiseState, power, x, y, mine){
    hunting yet starts hunting and makes a loud noise instead. */
 export function brush(lf, p, noiseState){
   if (lf.state==='HUNT'){ emit(EVENT.caught); return; }
-  lf.state='HUNT'; lf.target={x:p.x, y:p.y}; lf.t=0;
+  lf.state='HUNT'; lf.target={x:p.x,y:p.y}; lf.t=0;
   lf.rise=Math.max(lf.rise, 0.85);
   emitNoise(noiseState, NOISE.BRUSH, p.x, p.y);
-  emit(EVENT.flash, { cat: 'danger', text: 'IT TOUCHED YOU' });
   emit(EVENT.sfx, 'rattle', 1);
 }
