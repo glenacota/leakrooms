@@ -70,7 +70,7 @@ test('reset leaves disabled setting and flashnote history intact', () => {
     G.radar = true;
     emit('sprint', 0);
     tickTutorials();
-    assert.deepEqual(cues, ['RUNNING IS NOISE.LOUD AND DRAINS STAMINA. STOP RUNNING TO RECOVER']);
+    assert.deepEqual(cues, ['RUNNING IS LOUD AND DRAINS STAMINA. STOP RUNNING TO RECOVER']);
     els['btn-reset-tutorials'].click();
     assert.equal(SETTINGS.tutorials, false);
     assert.deepEqual(JSON.parse(store.get(historyKey)), []);
@@ -78,8 +78,8 @@ test('reset leaves disabled setting and flashnote history intact', () => {
     emit('sprint', 0);
     tickTutorials();
     assert.deepEqual(cues, [
-      'RUNNING IS NOISE.LOUD AND DRAINS STAMINA. STOP RUNNING TO RECOVER',
-      'RADAR IS NOISE.LOUD AND DRAINS BATTERY',
+      'RUNNING IS LOUD AND DRAINS STAMINA. STOP RUNNING TO RECOVER',
+      'RADAR IS LOUD AND DRAINS BATTERY',
     ]);
     flashReset();
     emit('sprint', 0);

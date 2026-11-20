@@ -108,7 +108,7 @@ test('disabled dialogs emit fallback guidance without completing tutorials', () 
     emit('run:start');
     emit('sprint', 0);
     tickTutorials();
-    assert.ok(cues.includes('RUNNING IS NOISE.LOUD AND DRAINS STAMINA. STOP RUNNING TO RECOVER'));
+    assert.ok(cues.includes('RUNNING IS LOUD AND DRAINS STAMINA. STOP RUNNING TO RECOVER'));
     assert.equal(STATE, 'play');
     assert.deepEqual(JSON.parse(store.get(historyKey)), ['sprint', 'radar', 'lifeform', 'water', 'repair']);
     emit('sprint', 0);

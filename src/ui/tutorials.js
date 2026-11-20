@@ -18,12 +18,12 @@ const TUTORIALS = {
   sprint: {
     title: 'Save your legs',
     text: 'Running makes enough noise to bring something bad over. It also drains stamina. Walk or stand still to recover.',
-    flash: 'RUNNING IS NOISE.LOUD AND DRAINS STAMINA. STOP RUNNING TO RECOVER',
+    flash: 'RUNNING IS LOUD AND DRAINS STAMINA. STOP RUNNING TO RECOVER',
   },
   radar: {
     title: 'Use the radar sparingly',
     text: 'The radar reveals the floor for ten seconds, but its pulse can draw attention. Grab batteries when you find them.',
-    flash: 'RADAR IS NOISE.LOUD AND DRAINS BATTERY',
+    flash: 'RADAR IS LOUD AND DRAINS BATTERY',
   },
   water: {
     title: 'How to find a leak',
@@ -33,12 +33,12 @@ const TUTORIALS = {
   repair: {
     title: 'How to seal a leak',
     text: 'Stand still beside the leak to repair it. The wrench is not a quiet tool and can attract something dangerous.',
-    flash: 'STAND STILL BESIDE THE LEAK TO REPAIR IT. REPAIRING IS NOISE.LOUD',
+    flash: 'STAND STILL BESIDE THE LEAK TO REPAIR IT. REPAIRING IS LOUD',
   },
   lifeform: {
     title: 'Watch for lifeforms',
     text: 'Loud actions can wake a dormant lifeform or turn a search into a hunt. Awake lifeforms can see you all too well.',
-    flash: 'NOISE.LOUD SOUNDS WAKE LIFEFORMS OR START A HUNT. AWAKE LIFEFORMS CAN SEE YOU',
+    flash: 'LOUD SOUNDS WAKE LIFEFORMS OR START A HUNT. AWAKE LIFEFORMS CAN SEE YOU',
   },
   airsupply: {
     title: 'Limited air supply',

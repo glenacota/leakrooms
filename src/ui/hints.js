@@ -40,7 +40,7 @@ export function tickCues(){
     if (now - doorSince >= 800 && now - doorLast >= 20000){
       doorLast = now;
       emit(EVENT.flash, { cat: 'alert',
-              text: `EXIT LOCKED — ${G.openLeaks} OPEN LEAK${G.openLeaks === 1 ? '' : 'S'} OPEN` });
+              text: `EXIT LOCKED — ${G.openLeaks} LEAK${G.openLeaks === 1 ? '' : 'S'} STILL OPEN` });
     }
   } else {
     doorSince = 0;
