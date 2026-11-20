@@ -2,6 +2,7 @@ import { LEVELS, LEVELS_N } from '../config/levels.js';
 import { FLOOR_CLOCK, FLOORS } from '../config/tuning.js';
 import { currentTerms } from '../settings/store.js';
 import { emit, on, EVENT } from '../util/events.js';
+import { beginCatchPresentation, endCatchPresentation } from '../util/catch-presentation.js';
 import { initFlood } from '../sim/flood.js';
 import { clearInput } from '../sim/keys.js';
 import { restoreSealed } from '../sim/leaks.js';
@@ -55,6 +56,8 @@ export function dismissClear(){
  * Clears held input so stale movement cannot carry into the new state.
  */
 export function transition(to){
+  /* Leaving for anything but the death screen (retry, pause, menus) ends the beat early. */
+  if (to !== 'dead') endCatchPresentation();
   setState(to);
   emit(EVENT.screen, to === 'play' ? null : to);
   emit(EVENT.hud, to === 'play');
@@ -112,12 +115,25 @@ export function lose(cause){
   runStat.deaths++;
   setLives(lives-1);
   emit(EVENT.sfx, 'sting');
+  /* A catch plays a short beat before the death card (see revealDeath). Running out of air does not. */
+  if (cause === DEATH_CAUSE.CAUGHT) beginCatchPresentation();
   transition('dead');
   emit(EVENT.lives);
   emit(EVENT.dead, { lives, cause });
 }
 
 export function caught(){ lose(DEATH_CAUSE.CAUGHT); }
+
+/**
+ * Shows the death card now. Called when the catch beat ends, or when the player skips it.
+ *
+ * @returns {boolean} true if a beat was playing and the card was revealed
+ */
+export function revealDeath(){
+  if (!endCatchPresentation()) return false;
+  emit(EVENT.screen, 'dead');
+  return true;
+}
 
 /* Running out of air follows the same loss path as being caught. */
 export function outOfTime(){ lose(DEATH_CAUSE.CLOCK); }

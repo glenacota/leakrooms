@@ -1,7 +1,8 @@
 import { update } from '../sim/update.js';
 import { G } from '../sim/state.js';
 import { on, EVENT } from '../util/events.js';
-import { addRunTime, STATE } from './run.js';
+import { addRunTime, revealDeath, STATE } from './run.js';
+import { catchDue, catchPresenting } from '../util/catch-presentation.js';
 
 /* Hooks keep rendering and shell updates outside the fixed-step loop. */
 let renderHook = ()=>{}, afterUpdate = ()=>{}, afterStep = ()=>{}, simAlphaHook = ()=>{}, adaptiveHook = ()=>{};
@@ -38,6 +39,8 @@ on(EVENT.settingsChanged,()=>{ needsRedraw = true; });
 
 function shouldRender(now){
   if (STATE==='play')  return true;
+  /* The catch beat animates in real time, so it redraws every frame. */
+  if (catchPresenting()) return true;
   if (STATE==='splash') return false;
   if (STATE!==lastState){ lastState = STATE; needsRedraw = true; }
   if (!needsRedraw && now - lastRedraw < IDLE_REDRAW_MS) return false;
@@ -57,6 +60,7 @@ export function frame(now){
   try {
     let dt = (now-last)/1000;
     last = now;
+    if (catchDue(now)) revealDeath();
     /* Limit background-tab catch-up without changing individual step size. */
     simAcc = Math.min(simAcc + dt, SIM_STEP*MAX_STEPS);
 

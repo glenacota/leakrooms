@@ -12,6 +12,7 @@
 
 import { disarmReset } from '../game/run.js';
 import { on, EVENT } from '../util/events.js';
+import { catchPresenting } from '../util/catch-presentation.js';
 import { showScreen, hideScreens } from './dom.js';
 
 const SCREEN_FOR_STATE = Object.freeze({
@@ -30,6 +31,8 @@ function showStateScreen(state){
   }
   if (!Object.hasOwn(SCREEN_FOR_STATE, state))
     throw new RangeError(`Unknown run state: ${state}`);
+  /* The death card waits for the catch beat; revealDeath() shows it later. */
+  if (state === 'dead' && catchPresenting()) return;
   const screenId = SCREEN_FOR_STATE[state];
   showScreen(screenId);
 }

@@ -63,8 +63,8 @@ export function bindCards(){
     const subMsg = document.getElementById('dead-sub-message');
     const btn = document.getElementById('btn-retry');
     if (lives > 0){
-      if (cause === DEATH_CAUSE.CAUGHT) title.textContent = 'PREDATORY CASUALTY';
-      else if (cause === DEATH_CAUSE.CLOCK) title.textContent = "AIR RESERVE DEPLETED";
+      if (cause === DEATH_CAUSE.CAUGHT) title.textContent = 'FATAL ATTACK';
+      else if (cause === DEATH_CAUSE.CLOCK) title.textContent = "RESPIRATORY FAILURE";
       btn.textContent = 'SEND NEXT CREW MEMBER';
       sub.textContent = `CREW REMAINING: ${lives}`;
       subMsg.textContent = `We mourn the loss of a valued employee • The position will be filled as soon as operationally feasible`;

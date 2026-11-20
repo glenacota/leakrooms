@@ -30,7 +30,7 @@ import { buildFloor } from '../../src/game/floor.js';
 import {
   STATE, lives, floorIdx, runLives, runStat, runTime, RUN_SEED,
   clearCard, resetArmed, clockText, nextFloor, dismissClear, rollRunSeed, startRun, retryFloor,
-  resetRun, 
+  resetRun, caught, outOfTime, revealDeath,
   setState, setLives, setFloorIdx, setRunTime, addRunTime, setRunSeed,
 } from '../../src/game/run.js';
 import { frame } from '../../src/game/loop.js';
@@ -123,7 +123,7 @@ get WATER_TINTS(){ return WATER_TINTS; },
 loadSettings, saveSettings, resetSettings, applySettings, setOption,
 settingsValid, get SETTINGS_KEY(){ return SETTINGS_KEY; },
 activateMenu, beginShift, backSplash, moveMenu, selectMenu, TITLE_MENU, showScreen, hideScreens, get SCREENS(){ return SCREENS; },
-nextFloor, dismissClear, startRun, retryFloor, addRunTime, get clearCard(){ return clearCard; },
+nextFloor, dismissClear, startRun, retryFloor, addRunTime, caught, outOfTime, revealDeath, get clearCard(){ return clearCard; },
 get STATE(){ return STATE; },
 set STATE(v){ setState(v); },
 get floorIdx(){ return floorIdx; }, set floorIdx(v){ setFloorIdx(v); },

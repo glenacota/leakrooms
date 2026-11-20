@@ -8,6 +8,7 @@
 import { MAP } from '../config/constants.js';
 import { G } from '../sim/state.js';
 import { cvs, SCALE } from './canvas.js';
+import { catchPresenting, catchProgress } from '../util/catch-presentation.js';
 
 export const cam = { x: 0, y: 0, jx: 0, jy: 0 };
 
@@ -56,9 +57,27 @@ export function buildFrame(t){
   if (MAP.WIDTH_TILES > halfW * 2) cam.x = Math.max(halfW, Math.min(MAP.WIDTH_TILES - halfW, cam.x));
   if (MAP.HEIGHT_TILES > halfH * 2) cam.y = Math.max(halfH, Math.min(MAP.HEIGHT_TILES - halfH, cam.y));
 
+  /* The catch kick: a short push of the view toward the lifeform that caught
+     the plumber. It is zero outside the catch beat, and reduced motion skips it. */
+  let kx = 0, ky = 0;
+  if (catchPresenting() && !motionPreference?.matches){
+    const k = catchProgress(t);
+    const amp = Math.sin(k * Math.PI) * (1 - k) * 0.35 * MAP.TILE_SIZE_PX;
+    let near = null, nd = Infinity;
+    for (const lf of G.lifeforms){
+      const d = (lf.x - p.x) ** 2 + (lf.y - p.y) ** 2;
+      if (d < nd){ nd = d; near = lf; }
+    }
+    if (near && nd > 0){
+      const d = Math.sqrt(nd);
+      kx = -(near.x - p.x) / d * amp;
+      ky = -(near.y - p.y) / d * amp;
+    }
+  }
+
   // The translation applied inside the scaled context, in world pixels
-  const tx = -cam.x * MAP.TILE_SIZE_PX + cvs.width / (2 * SCALE) + cam.jx;
-  const ty = -cam.y * MAP.TILE_SIZE_PX + cvs.height / (2 * SCALE) + cam.jy;
+  const tx = -cam.x * MAP.TILE_SIZE_PX + cvs.width / (2 * SCALE) + cam.jx + kx;
+  const ty = -cam.y * MAP.TILE_SIZE_PX + cvs.height / (2 * SCALE) + cam.jy + ky;
   // The same mapping, in device pixels
   const dx = tx * SCALE;
   const dy = ty * SCALE;

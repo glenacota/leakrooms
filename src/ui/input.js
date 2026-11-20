@@ -3,7 +3,7 @@ import { Audio_ } from '../audio/index.js';
 import { keys, clearInput } from '../sim/keys.js';
 import { emit, EVENT } from '../util/events.js';
 import { G } from '../sim/state.js';
-import { STATE, dismissClear, retryFloor, runAgain } from '../game/run.js';
+import { STATE, dismissClear, retryFloor, revealDeath, runAgain } from '../game/run.js';
 import { resize } from '../render/canvas.js';
 import { togglePause } from './pause.js';
 import { toggleFullscreen } from './fullscreen.js';
@@ -12,6 +12,7 @@ import { binderTab, stepBinderTab } from './binder.js';
 import { handleTermsKey } from './terms.js';
 import { isMobileBlocked } from './mobile.js';
 import { dismissTutorial } from './tutorials.js';
+import { catchPresenting, catchSkippable } from '../util/catch-presentation.js';
 
 /* What ENTER does on each screen. It confirms whatever the screen is asking
    for: start, resume, rewind, run again. */
@@ -163,6 +164,12 @@ function onKeyDown(e){
   // Some input methods send a keydown with no character. Ignore those rather than crash.
   if (typeof e.key !== 'string') return;
 
+  /* Any key during the catch beat only skips it. The key is used up, so it cannot also retry. */
+  if (catchPresenting()){
+    if (catchSkippable()) revealDeath();
+    return;
+  }
+
   /* The desktop-only notice owns the screen. No key can walk past a card that
      says the game is desktop-only. */
   if (isMobileBlocked()) return;
@@ -208,6 +215,11 @@ export function toggleMute(){
 export function bindInput(){
   window.addEventListener('keydown', onKeyDown);
   window.addEventListener('keyup', onKeyUp);
+  /* A tap after the opening grace skips it, the same as a key. Opening taps and
+     repeated pointer events cannot cut a second catch beat off before it starts. */
+  window.addEventListener('pointerdown', () => {
+    if (catchPresenting() && catchSkippable()) revealDeath();
+  });
 
   /* Losing the window (switching tabs or apps) means two things: no more key
      releases will arrive, and nobody is watching the run. So release every

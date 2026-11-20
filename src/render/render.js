@@ -20,6 +20,7 @@ import { ripples } from './passes/ripples.js';
 import { post } from './passes/post.js';
 import { doorCrank } from './entities.js';
 import { syncSurfaces } from './floor-surfaces.js';
+import { catchFx } from './passes/catch.js';
 
 export { setSimAlpha } from './passes/actors.js';
 export { cam } from './frame.js';
@@ -40,6 +41,7 @@ export function render(t){
   drawLightingAndPipes(rc);
   applyPostProcessing(rc);
   drawReadableCues(rc, t);
+  catchFx(t);
 }
 
 function clearFrame(){
