@@ -36,6 +36,7 @@ test('G.wet describes the tile the player ends the frame on', () => {
     'tickMovement sampled the position before the move');
   t.assert(G.wet === 1, `G.wet is ${G.wet} on a fully wet tile`);
   console.log(`  G.wet is the arrival tile: ${G.wet} after one step through water`);;
+  t.done();
 });
 
 /* p.moving must be true while a move key is held and false when released.
@@ -57,4 +58,5 @@ test('p.moving reflects the held key state', () => {
   update(1/60);
   update(1/60);
   t.assert(G.plumber.moving === false, 'player.moving is false after key release');;
+  t.done();
 });

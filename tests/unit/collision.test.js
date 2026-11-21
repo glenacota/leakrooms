@@ -2,7 +2,12 @@ import test from 'node:test';
 import { softAssert } from '../helpers/soft-assert.js';
 import { loadGame } from '../helpers/harness.js';
 import { makeInWall } from '../helpers/oracles.js';
-import { PLUMBER } from '../../src/config/constants.js';
+import { PLUMBER, WALL } from '../../src/config/constants.js';
+
+/* The body may sink into a wall by WALL.OVERLAP_TILES (collision.js blocked()).
+   The oracle must allow that same overlap, or every sunk frame reads as a
+   penetration. Anything deeper than this is a real escape. */
+const CONTACT_TILES = PLUMBER.RADIUS_TILES - WALL.OVERLAP_TILES;
 const { A, G } = await loadGame();
 const buildFloor = A.buildFloor;
 const update = A.update;
@@ -24,11 +29,12 @@ test('random walks never put the player inside walls', () => {
     keys['s']=seededRNG()<0.34; keys['d']=seededRNG()<0.34;
     update(0.016);
     keys.w=keys.a=keys.s=keys.d=false;
-    if (inWall(G.plumber.x, G.plumber.y, 0.33, true)) inside++;
+    if (inWall(G.plumber.x, G.plumber.y, CONTACT_TILES, true)) inside++;
     if (!Number.isFinite(G.plumber.x) || !Number.isFinite(G.plumber.y)) { inside += 1000; break; }
   }
   t.assert(inside===0, `${inside} frames with player inside geometry / NaN`);
   console.log('  player never penetrated geometry, no NaN');;
+  t.done();
 });
 
 /* Tile connectivity is not navigability: a one-tile corridor can be connected on
@@ -95,6 +101,7 @@ test('every legal position is reachable by the player disc', () => {
   }
   console.log(`  ${cellsTotal} free disc positions sampled across 25 floors`);
   t.assert(trappedTotal===0, `${trappedTotal} positions are legal but unreachable — the player can soft-lock there`);;
+  t.done();
 });
 
 /* The nudge that slides the player along a wall must be bounded by the step.
@@ -150,6 +157,7 @@ test('wall contact does not accelerate, and a free sprint still runs', () => {
     console.log(`  1s sprinting in the open: ${dist.toFixed(2)} tiles (expect ~${(6.0).toFixed(1)})`);
     t.assert(dist > 5.0, `sprint only covered ${dist.toFixed(2)} tiles in 1s — movement was over-constrained`);
   };
+  t.done();
 });
 
 /* Pressing into a wall must move the player only along the wall. The nudge
@@ -193,12 +201,13 @@ test('pressing into a wall drifts sideways not at all', () => {
       `avatar drifted ${dx.toFixed(3)} tiles sideways while pressing straight up into a wall — should be 0`);
     t.assert(maxJump < 0.20,
       `single-frame jump of ${maxJump.toFixed(3)} tiles — that is a teleport, not a nudge`);
-    // the player should end up flush with the wall: centre-to-face distance == radius
+    // the body rests at radius minus the allowed overlap: it sinks into the wall
+    // by WALL.OVERLAP_TILES and no further
     const wallFace = Math.floor(G.plumber.y);          // boundary below the wall tile
     const gap = G.plumber.y - wallFace;
-    console.log(`  final gap to wall face ${gap.toFixed(3)} tiles (collision radius ${PLUMBER.RADIUS_TILES})`);
-    t.assert(gap >= PLUMBER.RADIUS_TILES - 0.02 && gap <= PLUMBER.RADIUS_TILES + 0.12,
-      `ended ${gap.toFixed(3)} tiles from the wall face; expected flush at ~${PLUMBER.RADIUS_TILES} (not sunk in, not short)`);
+    console.log(`  final gap to wall face ${gap.toFixed(3)} tiles (contact ${CONTACT_TILES.toFixed(2)}, radius ${PLUMBER.RADIUS_TILES})`);
+    t.assert(gap >= CONTACT_TILES - 0.02 && gap <= CONTACT_TILES + 0.12,
+      `ended ${gap.toFixed(3)} tiles from the wall face; expected rest at ~${CONTACT_TILES.toFixed(2)} (radius less overlap)`);
   }
   release();
 
@@ -219,4 +228,5 @@ test('pressing into a wall drifts sideways not at all', () => {
     t.assert(drift < 0.05, `pressing ${label} into a wall drifted ${drift.toFixed(3)} tiles vertically`);
   }
   console.log('  no lateral drift on any axis, no teleports');;
+  t.done();
 });

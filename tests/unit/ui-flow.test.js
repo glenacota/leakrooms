@@ -37,7 +37,9 @@ test('the splash chain walks the riser, then the work order, then the run', () =
   const binderHtml = html.slice(html.indexOf('id="screen-binder"'), html.indexOf('id="screen-clear"'));
   t.assert(splashHtml.length>0 && binderHtml.length>0, 'the title or the binder is missing from index.html');
   t.assert(/LEAKROOMS/.test(splashHtml), 'the title does not show the name');
-  t.assert(!/\bhidden\b/.test(splashHtml), 'the title ships hidden — the boot frame would be a blank canvas');
+  /* Check the screen element itself. The touch-only tip inside the title is
+     `hidden` on purpose, so a search of the whole title would always fail. */
+  t.assert(/<div id="screen-splash" class="screen splash">/.test(html), 'the title ships hidden — the boot frame would be a blank canvas');
   t.assert(/class="screen hidden"/.test(binderHtml), 'the binder ships visible over the title');
   t.assert(/id="btn-start"/.test(binderHtml), 'the binder has no start button for btn-start to bind');
   const cta = binderHtml.match(/<div class="order-cta">([\s\S]*?)<\/div>/)?.[1] || '';
@@ -75,8 +77,9 @@ test('the splash chain walks the riser, then the work order, then the run', () =
          'the work order title does not use the shared display token');
   t.assert(/--text-body:\s*clamp\(14px/.test(css),
          'the shared body text token does not start at 14px');
-  t.assert(/--text-label:\s*clamp\(10px/.test(css),
-         'the shared label text token does not start at 10px');
+  /* label floor raised 10px -> 12px in "more coherent font size" (upstream) */
+  t.assert(/--text-label:\s*clamp\(12px/.test(css),
+         'the shared label text token does not start at 12px');
   t.assert(/--text-display:\s*clamp\(22px/.test(css),
          'the shared display text token does not start at 22px');
   /* The chain itself, driven through the real key handler rather than the API. */
@@ -178,6 +181,7 @@ test('the splash chain walks the riser, then the work order, then the run', () =
   A.setOption('muted', false);
   console.log('  ENTER / any key / click advance, ESC steps back, one screen at a time');
   console.log('  M toggles mute from every screen, survives a reload, and never advances the splash');;
+  t.done();
 });
 /* The splash paints a floor plan, and the only version of that worth shipping is
    the one the run is actually built from. Nothing the player does between seeing
@@ -230,6 +234,7 @@ test('the splash plan is painted from the seed the run uses', () => {
   t.assert(A.RUN_SEED!==seedAtBoot, 'a new run kept the old seed — RUN IT AGAIN is the same building');
   t.assert(G.seed===A.RUN_SEED, 'the re-rolled seed did not reach the level');
   console.log(`  plan rolls at two speeds, faded to ${op?op[1]:'?'}, loops seamlessly, and matches seed #${(A.RUN_SEED>>>0).toString(16)}`);;
+  t.done();
 });
 /* The work order and the pause screen are one binder: the manual and settings
    pages are the same markup in both modes, so they cannot drift apart. The RUN
@@ -316,15 +321,18 @@ test('the pause screen is the binder with the run written on it', () => {
   /* The manual is written for the terms: it follows the choice. */
   const prose = (id)=> (els[id] ? els[id].textContent : '');
   A.setOption('difficulty','hard');
-  t.assert(prose('manual-return')==='2 minutes 30 seconds' && prose('manual-repair')==='4 seconds',
-    `the manual reads "${prose('manual-return')}" and "${prose('manual-repair')}" on HARD`);
+  /* The manual no longer prints a return time; the air figure is in the terms
+     note, in minutes. Check both the repair line and the air figure. */
+  t.assert(prose('manual-repair')==='4 sec' && prose('note-difficulty').includes('2.5 min air supply'),
+    `the manual reads "${prose('manual-repair')}" and the note "${prose('note-difficulty')}" on HARD`);
   A.setOption('difficulty','relaxed');
-  t.assert(prose('manual-return')==='4 minutes' && prose('manual-repair')==='7 seconds',
+  t.assert(prose('manual-repair')==='7 sec' && prose('note-difficulty').includes('4 min air supply'),
     'the manual did not follow RELAXED');
   A.setOption('difficulty','normal');
-  t.assert(prose('manual-return')==='3 minutes' && prose('manual-repair')==='5 seconds',
+  t.assert(prose('manual-repair')==='5 sec' && prose('note-difficulty').includes('3 min air supply'),
     'the manual did not return to the NORMAL numbers');
-  t.assert(/lives/.test(prose('note-difficulty')) && /floor/.test(prose('note-difficulty')),
+  /* player-facing copy says crew and air supply, never lives or clock (AGENTS.md) */
+  t.assert(/crew member/.test(prose('note-difficulty')) && /air supply per floor/.test(prose('note-difficulty')),
     `the terms note reads "${prose('note-difficulty')}"`);
 
   A.setOption('difficulty','normal');
@@ -364,6 +372,7 @@ test('the pause screen is the binder with the run written on it', () => {
 
   A.STATE='play'; A.hideScreens();
   console.log('  pause = the binder with a run page; manual and settings shared; terms chosen at the door; RESTART SHIFT two-stage');
+  t.done();
 });
 
 /* The one screen between two levels, asserted on three axes because each of
@@ -450,6 +459,7 @@ test('the floor-clear card shows the clock left and the next floor', () => {
   A.nextFloor();
   t.assert(A.STATE==='win',
     `clearing the fifth floor went to '${A.STATE}', want 'win' — the card must not appear with no floor after it`);;
+  t.done();
 });
 
 /* The stub invents an element for any id index.html does not carry, so a write

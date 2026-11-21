@@ -25,6 +25,7 @@ test('alert receives sound source and context objects', () => {
   t.assert(lf.state === 'RISING', `expected RISING, got ${lf.state}`);
   t.assert(lf.target.x === src.x && lf.target.y === src.y,
     `target is (${lf.target.x}, ${lf.target.y}), expected sound source (${src.x}, ${src.y})`);
+  t.done();
 });
 
 /* A rising lifeform ignores further sound until it is up.
@@ -91,7 +92,7 @@ test('a rising lifeform ignores further sound until it is up (real wrench path)'
 
   /* Make sure the agent is DORMANT and the player is not making other noise.
      Save the original position for the burst test later. */
-  const origX = agent.x, origY = agent.y;
+  const origX = agent.x, origY = agent.y, origFace = agent.face;
   agent.state = 'DORMANT';
   agent.rise = 0;
   agent.born = 0;
@@ -136,7 +137,9 @@ test('a rising lifeform ignores further sound until it is up (real wrench path)'
   /* Now test a single burst (emitNoise instead of sustained repair noise).
      Reset the agent to DORMANT at its original position (the HUNT movement may have
      taken it to a spot where walls block the sound). */
-  agent.x = origX; agent.y = origY;
+  /* Restore facing too. The first hunt turned the agent toward the plumber, and a
+     risen lifeform that faces you in light hunts at once, which would hide the burst. */
+  agent.x = origX; agent.y = origY; agent.face = origFace; agent.target = null; agent.t = 0;
   agent.state = 'DORMANT';
   agent.rise = 0;
   agent.born = 0;
@@ -170,4 +173,5 @@ test('a rising lifeform ignores further sound until it is up (real wrench path)'
   t.assert(huntFrameBurst !== null, 'agent never reached HUNT after burst within 100 frames');
   t.assert(huntFrameBurst >= 80, `agent reached HUNT at frame ${huntFrameBurst} after burst, expected >= 80`);
   console.log(`  burst frame ${huntFrameBurst}: state=${agent.state}`);;
+  t.done();
 });

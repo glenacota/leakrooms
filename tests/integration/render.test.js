@@ -19,6 +19,7 @@ test('render survives 400 frames of full draw', () => {
   } catch(e){ err=e; }
   t.assert(!err, 'render threw: '+(err&&err.message));
   console.log(err? '  FAIL' : '  ok — no exceptions');;
+  t.done();
 });
 
 
@@ -99,6 +100,7 @@ test('the camera centres the plumber and keeps the world upright', () => {
 
   console.log(`  plumber at ${pxDev.toFixed(0)},${pyDev.toFixed(0)}; viewport centre ${CW/2},${CH/2}`);
   console.log(`  10 tiles spans ${span.toFixed(0)}px; lightmap and flood both aligned with geometry`);;
+  t.done();
 });
 
 
@@ -157,7 +159,9 @@ test('the leak is drawn where it is, not just where it is computed', () => {
     render(1000+91*16.7);
     const near = calls.list.filter(c=>{
       if (c[0]!=='fillRect' && c[0]!=='createLinearGradient' && c[0]!=='createRadialGradient') return false;
-      const x=c[c.length-2], y=c[c.length-1];
+      /* the origin of the call: fillRect(x, y, w, h) and the gradient constructors
+         all start with x, y. The last two arguments are a size or an end point. */
+      const x=c[1], y=c[2];
       return Math.hypot(x-lx, y-ly) < A.MAP.TILE_SIZE_PX*A.SCALE*1.2;
     });
     t.assert(near.length>0,
@@ -191,6 +195,7 @@ test('the leak is drawn where it is, not just where it is computed', () => {
       'the ring was traced but never stroked — it is a circle nobody can see');
   }
   console.log('  the leak and the wrench ring land on screen, not off in device-pixel space');;
+  t.done();
 });
 
 

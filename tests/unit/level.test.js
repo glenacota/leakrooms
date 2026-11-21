@@ -127,6 +127,7 @@ test('every generated floor is connected, playable and lit', () => {
   t.assert(LR>0.72, `only ${(LR*100).toFixed(0)}% of rooms are lit across 50 floors (want >72%)`);
   console.log(`  ${(LR*100).toFixed(0)}% of rooms are lit overall.`);
   console.log(`  ${totalFloors} floors OK. avg reachable tiles ${Math.round(totalTiles/totalFloors)}, range ${minOpen}-${maxOpen}`);;
+  t.done();
 });
 
 /* Rooms are capped in area and linked by 2-tile gates, per the level spec.
@@ -186,6 +187,7 @@ test('rooms stay small and link to each other through 2-tile gates', () => {
   }
   console.log(`  rooms with fewer than 2 doorway tiles: ${isolated}/${G.rooms.length}`);
   t.assert(isolated === 0, `${isolated} rooms are effectively sealed — they do not flow into each other`);;
+  t.done();
 });
 
 /* genLevel is the pure stage that decides the whole geometry: door, leaks,
@@ -275,6 +277,7 @@ test('genLevel is pure and produces a well-formed level', () => {
   }
   console.log('  20 seeds, no buildFloor: door, leaks, fixtures, pickups, notes all well-formed');
   console.log('  ...and every one of them byte-identical across two builds of the same seed');;
+  t.done();
 });
 /* These assertions are on the door fields the renderer actually reads: the leaf
    angle and the facing. If the hold has no representation in the world, a bot
@@ -341,6 +344,7 @@ test('the door leaf follows the hold and the door faces south', () => {
   }
   console.log('  shut on a wet floor, ajar on the latch, cranking on the hold, shut again after');
   console.log('  the new floor, and the facing names the side with floor on it');;
+  t.done();
 });
 
 /* Every floor builds six canvases, and building the next one has to release
@@ -370,6 +374,7 @@ test('the canvases of a replaced floor are released, not dropped', () => {
     'the floor just built is already 0x0 — dispose ran after setG');
   t.assert(surfaces.tiles !== old.tiles, 'the tile layer was reused across floors instead of rebuilt');
   console.log(`  5 canvases released on rebuild; the new floor is ${surfaces.tiles.width}x${surfaces.tiles.height}`);;
+  t.done();
 });
 
 /* genLevel is a pure function of its seed, and everything it builds came
@@ -398,6 +403,7 @@ test('the same seed builds the same cast ten seconds in', () => {
     'the level itself is not identical across two builds of one seed');
 
   console.log(`  ${G.lifeforms.length} agents, 600 steps, identical both times`);;
+  t.done();
 });
 
 /* A retry rebuilds the same building from the same seed, so the carpet, the
@@ -446,4 +452,5 @@ test('the static bake is cached and a played floor leaves no mark', () => {
     `the retired tile layer is still ${tiles.width}x${tiles.height} — the cache dropped it instead of releasing it`);
 
   console.log(`  one seed: 3 canvases reused across a retry; a new seed retires them (${tiles.width}x${tiles.height})`);;
+  t.done();
 });

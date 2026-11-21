@@ -27,6 +27,7 @@ test('noise decay lowers meters and keeps peak above current noise', () => {
   G.noisePeak = 0.1;
   A.tickNoiseDecay(1);
   t.assert(Math.abs(G.noisePeak - G.noise) < 1e-9, 'noisePeak fell below current noise');
+  t.done();
 });
 
 /* The bar is drawn from the noise level divided by NOISE.FULL_SCALE, and every value the
@@ -46,7 +47,8 @@ test('the noise meter uses the scale the game actually produces', () => {
   const near = (got, want, what) =>           // drawn from the same division
     t.assert(Math.abs(got-want) < 0.01,
       `${what} is ${got.toFixed(2)}%, expected ${want.toFixed(2)}%`);
-  const fill = () => G.selfNoise/A.NOISE.FULL_SCALE*100;   // what the ring paints
+  // what the ring paints: ripples.js clamps the level to full scale, so anything past it reads 100
+  const fill = () => Math.min(100, G.selfNoise/A.NOISE.FULL_SCALE*100);
 
   const show = (n, leakTotal) => {
     G.noise = n; G.selfNoise = n; G.noisePeak = n; G.leakTotal = leakTotal||0;
@@ -66,6 +68,7 @@ test('the noise meter uses the scale the game actually produces', () => {
   t.assert(Math.abs(sprint-82.4) < 0.5, `a sprint fills the meter to ${sprint.toFixed(1)}%, expected 82.4`);
   near(wrench, 100, 'the wrench, the loudest sustained thing you do');
   near(door, 100, 'the door — past full scale is clamped, not overflowing');
+  show(A.NOISE.REPAIR);   // the door check above left the door level in selfNoise
   t.assert(Math.round(G.selfNoise/A.NOISE.FULL_SCALE*100)===100, `the meter reads 100 at the wrench`);
   t.assert(walk < wade && wade < loud && loud < sprint && sprint < wrench,
     `the meter does not rank the actions the AI ranks (${walk}, ${wade}, ${loud}, ${sprint}, ${wrench})`);
@@ -95,12 +98,12 @@ test('the noise meter uses the scale the game actually produces', () => {
     const L = G.leaks.find(l=>!l.fixed);
     /* two tiles out, not on the leak: standing inside LEAK.REPAIR_REACH_TILES starts a
        repair, and a repair is the loudest thing the player can do */
-    let spot = null;
+    let spot = null, out = [0, 0];
     for (let r=2; r<=4 && !spot; r++)
       for (const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,-1],[1,-1],[-1,1]]){
         const nx=L.sx+dx*r, ny=L.sy+dy*r;
         if (nx<0||ny<0||nx>=W||ny>=W) continue;
-        if (G.grid[ny*W+nx]===1 && !A.leakReach(nx+0.5, ny+0.5)){ spot={x:nx+0.5,y:ny+0.5}; break; }
+        if (G.grid[ny*W+nx]===1 && !A.leakReach(nx+0.5, ny+0.5)){ spot={x:nx+0.5,y:ny+0.5}; out=[dx,dy]; break; }
       }
     t.assert(spot, 'no walkable tile outside repair reach near the leak on this floor');
     G.plumber.x = spot.x; G.plumber.y = spot.y;
@@ -116,14 +119,17 @@ test('the noise meter uses the scale the game actually produces', () => {
     console.log(`  standing still two tiles from an open leak: your fill 0%, the leaks' `+
       `${(G.leakTotal/A.NOISE.FULL_SCALE*100).toFixed(0)}%, the number reads ${seen}`);
 
-    /* ...and it is there the moment you move, and gone when you stop */
-    keys['d'] = true;
+    /* ...and it is there the moment you move, and gone when you stop. Walk straight
+       out from the leak: walking toward it can carry you into repair reach, and
+       standing there is a repair, which is the loud wrench noise, not a step. */
+    keys['d'] = out[0] > 0; keys['a'] = out[0] < 0;
+    keys['s'] = out[1] > 0; keys['w'] = out[1] < 0;
     for (let i=0;i<20;i++) update(1/60);
     /* wet boots are louder than dry ones and this spot may be flooded, so compare
        against the step power the movement stage itself chose */
     const stepPower = A.wetAt(G.plumber.x, G.plumber.y) > 0.25 ? 0.30 : 0.22;
     near(G.selfNoise, stepPower, 'your own noise after twenty frames of walking');
-    keys['d'] = false;
+    keys.w = keys.a = keys.s = keys.d = false;
     for (let i=0;i<40;i++) update(1/60);          // 0.66s of decay at 1.55/s
     t.assert(G.selfNoise===0, `your noise is still at ${G.selfNoise.toFixed(2)} a second after you stopped`);
   }
@@ -226,6 +232,7 @@ test('the noise meter uses the scale the game actually produces', () => {
     console.log(`  seed ${seed}: leak power ${G.leakPower.toFixed(2)} heard out to ${R.toFixed(2)} tiles; `+
       `a Lifeform beside the leak goes SEARCH for tile ${tx},${ty}, and that tile is floor`);
   };
+  t.done();
 });
 
 
@@ -322,6 +329,7 @@ test('walls muffle a sound, and a sprint still crosses one', () => {
   t.assert(A.NOISE.SPRINT===0.7 && A.NOISE.REPAIR===0.85,
     'a noise power moved — only NOISE.WALL_COST_TILES was supposed to change');
   console.log('  walk lost behind three walls, heard in the open, sprint crosses one');;
+  t.done();
 });
 
 /* A bump into a wall counts once per contact, and both sprint and walk bumps
@@ -381,6 +389,7 @@ test('a bump counts once per contact, for both sprint and walk', () => {
 
   console.log(`  sprint bump: +1 noise (${noisesAfterSprint - noisesBeforeSprint}), selfNoise=${G.selfNoise.toFixed(3)}`);
   console.log(`  walk bump: +1 noise (${noisesAfterWalk - noisesBeforeWalk}), selfNoise=${G.selfNoise.toFixed(3)}`);;
+  t.done();
 });
 
 /* wallSteps must be symmetric: the wall count between A and B must not depend
@@ -441,6 +450,7 @@ test('wallSteps is symmetric across random floor-tile pairs', () => {
 
   t.assert(asymmetric === 0,
     `wallSteps was asymmetric for ${asymmetric}/${totalPairs} pairs (${asymPct}%) — canonical order not applied`);;
+  t.done();
 });
 
 /* The MAX_WALL_STEPS cap must be large enough that even the loudest noise
@@ -463,6 +473,7 @@ test('MAX_WALL_STEPS cap exhausts reach for every noise power', () => {
     t.assert(reach <= 0,
       `power ${power} still has ${reach.toFixed(2)} tiles of reach after ${maxSteps} walls — cap too small`);
   };
+  t.done();
 });
 
 /* A HUNT lifeform retargets only to NOISE.LOUD sounds or the player's own noises.
@@ -549,6 +560,7 @@ test('hunter retargets only to loud or player sounds, not quiet leaks', () => {
   t.assert(walker.state === 'SEARCH', 'walker near quiet leak goes SEARCH');
 
   console.log('  hunter ignores quiet leak, retargets to player (mine) and loud sounds; walker goes SEARCH');;
+  t.done();
 });
 
 /* Each leak's loudness is independent of how many are open.
@@ -626,6 +638,7 @@ test('leak loudness independent of open leak count', () => {
   t.assert(Math.abs(G.leakTotal - expectedTotalZero) < 0.001, `4 leaks, zero flood: leakTotal=${G.leakTotal.toFixed(3)} want ${expectedTotalZero} (clamped)`);
 
   console.log('  per-leak power independent of count; total clamped to just below NOISE.LOUD');;
+  t.done();
 });
 
 /* The 'heard' event fires once per state change. A quiet sound near a WALK
@@ -695,6 +708,7 @@ test('heard event emits on state change only', () => {
     off('heard', unsub2);
 
     console.log('  heard event: WALK->SEARCH once, DORMANT->RISING once, no dup');;
+  t.done();
 });
 
 /* Wake rattle volume scales with distance from lifeform to player.
@@ -772,4 +786,5 @@ test('wake rattle volume scales with distance to player', () => {
     off('sfx', unsub);
 
     console.log(`  rattle volumes: near=${volNear.toFixed(3)}, far=${volFar.toFixed(3)}, born=${volBorn.toFixed(3)}`);;
+  t.done();
 });

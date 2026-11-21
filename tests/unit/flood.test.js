@@ -365,4 +365,5 @@ test('leaks are placed on walls, stay reachable, and flood downhill', () => {
     t.assert(A.LEAK.NOISE_BASE+0.08 < A.NOISE.LOUD, 'wading is loud enough to wake things');
     console.log(`  wrench ${A.NOISE.REPAIR} > NOISE.LOUD ${A.NOISE.LOUD} > drip ${A.LEAK.NOISE_BASE}`);
   };
+  t.done();
 });

@@ -60,6 +60,7 @@ test('cue-manager: danger interrupts info and the info is dropped, not re-shown'
     runTimer(pendingIds()[0]);              // danger hold 2800 ms → done()
     t.assert(flashText() === '', 'screen cleared after danger hold; info was not held');
   });
+  t.done();
 });
 
 test('cue-manager: a holdable cue displaced by danger re-shows from the hold slot', () => {
@@ -77,6 +78,7 @@ test('cue-manager: a holdable cue displaced by danger re-shows from the hold slo
     runTimer(pendingIds()[0]);              // alert hold 3400 ms → done()
     t.assert(flashText() === '', 'screen cleared after the alert hold');
   });
+  t.done();
 });
 
 test('cue-manager: the single hold slot keeps the higher-priority holdable cue', () => {
@@ -93,6 +95,7 @@ test('cue-manager: the single hold slot keeps the higher-priority holdable cue',
     runTimer(pendingIds()[0]);                              // alert done → done()
     t.assert(flashText() === '', 'screen cleared');
   });
+  t.done();
 });
 
 test('cue-manager: info waits up to 1.5 s then drops while a higher cue is showing', () => {
@@ -111,6 +114,7 @@ test('cue-manager: info waits up to 1.5 s then drops while a higher cue is showi
     runTimer(pendingIds()[0]);                  // danger hold → done(), nothing waiting
     t.assert(flashText() === '', 'screen cleared');
   });
+  t.done();
 });
 
 test('cue-manager: info shows when a higher cue frees within its 1.5 s wait', () => {
@@ -128,6 +132,7 @@ test('cue-manager: info shows when a higher cue frees within its 1.5 s wait', ()
     runTimer(pendingIds()[0]);                // info hold → done()
     t.assert(flashText() === '', 'screen cleared');
   });
+  t.done();
 });
 
 test('cue-manager: danger speaks once per run, then icon-only on repeat', () => {
@@ -145,6 +150,7 @@ test('cue-manager: danger speaks once per run, then icon-only on repeat', () => 
     runTimer(pendingIds()[0]);                // icon-only hold → done()
     t.assert(!hasClass('icon'), 'icon class cleared when the cue clears');
   });
+  t.done();
 });
 
 test('cue-manager: flashReset clears the danger-once memory', () => {
@@ -162,6 +168,7 @@ test('cue-manager: flashReset clears the danger-once memory', () => {
     runTimer(pendingIds()[0]);
     t.assert(flashText() === '', 'screen cleared after the reset danger');
   });
+  t.done();
 });
 
 test('cue-manager: a string payload is treated as an info cue', () => {
@@ -174,6 +181,7 @@ test('cue-manager: a string payload is treated as an info cue', () => {
     runTimer(pendingIds()[0]);
     t.assert(flashText() === '', 'info hold expires');
   });
+  t.done();
 });
 
 test('cue-manager: lore is holdable and re-shows after a higher cue', () => {
@@ -185,4 +193,5 @@ test('cue-manager: lore is holdable and re-shows after a higher cue', () => {
     runTimer(pendingIds()[0]);                                  // danger done → lore
     t.assert(flashText().includes('THE NOTE SAYS KEEP MOVING'), 'lore re-shown after danger');
   });
+  t.done();
 });

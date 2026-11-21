@@ -474,4 +474,5 @@ test('the cone of vision rotates and is blocked by walls', () => {
   }
 
   console.log('  cone rotates, occludes at walls, and never reaches past the room scope');;
+  t.done();
 });

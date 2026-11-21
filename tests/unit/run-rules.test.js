@@ -67,7 +67,8 @@ test('the run is five levels, three minutes and one door', () => {
     A.updateReal(1);
     t.assert(A.STATE!=='play', 'the clock ran out and nothing happened');
     const title = els['dead-title'].textContent;
-    t.assert(title === "TIME'S UP", `running out of time set title to "${title}"`);
+    /* copy as cards.js writes it; the redact-cards commit changed it from TIME'S UP */
+    t.assert(title === 'RESPIRATORY FAILURE', `running out of time set title to "${title}"`);
     t.assert(A.lives===2, 'running out of time cost no life');
     /* It is announced before it is fatal, so the last thirty seconds are
        the player's to spend rather than a surprise */
@@ -197,13 +198,15 @@ test('the run is five levels, three minutes and one door', () => {
     const card = els['win-stats'].innerHTML;
     t.assert(card.includes(`<b>${sealed}</b> leaks`),
       `the win card does not report ${sealed} sealed leaks (said: ${card.slice(0,90)}...)`);
-    t.assert(card.includes(`Deaths: <b>1</b>`), `the win card does not report 1 death (said: ${card.slice(0,90)}...)`);
-    t.assert(card.includes(`Noise made: <b>${noises}</b>`),
-      `the win card does not report ${noises} noises (said: ${card.slice(0,90)}...)`);
+    t.assert(card.includes(`Fatalities on duty: <b>1</b>`), `the win card does not report 1 death (said: ${card.slice(0,90)}...)`);
+    /* The work-order card has no noise row (improve-win-screen, 2374eca), so the
+       noise total is checked where the run keeps it, against the same count. */
+    t.assert(A.runStat.noises === noises,
+      `the run tally has ${A.runStat.noises} noises, want ${noises}`);
     t.assert(winPayload.terms === A.SETTINGS.difficulty.toUpperCase(), 'the win event did not include the run terms');
     t.assert(winPayload.runHistory.length === 6 && winPayload.runHistory.filter(e => e.died).length === 1,
       'the win event did not include all floor attempts');
-    t.assert(card.includes('Terms: <b>') && card.includes('RAISE REQUEST: DENIED'),
+    t.assert(card.includes('TERMS: <b>') && card.includes('RAISE REQUEST: DENIED'),
       'the win card is missing the terms or invoice sign-off');
     console.log(`  the win card counts the run: ${sealed} leaks sealed, 1 death, ${noises} noises`);
     /* leave the world where the next test expects to find it */
@@ -211,4 +214,5 @@ test('the run is five levels, three minutes and one door', () => {
     A.lives=3; A.floorIdx=0; A.runTime=0;
     buildFloor(0, 4242);
   };
+  t.done();
 });

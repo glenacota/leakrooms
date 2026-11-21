@@ -78,6 +78,7 @@ test('unreachable tiles give -1', () => {
 
   /* Off-map access (handled by nextStep bounds, but field is only MAP.WIDTH_TILES*MAP.HEIGHT_TILES). */
   console.log('  unreachable tiles correctly give -1');;
+  t.done();
 });
 
 /* The field decreases by exactly 1 along a returned step. */
@@ -118,6 +119,7 @@ test('field decreases by exactly 1 along nextStep', () => {
   }
   t.assert(cx === tx && cy === ty, `reached target after ${steps} steps`);
   console.log(`  gradient walk: ${steps} steps, each decreasing by 1`);;
+  t.done();
 });
 
 /* Two builds of the same floor give identical fields. */
@@ -145,6 +147,7 @@ test('distanceField is deterministic for the same seed', () => {
   }
   t.assert(diffs === 0, `${diffs} differences between two builds of the same seed`);
   console.log('  two builds of same seed produce identical fields');;
+  t.done();
 });
 
 /* nextStep returns null at target or on unreachable tiles. */
@@ -173,4 +176,5 @@ test('nextStep returns null at target and unreachable', () => {
   t.assert(atWall === null, `nextStep on wall returned ${JSON.stringify(atWall)}, expected null`);
 
   console.log('  nextStep returns null at target and walls');;
+  t.done();
 });

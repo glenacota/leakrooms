@@ -146,5 +146,6 @@ test('[14b] the radar hums at RADAR while on, and goes quiet when off', () => {
   for (let i=0;i<60;i++) update(1/60);   // 1 second of decay
   t.assert(G.selfNoise===0, `one second after switching off, selfNoise is ${G.selfNoise.toFixed(2)}, want 0`);
   console.log(`  radar hums at ${A.NOISE.RADAR} while on, decays to 0 within a second of going off`);;
+  t.done();
 });
 

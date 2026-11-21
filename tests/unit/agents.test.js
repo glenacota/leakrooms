@@ -36,6 +36,7 @@ test('agents stay out of geometry and react to noise', () => {
   t.assert(bad===0, `${bad} entity integrity violations`);
   t.assert(hunted>0, 'lifeform never entered HUNT state');
   console.log(`  ok — ${hunted} hunting-frames, ${dormant} dormant-frames, no geometry escapes`);
+  t.done();
 });
 
 /* A wandering lifeform touches you if it reaches you.
@@ -135,6 +136,7 @@ test('a wandering lifeform touches you if it reaches you', () => {
   }
   t.assert(huntedLit, 'lit corridor: lifeform did not transition to HUNT after touching player');
   console.log(`  lit corridor: lifeform touched player at frame ${huntedLit ? 'OK' : 'FAIL'}`);;
+  t.done();
 });
 
 /* SEARCH timeout goes to WALK, not DORMANT. The "may go back to sleep"
@@ -170,6 +172,7 @@ test('SEARCH timeout goes to WALK, never DORMANT', () => {
   t.assert(searchLifeform.state === 'WALK', `after 200 frames, state is ${searchLifeform.state}, expected WALK`);
 
   console.log('  SEARCH timeout -> WALK; never DORMANT afterwards');;
+  t.done();
 });
 
 /* SEARCH with distance field: a searching lifeform sent to a spot with no
@@ -314,4 +317,5 @@ test('HUNT hold: lifeform holds and turns for 2s at target, then gives up; loud 
   t.assert(lifeform2.state === 'HUNT', 'state should remain HUNT');
 
   console.log('  HUNT hold-and-turn: holds 2s, turns, then gives up; loud sound retargets during hold');;
+  t.done();
 });

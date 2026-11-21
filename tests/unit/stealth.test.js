@@ -46,7 +46,8 @@ test('stealth: first wake per state flashes once, repeats are silent', () => {
   G.lifeforms = [lifeform(...atOffset(), 'WALK')];
   emitNoise(A.NOISE.WALK, ...atOffset(), false);
   update(1/60);
-  t.assert(flash().includes('IT HEARD THAT'),
+  /* copy as hints.js writes it; the redact-more-cues commit changed it from IT HEARD THAT */
+  t.assert(flash().includes("IT KNOWS THERE'S SOMEONE HERE"),
     'the WALK->SEARCH wake did not flash');
 
   /* A loud noise makes a walker hunt: WALK -> HUNT. */
@@ -66,4 +67,5 @@ test('stealth: first wake per state flashes once, repeats are silent', () => {
     'a repeated RISING wake flashed again');
 
   console.log('  stealth: first wake per state flashes once, repeats are silent');;
+  t.done();
 });
