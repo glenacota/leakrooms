@@ -1,0 +1,140 @@
+/* ============================================================
+   SHARED UI PRIMITIVES
+   Reusable controls and field patterns. Domain components keep
+   their own layout and copy in screens.css, hud.css, or touch.css.
+   ============================================================ */
+
+/* ---------- Buttons ---------- */
+
+/* Every interactive button uses .btn. The plain-element rule remains a
+   fallback for controls that predate the shared primitive. */
+.icon-sheet{ position:absolute; }
+
+button{
+  font-family:var(--mono);
+  font-size:var(--text-control);
+  letter-spacing:.3em;
+  color:var(--ink);
+  background:var(--yellow);
+  border:none;
+  padding:13px 34px;
+  cursor:pointer;
+  transition:background var(--duration-fast), box-shadow var(--duration-fast), transform .1s;
+}
+.btn{
+  font-family:var(--mono);
+  font-weight:900;
+  letter-spacing:.3em;
+  color:var(--ink);
+  background:var(--yellow);
+  border:none;
+  padding:13px 34px;
+  font-size:var(--text-control);
+  cursor:pointer;
+  transition:background var(--duration-fast), box-shadow var(--duration-fast), transform .1s;
+}
+.btn--compact{ padding:6px 14px; font-size:var(--text-label); }
+.btn--icon{ padding:0; min-width:48px; min-height:48px; border-radius:50%; }
+
+@media (hover:hover){
+  button:hover,.btn:hover{
+    background:#eef0c4;
+    box-shadow:0 0 26px rgba(var(--color-line-rgb), .5);
+  }
+}
+@media (hover:none){
+  button:active,.btn:active{
+    background:#eef0c4;
+    box-shadow:0 0 26px rgba(var(--color-line-rgb), .5);
+  }
+}
+button:active,.btn:active{ transform:translateY(1px); }
+
+.btn--ghost{
+  background:transparent; color:var(--yellow-dim);
+  border:1px solid rgba(var(--color-line-rgb), .35);
+}
+@media (hover:hover){
+  .btn--ghost:hover{ background:rgba(var(--color-line-rgb), var(--line-alpha-weak)); color:var(--yellow); }
+}
+@media (hover:none){
+  .btn--ghost:active{ background:rgba(var(--color-line-rgb), var(--line-alpha-weak)); color:var(--yellow); }
+}
+
+.btn--danger{ color:var(--danger); border-color:rgba(216,80,48,.45); }
+@media (hover:hover){
+  .btn--danger:hover{ background:var(--danger); color:var(--ink); border-color:var(--danger); }
+}
+@media (hover:none){
+  .btn--danger:active{ background:var(--danger); color:var(--ink); border-color:var(--danger); }
+}
+
+/* ---------- Segmented choices ---------- */
+
+.seg{ display:grid; grid-template-columns:repeat(auto-fit,minmax(52px,1fr)); gap:6px; }
+.seg button{
+  padding:6px 8px; font-size:var(--text-control); font-weight:900; white-space:nowrap;
+  letter-spacing:.14em; background:transparent; color:var(--yellow-dim);
+  border:1px solid rgba(var(--color-line-rgb), var(--line-alpha)); cursor:pointer;
+}
+@media (hover:hover){
+  .seg button:hover{ background:rgba(var(--color-line-rgb), var(--line-alpha-weak)); color:var(--yellow); }
+}
+@media (hover:none){
+  .seg button:active{ background:rgba(var(--color-line-rgb), var(--line-alpha-weak)); color:var(--yellow); }
+}
+.seg button[aria-pressed="true"]{
+  background:var(--yellow); color:var(--ink); border-color:var(--yellow);
+}
+
+/* ---------- Range controls ---------- */
+
+input[type=range]{
+  -webkit-appearance:none; appearance:none; width:100%; height:9px;
+  background:rgba(20,17,10,.75); border:1px solid rgba(var(--color-line-rgb), var(--line-alpha));
+  cursor:pointer;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none; appearance:none; width:12px; height:18px;
+  background:var(--yellow); border:none; cursor:pointer;
+}
+input[type=range]::-moz-range-thumb{
+  width:12px; height:18px; background:var(--yellow); border:none; cursor:pointer;
+}
+
+/* ---------- Form rows and section dividers ---------- */
+
+.setrow{ display:flex; flex-direction:column; gap:6px; }
+.setrow label, .setrow .lbl{
+  color:var(--yellow-dim); font-size:var(--text-label); font-weight:600; letter-spacing:.2em;
+}
+.setrow.section{
+  grid-column:1 / -1;
+  flex-direction:row;
+  align-items:baseline;
+  gap:10px;
+  margin-top:14px;
+  padding-top:10px;
+}
+.setrow.section span{
+  color:var(--yellow); font-size:var(--text-heading); font-weight:900; letter-spacing:.3em;
+  white-space:nowrap;
+}
+.setrow.section::after{
+  content:"";
+  flex:1;
+  border-bottom:1px solid rgba(var(--color-line-rgb), var(--tint-alpha-soft));
+  transform:translateY(-3px);
+}
+.setrow .note{
+  margin:0; font-size:var(--text-body); font-weight:900; line-height:1.5; opacity:.55; max-width:46ch;
+}
+.setrow.buttons{
+  flex-direction:row; gap:12px; justify-content:flex-end;
+  margin-top:50px;
+}
+.setrow.buttons button{ font-weight:900; padding:10px 15px; }
+
+/* ---------- Control list ---------- */
+
+.controls-wide{ grid-column:1 / 3; }

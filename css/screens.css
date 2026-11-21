@@ -57,7 +57,6 @@
   border:1px solid rgba(var(--color-line-rgb), var(--tint-alpha-solid)); font-size:var(--text-body);
   padding:10px 12px; background:rgba(var(--color-line-rgb), .04);
 }
-.seg button { font-weight: 900; font-size:var(--text-control); }
 .terms .note{ line-height:1.6; color:var(--yellow-dim); margin-top:8px; }
 .terms .note.fixed{ margin-top:2px; font-size:var(--text-label); letter-spacing:.12em; color:var(--yellow-deep); }
 
@@ -517,53 +516,6 @@ h2.bad{ color:var(--danger); letter-spacing:1em; font-size:var(--text-heading); 
 
 /* Shown instead of the title on a phone. */
 #screen-mobile{ background:rgba(6,5,3,.94); }
-
-/* ---------- Buttons ---------- */
-
-/* ---------- Buttons ---------- */
-
-/* Default button style. Every interactive button in the UI carries the
-   .btn class; variants (.btn--ghost, .btn--danger, .btn--compact,
-   .btn--icon) are in settings.css. The plain element rule is kept only as
-   a fallback for buttons that cannot carry a class. */
-button{
-  font-family:var(--mono);
-  font-size:var(--text-control);
-  letter-spacing:.3em;
-  color:var(--ink);
-  background:var(--yellow);
-  border:none;
-  padding:13px 34px;
-  cursor:pointer;
-  transition:background .15s, box-shadow .15s, transform .1s;
-}
-.btn{
-  font-family:var(--mono);
-  font-weight:900;
-  letter-spacing:.3em;
-  color:var(--ink);
-  background:var(--yellow);
-  border:none;
-  padding:13px 34px;
-  font-size:var(--text-control);
-  cursor:pointer;
-  transition:background .15s, box-shadow .15s, transform .1s;
-}
-.btn--compact{ padding:6px 14px; font-size:var(--text-label); }
-.btn--icon{ padding:0; min-width:48px; min-height:48px; border-radius:50%; }
-@media (hover:hover){
-  button:hover,.btn:hover{
-    background:#eef0c4;
-    box-shadow:0 0 26px rgba(var(--color-line-rgb), .5);
-  }
-}
-@media (hover:none){
-  button:active,.btn:active{
-    background:#eef0c4;
-    box-shadow:0 0 26px rgba(var(--color-line-rgb), .5);
-  }
-}
-button:active,.btn:active{ transform:translateY(1px); }
 
 /* ---------- Small windows ---------- */
 

@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 const read = f => fs.readFileSync(new URL(`../../${f}`, import.meta.url), 'utf8');
-const CSS = ['tokens', 'hud', 'screens', 'splash', 'settings', 'touch', 'base'];
+const CSS = ['tokens', 'frame', 'hud', 'ui', 'screens', 'splash', 'settings', 'touch', 'base'];
 const sheet = Object.fromEntries(CSS.map(n => [n, read(`css/${n}.css`)]));
 const strip = s => s.replace(/\/\*[\s\S]*?\*\//g, '');
 const html = read('index.html');
@@ -162,9 +162,10 @@ function allHoverWrapped(css){
   return !/:hover/.test(out);
 }
 
-test('[FIT] every :hover in screens.css and settings.css sits inside @media (hover:hover)', () => {
+test('[FIT] every :hover in component stylesheets sits inside @media (hover:hover)', () => {
   assert.ok(allHoverWrapped(sheet.screens), 'screens.css has a :hover outside @media (hover:hover)');
   assert.ok(allHoverWrapped(sheet.settings), 'settings.css has a :hover outside @media (hover:hover)');
+  assert.ok(allHoverWrapped(sheet.ui), 'ui.css has a :hover outside @media (hover:hover)');
 });
 
 test('[FIT] global tap-highlight and touch-mode user-select rules exist', () => {
