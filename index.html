@@ -91,7 +91,7 @@
           <p id="tutorial-text"></p>
         </div>
         <div class="tutorial-actions">
-          <button id="tutorial-continue" type="button">CLOSE <span id="tutorial-countdown" aria-hidden="true"></span></button>
+          <button id="tutorial-continue" type="button" class="btn touch-target">CLOSE <span id="tutorial-countdown" aria-hidden="true"></span></button>
           <span class="tutorial-key">OR PRESS <b>ENTER</b></span>
         </div>
       </div>
@@ -102,9 +102,9 @@
        The on-screen stick and buttons, for mobile users. Hidden until touch mode is on and a run is being played. -->
   <div id="touch" hidden>
     <div id="touch-ring" hidden><div id="touch-knob"></div></div>
-    <button type="button" data-touch="radar" aria-label="Radar">RADAR</button>
-    <button type="button" data-touch="pause" aria-label="Pause"><i></i><i></i></button>
-    <button type="button" data-touch="fullscreen" aria-label="Fullscreen"><i></i></button>
+    <button type="button" data-touch="radar" aria-label="Radar" class="btn btn--icon">RADAR</button>
+    <button type="button" data-touch="pause" aria-label="Pause" class="btn btn--icon"><i></i><i></i></button>
+    <button type="button" data-touch="fullscreen" aria-label="Fullscreen" class="btn btn--icon"><i></i></button>
   </div>
 
   <!-- ============ SCREENS ============
@@ -123,9 +123,9 @@
       <h2>Backrooms are flooding. <b>Seal the leaks</b>. Don't get lost. <b>Or worse.</b></h2>
         <!-- The title menu. Entries are bound by src/ui/buttons.js and moved with the arrow keys (src/ui/input.js). -->
         <nav class="title-menu" aria-label="MAIN MENU">
-          <button type="button" id="menu-start" class="sel" data-menu="start">PLAY</button>
-          <button type="button" id="menu-manual" data-menu="manual">MANUAL</button>
-          <button type="button" id="menu-settings" data-menu="settings">SETTINGS</button>
+          <button type="button" id="menu-start" class="sel touch-target" data-menu="start">PLAY</button>
+          <button type="button" id="menu-manual" class="touch-target" data-menu="manual">MANUAL</button>
+          <button type="button" id="menu-settings" class="touch-target" data-menu="settings">SETTINGS</button>
         </nav>
         <p class="go kbd-only">&uarr;&darr; SELECT &middot; <b>ENTER</b> CONFIRM</p>
         <p class="fs-hint touch-only" hidden><span>TIP: SHARE, THEN ADD TO HOME SCREEN, TO PLAY WITHOUT BROWSER BARS.</span><button type="button" id="btn-hint-title" aria-label="Dismiss tip">OK</button></p>
@@ -344,12 +344,12 @@
       </div>
 
       <div class="order-cta">
-        <button id="btn-start" class="shift-only"><b><span class="kbd-only">BEGIN SHIFT</span><span class="touch-only">TAP TO BEGIN</span></b></button>
-        <button id="btn-resume" class="pause-only"><b>RESUME</b></button>
+        <button id="btn-start" class="btn shift-only touch-target--primary"><b><span class="kbd-only">BEGIN SHIFT</span><span class="touch-only">TAP TO BEGIN</span></b></button>
+        <button id="btn-resume" class="btn pause-only touch-target--primary"><b>RESUME</b></button>
         <span class="cta-hint kbd-only shift-only">OR PRESS <b>ENTER</b> &nbsp;&middot;&nbsp; <b>&larr;&rarr;</b> PAGES &nbsp;&middot;&nbsp; <b>ESC</b> BACK</span>
         <span class="cta-hint kbd-only pause-only">OR PRESS <b>ENTER</b> &nbsp;&middot;&nbsp; </span>
         <span class="cta-hint touch-only pause-only">TAP <b>RESUME</b> TO RETURN TO THE SHIFT</span>
-        <button id="btn-reset-run" class="btn--ghost btn--danger pause-only"><b>RESTART SHIFT</b></button>
+        <button id="btn-reset-run" class="btn--ghost btn--danger touch-target pause-only"><b>RESTART SHIFT</b></button>
       </div>
     </div>
   </div>
@@ -375,7 +375,7 @@
         </div>
       </div>
 
-      <button id="btn-descend"><b><span class="kbd-only">PRESS ENTER TO DESCEND</span><span class="touch-only">TAP TO DESCEND</span></b></button>
+      <button id="btn-descend" class="btn touch-target--primary"><b><span class="kbd-only">PRESS ENTER TO DESCEND</span><span class="touch-only">TAP TO DESCEND</span></b></button>
     </div>
   </div>
 
@@ -389,7 +389,7 @@
       <h1 id="dead-title" class="bad">SHIFT OVER</h1>
       <p class="sub" id="dead-sub">SIGNAL LOST</p>
       <p class="sub sub-message" id="dead-sub-message">SIGNAL LOST</p>
-      <button id="btn-retry">REWIND</button>
+      <button id="btn-retry" class="btn touch-target--primary">REWIND</button>
     </div>
   </div>
 
@@ -403,7 +403,7 @@
           <div id="win-stats"></div>
         </div>
       </article>
-      <div class="order-cta"><button id="btn-again">RUN IT AGAIN</button></div>
+      <div class="order-cta"><button id="btn-again" class="btn">RUN IT AGAIN</button></div>
     </div>
   </div>
 

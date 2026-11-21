@@ -88,7 +88,7 @@
   letter-spacing:.26em;
   margin:0 0 12px;
   text-indent:.26em;                 /* balances the trailing letter-spacing so the title looks centred */
-  text-shadow:0 0 26px rgba(var(--color-line-rgb), .28);
+  text-shadow:0 0 26px rgba(var(--color-line-rgb), var(--line-alpha));
   font-weight: 900;
 }
 .screen.splash h2{
@@ -147,5 +147,5 @@
   background:
     repeating-linear-gradient(0deg,rgba(0,0,0,.14) 0 2px,transparent 2px 4px),
     rgba(12,10,6,.96);
-  box-shadow:0 0 60px rgba(0,0,0,.9), inset 0 0 40px rgba(var(--color-line-rgb), .05);
+  box-shadow:var(--shadow-card);
 }

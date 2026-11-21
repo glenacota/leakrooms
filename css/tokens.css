@@ -54,6 +54,19 @@
   --color-surface: rgba(10,9,5,.6);      /* glass panel */
   --color-surface-dark: rgba(6,5,3,.86); /* screen tint */
 
+  /* ---------- Line and surface alphas ---------- */
+  --line-alpha: .28;          /* standard borders and rules */
+  --line-alpha-weak: .10;     /* subtle dividers */
+  --line-alpha-strong: .55;   /* emphasized borders */
+  --tint-alpha: .05;          /* faint surface tint */
+  --tint-alpha-muted: .12;    /* muted surface tint */
+  --tint-alpha-soft: .18;     /* soft surface tint */
+  --tint-alpha-solid: .25;    /* distinct borders */
+
+  /* ---------- Shadows ---------- */
+  --shadow-card: 0 0 60px rgba(0,0,0,.9), inset 0 0 40px rgba(var(--color-line-rgb), var(--tint-alpha));
+  --shadow-flash: 0 0 16px rgba(0,0,0,.55);
+
   /* ---------- Spacing ---------- */
   --space-xs: 4px;
   --space-sm: 6px;

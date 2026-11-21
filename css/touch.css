@@ -113,15 +113,11 @@ html[data-input=touch] #crt{ height:100dvh; }
 #touch button{
   position:absolute;
   display:flex; align-items:center; justify-content:center;
-  min-width:48px; min-height:48px;
-  padding:0;
   border:1.5px solid var(--yellow);
-  border-radius:50%;
   background:rgba(10,9,5,.18);
   color:var(--yellow);
   font-size:var(--text-label);
   letter-spacing:.1em;
-  font-weight:900;
   opacity:.35;
   cursor:default;
   box-shadow:none;
@@ -253,21 +249,10 @@ html:not([data-input=touch]) .touch-only{ display:none; }
 
 /* ---------- Screens, in touch mode ---------- */
 
-/* A thumb needs a bigger target than a mouse. The menu buttons are 28 px tall by
-   default; this brings them up without changing how they look. */
-[data-input=touch] .seg button,
-[data-input=touch] .setrow.buttons button,
-[data-input=touch] .binder-tabs button,
-[data-input=touch] .title-menu button,
-[data-input=touch] button.ghost,
-[data-input=touch] button.danger{ min-height:40px; }
-
-/* The primary button on every screen is the one a thumb has to find. */
-[data-input=touch] #btn-start,
-[data-input=touch] #btn-descend,
-[data-input=touch] #btn-retry,
-[data-input=touch] #btn-again,
-[data-input=touch] #btn-resume{ min-height:44px; }
+/* A thumb needs a bigger target than a mouse. The utility classes let any
+   button opt in without a long component selector list. */
+[data-input=touch] .touch-target{ min-height:40px; }
+[data-input=touch] .touch-target--primary{ min-height:44px; }
 
 /* Sliders: a track and a thumb a finger can land on. The track stays thin;
    the thumb is taller than it, so the row gets room above and below. */

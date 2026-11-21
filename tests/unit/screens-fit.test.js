@@ -95,11 +95,8 @@ test('[FIT] the 820 px stacking rule does not apply to a short landscape screen'
 
 test('[FIT] touch.css has the 40px targets, the 44px primary buttons and the hidden legend', () => {
   const t = strip(sheet.touch);
-  for (const sel of ['.seg button', '.binder-tabs button', '.title-menu button', 'button.ghost', 'button.danger'])
-    assert.ok(new RegExp(`\\[data-input=touch\\]\\s*${sel.replace(/[.]/g, '\\.')}[^{]*[,{]`).test(t), `no touch rule for ${sel}`);
-  assert.ok(/min-height\s*:\s*40px/.test(t));
-  for (const id of ['btn-start', 'btn-descend', 'btn-retry', 'btn-again', 'btn-resume'])
-    assert.ok(t.includes(`#${id}`), `no 44px rule for #${id}`);
+  assert.ok(/\[data-input=touch\]\s*\.touch-target[^{]*\{[^}]*min-height\s*:\s*40px/.test(t), 'no touch .touch-target rule');
+  assert.ok(/\[data-input=touch\]\s*\.touch-target--primary[^{]*\{[^}]*min-height\s*:\s*44px/.test(t), 'no touch .touch-target--primary rule');
   assert.ok(/min-height\s*:\s*44px/.test(t));
   assert.ok(/input\[type=range\]\s*\{[^}]*height\s*:\s*14px/.test(t), 'no 14px slider track');
   assert.ok(/::-webkit-slider-thumb\s*\{[^}]*width\s*:\s*28px[^}]*height\s*:\s*28px/.test(t));

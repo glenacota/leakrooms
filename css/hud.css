@@ -121,7 +121,7 @@
 /* Sealed: hollow, so a filled mark can never be mistaken for an open one. */
 .crt-leaks span.done{
   background:transparent;
-  border:1px solid rgba(var(--color-line-rgb), .55);
+  border:1px solid rgba(var(--color-line-rgb), var(--line-alpha-strong));
 }
 
 /* ---------- Lives ---------- */

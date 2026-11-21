@@ -36,6 +36,7 @@ export function buildSettingsUI(){
       const b = document.createElement('button');
       b.textContent = label;
       b.dataset.value = String(val);
+      b.className = 'btn btn--ghost btn--compact touch-target';
       b.onclick = ()=> setOption(key, SETTINGS_SCHEMA[key].type === 'enum' ? val : (val==='true'));
       row.appendChild(b);
     }
