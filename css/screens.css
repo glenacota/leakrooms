@@ -8,6 +8,11 @@
 
 /* ---------- The binder: tabs, pages, terms ---------- */
 
+h3 {
+  font-size:var(--text-heading); font-weight:900; letter-spacing:.22em; color:var(--yellow);
+  margin:0 0 8px; padding-bottom:4px; border-bottom:1px solid rgba(228,230,168,.2);
+}
+
 /* The binder is one screen with a row of tabs and one page showing at a time.
    The selected tab uses the same filled style as the pressed settings
    buttons, so "the filled one is active" is true everywhere. A tab with
@@ -55,7 +60,7 @@
 .terms .note.fixed{ margin-top:2px; font-size:var(--text-label); letter-spacing:.12em; color:var(--yellow-deep); }
 
 /* The run page: the live numbers of the shift. */
-.run-stats{ display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:12px 18px; margin:4px 0 6px; }
+.run-stats{ display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:12px 18px; margin:4px 0 6px; padding-bottom:12px}
 .run-stats small{ display:block; font-size:var(--text-label); letter-spacing:.2em; color:var(--yellow-dim); font-weight:900; margin-bottom:2px; }
 .run-stats b{ font-size:var(--text-heading); letter-spacing:.1em; color:#8fc4cc; font-weight:400; }
 /* The pause page gives the shared life icons more room than the HUD. */
@@ -85,10 +90,6 @@
 
 /* The field manual: columns of short sections. */
 .manual-cols{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px 55px; margin-top:48px; }
-.manual-cols h3, .win-section h3{
-  font-size:var(--text-heading); font-weight:900; letter-spacing:.22em; color:var(--yellow);
-  margin:0 0 8px; padding-bottom:4px; border-bottom:1px solid rgba(228,230,168,.2);
-}
 .manual-cols h3:not(:first-child){ margin-top:16px; }
 .manual-cols .notes li{ font-size:var(--text-body); }
 
@@ -284,7 +285,7 @@
 }
 .order-head .meta b{ color:#8fc4cc; }
 
-.order .field { margin:12px 0; font-size:var(--text-body)}
+.order .field { margin:12px 0; font-size:var(--text-body); padding-bottom: 12px}
 .order .field span{
   font-weight: 900; line-height:2; letter-spacing:.22em; margin-bottom:4px; color:var(--yellow);
 }
