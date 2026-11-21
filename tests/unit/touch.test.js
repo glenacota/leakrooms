@@ -14,7 +14,7 @@ const { A, G } = await loadGame();
 /* The harness has no <html>, and no window size. The touch layer reads both. */
 document.documentElement = { dataset: {} };
 window.innerWidth = 1000;
-window.innerHeight = 600;                // radius = 600 * 0.11 = 66 px
+window.innerHeight = 600;                // radius is capped at 100 px
 
 const layer = document.getElementById('touch');
 const ring = document.getElementById('touch-ring');
@@ -49,7 +49,7 @@ test('[TOUCH] the stick writes pad and zeroes it on release', () => {
   assert.ok(zero(), 'pad moved before the thumb did');
 
   // Half the radius to the right: rescaled past the dead zone, no sprint.
-  fire('pointermove', ev(1, 200 + 33, 300));
+  fire('pointermove', ev(1, 200 + 50, 300));
   assert.ok(pad.x > 0 && pad.x < 1 && pad.y === 0, `pad is ${pad.x},${pad.y}`);
   assert.equal(pad.sprint, false);
 
@@ -58,11 +58,11 @@ test('[TOUCH] the stick writes pad and zeroes it on release', () => {
   assert.ok(pad.y > 0 && pad.x === 0, `pad is ${pad.x},${pad.y}`);
 
   // Past the sprint line, then back above the normal off line: the latch holds.
-  fire('pointermove', ev(1, 200 + 66, 300));
+  fire('pointermove', ev(1, 200 + 100, 300));
   assert.equal(pad.sprint, true);
   assert.ok(Math.abs(pad.x - 1) < 1e-9);
-  fire('pointermove', ev(1, 200 + 59, 300));
-  assert.equal(pad.sprint, true, 'the sprint latch dropped below 0.86');
+  fire('pointermove', ev(1, 200 + 84, 300));
+  assert.equal(pad.sprint, true, 'the sprint latch dropped below 0.82');
 
   fire('pointerup', ev(1, 200, 300));
   assert.ok(zero());
@@ -129,7 +129,7 @@ test('[TOUCH] a second finger on the stick half is ignored', () => {
 test('[TOUCH] a button press does not disturb the stick, and the stick works after', () => {
   startTouchRun();
   fire('pointerdown', ev(1, 200, 300));
-  fire('pointermove', ev(1, 200, 340));
+  fire('pointermove', ev(1, 200, 350));
   const before = { x: pad.x, y: pad.y, sprint: pad.sprint };
 
   fire('pointerdown', ev(2, 900, 500, { target: button('radar') }));
@@ -140,9 +140,9 @@ test('[TOUCH] a button press does not disturb the stick, and the stick works aft
   fire('pointerup', ev(2, 100, 500));
   assert.deepEqual({ x: pad.x, y: pad.y, sprint: pad.sprint }, before);
 
-  fire('pointermove', ev(1, 200, 320));
+  fire('pointermove', ev(1, 200, 330));
   assert.ok(pad.y > 0 && pad.y < before.y, 'the stick did not follow after the button lifted');
-  fire('pointerup', ev(1, 200, 320));
+  fire('pointerup', ev(1, 200, 330));
 
   // And a stick finger landing on a button area goes to the button, not the stick.
   fire('pointerdown', ev(3, 100, 100, { target: button('pause') }));
@@ -316,22 +316,22 @@ test('[TOUCH] portrait shows the rotate card, pauses the run once, and rotating 
 });
 
 /* ============ SPRINT PUSH ============
-   The radius is 66 px here, so 0.80 of it is 52.8 px. */
+   The radius is 100 px here. */
 ring.style.setProperty = (k, v) => { ring.style[k] = v; };
-const push = (id, frac) => fire('pointermove', ev(id, 200 + 66 * frac, 300));
+const push = (id, frac) => fire('pointermove', ev(id, 200 + 100 * frac, 300));
 
 function withPreset(name, fn){
   A.setOption('sprintPush', name);
   try { fn(); } finally { A.setOption('sprintPush', 'normal'); }
 }
 
-test('[SPRINT PUSH] a 0.80 push does not sprint on any preset', () => {
+test('[SPRINT PUSH] a 0.79 push does not sprint on any preset', () => {
   for (const [name, want] of [['light', false], ['normal', false], ['firm', false]]){
     withPreset(name, () => {
       startTouchRun();
       fire('pointerdown', ev(1, 200, 300));
-      push(1, 0.80);
-      assert.equal(pad.sprint, want, `${name} at 0.80`);
+      push(1, 0.79);
+      assert.equal(pad.sprint, want, `${name} at 0.79`);
       assert.equal(ring.classList.contains('sprinting'), want, `${name} ring class`);
       fire('pointerup', ev(1, 200, 300));
       assert.ok(zero());
@@ -339,36 +339,36 @@ test('[SPRINT PUSH] a 0.80 push does not sprint on any preset', () => {
   }
 });
 
-test('[SPRINT PUSH] preset thresholds use 0.85 light, 0.94 normal, and 0.99 firm', () => {
+test('[SPRINT PUSH] preset thresholds use 0.80 light, 0.90 normal, and 1.00 firm', () => {
   withPreset('firm', () => {
     startTouchRun();
     fire('pointerdown', ev(1, 200, 300));
     push(1, 0.98); assert.equal(pad.sprint, false);
     push(1, 1.0); assert.equal(pad.sprint, true);
     push(1, 0.92); assert.equal(pad.sprint, true, 'latch holds above 0.91');
-    push(1, 0.90); assert.equal(pad.sprint, false, 'latch drops below 0.91');
+    push(1, 0.91); assert.equal(pad.sprint, false, 'latch drops below 0.92');
     fire('pointerup', ev(1, 200, 300));
   });
   startTouchRun();
   fire('pointerdown', ev(1, 200, 300));
-  push(1, 0.93); assert.equal(pad.sprint, false);
-  push(1, 0.94); assert.equal(pad.sprint, true);
-  push(1, 0.92); assert.equal(pad.sprint, true);
-  push(1, 0.85); assert.equal(pad.sprint, false);
+  push(1, 0.89); assert.equal(pad.sprint, false);
+  push(1, 0.90); assert.equal(pad.sprint, true);
+  push(1, 0.88); assert.equal(pad.sprint, true);
+  push(1, 0.81); assert.equal(pad.sprint, false);
   fire('pointerup', ev(1, 200, 300));
 });
 
 test('[SPRINT PUSH] a change mid-drag takes effect on the next move', () => {
   startTouchRun();
   fire('pointerdown', ev(1, 200, 300));
-  push(1, 0.80);
+  push(1, 0.79);
   assert.equal(pad.sprint, false);
   A.setOption('sprintPush', 'light');
   assert.equal(pad.sprint, false, 'the change must wait for the next move');
-  push(1, 0.85);
+  push(1, 0.80);
   assert.equal(pad.sprint, true);
   A.setOption('sprintPush', 'firm');
-  push(1, 0.85);
+  push(1, 0.80);
   assert.equal(pad.sprint, false, 'firm: 0.80 is below its off line');
   fire('pointerup', ev(1, 200, 300));
   A.setOption('sprintPush', 'normal');
@@ -376,7 +376,7 @@ test('[SPRINT PUSH] a change mid-drag takes effect on the next move', () => {
 
 test('[SPRINT PUSH] --sprint-at is set when the ring appears and on settings:changed', () => {
   startTouchRun();
-  for (const [name, on] of [['light', 0.85], ['normal', 0.94], ['firm', 0.99]]){
+  for (const [name, on] of [['light', 0.80], ['normal', 0.90], ['firm', 1.00]]){
     A.setOption('sprintPush', name);
     fire('pointerdown', ev(1, 200, 300));
     assert.equal(Number(ring.style['--sprint-at']), on, `${name} on appear`);
@@ -385,11 +385,11 @@ test('[SPRINT PUSH] --sprint-at is set when the ring appears and on settings:cha
   // While a finger is down the marker follows the setting.
   fire('pointerdown', ev(1, 200, 300));
   A.setOption('sprintPush', 'light');
-  assert.equal(Number(ring.style['--sprint-at']), 0.85);
+  assert.equal(Number(ring.style['--sprint-at']), 0.80);
   emit('settings:changed', '*');
-  assert.equal(Number(ring.style['--sprint-at']), 0.85);
+  assert.equal(Number(ring.style['--sprint-at']), 0.80);
   A.setOption('sprintPush', 'firm');
-  assert.equal(Number(ring.style['--sprint-at']), 0.99);
+  assert.equal(Number(ring.style['--sprint-at']), 1.00);
   fire('pointerup', ev(1, 200, 300));
   A.setOption('sprintPush', 'normal');
 });

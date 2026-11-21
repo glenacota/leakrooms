@@ -27,7 +27,7 @@ export const SETTINGS_SPEC = {
      It is separate from mute: a player can have the sound off and still feel it. */
   haptics:        { default:true, type:'bool' },
   fullscreen:     { default:'auto', type:'enum', values:['auto','off'] },
-  sprintPush:     { default:'normal', type:'enum', values:Object.keys(STICK.SPRINT_PRESETS) },
+  sprintPush:     { default:'normal', type:'enum', values:Object.keys(STICK.SPRINT_DISTANCE_PRESETS) },
 };
 
 export const SETTINGS_DEFAULTS = Object.fromEntries(

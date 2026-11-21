@@ -42,12 +42,12 @@ test('[STICK] a thumb beyond the radius is clamped', () => {
   assert.ok(near(s.mag, 1) && near(s.x, 1) && s.y === 0);
 });
 
-test('[STICK] sprint latches: on at 0.94, holds at 0.92, off below 0.86', () => {
-  assert.equal(stickMap(R*0.93, 0, R, false).sprint, false);
-  assert.equal(stickMap(R*0.94, 0, R, false).sprint, true);
-  assert.equal(stickMap(R*0.92, 0, R, true).sprint, true);
-  assert.equal(stickMap(R*0.92, 0, R, false).sprint, false);
-  assert.equal(stickMap(R*0.85, 0, R, true).sprint, false);
+test('[STICK] sprint latches: on at 0.90, holds at 0.88, off below 0.82', () => {
+  assert.equal(stickMap(R*0.89, 0, R, false).sprint, false);
+  assert.equal(stickMap(R*0.90, 0, R, false).sprint, true);
+  assert.equal(stickMap(R*0.88, 0, R, true).sprint, true);
+  assert.equal(stickMap(R*0.88, 0, R, false).sprint, false);
+  assert.equal(stickMap(R*0.81, 0, R, true).sprint, false);
 });
 
 test('[STICK] radius 0 or less returns zeros', () => {
@@ -59,23 +59,23 @@ test('[STICK] radius 0 or less returns zeros', () => {
 });
 
 /* ============ SPRINT PUSH presets ============ */
-const PRESETS = { light: 0.85, normal: 0.94, firm: 0.99 };
+const PRESETS = { light: 0.80, normal: 0.90, firm: 1.00 };
 const sp = (frac, prev, preset) => stickMap(R*frac, 0, R, prev, preset).sprint;
 
 test('[STICK] sprintThresholds: off is on minus the hysteresis', () => {
   for (const [name, on] of Object.entries(PRESETS)){
     const t = sprintThresholds(name);
     assert.equal(t.on, on);
-    assert.ok(near(t.off, on - STICK.SPRINT_HYST), `${name} off ${t.off}`);
+    assert.ok(near(t.off, on - STICK.SPRINT_RELEASE_MARGIN), `${name} off ${t.off}`);
   }
-  assert.deepEqual(STICK.SPRINT_PRESETS, PRESETS);
+  assert.deepEqual(STICK.SPRINT_DISTANCE_PRESETS, PRESETS);
   assert.equal(STICK.SPRINT_ON, undefined);
   assert.equal(STICK.SPRINT_OFF, undefined);
 });
 
 test('[STICK] each preset: below on stays off, at on turns on, between holds, below off turns off', () => {
   for (const [name, on] of Object.entries(PRESETS)){
-    const off = on - STICK.SPRINT_HYST;
+    const off = on - STICK.SPRINT_RELEASE_MARGIN;
     assert.equal(sp(on - 0.01, false, name), false, `${name} below on`);
     assert.equal(sp(on, false, name), true, `${name} at on`);
     assert.equal(sp(on + 0.01, false, name), true, `${name} above on`);
@@ -91,13 +91,13 @@ test('[STICK] an unknown, missing or non-string preset behaves as normal', () =>
   for (const bad of [undefined, null, 'turbo', '', 'LIGHT', 0.5, 1, true, {}, [], 'toString', '__proto__', 'hasOwnProperty']){
     const t = sprintThresholds(bad);
     assert.equal(t.on, PRESETS.normal, `${String(bad)}`);
-    for (const frac of [0.5, 0.79, 0.85, 0.87, 0.93, 0.94, 0.95]){
+    for (const frac of [0.5, 0.79, 0.80, 0.87, 0.89, 0.90, 0.91]){
       for (const prev of [false, true])
         assert.equal(sp(frac, prev, bad), sp(frac, prev, 'normal'), `${String(bad)} @${frac} prev ${prev}`);
     }
   }
   // Omitting the argument is the four-argument call the old code made.
-  assert.equal(stickMap(R*0.94, 0, R, false).sprint, true);
+  assert.equal(stickMap(R*0.90, 0, R, false).sprint, true);
 });
 
 test('[STICK] dead zone, direction and magnitude are identical across presets', () => {

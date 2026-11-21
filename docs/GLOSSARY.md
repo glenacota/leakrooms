@@ -218,7 +218,7 @@ Code: `data-input` on `<html>`, `input:mode` event.
 
 **Stick and sprint push**
 On touch, the stick walks. Pushing it past a threshold sprints. The threshold is a setting (LIGHT, NORMAL, FIRM). It changes only when the stick sprints, not how loud sprinting is.
-Code: `pad`, `STICK.SPRINT_PRESETS`.
+Code: `pad`, `STICK.SPRINT_DISTANCE_PRESETS`.
 
 **Battery meter**
 The battery meter beside the plumber. It shows charge, and a radar scope when the radar is on. It appears while the radar is on or briefly after a battery pickup.

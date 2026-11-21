@@ -37,11 +37,11 @@ export const MOVEMENT = Object.freeze({
 export const STICK = Object.freeze({
   DEAD: 0.2,
   /* Presets change only the push threshold, never sprint noise or speed. */
-  SPRINT_PRESETS: Object.freeze({ light: 0.85, normal: 0.94, firm: 0.99 }),
-  SPRINT_HYST: 0.08,
-  RADIUS_VMIN: 0.11,
+  SPRINT_DISTANCE_PRESETS: Object.freeze({ light: 0.8, normal: 0.9, firm: 1 }),
+  SPRINT_RELEASE_MARGIN: 0.08,
+  RADIUS_BY_VIEWPORT: 0.2,
   RADIUS_MIN: 44,
-  RADIUS_MAX: 80,
+  RADIUS_MAX: 100,
 });
 
 export const PLUMBER = Object.freeze({

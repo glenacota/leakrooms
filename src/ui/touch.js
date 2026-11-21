@@ -42,7 +42,7 @@ const visible = () => mode === 'touch' && STATE === 'play';
    and landscape, kept inside a range a thumb can use. */
 function stickRadius(){
   const short = Math.min(window.innerWidth || 0, window.innerHeight || 0);
-  return Math.max(STICK.RADIUS_MIN, Math.min(STICK.RADIUS_MAX, short * STICK.RADIUS_VMIN));
+  return Math.max(STICK.RADIUS_MIN, Math.min(STICK.RADIUS_MAX, short * STICK.RADIUS_BY_VIEWPORT));
 }
 
 function onStickSide(x){

@@ -3,9 +3,9 @@ import { STICK } from '../config/constants.js';
 /* Invalid presets fall back to normal so saved data cannot remove sprint input. */
 export function sprintThresholds(preset){
   const known = typeof preset === 'string'
-    && Object.prototype.hasOwnProperty.call(STICK.SPRINT_PRESETS, preset);
-  const on = STICK.SPRINT_PRESETS[known ? preset : 'normal'];
-  return { on, off: on - STICK.SPRINT_HYST };
+    && Object.prototype.hasOwnProperty.call(STICK.SPRINT_DISTANCE_PRESETS, preset);
+  const on = STICK.SPRINT_DISTANCE_PRESETS[known ? preset : 'normal'];
+  return { on, off: on - STICK.SPRINT_RELEASE_MARGIN };
 }
 
 /* Maps a thumb offset to movement and sprint state without screen state. */
