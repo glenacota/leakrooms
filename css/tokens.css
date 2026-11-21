@@ -1,7 +1,6 @@
 /* ============================================================
-   TOKENS AND PAGE FRAME
-   Colours, shared variables, the page reset, and the boxes that
-   hold the game canvas.
+   TOKENS
+   Colours, shared variables, safe areas, stacking, and tuning.
 
    Load order matters: this file comes first because every other
    stylesheet reads the variables defined here.
@@ -79,61 +78,4 @@
   --duration-normal: .5s;
   --duration-slow: .6s;
   --ease-ease: ease;
-}
-
-/* ---------- Page reset ---------- */
-*{ margin:0; padding:0; box-sizing:border-box; }
-
-/* The system cursor is hidden while playing. Screens turn it back on
-   (see .screen in screens.css). */
-html,body{
-  width:100%; height:100%;
-  background:#000;
-  overflow:hidden;
-  font-family:var(--mono);
-  color:var(--yellow);
-  cursor:none;
-  -webkit-font-smoothing:antialiased;
-}
-
-body{ display:flex; align-items:center; justify-content:center; }
-
-/* ---------- Game frame ---------- */
-
-/* The outer frame. The play area, the HUD and every screen are
-   positioned inside it. */
-#crt{
-  position:relative;
-  width:100%; height:100%;
-  overflow:hidden;
-  background:#000;
-}
-
-/* The play area, which holds the canvas. It fills the frame: the HUD is two
-   glass panels in the corners that float over the map, so nothing is
-   reserved for it and the map is never drawn underneath a solid panel. The
-   game sizes its camera, lighting and visibility mask to the canvas, so any
-   part hidden behind an opaque panel would still be rendered and then never
-   seen. The panels are glass, so that strip is a few hundred pixels of
-   dimmed map, not a hidden strip of the world.
-
-   It uses absolute positioning instead of a flex row because the HUD used
-   to be a column whose width came from a media-query variable, and a flex
-   layout can collapse the play area to nothing if it resolves against a
-   stale value. */
-#stage{
-  position:absolute;
-  top:0; right:0; bottom:0;
-  left:0;
-  overflow:hidden;
-}
-
-/* The canvas fills the stage. "pixelated" keeps the low-resolution
-   lighting and water layers crisp when they are scaled up. */
-#game{
-  position:absolute;
-  inset:0;
-  width:100%; height:100%;
-  display:block;
-  image-rendering:pixelated;
 }

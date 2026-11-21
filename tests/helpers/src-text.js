@@ -47,13 +47,13 @@ export function readHtml(){
 }
 
 export function readCss(){
-  /* Read in the order index.html links them, not sorted: the cascade depends
-     on it. tokens.css must come first (it defines the :root variables) and
-     base.css last (prefers-reduced-motion overrides animations set above). */
-  const ORDER = ['tokens','hud','screens','splash','settings','base'];
+  /* Read in index.html order: the cascade depends on stylesheet order. */
+  const html = readHtml();
+  const links = [...html.matchAll(/<link[^>]*rel="stylesheet"[^>]*href="([^"]+)"/g)]
+    .map(match => match[1]);
   let out = '';
-  for (const name of ORDER){
-    const p = path.join(root, 'css', name + '.js'.replace('.js','.css'));
+  for (const link of links){
+    const p = path.join(root, link);
     if (fs.existsSync(p)) out += '\n' + fs.readFileSync(p, 'utf8');
   }
   return out;
