@@ -24,7 +24,7 @@ html{ -webkit-tap-highlight-color:transparent; }
 #touch{
   position:absolute;
   inset:0;
-  z-index:4;
+  z-index:var(--z-touch);
   pointer-events:none;
   touch-action:none;           /* no scroll or pinch-zoom starts on the controls */
   user-select:none;
@@ -33,9 +33,6 @@ html{ -webkit-tap-highlight-color:transparent; }
   -webkit-tap-highlight-color:transparent;
 }
 [data-input=touch] #touch{ pointer-events:auto; }
-
-/* An author display rule would beat the hidden attribute, so say it again here. */
-#touch [hidden]{ display:none !important; }
 
 /* ---------- Page, in touch mode only ---------- */
 
@@ -47,7 +44,7 @@ html[data-input=touch], html[data-input=touch] body{ overscroll-behavior:none; }
 #perf{
   position:fixed;
   left:var(--safe-l); bottom:var(--safe-b);
-  z-index:6;            /* above the HUD (z-index 5) */
+  z-index:var(--z-perf);            /* above the HUD (z-index 5) */
   pointer-events:none;
   font:11px/1.2 var(--mono);
   color:var(--yellow);
@@ -134,7 +131,7 @@ html[data-input=touch] #crt{ height:100dvh; }
   #touch button:hover{ background:rgba(10,9,5,.18); box-shadow:none; }
 }
 #touch button:active{ transform:none; }
-#touch button.down{ opacity:1; background:rgba(228,230,168,.22); }
+#touch button.down{ opacity:1; background:rgba(var(--color-line-rgb), .22); }
 
 /* Opposite the stick. If the stick moves to the right half, this has to move
    too. */
@@ -189,7 +186,6 @@ html[data-input=touch] #crt{ height:100dvh; }
   font-size:var(--text-label); letter-spacing:.08em; line-height:1.5;
   color:var(--yellow-dim); opacity:.8;
 }
-.fs-hint[hidden]{ display:none !important; }
 .fs-hint button{ font-size:var(--text-label); font-weight:900; padding:2px 10px; min-height:0; }
 [data-input=touch] .fs-hint button{ min-height:32px; }
 
@@ -213,6 +209,8 @@ html[data-input=touch] #crt{ height:100dvh; }
 /* The touch rows on the pause page mean nothing with a keyboard. They carry
    .touch-only and are hidden until touch mode is on. */
 [data-input=kbm] .touch-only{ display:none; }
+[data-input=touch] .kbd-only{ display:none; }
+html:not([data-input=touch]) .touch-only{ display:none; }
 
 /* ---------- The stick on the right ---------- */
 
@@ -228,8 +226,6 @@ html[data-input=touch] #crt{ height:100dvh; }
 /* A line that names a key has a twin for touch. Which one shows follows the
    input mode, not the screen size, so a tablet with a keyboard reads keys. No
    data-input yet (the first instant of a load) counts as keyboard. */
-[data-input=touch] .kbd-only{ display:none !important; }
-html:not([data-input=touch]) .touch-only{ display:none !important; }
 
 /* ---------- The rotate card ---------- */
 
@@ -246,6 +242,7 @@ html:not([data-input=touch]) .touch-only{ display:none !important; }
   text-align:center;
   background:#000;
   color:var(--yellow);
+  z-index:var(--z-rotate);
 }
 #rotate h1{ font-size:var(--text-heading); letter-spacing:.18em; line-height:1.4; }
 #rotate .rot-icon{ font-size:56px; line-height:1; color:var(--yellow-dim); }

@@ -34,7 +34,7 @@
 .setrow.section::after{
   content: "";
   flex: 1;
-  border-bottom: 1px solid rgba(228,230,168,.18);
+  border-bottom: 1px solid rgba(var(--color-line-rgb), .18);
   transform: translateY(-3px);
 }
 .setrow .note{
@@ -58,13 +58,13 @@
 .seg button{
   padding:6px 8px; font-size:var(--text-control); white-space:nowrap;
   letter-spacing:.14em; background:transparent; color:var(--yellow-dim);
-  border:1px solid rgba(228,230,168,.28); cursor:pointer;
+  border:1px solid rgba(var(--color-line-rgb), .28); cursor:pointer;
 }
 @media (hover:hover){
-  .seg button:hover{ background:rgba(228,230,168,.10); color:var(--yellow); }
+  .seg button:hover{ background:rgba(var(--color-line-rgb), .10); color:var(--yellow); }
 }
 @media (hover:none){
-  .seg button:active{ background:rgba(228,230,168,.10); color:var(--yellow); }
+  .seg button:active{ background:rgba(var(--color-line-rgb), .10); color:var(--yellow); }
 }
 .seg button[aria-pressed="true"]{
   background:var(--yellow); color:#1a1810; border-color:var(--yellow);
@@ -73,7 +73,7 @@
 /* ---------- Sliders ---------- */
 input[type=range]{
   -webkit-appearance:none; appearance:none; width:100%; height:9px;
-  background:rgba(20,17,10,.75); border:1px solid rgba(228,230,168,.28);
+  background:rgba(20,17,10,.75); border:1px solid rgba(var(--color-line-rgb), .28);
   cursor:pointer;
 }
 input[type=range]::-webkit-slider-thumb{
@@ -95,24 +95,24 @@ input[type=range]::-moz-range-thumb{
 /* ---------- Button variants ---------- */
 
 /* Quieter button for secondary actions. */
-button.ghost{
+.btn--ghost{
   background:transparent; color:var(--yellow-dim);
-  border:1px solid rgba(228,230,168,.35);
+  border:1px solid rgba(var(--color-line-rgb), .35);
 }
 @media (hover:hover){
-  button.ghost:hover{ background:rgba(228,230,168,.10); color:var(--yellow); }
+  .btn--ghost:hover{ background:rgba(var(--color-line-rgb), .10); color:var(--yellow); }
 }
 @media (hover:none){
-  button.ghost:active{ background:rgba(228,230,168,.10); color:var(--yellow); }
+  .btn--ghost:active{ background:rgba(var(--color-line-rgb), .10); color:var(--yellow); }
 }
 
 /* The restart-game button is the only control on the ticket that ends a
    run, so it wears the danger red. That red appears nowhere else on the
    ticket except spent lives. */
-button.danger{ color:var(--danger); border-color:rgba(216,80,48,.45); }
+.btn--danger{ color:var(--danger); border-color:rgba(216,80,48,.45); }
 @media (hover:hover){
-  button.danger:hover{ background:var(--danger); color:var(--ink); border-color:var(--danger); }
+  .btn--danger:hover{ background:var(--danger); color:var(--ink); border-color:var(--danger); }
 }
 @media (hover:none){
-  button.danger:active{ background:var(--danger); color:var(--ink); border-color:var(--danger); }
+  .btn--danger:active{ background:var(--danger); color:var(--ink); border-color:var(--danger); }
 }

@@ -12,6 +12,9 @@ html{ -webkit-text-size-adjust:100%; text-size-adjust:100%; }
 html, body{ overscroll-behavior:none; }
 .screen, button{ touch-action:manipulation; }
 
+/* Visibility: one mechanism for hiding UI. */
+[hidden], .hidden{ display:none; }
+
 /* ---------- Narrow windows ---------- */
 
 /* The HUD is a single glass panel in the corner, so a small window does not
@@ -67,7 +70,7 @@ html, body{ overscroll-behavior:none; }
   .order .notes li{ font-size:var(--text-body); line-height:1.4; }
 
   .order-side{
-    border-left:2px dashed rgba(228,230,168,.28); border-top:none;
+    border-left:2px dashed rgba(var(--color-line-rgb), .28); border-top:none;
     flex-direction:column; flex-wrap:nowrap; gap:0; align-items:stretch;
     padding:10px 12px;
   }

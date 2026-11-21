@@ -12,8 +12,15 @@ export function showScreen(screenId){
   if (!SCREENS.includes(screenId)) throw new RangeError(`Unknown screen: ${screenId}`);
   for (const s of SCREENS)
     document.getElementById('screen-'+s).classList.toggle('hidden', s!==screenId);
+  const footer = document.getElementById('page-footer');
+  if (footer){
+    footer.classList.remove('hidden');
+    footer.classList.toggle('screen-footer--splash', screenId === 'splash');
+  }
 }
 export function hideScreens(){
   for (const s of SCREENS)
     document.getElementById('screen-'+s).classList.add('hidden');
+  const footer = document.getElementById('page-footer');
+  if (footer) footer.classList.add('hidden');
 }

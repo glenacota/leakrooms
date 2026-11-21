@@ -8,9 +8,11 @@
 
 /* ---------- The binder: tabs, pages, terms ---------- */
 
-h3 {
+/* Section headings inside the binder pages. Scoped to .order so they do not
+   leak to any h3 elsewhere on the page. */
+.order h3{
   font-size:var(--text-heading); font-weight:900; letter-spacing:.22em; color:var(--yellow);
-  margin:0 0 8px; padding-bottom:4px; border-bottom:1px solid rgba(228,230,168,.2);
+  margin:0 0 8px; padding-bottom:4px; border-bottom:1px solid rgba(var(--color-line-rgb), .2);
 }
 
 /* The binder is one screen with a row of tabs and one page showing at a time.
@@ -22,13 +24,13 @@ h3 {
 .binder-tabs button{
   padding:6px 14px; font-size:var(--text-label); font-weight:900; letter-spacing:.2em;
   background:transparent; color:var(--yellow-deep);
-  border:1px solid rgba(228,230,168,.28); cursor:pointer;
+  border:1px solid rgba(var(--color-line-rgb), .28); cursor:pointer;
 }
 @media (hover:hover){
-  .binder-tabs button:hover{ background:rgba(228,230,168,.10); color:var(--yellow); }
+  .binder-tabs button:hover{ background:rgba(var(--color-line-rgb), .10); color:var(--yellow); }
 }
 @media (hover:none){
-  .binder-tabs button:active{ background:rgba(228,230,168,.10); color:var(--yellow); }
+  .binder-tabs button:active{ background:rgba(var(--color-line-rgb), .10); color:var(--yellow); }
 }
 .binder-tabs button[aria-selected="true"]{
   background:var(--yellow); color:var(--ink); border-color:var(--yellow);
@@ -38,7 +40,7 @@ h3 {
 /* The binder's spine: the ring-binder edge down the left of the ticket. */
 .order.binder{ grid-template-columns:34px 1fr; }
 .binder-spine{
-  border-right:2px solid rgba(228,230,168,.28);
+  border-right:2px solid rgba(var(--color-line-rgb), .28);
   background:repeating-linear-gradient(180deg,rgba(255,255,255,.03) 0 6px,transparent 6px 12px);
   display:flex; align-items:center; justify-content:center; overflow:hidden;
 }
@@ -52,8 +54,8 @@ h3 {
 /* The terms are a fixed panel of three buttons and a note. There is nothing
    to open: choosing is the one thing the work order asks for. */
 .terms{
-  border:1px solid rgba(228,230,168,.25); font-size:var(--text-body);
-  padding:10px 12px; background:rgba(228,230,168,.04);
+  border:1px solid rgba(var(--color-line-rgb), .25); font-size:var(--text-body);
+  padding:10px 12px; background:rgba(var(--color-line-rgb), .04);
 }
 .seg button { font-weight: 900; font-size:var(--text-control); }
 .terms .note{ line-height:1.6; color:var(--yellow-dim); margin-top:8px; }
@@ -68,19 +70,19 @@ h3 {
 
 /* ---------- The timeline: how each floor of the attempt went ---------- */
 
-.run-timeline{ margin-top:10px; border:1px solid rgba(228,230,168,.25); }
+.run-timeline{ margin-top:10px; border:1px solid rgba(var(--color-line-rgb), .25); }
 .run-timeline-head{
   display:grid; grid-template-columns:1fr 1fr 1fr 1fr;
-  padding:6px 10px; border-bottom:1px solid rgba(228,230,168,.2);
+  padding:6px 10px; border-bottom:1px solid rgba(var(--color-line-rgb), .2);
   font-size:var(--text-label); letter-spacing:.3em; font-weight:900; color:var(--yellow-deep);
 }
 .run-timeline-row{
   display:grid; grid-template-columns:1fr 1fr 1fr 1fr;
-  padding:6px 10px; font-size:var(--text-body); border-bottom:1px solid rgba(228,230,168,.12);
+  padding:6px 10px; font-size:var(--text-body); border-bottom:1px solid rgba(var(--color-line-rgb), .12);
   align-items:center;
 }
 .run-timeline-row:last-child{ border-bottom:none; }
-.run-timeline-row.now{ background:rgba(228,230,168,.06); }
+.run-timeline-row.now{ background:rgba(var(--color-line-rgb), .06); }
 .run-timeline-floor{ color:var(--yellow); font-weight:900; letter-spacing:.1em; }
 .run-timeline-status.ok{ color:var(--carpet); font-weight:900; letter-spacing:.1em; }
 .run-timeline-status.bad{ color:var(--danger); font-weight:900; letter-spacing:.1em; }
@@ -101,7 +103,7 @@ h3 {
 .lg{
   flex:none; width:54px; display:flex; align-items:center; justify-content:center; gap:2px;
   font-style:normal; font-size:var(--text-label); font-weight:900; letter-spacing:.1em; color:var(--yellow);
-  min-height:24px; border:1px solid rgba(228,230,168,.25); background:rgba(228,230,168,.05);
+  min-height:24px; border:1px solid rgba(var(--color-line-rgb), .25); background:rgba(var(--color-line-rgb), .05);
 }
 .lg-battery{ width:54px; height:54px; min-height:54px; border:0; background:none; }
 .lg-stamina{ display:block; width:54px; height:54px; min-width:54px; min-height:54px; border:0; background:none; }
@@ -140,7 +142,7 @@ h3 {
   pointer-events:none;
   color:var(--yellow);
   background:rgba(0,0,0,.7);
-  border:1px solid rgba(228,230,168,.25);
+  border:1px solid rgba(var(--color-line-rgb), .25);
   border-left:4px solid var(--danger);
   border-radius:2px;
   box-shadow:0 0 16px rgba(0,0,0,.55);
@@ -156,7 +158,7 @@ h3 {
   box-shadow:none;
   text-shadow:none;
   background:rgba(0,0,0,.35);
-  border-color:rgba(228,230,168,.12);
+  border-color:rgba(var(--color-line-rgb), .12);
 }
 /* Category colour on the left rule; the icon stroke inherits text color. */
 #flashnote[data-cat="danger"]{ border-color: rgba(216, 80, 60, 0.25); border-left-color:var(--danger); color:var(--danger) }
@@ -218,9 +220,8 @@ h3 {
 /* Tutorials */
 
 
-.tutorial-overlay[hidden]{ display:none; }
 .tutorial-overlay{
-  position:absolute; inset:0; z-index:8; display:flex;
+  position:absolute; inset:0; z-index:var(--z-tutorial); display:flex;
   align-items:flex-end; justify-content:center;
   padding:calc(8px + var(--safe-t)) calc(8px + var(--safe-r))
           calc(20px + var(--safe-b)) calc(8px + var(--safe-l));
@@ -231,7 +232,7 @@ h3 {
   display:grid; grid-template-columns:minmax(115px, 32%) 1fr;
   color:var(--yellow);
   background:rgba(12,14,10,.94);
-  border:1px solid rgba(228,230,168,.25);
+  border:1px solid rgba(var(--color-line-rgb), .25);
   border-left:4px solid var(--yellow-deep);
   box-shadow:0 0 16px rgba(0,0,0,.55);
   pointer-events:auto; cursor:auto;
@@ -275,7 +276,7 @@ h3 {
 }
 
 .order-body{ padding:22px 26px 20px; text-align:left; }
-.order-head{ border-bottom:1px solid rgba(228,230,168,.2); padding-bottom:12px; margin:30px 0 }
+.order-head{ border-bottom:1px solid rgba(var(--color-line-rgb), .2); padding-bottom:12px; margin:30px 0 }
 .order-head h2{
   font-size:var(--text-display); letter-spacing:.22em; font-weight:400; margin:0;
   text-shadow:2px 0 0 rgba(216,80,60,.45), -2px 0 0 rgba(80,150,216,.3);
@@ -296,7 +297,7 @@ h3 {
 
 /* Controls list: the main reason the work order screen exists, so the
    text is kept large enough to read. */
-.controls-big{ font-size:var(--text-body) !important; letter-spacing:.06em; color:var(--yellow-dim);}
+.controls-big{ font-size:var(--text-body); letter-spacing:.06em; color:var(--yellow-dim);}
 .controls-big div { display:flex; gap:10px; align-items:baseline; padding:3px 0; font-weight: normal;}
 .controls-big b{
   min-width:78px; font-size:var(--text-control); padding:3px 9px;
@@ -313,7 +314,7 @@ h3 {
 
 /* The tear-off stub on the right: seed, run details and controls. */
 .order-side{
-  border-left:2px dashed rgba(228,230,168,.28);
+  border-left:2px dashed rgba(var(--color-line-rgb), .28);
   padding:20px 16px;
   background:repeating-linear-gradient(180deg,rgba(255,255,255,.02) 0 6px,transparent 6px 12px);
   display:flex; flex-direction:column;
@@ -353,14 +354,12 @@ h3 {
   align-items:center;
   justify-content:center;
   background:rgba(6,5,3,.86);
-  z-index:5;
+  z-index:var(--z-screen);
   /* Keep the content clear of the notch, the rounded corners and the home bar.
      Zero on a desktop. */
   padding:var(--safe-t) var(--safe-r) var(--safe-b) var(--safe-l);
   cursor:default;            /* bring back the cursor that the page hides */
 }
-.screen.hidden{ display:none; }
-
 /* One closing sheet, with the approval stamp as its only animated accent. */
 .win-wrap{ width:min(94vw,680px); align-items:stretch; }
 .order.win-paper{ display:block; flex:none; }
@@ -376,7 +375,7 @@ h3 {
 .win-stamp{
   display:inline-block; flex:none; padding:10px 20px;
   border:5px double var(--danger); color:var(--danger); background: rgba(0,0,0,0.8);
-  font-size:var(--text-display); font-weight:900 !important; letter-spacing:.1em;
+  font-size:var(--text-display); font-weight:900; letter-spacing:.1em;
   transform:rotate(-7deg); animation:win-stamp .16s .6s both; margin-left:70%
 }
 @keyframes win-stamp{
@@ -384,13 +383,13 @@ h3 {
   to{ opacity:1; transform:rotate(-7deg) scale(1); }
 }
 .win-table, .win-invoice{ width:100%; border-collapse:collapse; margin-top:14px; font-size:var(--text-body); }
-.win-table th, .win-table td{ padding:7px 4px; border-bottom:1px solid rgba(228,230,168,.12); text-align:right; }
+.win-table th, .win-table td{ padding:7px 4px; border-bottom:1px solid rgba(var(--color-line-rgb), .12); text-align:right; }
 .win-table th:first-child, .win-table td:first-child{ text-align:left; }
 .win-table thead{ color:var(--yellow-dim); font-size:var(--text-label); }
 .win-invoice th, .win-invoice td{ padding:5px 0; font-weight:400; }
 .win-invoice th{ text-align:left; color:var(--yellow-dim); }
 .win-invoice td{ text-align:right; white-space:nowrap; }
-.win-invoice .win-total th, .win-invoice .win-total td{ border-top:1px solid rgba(228,230,168,.3); padding-top:10px; font-weight:900; color:var(--yellow); }
+.win-invoice .win-total th, .win-invoice .win-total td{ border-top:1px solid rgba(var(--color-line-rgb), .3); padding-top:10px; font-weight:900; color:var(--yellow); }
 .win-unit{ float:right; color:var(--yellow-dim); font-size:var(--text-label); }
 
 @media (max-width:480px){
@@ -407,11 +406,11 @@ h3 {
   max-width:660px;
   padding:34px 40px;
   text-align:center;
-  border:1px solid rgba(228,230,168,.22);
+  border:1px solid rgba(var(--color-line-rgb), .22);
   background:
     repeating-linear-gradient(0deg, rgba(0,0,0,.16) 0 2px, transparent 2px 4px),
     rgba(14,12,8,.9);
-  box-shadow:0 0 60px rgba(0,0,0,.9), inset 0 0 40px rgba(228,230,168,.05);
+  box-shadow:0 0 60px rgba(0,0,0,.9), inset 0 0 40px rgba(var(--color-line-rgb), .05);
 }
 
 /* Headings get a slight red/blue offset to imitate a bad video signal. */
@@ -446,8 +445,8 @@ h2.bad{ color:var(--danger); letter-spacing:1em; font-size:var(--text-heading); 
 .controls div{ display:flex; gap:9px; align-items:baseline; }
 .controls b, .cta-hint b {
   color:var(--yellow);
-  background:rgba(228,230,168,.1);
-  border:1px solid rgba(228,230,168,.25);
+  background:rgba(var(--color-line-rgb), .1);
+  border:1px solid rgba(var(--color-line-rgb), .25);
   padding:5px 10px;
   min-width:56px;
   text-align:center;
@@ -487,7 +486,7 @@ h2.bad{ color:var(--danger); letter-spacing:1em; font-size:var(--text-heading); 
 /* The next assignment. The dashed top edge matches the difficulty chooser
    on the work order: it is the same document, one page further on. */
 .clear-next{
-  border-top:2px dashed rgba(228,230,168,.28);
+  border-top:2px dashed rgba(var(--color-line-rgb), .28);
   padding-top:16px; margin-bottom:28px; text-align:left;
 }
 .clear-next .k{
@@ -513,7 +512,7 @@ h2.bad{ color:var(--danger); letter-spacing:1em; font-size:var(--text-heading); 
   align-items:center;
   justify-content:center;
   background:rgba(6,5,3,.94);
-  z-index:9;
+  z-index:var(--z-fatal);
 }
 #fatal.hidden{ display:none; }
 
@@ -540,13 +539,13 @@ button{
 @media (hover:hover){
   button:hover{
     background:#eef0c4;
-    box-shadow:0 0 26px rgba(228,230,168,.5);
+    box-shadow:0 0 26px rgba(var(--color-line-rgb), .5);
   }
 }
 @media (hover:none){
   button:active{
     background:#eef0c4;
-    box-shadow:0 0 26px rgba(228,230,168,.5);
+    box-shadow:0 0 26px rgba(var(--color-line-rgb), .5);
   }
 }
 button:active{ transform:translateY(1px); }
@@ -559,7 +558,7 @@ button:active{ transform:translateY(1px); }
 @media (max-width:820px) and (min-height:521px), (max-width:820px) and (orientation:portrait){
   .order{ grid-template-columns:1fr; }
   .order-side{
-    border-left:none; border-top:2px dashed rgba(228,230,168,.28);
+    border-left:none; border-top:2px dashed rgba(var(--color-line-rgb), .28);
     flex-direction:row; flex-wrap:wrap; gap:0 20px; align-items:baseline;
   }
   .order-head h2{ font-size:var(--text-heading); }
@@ -579,14 +578,18 @@ button:active{ transform:translateY(1px); }
   position:absolute;
   left:0; right:0; bottom:0;
   padding:8px max(16px, var(--safe-r)) calc(8px + var(--safe-b)) max(16px, var(--safe-l));
-  border-top:1px solid rgba(228,230,168,.18);
+  border-top:1px solid rgba(var(--color-line-rgb), .18);
   background:rgba(6,5,3,.86);
-  z-index:10;
+  z-index:var(--z-footer);
 }
 
-.screen.splash .screen-footer{
+/* Fatal overrides every screen, so the shared footer must not show through it. */
+#fatal:not(.hidden) ~ #page-footer{ display:none; }
+
+/* Splash keeps the footer transparent so it does not cover the title artwork. */
+.screen-footer--splash{
   background:transparent;
-  border-top-color:rgba(228,230,168,.12);
+  border-top-color:rgba(var(--color-line-rgb), .12);
 }
 
 .footer-left{
@@ -659,7 +662,6 @@ button:active{ transform:translateY(1px); }
   #btn-start, #btn-resume{ padding:8px 10px; font-size:var(--text-label); letter-spacing:.12em; white-space:nowrap; }
   #btn-reset-run{ padding:8px 10px; font-size:var(--text-label); letter-spacing:.12em; white-space:nowrap; }
   /* The footer links are not worth a strip of a 360 px screen. */
-  #screen-binder .screen-footer{ display:none; }
 }
 
 /* The buttons that matter stay in reach while the ticket scrolls under them. This
@@ -691,7 +693,7 @@ button:active{ transform:translateY(1px); }
 @media (max-height:480px) and (min-width:560px){
   .order{ grid-template-columns:1fr 200px; }
   .order-side{
-    border-left:2px dashed rgba(228,230,168,.28); border-top:none;
+    border-left:2px dashed rgba(var(--color-line-rgb), .28); border-top:none;
     flex-direction:column; flex-wrap:nowrap; gap:0; align-items:stretch;
     padding:10px 12px;
   }

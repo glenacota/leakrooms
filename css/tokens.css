@@ -37,6 +37,35 @@
   --safe-r: env(safe-area-inset-right, 0px);
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-l: env(safe-area-inset-left, 0px);
+
+  /* ---------- Z-index layers ---------- */
+  --z-stage: 0;
+  --z-touch: 4;
+  --z-hud:   5;
+  --z-screen: 5;
+  --z-perf:   6;
+  --z-tutorial: 8;
+  --z-fatal:  9;
+  --z-footer: 10;
+  --z-rotate: 11;
+
+  /* ---------- Colour: lines, borders, surfaces ---------- */
+  --color-line-rgb: 228, 230, 168;   /* the yellow line colour; alpha set per use */
+  --color-surface: rgba(10,9,5,.6);      /* glass panel */
+  --color-surface-dark: rgba(6,5,3,.86); /* screen tint */
+
+  /* ---------- Spacing ---------- */
+  --space-xs: 4px;
+  --space-sm: 6px;
+  --space-md: 10px;
+  --space-lg: 14px;
+  --space-xl: 20px;
+
+  /* ---------- Timing ---------- */
+  --duration-fast: .15s;
+  --duration-normal: .5s;
+  --duration-slow: .6s;
+  --ease-ease: ease;
 }
 
 /* ---------- Page reset ---------- */

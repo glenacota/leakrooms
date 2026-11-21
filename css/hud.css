@@ -14,7 +14,7 @@
 #hud{
   position:absolute;
   inset:0;
-  z-index:5;                 /* its own stacking level, so later elements cannot cover it */
+  z-index:var(--z-hud);      /* its own stacking level, so later elements cannot cover it */
   pointer-events:none;       /* clicks pass through to the game */
   opacity:0;                 /* invisible until a run starts */
   transition:opacity .5s ease;
@@ -50,7 +50,7 @@
   display:flex;
   align-items:center;
   justify-content:center;
-  border-right:1px solid rgba(228,230,168,.35);
+  border-right:1px solid rgba(var(--color-line-rgb), .35);
   padding-right:14px;
 }
 .crt-cell.stats{
@@ -66,7 +66,7 @@
   position:absolute; inset:0;
   border-radius:inherit;
   pointer-events:none;
-  z-index:0;
+  z-index:var(--z-stage);
   background:repeating-linear-gradient(0deg, rgba(0,0,0,.34) 0 1px, rgba(0,0,0,0) 1px 3px);
 }
 /* ...and the content above them. */
@@ -121,7 +121,7 @@
 /* Sealed: hollow, so a filled mark can never be mistaken for an open one. */
 .crt-leaks span.done{
   background:transparent;
-  border:1px solid rgba(228,230,168,.55);
+  border:1px solid rgba(var(--color-line-rgb), .55);
 }
 
 /* ---------- Lives ---------- */

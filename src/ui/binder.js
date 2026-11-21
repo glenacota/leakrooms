@@ -65,8 +65,8 @@ export function openBinder(mode, tab){
   binderMode = mode;
   const screen = document.getElementById('screen-binder');
   if (screen) screen.dataset.binderMode = mode;
-  for (const t of document.querySelectorAll('[data-binder-for]'))
-    t.classList.toggle('hidden', t.dataset.binderFor !== mode);
+  for (const t of document.querySelectorAll('[data-binder-tab]'))
+    t.classList.toggle('hidden', !!(t.dataset.binderFor && t.dataset.binderFor !== mode));
   setBinderTab(tab);
 }
 
