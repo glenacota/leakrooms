@@ -195,3 +195,33 @@
   #clock.critical #val-clock,
   .crt-air-segment.edge{ animation:none; }
 }
+
+@media (max-width:900px){
+  .crt-clock, #val-clock{ font-size:26px; }
+  .crt-row{ font-size:11px; gap:6px; }
+  .crt-lbl{ font-size:10px; }
+  .crt-air-bar{ width:64px; }
+  .bar{ width:96px; height:8px; }
+  .crt{ padding:8px 10px 9px; }
+  :root{ --hud-h:77px; }
+}
+@media (max-width:680px){
+  .crt-clock, #val-clock{ font-size:21px; }
+  .crt-row{ font-size:10px; gap:5px; }
+  .crt-lbl{ font-size:9px; letter-spacing:.12em; }
+  .crt-air-bar{ width:50px; }
+  .bar{ width:70px; height:7px; }
+  .crt{ padding:6px 8px 7px; }
+  .crt-c{ transform:none; left:max(8px, var(--safe-l)); }
+  :root{ --hud-h:69px; }
+}
+
+@media (max-height:520px){
+  .crt-clock, #val-clock{ font-size:21px; }
+  .crt-row{ font-size:10px; gap:5px; }
+  .crt-lbl{ font-size:10px; }
+  .crt-air-bar{ width:50px; }
+  .bar{ width:70px; height:7px; }
+  .crt{ padding:6px 8px 7px; }
+  :root{ --hud-h:69px; }
+}

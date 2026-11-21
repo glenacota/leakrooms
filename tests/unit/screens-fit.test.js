@@ -68,12 +68,12 @@ test('[FIT] --safe-t/-r/-b/-l are defined once, and read through var() everywher
   const hud = strip(sheet.hud).match(/\.crt-c\s*\{([^}]*)\}/);
   assert.ok(hud && /top\s*:\s*max\(10px,\s*var\(--safe-t\)\)/.test(hud[1]) && /left\s*:\s*50%/.test(hud[1]),
     'the HUD anchor does not clear the notch');
-  assert.ok(/\.crt-c\s*\{\s*transform\s*:\s*none;\s*left\s*:\s*max\(8px,\s*var\(--safe-l\)\)/.test(strip(sheet.base)), 'the narrow HUD override ignores the notch');
+  assert.ok(/\.crt-c\s*\{\s*transform\s*:\s*none;\s*left\s*:\s*max\(8px,\s*var\(--safe-l\)\)/.test(strip(sheet.hud)), 'the narrow HUD override ignores the notch');
 });
 
 test('[FIT] a (max-height:520px) block exists and keeps the landscape ticket in two columns', () => {
-  const b = mediaBlock(sheet.base, '(max-height:520px)');
-  assert.ok(b, 'no compact tier in base.css');
+  const b = mediaBlock(sheet.screens, '(max-height:520px)');
+  assert.ok(b, 'no compact tier in screens.css');
   assert.ok(/\.order\s*\{\s*grid-template-columns\s*:\s*1fr\s+170px/.test(b), 'no 1fr 170px ticket');
   for (const bad of [/\bzoom\s*:/, /transform\s*:\s*scale/])
     assert.ok(!bad.test(b), 'the compact tier shrinks by scaling, not by tightening');
@@ -113,16 +113,17 @@ test('[FIT] css/base.css is the last stylesheet linked in index.html', () => {
 });
 
 test('[FIT] the compact binder pages scroll inside the ticket and pin their tab and button rows', () => {
-  const b = mediaBlock(sheet.base, '(max-height:520px)');
+  const b = mediaBlock(sheet.screens, '(max-height:520px)');
+  const ui = mediaBlock(sheet.ui, '(max-height:520px)');
   assert.ok(/--pause-chrome\s*:\s*\d+px/.test(b), 'no --pause-chrome');
   assert.ok(/\[data-binder-page="settings"\][\s\S]*?overflow-y\s*:\s*auto/.test(b));
   assert.ok(/\.binder-tabs\s*\{[^}]*position\s*:\s*sticky/.test(b));
-  assert.ok(/\.setrow\.buttons\s*\{[^}]*position\s*:\s*sticky/.test(b));
+  assert.ok(/\.setrow\.buttons\s*\{[^}]*position\s*:\s*sticky/.test(ui));
 });
 
 test('[FIT] compact tier pins the HUD to the <=680px values at every width', () => {
-  const compact = mediaBlock(sheet.base, '(max-height:520px)');
-  assert.ok(compact, 'no compact tier in base.css');
+  const compact = mediaBlock(sheet.hud, '(max-height:520px)');
+  assert.ok(compact, 'no compact tier in hud.css');
   assert.ok(/\.crt-clock\s*,\s*#val-clock\s*\{\s*font-size\s*:\s*21px/.test(compact), 'compact clock 21px');
   assert.ok(/\.crt-row\s*\{[^}]*font-size\s*:\s*10px[^}]*gap\s*:\s*5px/.test(compact), 'compact row 10px gap 5px');
   assert.ok(/\.crt-lbl\s*\{[^}]*font-size\s*:\s*10px/.test(compact), 'compact labels 10px, never below the 10px floor');
@@ -131,8 +132,8 @@ test('[FIT] compact tier pins the HUD to the <=680px values at every width', () 
 
   /* The same values already exist in the <=680px block: the compact tier
      reuses them, it does not re-tune them. */
-  const narrow = mediaBlock(sheet.base, '(max-width:680px)');
-  assert.ok(narrow, 'no 680px tier in base.css');
+  const narrow = mediaBlock(sheet.hud, '(max-width:680px)');
+  assert.ok(narrow, 'no 680px tier in hud.css');
   assert.ok(/\.crt-clock\s*,\s*#val-clock\s*\{\s*font-size\s*:\s*21px/.test(narrow), '680px clock 21px');
   assert.ok(/\.crt-row\s*\{[^}]*font-size\s*:\s*10px[^}]*gap\s*:\s*5px/.test(narrow), '680px row 10px gap 5px');
   assert.ok(/\.bar\s*\{[^}]*width\s*:\s*70px[^}]*height\s*:\s*7px/.test(narrow), '680px bars 70x7px');

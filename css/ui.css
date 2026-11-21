@@ -148,3 +148,24 @@ input[type=range]::-moz-range-thumb{
 #btn-reset-tutorials{
   padding:6px 18px; font-size:var(--text-control); letter-spacing:.14em; font-weight:700;
 }
+
+@media (max-height:520px){
+  :root{ --pause-chrome:112px; }
+
+  .order-body, .setrow{ min-width:0; }
+  .settings-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:10px 16px; margin:8px 0 4px;
+  }
+  @media (min-width:700px){
+    .settings-grid{ grid-template-columns:repeat(3,minmax(0,1fr)); }
+  }
+  .setrow.section{ margin-top:6px; padding-top:0; }
+  .setrow.buttons{
+    margin-top:10px; flex-wrap:wrap; justify-content:flex-start; gap:6px 8px;
+  }
+  .setrow.buttons{ position:sticky; bottom:0; z-index:2; padding:6px 0; background:rgb(12,10,6); }
+}
+@media (max-height:520px) and (max-width:640px){
+  .setrow.buttons button{ padding:6px 8px; font-size:var(--text-label); letter-spacing:.06em; }
+}

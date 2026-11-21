@@ -245,6 +245,12 @@ html:not([data-input=touch]) .touch-only{ display:none; }
 @media (orientation:portrait) and (pointer:coarse){
   #rotate{ display:flex; }
 }
+@media (max-height:520px){
+  #rotate{ gap:8px; padding:12px; }
+  #rotate .rot-icon{ font-size:36px; }
+  [data-input=touch] .order-side .stub-note,
+  [data-input=touch] .controls-big{ display:none; }
+}
 
 /* ---------- Screens, in touch mode ---------- */
 
@@ -258,10 +264,3 @@ html:not([data-input=touch]) .touch-only{ display:none; }
 [data-input=touch] input[type=range]{ height:14px; margin:7px 0; }
 [data-input=touch] input[type=range]::-webkit-slider-thumb{ width:28px; height:28px; }
 [data-input=touch] input[type=range]::-moz-range-thumb{ width:28px; height:28px; }
-
-/* A short touch screen has no room for the legend on the stub, and the stub
-   then ends after LIVES / DIFFICULTY. */
-@media (max-height:520px){
-  [data-input=touch] .order-side .stub-note,
-  [data-input=touch] .controls-big{ display:none; }
-}
