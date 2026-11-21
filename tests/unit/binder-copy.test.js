@@ -46,7 +46,7 @@ test('[COPY] the work order describes clock-out and lifeform detection', () => {
   const story = visibleText(html.slice(html.indexOf('data-binder-page="order"'), html.indexOf('data-binder-page="run"')));
   assert.match(story, /limited air supply/i);
   assert.match(story, /Drawn to sound.*hunting by sight/i);
-  assert.match(story, /every floor leak is sealed/i);
+  assert.match(story, /every leak is sealed/i);
   assert.doesNotMatch(story, /permanent entrapment/i);
 });
 

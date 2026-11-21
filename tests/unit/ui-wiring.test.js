@@ -103,9 +103,9 @@ test('[36] the controls change what they claim to change', () => {
 
 /* The title is a menu. A click on an entry opens the binder on that entry's
    page, and a click on the background does nothing. On the binder, only the
-   BEGIN SHIFT button starts the run. This prevents a reflex double-tap from
+   BEGIN MISSION button starts the run. This prevents a reflex double-tap from
    skipping the work order. */
-test('[37] the title menu opens the binder, and only BEGIN SHIFT starts the run', () => {
+test('[37] the title menu opens the binder, and only BEGIN MISSION starts the run', () => {
   const t = softAssert();
 
   A.hideScreens(); A.STATE='splash'; A.showScreen('splash');
@@ -122,6 +122,6 @@ test('[37] the title menu opens the binder, and only BEGIN SHIFT starts the run'
   el('btn-start').click();
   t.assert(A.STATE==='play', `clicking btn-start left STATE at '${A.STATE}'`);
 
-  console.log('[37] the title menu opens the binder, and only BEGIN SHIFT starts the run');
+  console.log('[37] the title menu opens the binder, and only BEGIN MISSION starts the run');
   t.done();
 });

@@ -122,7 +122,7 @@ html[data-input=touch] #crt{ height:100dvh; }
   border-radius:50%;
   background:rgba(10,9,5,.18);
   color:var(--yellow);
-  font-size:10px;
+  font-size:var(--text-label);
   letter-spacing:.1em;
   font-weight:900;
   opacity:.35;
@@ -186,11 +186,11 @@ html[data-input=touch] #crt{ height:100dvh; }
   display:flex; align-items:center; justify-content:center; flex-wrap:wrap;
   gap:6px 10px;
   margin:10px 0 0;
-  font-size:11px; letter-spacing:.08em; line-height:1.5;
+  font-size:var(--text-label); letter-spacing:.08em; line-height:1.5;
   color:var(--yellow-dim); opacity:.8;
 }
 .fs-hint[hidden]{ display:none !important; }
-.fs-hint button{ font-size:10px; font-weight:900; padding:2px 10px; min-height:0; }
+.fs-hint button{ font-size:var(--text-label); font-weight:900; padding:2px 10px; min-height:0; }
 [data-input=touch] .fs-hint button{ min-height:32px; }
 
 /* ---------- The HUD panel in touch mode ---------- */
@@ -247,9 +247,9 @@ html:not([data-input=touch]) .touch-only{ display:none !important; }
   background:#000;
   color:var(--yellow);
 }
-#rotate h1{ font-size:22px; letter-spacing:.18em; line-height:1.4; }
+#rotate h1{ font-size:var(--text-heading); letter-spacing:.18em; line-height:1.4; }
 #rotate .rot-icon{ font-size:56px; line-height:1; color:var(--yellow-dim); }
-#rotate .rot-sub{ font-size:12px; letter-spacing:.16em; line-height:1.8; color:var(--yellow-dim); }
+#rotate .rot-sub{ font-size:var(--text-body); letter-spacing:.16em; line-height:1.8; color:var(--yellow-dim); }
 @media (orientation:portrait) and (pointer:coarse){
   #rotate{ display:flex; }
 }

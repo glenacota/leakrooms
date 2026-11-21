@@ -45,7 +45,7 @@ export function activateMenu(entry){
   syncAmbience();
 }
 
-/** BEGIN SHIFT: starts the run. */
+/** BEGIN MISSION: starts the run. */
 export function beginShift(){
   startRun();
   syncAmbience();

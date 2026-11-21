@@ -14,7 +14,7 @@ const buildFloor = A.buildFloor;
 test('the field manual illustrates and explains stamina', () => {
   const html = readHtml();
   assert.match(html, /<canvas id="manual-stamina"[^>]*width="54"[^>]*height="54"/);
-  assert.match(html, /Besides you while running \(go down\) or recovering \(go up\)\./);
+  assert.match(html, /appears while running or recovering\./);
   assert.ok(calls.list.some(c => c[0] === 'rect' && c[1] === -3.5 && c[2] === 5.25 && c[3] === 7 && c[4] === 15.75),
     'field manual stamina meter was not drawn at 75%');
   assert.ok(calls.list.some(c => c[0] === 'stroke' && c.style === '#8fd07a' && c.width === 3.5),
@@ -65,17 +65,20 @@ test('the splash chain walks the riser, then the work order, then the run', () =
 
   /* Legibility, not just presence: the requirement is a floor on rendered size,
      not the existence of the text. */
-  const px = (sel)=>{ const m = css.match(sel); return m ? Number(m[1]) : NaN; };
-  t.assert(px(/\.controls-big span\{[^}]*font-size:(\d+)px/)>=14,
-         'the controls summary body text is under 14px');
-  t.assert(px(/\.controls-big b\{[^}]*font-size:(\d+)px/)>=14,
-         'the control keys are under 14px');
-  t.assert(px(/\.order \.field\s*\{[^}]*?font-size:(\d+)px/)>=16,
-         'the work order body text is under 16px');
-  t.assert(px(/\.order-head h2\{[^}]*font-size:(\d+)px/)>=20,
-         'the work order title is under 20px');
-  console.log(`  work order type: title ${px(/\.order-head h2\{[^}]*font-size:(\d+)px/)}px, `+
-            `body ${px(/\.order \.field\s*\{[^}]*?font-size:(\d+)px/)}px, controls ${px(/\.controls-big b\{[^}]*font-size:(\d+)px/)}px`);
+  t.assert(/\.controls-big span\{[^}]*font-size:\s*var\(--text-body\)/.test(css),
+         'the controls summary body text does not use the shared body token');
+  t.assert(/\.controls-big b\{[^}]*font-size:\s*var\(--text-control\)/.test(css),
+         'the control keys do not use the shared control token');
+  t.assert(/\.order \.field\s*\{[^}]*?font-size:\s*var\(--text-body\)/.test(css),
+         'the work order body text does not use the shared body token');
+  t.assert(/\.order-head h2\{[^}]*font-size:\s*var\(--text-display\)/.test(css),
+         'the work order title does not use the shared display token');
+  t.assert(/--text-body:\s*clamp\(14px/.test(css),
+         'the shared body text token does not start at 14px');
+  t.assert(/--text-label:\s*clamp\(10px/.test(css),
+         'the shared label text token does not start at 10px');
+  t.assert(/--text-display:\s*clamp\(22px/.test(css),
+         'the shared display text token does not start at 22px');
   /* The chain itself, driven through the real key handler rather than the API. */
   const keydown = global.window._h.keydown;
   t.assert(typeof keydown==='function', 'no keydown handler was registered');

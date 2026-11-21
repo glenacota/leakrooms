@@ -84,7 +84,7 @@
 
 .splash-plate{ position:relative; z-index:2; text-align:center; padding:0 24px; }
 .screen.splash h1{
-  font-size:clamp(34px,8.4vw,84px);
+  font-size:clamp(34px, 10vmin, 84px);
   letter-spacing:.26em;
   margin:0 0 12px;
   text-indent:.26em;                 /* balances the trailing letter-spacing so the title looks centred */
@@ -92,7 +92,7 @@
   font-weight: 900;
 }
 .screen.splash h2{
-  font-size:22px;
+  font-size:var(--text-heading);
   color:#8fc4cc;
   margin-bottom:50px;
   text-shadow:0 0 26px var(--yellow);
@@ -101,7 +101,7 @@
 }
 
 .splash-plate .go{
-  margin:34px 0 0; font-size:14px; letter-spacing:.3em; font-weight: 900;
+  margin:34px 0 0; font-size:var(--text-body); letter-spacing:.3em; font-weight: 900;
   animation:pulse 2.2s ease-in-out infinite;
 }
 .splash-plate .go b{ color:var(--ink); background:var(--yellow); font-weight: 900; padding:2px 8px; }
@@ -111,11 +111,11 @@
    same "filled is active" rule the tabs and settings buttons use. */
 .title-menu{ display:flex; flex-direction:column; align-items:center; gap:8px; margin:30px 0 0; }
 .title-menu button{
-  min-width:260px; width: 350px; padding:10px 22px; font-size:15px; font-weight:900; letter-spacing:.3em;
+  min-width:260px; width:350px; padding:10px 22px; font-size:var(--text-control); font-weight:900; letter-spacing:.3em;
   background:rgba(6,5,3,.6); color:var(--yellow-dim);
   border:1px solid rgba(228,230,168,.35); cursor:pointer;
 }
-.title-menu button small{ font-size:10px; letter-spacing:.2em; margin-left:8px; opacity:.7; }
+.title-menu button small{ font-size:var(--text-label); letter-spacing:.2em; margin-left:8px; opacity:.7; }
 .title-menu button.sel, .title-menu button:focus-visible{
   background:var(--yellow); color:var(--ink); border-color:var(--yellow);
 }
@@ -125,7 +125,7 @@
 .splash-plate .title-menu + .go{ margin-top:18px; animation:none; opacity:.8; }
 @media (max-height:480px){
   .title-menu{ margin-top:12px; gap:5px; }
-  .title-menu button{ padding:6px 18px; font-size:12px; }
+  .title-menu button{ padding:6px 18px; font-size:var(--text-control); }
 }
 
 /* ---------- Work order and pause ticket frame ---------- */
@@ -136,7 +136,7 @@
   width:min(94vw,960px);
   max-height:94vh; overflow-y:auto; scrollbar-width:thin;
   max-height:calc(94dvh - var(--safe-t) - var(--safe-b));
-  display:flex; flex-direction:column; align-items:center; gap:18px;
+  display:flex; flex-direction:column; align-items:center; gap:24px;
 }
 #screen-binder{ background:rgba(6,5,3,.95); }
 /* Two columns: the main body and a 250px stub on the right. */

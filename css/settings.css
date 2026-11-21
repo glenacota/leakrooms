@@ -13,7 +13,7 @@
 }
 .setrow{ display:flex; flex-direction:column; gap:6px; }
 .setrow label, .setrow .lbl{
-  color:var(--yellow-dim); font-size:12px; font-weight: 600; letter-spacing:.2em;
+  color:var(--yellow-dim); font-size:var(--text-label); font-weight: 600; letter-spacing:.2em;
 }
 /* A section header row. It spans both columns of the grid, so the controls
    below it read as a group. The thin rule under the label is the only
@@ -28,7 +28,7 @@
   padding-top: 10px;
 }
 .setrow.section span{
-  color:var(--yellow); font-size:14px; font-weight:900; letter-spacing:.3em;
+  color:var(--yellow); font-size:var(--text-heading); font-weight:900; letter-spacing:.3em;
   white-space: nowrap;
 }
 .setrow.section::after{
@@ -38,9 +38,9 @@
   transform: translateY(-3px);
 }
 .setrow .note{
-  margin:0; font-size:13px; font-weight: 900; line-height:1.5; opacity:.55; max-width:46ch;
+  margin:0; font-size:var(--text-body); font-weight: 900; line-height:1.5; opacity:.55; max-width:46ch;
 }
-#btn-reset-tutorials{ padding:6px 18px; font-size:12px; letter-spacing:.14em; font-weight: 700}
+#btn-reset-tutorials{ padding:6px 18px; font-size:var(--text-control); letter-spacing:.14em; font-weight: 700}
 .setrow.buttons{
   flex-direction:row; gap:12px; justify-content:flex-end;
   margin-top:50px;
@@ -56,7 +56,7 @@
    their width evenly. */
 .seg{ display:grid; grid-template-columns:repeat(auto-fit,minmax(52px,1fr)); gap:6px; }
 .seg button{
-  padding:6px 8px; font-size:12px; white-space:nowrap;
+  padding:6px 8px; font-size:var(--text-control); white-space:nowrap;
   letter-spacing:.14em; background:transparent; color:var(--yellow-dim);
   border:1px solid rgba(228,230,168,.28); cursor:pointer;
 }

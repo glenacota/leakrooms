@@ -15,7 +15,7 @@
 .order-body .binder-page.hidden, .binder-tabs button.hidden{ display:none; }
 .binder-tabs{ display:flex; gap:6px; margin-bottom:20px; flex-wrap:wrap; }
 .binder-tabs button{
-  padding:6px 14px; font-size:11px; font-weight:900; letter-spacing:.2em;
+  padding:6px 14px; font-size:var(--text-label); font-weight:900; letter-spacing:.2em;
   background:transparent; color:var(--yellow-deep);
   border:1px solid rgba(228,230,168,.28); cursor:pointer;
 }
@@ -39,7 +39,7 @@
 }
 .binder-spine span{
   writing-mode:vertical-rl; transform:rotate(180deg); white-space:nowrap;
-  font-size:10px; font-weight:900; letter-spacing:.3em; color:var(--yellow-deep);
+  font-size:var(--text-label); font-weight:900; letter-spacing:.3em; color:var(--yellow-deep);
 }
 
 /* ---------- Terms chooser (work order page) ---------- */
@@ -47,17 +47,17 @@
 /* The terms are a fixed panel of three buttons and a note. There is nothing
    to open: choosing is the one thing the work order asks for. */
 .terms{
-  border:1px solid rgba(228,230,168,.25); font-weight: 900; font-size:14px;
+  border:1px solid rgba(228,230,168,.25); font-size:var(--text-body);
   padding:10px 12px; background:rgba(228,230,168,.04);
 }
-.seg button { font-weight: 900; font-size:12px; }
+.seg button { font-weight: 900; font-size:var(--text-control); }
 .terms .note{ line-height:1.6; color:var(--yellow-dim); margin-top:8px; }
-.terms .note.fixed{ margin-top:2px; font-size:11px; letter-spacing:.12em; color:var(--yellow-deep); }
+.terms .note.fixed{ margin-top:2px; font-size:var(--text-label); letter-spacing:.12em; color:var(--yellow-deep); }
 
 /* The run page: the live numbers of the shift. */
 .run-stats{ display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:12px 18px; margin:4px 0 6px; }
-.run-stats small{ display:block; font-size:11px; letter-spacing:.2em; color:var(--yellow-dim); font-weight:900; margin-bottom:2px; }
-.run-stats b{ font-size:22px; letter-spacing:.1em; color:#8fc4cc; font-weight:400; }
+.run-stats small{ display:block; font-size:var(--text-label); letter-spacing:.2em; color:var(--yellow-dim); font-weight:900; margin-bottom:2px; }
+.run-stats b{ font-size:var(--text-heading); letter-spacing:.1em; color:#8fc4cc; font-weight:400; }
 /* The pause page gives the shared life icons more room than the HUD. */
 .run-stats .life-pip{ width:20px; height:20px; }
 
@@ -67,11 +67,11 @@
 .run-timeline-head{
   display:grid; grid-template-columns:1fr 1fr 1fr 1fr;
   padding:6px 10px; border-bottom:1px solid rgba(228,230,168,.2);
-  font-size:10px; letter-spacing:.3em; font-weight:900; color:var(--yellow-deep);
+  font-size:var(--text-label); letter-spacing:.3em; font-weight:900; color:var(--yellow-deep);
 }
 .run-timeline-row{
   display:grid; grid-template-columns:1fr 1fr 1fr 1fr;
-  padding:6px 10px; font-size:13px; border-bottom:1px solid rgba(228,230,168,.12);
+  padding:6px 10px; font-size:var(--text-body); border-bottom:1px solid rgba(228,230,168,.12);
   align-items:center;
 }
 .run-timeline-row:last-child{ border-bottom:none; }
@@ -84,22 +84,22 @@
 .run-timeline-clock{ color:var(--yellow-dim); font-weight:900; letter-spacing:.08em; }
 
 /* The field manual: columns of short sections. */
-.manual-cols{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px 22px; margin-top:48px; }
+.manual-cols{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px 55px; margin-top:48px; }
 .manual-cols h3{
-  font-size:16px; font-weight:900; letter-spacing:.22em; color:var(--yellow);
+  font-size:var(--text-heading); font-weight:900; letter-spacing:.22em; color:var(--yellow);
   margin:0 0 8px; padding-bottom:4px; border-bottom:1px solid rgba(228,230,168,.2);
 }
 .manual-cols h3:not(:first-child){ margin-top:16px; }
-.manual-cols .notes li{ font-size:14px; }
+.manual-cols .notes li{ font-size:var(--text-body); }
 
 /* The screen legend: small drawings of the HUD pieces, in CSS, so a player
    can match a word to the thing on screen. */
 .legend{ margin:0; padding:0; list-style:none; }
-.legend li{ display:flex; gap:10px; align-items:center; padding:5px 0; font-size:14px; line-height:1.4; color:var(--yellow-dim); }
-.legend li b{ color:var(--yellow); font-weight:900; letter-spacing:.08em; }
+.legend li{ display:flex; gap:10px; align-items:center; padding:5px 0; font-size:var(--text-body); font-weight:normal; line-height:1.4; color:var(--yellow-dim); }
+.legend li b { color:var(--yellow); font-weight:900; letter-spacing:.08em; }
 .lg{
   flex:none; width:54px; display:flex; align-items:center; justify-content:center; gap:2px;
-  font-style:normal; font-size:12px; font-weight:900; letter-spacing:.1em; color:var(--yellow);
+  font-style:normal; font-size:var(--text-label); font-weight:900; letter-spacing:.1em; color:var(--yellow);
   min-height:24px; border:1px solid rgba(228,230,168,.25); background:rgba(228,230,168,.05);
 }
 .lg-battery{ width:54px; height:54px; min-height:54px; border:0; background:none; }
@@ -129,7 +129,8 @@
   max-width:50%;
   padding:10px 19px 10px 21px;
   text-align:left;
-  font:16px var(--mono);
+  font-size:var(--text-body);
+  font-family:var(--mono);
   font-weight: 900;
   letter-spacing:.15em;
   text-transform:uppercase;
@@ -236,16 +237,16 @@
 }
 .tutorial-card canvas{ width:100%; height:100%; min-height:120px; object-fit:contain; background:#777c45; }
 .tutorial-copy{ padding:12px; display:flex; flex-direction:column; gap:8px; align-items:stretch; }
-.tutorial-copy h2{ font-size:18px; line-height:1.2; margin-bottom:5px; }
-.tutorial-copy p{ font-size:14px; line-height:1.4; color:#f0f1cf; }
+.tutorial-copy h2{ font-size:var(--text-heading); line-height:1.2; margin-bottom:5px; }
+.tutorial-copy p{ font-size:var(--text-body); line-height:1.4; color:#f0f1cf; }
 .tutorial-actions{ display:flex; align-items:center; gap:12px; margin-top: auto}
-#tutorial-countdown{ font-size:12px; font-weight:700; }
+#tutorial-countdown{ font-size:var(--text-label); font-weight:700; }
 .tutorial-copy button{
   padding:8px 20px; background:var(--yellow); color:var(--ink);
-  border:0; font:900 13px var(--mono); cursor:pointer;
+  border:0; font:900 var(--text-control) var(--mono); cursor:pointer;
 }
 .tutorial-copy :focus-visible{ outline:3px solid #fff; outline-offset:3px; }
-.tutorial-key { font-size: 12px; letter-spacing: .2em;}
+.tutorial-key { font-size:var(--text-label); letter-spacing:.2em;}
 [data-input=touch] .tutorial-card{ width:min(480px, 65%); }
 [data-input=touch] .tutorial-copy button{ min-height:44px; }
 [data-input=touch] .tutorial-key{ display:none; }
@@ -253,8 +254,8 @@
   .tutorial-card{ grid-template-columns:minmax(85px, 30%) 1fr; }
   .tutorial-card canvas{ min-height:100px; }
   .tutorial-copy{ padding:8px; gap:6px; }
-  .tutorial-copy h2{ font-size:16px; }
-  .tutorial-copy p{ font-size:13px; line-height:1.3; }
+  .tutorial-copy h2{ font-size:var(--text-heading); }
+  .tutorial-copy p{ font-size:var(--text-body); line-height:1.3; }
 }
 
 /* ---------- The ticket (work order and pause screen) ---------- */
@@ -275,37 +276,39 @@
 .order-body{ padding:22px 26px 20px; text-align:left; }
 .order-head{ border-bottom:1px solid rgba(228,230,168,.2); padding-bottom:12px; margin:30px 0 }
 .order-head h2{
-  font-size:34px; letter-spacing:.22em; font-weight:400; margin:0;
+  font-size:var(--text-display); letter-spacing:.22em; font-weight:400; margin:0;
   text-shadow:2px 0 0 rgba(216,80,60,.45), -2px 0 0 rgba(80,150,216,.3);
 }
 .order-head .meta{
-  margin:8px 0 0; font-size:15px; letter-spacing:.18em; color:var(--yellow-deep); font-weight: 900;
+  margin:8px 0 0; font-size:var(--text-label); letter-spacing:.18em; color:var(--yellow-deep); font-weight: 900;
 }
 .order-head .meta b{ color:#8fc4cc; }
 
-.order .field { margin:12px 0; font-size:16px}
+.order .field { margin:12px 0; font-size:var(--text-body)}
 .order .field span{
   font-weight: 900; line-height:2; letter-spacing:.22em; margin-bottom:4px; color:var(--yellow);
+}
+.order .field span.highlight{
+  background-color: var(--yellow-deep); letter-spacing: normal; line-height: normal; color: black; padding: 0 5px
 }
 .order .field b{ line-height:1.5; font-weight:400; color:var(--yellow-dim); }
 
 /* Controls list: the main reason the work order screen exists, so the
    text is kept large enough to read. */
-.controls-big{ font-size:15px; letter-spacing:.06em; }
-.controls-big div{ display:flex; gap:10px; align-items:baseline; padding:3px 0; }
+.controls-big{ font-size:var(--text-body) !important; letter-spacing:.06em; color:var(--yellow-dim);}
+.controls-big div { display:flex; gap:10px; align-items:baseline; padding:3px 0; font-weight: normal;}
 .controls-big b{
-  min-width:78px; font-size:15px; padding:3px 9px;
+  min-width:78px; font-size:var(--text-control); padding:3px 9px;
   color:var(--ink); background:var(--yellow); border:1px solid var(--yellow);
 }
-.controls-big span{ font-size:14px; color:var(--yellow-dim); }
 
 /* Notes use an empty checkbox character as the bullet. */
-.order .notes{ margin:8px 0 0; padding:0; list-style:none; }
+.order .notes{ margin:8px 0 0; padding:0; list-style:none; color:var(--yellow-dim); }
 .order .notes li{
-  line-height:1.6; color:var(--yellow-dim); padding-left:18px; position:relative;
+  line-height:1.6; padding-left:18px; position:relative;
 }
-.order .notes li::before{ content:"\2610"; position:absolute; left:0; color:var(--yellow-deep); }
-.order .notes b{ color:var(--yellow); font-weight:400; }
+.order .notes li::before{ content:"\2610"; position:absolute; left:0; }
+.order .notes b{ font-weight:400; }
 
 /* The tear-off stub on the right: seed, run details and controls. */
 .order-side{
@@ -315,25 +318,25 @@
   display:flex; flex-direction:column;
 }
 .order-side small{
-  display:block; font-size:11px; letter-spacing:.2em; color:var(--yellow-dim); font-weight: 900; margin-bottom:2px;
+  display:block; font-size:var(--text-label); letter-spacing:.2em; color:var(--yellow-dim); font-weight: 900; margin-bottom:2px;
 }
 .order-side small:not(:first-child){ margin-top:16px; }
-.order-side .big{ font-size:36px; line-height:1; color:#8fc4cc; margin-bottom:2px; }
-.order-side .badge{ font-size:22px; letter-spacing:.3em; color:#8fc4cc; }
-.order-side .seed{ font-size:16px; color:#8fc4cc; letter-spacing:.1em; }
+.order-side .big{ font-size:var(--text-display); line-height:1; color:#8fc4cc; margin-bottom:2px; }
+.order-side .badge{ font-size:var(--text-heading); letter-spacing:.3em; color:#8fc4cc; }
+.order-side .seed{ font-size:var(--text-body); color:#8fc4cc; letter-spacing:.1em; }
 /* Life pips look the same as in the HUD, spent ones included. */
 .order-side .seed.lives-row{ color:var(--danger); letter-spacing:.3em; }
 .order-side .seed.lives-row .gone{ opacity:.18; }
 .order-side .stub-note{
   margin-top:auto; margin-bottom:0; padding-top:18px;
-  font-size:11px; line-height:1.8; letter-spacing:.12em; color:var(--yellow-deep);
+  font-size:var(--text-label); line-height:1.8; letter-spacing:.12em; color:var(--yellow-deep);
 }
 
 /* The button row under a ticket. */
 .order-cta{ display:flex; font-weight: 900; align-items:center; gap:18px; flex-wrap:wrap; justify-content:center; }
-#btn-start, #btn-resume{ padding:13px 34px; font-size:13px; letter-spacing:.3em; }
-#btn-reset-run{ padding:10px 15px; }
-.cta-hint{ font-size:12px; letter-spacing:.2em; color:var(--yellow-deep); }
+#btn-start, #btn-resume{ padding:13px 34px; font-size:var(--text-control); letter-spacing:.3em; font-weight: 900}
+#btn-reset-run{ padding:10px 15px; font-weight: 900}
+.cta-hint{ font-size:var(--text-control); letter-spacing:.2em; color:var(--yellow-deep); }
 .cta-hint b{ color:var(--yellow); font-weight:900; }
 
 /* ---------- Full-screen overlays ---------- */
@@ -362,41 +365,41 @@
 .order.win-paper{ display:block; flex:none; }
 .win-paper .order-body{ padding:28px 32px; }
 .win-head{ margin:0; }
-.win-head h1{ font-size:38px; margin-top: -5% }
-.win-head p{ color:var(--yellow-dim); font-size:13px; line-height:1.6; }
+.win-head h1{ font-size:var(--text-display); margin-top:-5% }
+.win-head p{ color:var(--yellow-dim); font-size:var(--text-body); line-height:1.6; }
 .win-section{ padding:20px 0; border-bottom:1px solid rgba(228,230,168,.2); }
 .win-section:last-child{ border-bottom:0; padding-bottom:0; }
-.win-section h2{ font-size:16px; letter-spacing:.12em; font-weight:900; }
+.win-section h2{ font-size:var(--text-heading); letter-spacing:.12em; font-weight:900; }
 .win-order-heading{ display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; }
-.win-order-heading p, .win-signoff, .win-summary{ color:var(--yellow-dim); font-size:13px; line-height:1.7; margin-top:10px; }
+.win-order-heading p, .win-signoff, .win-summary{ color:var(--yellow-dim); font-size:var(--text-body); line-height:1.7; margin-top:10px; }
 .win-stamp{
   display:inline-block; flex:none; padding:10px;
   border:5px double var(--danger); color:var(--danger); background: rgba(0,0,0,0.8);
-  font-size:40px; font-weight:900; letter-spacing:.1em;
+  font-size:var(--text-display); font-weight:900; letter-spacing:.1em;
   transform:rotate(-7deg); animation:win-stamp .16s .6s both; margin-left:60%
 }
 @keyframes win-stamp{
   from{ opacity:0; transform:rotate(-7deg) scale(2); }
   to{ opacity:1; transform:rotate(-7deg) scale(1); }
 }
-.win-table, .win-invoice{ width:100%; border-collapse:collapse; margin-top:14px; font-size:13px; }
+.win-table, .win-invoice{ width:100%; border-collapse:collapse; margin-top:14px; font-size:var(--text-body); }
 .win-table th, .win-table td{ padding:7px 4px; border-bottom:1px solid rgba(228,230,168,.12); text-align:right; }
 .win-table th:first-child, .win-table td:first-child{ text-align:left; }
-.win-table thead{ color:var(--yellow-dim); font-size:11px; }
+.win-table thead{ color:var(--yellow-dim); font-size:var(--text-label); }
 .win-invoice th, .win-invoice td{ padding:5px 0; font-weight:400; }
 .win-invoice th{ text-align:left; color:var(--yellow-dim); }
 .win-invoice td{ text-align:right; white-space:nowrap; }
 .win-invoice .win-total th, .win-invoice .win-total td{ border-top:1px solid rgba(228,230,168,.3); padding-top:10px; font-weight:900; color:var(--yellow); }
-.win-unit{ float:right; color:var(--yellow-dim); font-size:11px; }
+.win-unit{ float:right; color:var(--yellow-dim); font-size:var(--text-label); }
 .win-denied{ 
   margin-top:-3%; margin-left: 25%; transform: rotate(3deg); padding: 10px; width:fit-content;
   background: rgba(0,0,0,0.8); color:var(--danger); border:4px double var(--danger); 
-  font-size:18px; font-weight:900; letter-spacing:.1em; 
+  font-size:var(--text-heading); font-weight:900; letter-spacing:.1em;
 }
 @media (max-width:480px){
   .win-paper .order-body{ padding:20px 16px; }
-  .win-table{ font-size:12px; }
-  .win-table thead{ font-size:10px; }
+  .win-table{ font-size:var(--text-body); }
+  .win-table thead{ font-size:var(--text-label); }
 }
 @media (prefers-reduced-motion:reduce){
   .win-stamp{ animation:none; }
@@ -416,45 +419,47 @@
 
 /* Headings get a slight red/blue offset to imitate a bad video signal. */
 h1{
-  font-size:38px;
+  font-size:var(--text-display);
   letter-spacing:.34em;
   font-weight:400;
   margin-bottom:6px;
   text-shadow:2px 0 0 rgba(216,80,60,.5), -2px 0 0 rgba(80,150,216,.35);
 }
-h1.bad{ color:var(--danger); letter-spacing:.2em; font-size:32px; }
-h2.bad{ color:var(--danger); letter-spacing:1em; font-size:20px; margin-bottom:.5em}
+h1.bad{ color:var(--danger); letter-spacing:.2em; font-size:var(--text-display); }
+h2.bad{ color:var(--danger); letter-spacing:1em; font-size:var(--text-heading); margin-bottom:.5em}
 
 .sub{
-  font-size:14px;
+  font-size:var(--text-body);
   font-weight: 900;
   letter-spacing:.4em;
   color:var(--yellow-deep);
   margin:32px 0;
   white-space: pre-line;
 }
-.sub-message { letter-spacing:0; font-size:15px; line-height: 1.8em; color: black; background-color: var(--yellow-deep); padding: 1em; font-weight:bold}
+.sub-message { letter-spacing:0; font-size:var(--text-body); line-height:1.8em; color:black; background-color:var(--yellow-deep); padding:1em; font-weight:bold}
 #btn-retry { font-weight: 900;}
 
 .controls{
-  font-size:10px;
+  font-size:var(--text-label);
   font-weight: 900;
   letter-spacing:.1em;
+  display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:4px 40px; 
+  padding-bottom:1.5em;
 }
 .controls div{ display:flex; gap:9px; align-items:baseline; }
-.controls b{
+.controls b, .cta-hint b {
   color:var(--yellow);
   background:rgba(228,230,168,.1);
   border:1px solid rgba(228,230,168,.25);
-  padding:2px 7px;
+  padding:5px 10px;
   min-width:56px;
   text-align:center;
-  font-weight:400;
+  font-weight:900;
 }
 .controls span{ color:var(--yellow-deep); }
 
 .hint{
-  font-size:11.5px;
+  font-size:var(--text-body);
   line-height:2;
   color:var(--yellow-dim);
   margin-bottom:26px;
@@ -469,16 +474,16 @@ h2.bad{ color:var(--danger); letter-spacing:1em; font-size:20px; margin-bottom:.
    as a score popup. */
 #screen-clear{ background:rgba(6,5,3,.94); }
 .tape.clear{ max-width:520px; }
-.tape.clear h1{ font-size:30px; }
+.tape.clear h1{ font-size:var(--text-display); }
 
 /* The clock left over is the one number about the player's own
    performance, so it is large. */
 .clear-left{
-  font-size:11px; font-weight:900; letter-spacing:.28em; color:var(--yellow-deep);
+  font-size:var(--text-label); font-weight:900; letter-spacing:.28em; color:var(--yellow-deep);
   margin-bottom:26px;
 }
 .clear-left b{
-  display:block; font-size:34px; letter-spacing:.14em; font-weight:400;
+  display:block; font-size:var(--text-display); letter-spacing:.14em; font-weight:400;
   color:var(--yellow); margin-top:8px;
 }
 
@@ -489,15 +494,15 @@ h2.bad{ color:var(--danger); letter-spacing:1em; font-size:20px; margin-bottom:.
   padding-top:16px; margin-bottom:28px; text-align:left;
 }
 .clear-next .k{
-  display:block; font-size:11px; font-weight:900; letter-spacing:.2em;
+  display:block; font-size:var(--text-label); font-weight:900; letter-spacing:.2em;
   color:#8fc4cc; margin-bottom:12px;
 }
 .clear-next .k b{ color:var(--yellow); font-weight:900; }
 .clear-grid{
   display:grid; grid-template-columns:1fr auto; gap:8px 24px; align-items:baseline;
 }
-.clear-grid span{ font-size:12px; font-weight:900; letter-spacing:.22em; color:var(--yellow); }
-.clear-grid b{ font-size:16px; font-weight:400; color:var(--yellow-dim); letter-spacing:.1em; }
+.clear-grid span{ font-size:var(--text-label); font-weight:900; letter-spacing:.22em; color:var(--yellow); }
+.clear-grid b{ font-size:var(--text-body); font-weight:400; color:var(--yellow-dim); letter-spacing:.1em; }
 
 /* ---------- Fatal error card ---------- */
 
@@ -526,7 +531,7 @@ h2.bad{ color:var(--danger); letter-spacing:1em; font-size:20px; margin-bottom:.
    settings.css. */
 button{
   font-family:var(--mono);
-  font-size:13px;
+  font-size:var(--text-control);
   letter-spacing:.3em;
   color:var(--ink);
   background:var(--yellow);
@@ -560,15 +565,15 @@ button:active{ transform:translateY(1px); }
     border-left:none; border-top:2px dashed rgba(228,230,168,.28);
     flex-direction:row; flex-wrap:wrap; gap:0 20px; align-items:baseline;
   }
-  .order-head h2{ font-size:20px; }
+  .order-head h2{ font-size:var(--text-heading); }
 }
 
 @media (max-width:620px){
   .tape{ padding:22px; max-width:92vw; }
-  h1{ font-size:24px; }
+  h1{ font-size:var(--text-display); }
   .order-body{ padding:16px; }
-  .controls-big{ font-size:14px; }
-  .controls-big b{ min-width:64px; font-size:14px; }
+  .controls-big{ font-size:var(--text-body); }
+  .controls-big b{ min-width:64px; font-size:var(--text-control); }
 }
 
 /* ---------- Screen Footer ---------- */
@@ -588,7 +593,7 @@ button:active{ transform:translateY(1px); }
 }
 
 .footer-left{
-  font-size:14px;
+  font-size:var(--text-body);
   letter-spacing:.18em;
   color:var(--yellow-deep);
   text-align:center;
@@ -633,14 +638,14 @@ button:active{ transform:translateY(1px); }
    reach. This is placed after the width queries on purpose: at 740 px wide the
    820 rule would stack the stub, and these rules have to win over it. */
 @media (max-height:480px){
-  .order-wrap{ max-height:100%; gap:8px; }
+  .order-wrap{ max-height:100%; gap:18px; }
   .order-body{ padding:10px 14px 8px; }
   .order-head{ padding-bottom:6px; margin-bottom:8px; }
-  .order-head h2{ font-size:20px; letter-spacing:.16em; }
-  .order-head .meta{ font-size:11px; margin-top:4px; }
-  .order .field{ margin:6px 0; font-size:13px; }
+  .order-head h2{ font-size:var(--text-heading); letter-spacing:.16em; }
+  .order-head .meta{ font-size:var(--text-label); margin-top:4px; }
+  .order .field{ margin:6px 0; font-size:var(--text-body); }
   .order .field span{ line-height:1.6; margin-bottom:0; }
-  .order .notes li{ font-size:12px; }
+  .order .notes li{ font-size:var(--text-body); }
   .binder-tabs{ margin-bottom:8px; }
   .settings-grid{ gap:8px 18px; margin:4px 0 2px; }
   .setrow.section{ margin-top:2px; padding-top:0; }
@@ -652,10 +657,10 @@ button:active{ transform:translateY(1px); }
 
   .setrow.buttons{ margin-top:8px; gap:8px; }
   .setrow.buttons button{
-    padding:8px 10px; font-size:11px; letter-spacing:.12em; white-space:nowrap;
+    padding:8px 10px; font-size:var(--text-label); letter-spacing:.12em; white-space:nowrap;
   }
-  #btn-start, #btn-resume{ padding:8px 10px; font-size:11px; letter-spacing:.12em; white-space:nowrap; }
-  #btn-reset-run{ padding:8px 10px; font-size:11px; letter-spacing:.12em; white-space:nowrap; }
+  #btn-start, #btn-resume{ padding:8px 10px; font-size:var(--text-label); letter-spacing:.12em; white-space:nowrap; }
+  #btn-reset-run{ padding:8px 10px; font-size:var(--text-label); letter-spacing:.12em; white-space:nowrap; }
   /* The footer links are not worth a strip of a 360 px screen. */
   #screen-binder .screen-footer{ display:none; }
 }
@@ -675,7 +680,7 @@ button:active{ transform:translateY(1px); }
   }
 }
 
-/* Mode visibility: BEGIN SHIFT and its hint belong to the shift mode, the
+/* Mode visibility: BEGIN MISSION and its hint belong to the shift mode, the
    pause hint to the pause mode. */
 #screen-binder[data-binder-mode=shift] .pause-only,
 #screen-binder[data-binder-mode=pause] .shift-only{ display:none; }
@@ -694,11 +699,11 @@ button:active{ transform:translateY(1px); }
     padding:10px 12px;
   }
   .order-side small:not(:first-child){ margin-top:6px; }
-  .order-side .big{ font-size:26px; }
-  .order-side .badge{ font-size:16px; }
-  .order-side .seed{ font-size:13px; }
+  .order-side .big{ font-size:var(--text-heading); }
+  .order-side .badge{ font-size:var(--text-heading); }
+  .order-side .seed{ font-size:var(--text-body); }
   .order-side .stub-note{ padding-top:8px; }
-  .controls-big{ font-size:11px; }
-  .controls-big b{ font-size:11px; min-width:0; }
-  .controls-big span{ font-size:11px; }
+  .controls-big{ font-size:var(--text-body); }
+  .controls-big b{ font-size:var(--text-control); min-width:0; }
+  .controls-big span{ font-size:var(--text-body); }
 }

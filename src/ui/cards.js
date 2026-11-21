@@ -66,12 +66,12 @@ export function bindCards(){
       if (cause === DEATH_CAUSE.CAUGHT) title.textContent = 'FATAL ATTACK';
       else if (cause === DEATH_CAUSE.CLOCK) title.textContent = "RESPIRATORY FAILURE";
       btn.textContent = 'SEND NEXT CREW MEMBER';
-      sub.textContent = `CREW REMAINING: ${lives}`;
+      sub.textContent = `CREW COUNT: ${lives}`;
       subMsg.textContent = `We mourn the loss of a valued employee.\nThe position will be filled at the earliest feasible date.`;
     } else {
       title.textContent = 'SHIFT OVER';
       btn.textContent = 'START OVER';
-      sub.textContent = 'CREW DECIMATED - NO ONE LEFT TO SEND';
+      sub.textContent = 'CREW COUNT: 0 - ISSUE CLOSED';
       subMsg.textContent = `We regret the loss of our valued personnel. Employees are reminded that basic safety protocols exist for a reason.`;
     }
   });

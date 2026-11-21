@@ -172,23 +172,22 @@
             </div>
             <div class="field">
               <b>The crew must locate and seal all reported pipe failures across floors 01-05 of Sector D. 
-                Floor plans may have changed since the last inspection. Follow the water.</b>
+                Floor plans may have changed since the last inspection.</b>
             </div>
             <div class="field"><span>SAFETY MEASURES</span></div>
             <div class="field">
-              <b>[FLOOD-CONTAINMENT] .... The exit door opens only when every floor leak is sealed</b> <br/>
-              <b>[INSURANCE-COVERAGE] ... Only one worker per floor at a time</b> <br/>
-              <b>[AIRBORNE-HAZARD] ...... Each worker receives a breathing unit with limited air supply</b> <br/>
-              <b>[HOSTILE-ENTITIES] ..... Reported throughout the sector. Drawn to sound, hunting by sight</b> <br/>
+              <span class="highlight">FLOOD-CONTAINMENT</span> <b>... The exit door opens when every leak is sealed.</b> <br/>
+              <span class="highlight">INSURANCE-COVERAGE</span> <b>.. Only one worker per floor at a time.</b> <br/>
+              <span class="highlight">AIRBORNE-HAZARD</span> <b>..... Breathing units with limited air supply are provided.</b> <br/>
+              <span class="highlight">HOSTILE-ENTITIES</span> <b>.... Reported sector-wide. Drawn to sound, hunting by sight.</b> <br/>
             </div>
             <div class="field"><span>CONTINUITY POLICY</span></div>
-            <div class="field"><b>Personnel fatalities do not suspend the assignment. <br/>The next available crew member must resume the work order.</b></div>
+            <div class="field"><b>Personnel fatalities <em>DO NOT</em> suspend the assignment. The next available crew member has the responsibility to resume the work order.</b></div>
             <div class="field"><span>TERMS</span></div>
             <!-- Terms are chosen here, before the run, and nowhere else, so a run keeps the same rules from its first frame to its last. -->
             <div class="terms">
               <div class="seg" id="set-difficulty" data-opt="difficulty" role="group" aria-label="TERMS"></div>
               <p class="note" id="note-difficulty"></p>
-              <p class="note fixed">THE TERMS ARE SET ONCE THE SHIFT STARTS.</p>
             </div>
           </div>
 
@@ -226,14 +225,26 @@
           <div class="binder-page hidden" data-binder-page="manual">
             <div class="manual-cols">
               <section>
+                <h3>ADVICES</h3>
+                <ul class="notes">
+                  <li><b>Follow the water trail to identify the source of the leak.</b></li>
+                  <li><b>Sprinting consumes stamina and generates noise. Walk to recover.</b></li>
+                  <li><b>Pipe reparation requires <span id="manual-repair">5 seconds</span> of stationary and loud wrench work.</b></li>
+                  <li><b>The radar reveals the floor layout but generates noise. Each charge lasts 10 sec, but spare batteries are available throughout the sector.</b></li>
+                  <li><b>Local lifeforms are hostile to personnel. Maintain a safe distance.</li>
+                  <li><b>Lifeforms demonstrate an interest in loud activities, including running, radar usage, and pipe sealing. Walking is safe.</b></li>
+                  <li><b>They can see too. If pursued, leave the area quickly. Refrain from loud noises once out of sight.</b></li>
+              </ul>
+              </section>
+              <section>
                 <h3>CONTROLS</h3>
                 <div class="controls controls-big kbd-only">
-                  <div><b>WASD / arrows</b><span>move</span></div>
-                  <div><b>SHIFT</b><span>sprint</span></div>
-                  <div><b>R</b><span>radar</span></div>
-                  <div><b>M</b><span>mute</span></div>
-                  <div><b>F</b><span>fullscreen</span></div>
-                  <div><b>ESC</b><span>pause</span></div>
+                  <div style="grid-column:1/3"><b>WASD / arrows</b>move</div>
+                  <div><b>SHIFT</b>sprint</div>
+                  <div><b>R</b>radar</div>
+                  <div><b>ESC</b>pause</div>
+                  <div><b>M</b>mute</div>
+                  <div><b>F</b>fullscreen</div>
                 </div>
                 <div class="controls controls-big touch-only">
                   <div><b>LEFT THUMB</b><span>drag to move</span></div>
@@ -242,33 +253,16 @@
                   <div><b>RADAR</b><span>corner button</span></div>
                   <div><b>II</b><span>pause</span></div>
                 </div>
-              </section>
-              <section>
                 <h3>SCREEN LEGEND</h3>
                 <ul class="legend">
-                  <li><i class="lg lg-clock">2:41</i><span><b>AIR SUPPLY</b> on this floor. At zero the current crew member is lost.</span></li>
-                  <li><i class="lg lg-lives" aria-hidden="true"><svg class="life-pip" viewBox="0 0 16 16" focusable="false"><use href="#i-plumber-head"/></svg><svg class="life-pip" viewBox="0 0 16 16" focusable="false"><use href="#i-plumber-head"/></svg><svg class="life-pip gone" viewBox="0 0 16 16" focusable="false"><use href="#i-plumber-head"/></svg></i><span><b>CREW</b> members left.</span></li>
+                  <li><i class="lg lg-clock">2:41</i><span><b>AIR SUPPLY</b> on this floor.</span></li>
+                  <li><i class="lg lg-lives" aria-hidden="true"><svg class="life-pip" viewBox="0 0 16 16" focusable="false"><use href="#i-plumber-head"/></svg><svg class="life-pip" viewBox="0 0 16 16" focusable="false"><use href="#i-plumber-head"/></svg><svg class="life-pip gone" viewBox="0 0 16 16" focusable="false"><use href="#i-plumber-head"/></svg></i><span><b>CREW</b> members available.</span></li>
                   <li><i class="lg crt-leaks"><span class="done"></span><span class="open"></span></i><span><b>LEAKS SEALED</b>.</span></li>
-                  <li><canvas id="manual-battery" class="lg-battery" width="54" height="54" aria-hidden="true"></canvas><span><b>RADAR BATTERY</b> Beside you while radar is on or after battery pickup.</span></li>
-                  <li><canvas id="manual-stamina" class="lg-stamina" width="54" height="54" aria-hidden="true"></canvas><span><b>STAMINA</b> Besides you while running (go down) or recovering (go up).</span></li>
-                  <li><canvas id="manual-noise" class="lg-noise" width="54" height="54" aria-hidden="true"></canvas><span><b>NOISE CLUES</b> Red glow and wide ripples mean you're loud.</span></li>
-                  <li><canvas id="manual-door-compass" class="lg-door-compass" width="54" height="54" aria-hidden="true"></canvas><span><b>DOOR COMPASS</b> Point to the exit when still and all leaks are sealed.</span></li>
-                  <li><i class="lg lg-seen" aria-hidden="true"></i><span><b>RED SCREEN EDGES</b> A lifeform is hunting you.</span></li>
-                </ul>
-              </section>
-              <section>
-                <h3>RULES</h3>
-                <ul class="notes">
-                  <li><b>Follow the wet carpet to find the leak.</b></li>
-                  <li><b>Stand by the leak for <span id="manual-repair">5 seconds</span> to repair it. Using the wrench is very loud.</b></li>
-                  <li><b>Use the radar to reveal the map. It’s loud and lasts 10 seconds. Grab spare batteries!</b></li>
-                  <li><b>The exit door opens only when every leak is sealed.</b></li>
-                  <li><b>Your breathing unit has <span id="manual-return">3 minutes</span> of air per floor. At zero the current crew member is lost.</b></li>
-                </ul>
-                <h3>STEALTH</h3>
-                <ul class="notes">
-                  <li><b>Sprinting is loud and drains stamina.</b> Walk to recover.</li>
-                  <li><b>Lifeforms are attracted by sound, but they can see too.</b> Standing still won't hide you.</li>
+                  <li><canvas id="manual-battery" class="lg-battery" width="54" height="54" aria-hidden="true"></canvas><span><b>RADAR BATTERY</b> appears with radar on or after recharge.</span></li>
+                  <li><canvas id="manual-stamina" class="lg-stamina" width="54" height="54" aria-hidden="true"></canvas><span><b>STAMINA</b> appears while running or recovering.</span></li>
+                  <li><canvas id="manual-noise" class="lg-noise" width="54" height="54" aria-hidden="true"></canvas><span><b>NOISE CLUES</b> indicate loudness via red glow and wide ripples.</span></li>
+                  <li><canvas id="manual-door-compass" class="lg-door-compass" width="54" height="54" aria-hidden="true"></canvas><span><b>DOOR COMPASS</b> indicates an open exit when remaining still.</span></li>
+                  <li><i class="lg lg-seen" aria-hidden="true"></i><span><b>RED SCREEN EDGES</b> when hunted.</span></li>
                 </ul>
               </section>
             </div>
@@ -320,7 +314,7 @@
               <div class="setrow">
                 <span class="lbl">REPLAY TUTORIALS</span>
                 <div>
-                  <button type="button" id="btn-reset-tutorials" class="ghost">RESET TO SHOW THEM AGAIN</button>
+                  <button type="button" id="btn-reset-tutorials" class="ghost">SHOW TUTORIALS AGAIN</button>
                   <span id="tutorials-reset-status" class="note" role="status" aria-live="polite"></span>
                 </div>
               </div>
@@ -367,7 +361,7 @@
       </div>
 
       <div class="order-cta">
-        <button id="btn-start" class="shift-only"><b><span class="kbd-only">BEGIN SHIFT</span><span class="touch-only">TAP TO BEGIN</span></b></button>
+        <button id="btn-start" class="shift-only"><b><span class="kbd-only">CLICK TO BEGIN SHIFT</span><span class="touch-only">TAP TO BEGIN</span></b></button>
         <button id="btn-resume" class="pause-only"><b>RESUME</b></button>
         <span class="cta-hint kbd-only shift-only">OR PRESS <b>ENTER</b> &nbsp;&middot;&nbsp; <b>&larr;&rarr;</b> PAGES &nbsp;&middot;&nbsp; <b>ESC</b> BACK</span>
         <span class="cta-hint kbd-only pause-only">OR PRESS <b>ENTER</b> &nbsp;&middot;&nbsp; </span>

@@ -29,7 +29,7 @@ export function proseClock(s){
 
 // A clock as the HUD writes it: 150 is "2:30".
 function clockWords(s){
-  return `${Math.floor(s/60)}:${String(Math.round(s%60)).padStart(2,'0')}`;
+  return `${s/60} min`;
 }
 
 /* Writes the current terms into every place that shows them: the note under
@@ -39,10 +39,9 @@ export function paintTerms(){
   const d = currentTerms();
   const set = (id, txt)=>{ const el = document.getElementById(id); if (el) el.textContent = txt; };
   set('pause-terms', d.label);
-  set('manual-return', proseClock(d.clock));
-  set('manual-repair', `${d.repairTime} second${d.repairTime===1?'':'s'}`);
+  set('manual-repair', `${d.repairTime} sec`);
   set('note-difficulty',
-    `${d.lives} crew member${d.lives===1?'':'s'} \u00b7 ${clockWords(d.clock)} air supply per floor \u00b7 ${d.repairTime}s to seal a leak`);
+    `${d.lives} crew member${d.lives===1?'':'s'} \u00b7 ${clockWords(d.clock)} air supply per floor \u00b7 ${d.repairTime} sec to seal a leak`);
 }
 
 /**
