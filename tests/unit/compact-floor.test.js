@@ -126,5 +126,4 @@ test('compact floor run seals every leak and reaches win through real door cycle
     }
   }
   assert.equal(A.STATE, 'win');
-  assert.match(els['win-stats'].innerHTML, /You sealed <b>14<\/b> leaks/);
 });

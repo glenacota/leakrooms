@@ -85,7 +85,7 @@
 
 /* The field manual: columns of short sections. */
 .manual-cols{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px 55px; margin-top:48px; }
-.manual-cols h3{
+.manual-cols h3, .win-section h3{
   font-size:var(--text-heading); font-weight:900; letter-spacing:.22em; color:var(--yellow);
   margin:0 0 8px; padding-bottom:4px; border-bottom:1px solid rgba(228,230,168,.2);
 }
@@ -334,7 +334,7 @@
 
 /* The button row under a ticket. */
 .order-cta{ display:flex; font-weight: 900; align-items:center; gap:18px; flex-wrap:wrap; justify-content:center; }
-#btn-start, #btn-resume{ padding:13px 34px; font-size:var(--text-control); letter-spacing:.3em; font-weight: 900}
+#btn-start, #btn-resume, #btn-again { padding:13px 34px; font-size:var(--text-control); letter-spacing:.3em; font-weight: 900}
 #btn-reset-run{ padding:10px 15px; font-weight: 900}
 .cta-hint{ font-size:var(--text-control); letter-spacing:.2em; color:var(--yellow-deep); }
 .cta-hint b{ color:var(--yellow); font-weight:900; }
@@ -367,16 +367,16 @@
 .win-head{ margin:0; }
 .win-head h1{ font-size:var(--text-display); margin-top:-5% }
 .win-head p{ color:var(--yellow-dim); font-size:var(--text-body); line-height:1.6; }
-.win-section{ padding:20px 0; border-bottom:1px solid rgba(228,230,168,.2); }
+.win-section{ padding:20px 0; }
 .win-section:last-child{ border-bottom:0; padding-bottom:0; }
-.win-section h2{ font-size:var(--text-heading); letter-spacing:.12em; font-weight:900; }
-.win-order-heading{ display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; }
+.win-section p{ font-size:var(--text-body); font-weight: normal;}
+.win-order-heading{ display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-top: -50px }
 .win-order-heading p, .win-signoff, .win-summary{ color:var(--yellow-dim); font-size:var(--text-body); line-height:1.7; margin-top:10px; }
 .win-stamp{
-  display:inline-block; flex:none; padding:10px;
+  display:inline-block; flex:none; padding:10px 20px;
   border:5px double var(--danger); color:var(--danger); background: rgba(0,0,0,0.8);
-  font-size:var(--text-display); font-weight:900; letter-spacing:.1em;
-  transform:rotate(-7deg); animation:win-stamp .16s .6s both; margin-left:60%
+  font-size:var(--text-display); font-weight:900 !important; letter-spacing:.1em;
+  transform:rotate(-7deg); animation:win-stamp .16s .6s both; margin-left:70%
 }
 @keyframes win-stamp{
   from{ opacity:0; transform:rotate(-7deg) scale(2); }
@@ -391,11 +391,7 @@
 .win-invoice td{ text-align:right; white-space:nowrap; }
 .win-invoice .win-total th, .win-invoice .win-total td{ border-top:1px solid rgba(228,230,168,.3); padding-top:10px; font-weight:900; color:var(--yellow); }
 .win-unit{ float:right; color:var(--yellow-dim); font-size:var(--text-label); }
-.win-denied{ 
-  margin-top:-3%; margin-left: 25%; transform: rotate(3deg); padding: 10px; width:fit-content;
-  background: rgba(0,0,0,0.8); color:var(--danger); border:4px double var(--danger); 
-  font-size:var(--text-heading); font-weight:900; letter-spacing:.1em;
-}
+
 @media (max-width:480px){
   .win-paper .order-body{ padding:20px 16px; }
   .win-table{ font-size:var(--text-body); }

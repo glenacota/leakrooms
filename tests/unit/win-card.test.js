@@ -23,11 +23,8 @@ test('win sheet reports totals, completed floors and itemized invoice', () => {
   emit('win', report);
   const html = els['win-stats'].innerHTML;
   assert.match(html, /WORK ORDER 88D/);
-  assert.match(html, /CLIENT: <b>ASYNC<\/b>/);
   assert.match(html, /COMPLETED/);
-  assert.match(html, /CLIENT FEEDBACK: <b>"We appreciate your cooperation and the orderly handling of the assignment"<\/b>/);
-  assert.match(html, /<b>12<\/b> leaks/);
-  assert.match(html, /Fatalities on duty: <b>2<\/b>/);
+  assert.match(html, /CLIENT FEEDBACK: <b>"We appreciate the orderly handling of the assignment"<\/b>/);
   assert.match(html, /Time: <b>2:05<\/b>/);
   assert.match(html, /TERMS: <b>RELAXED<\/b>/);
   assert.equal((html.match(/<th scope="row">[1-5]<\/th>/g) || []).length, 5);
@@ -36,7 +33,6 @@ test('win sheet reports totals, completed floors and itemized invoice', () => {
   assert.match(html, /Floors walked back \(5 × 40\)<\/th><td>200/);
   assert.match(html, /Equipment lost \(2 × 75\)<\/th><td>−150/);
   assert.match(html, /TOTAL<\/th><td>1250/);
-  assert.match(html, /RAISE REQUEST: DENIED/);
   assert.doesNotMatch(html.replace(/<[^>]+>/g, ' '), /\b(levels?|difficulty|fix(?:es|ing)?)\b/i);
 });
 

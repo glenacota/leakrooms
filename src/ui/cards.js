@@ -19,26 +19,24 @@ function winReport({ sealed, deaths, noises, floors, time, terms, runHistory }){
   const elapsed = `${Math.floor(time/60)}:${String(Math.floor(time%60)).padStart(2,'0')}`;
   return `
     <section class="win-section win-order">
+      <div class="win-stamp">COMPLETED</div>
       <div class="win-order-heading"><div>
-        <span class="win-stamp">COMPLETED</span>
         <h1>WORK ORDER 88D</h1>
-        <p>CLIENT: <b>ASYNC</b><br>LOCATION: <b>BACKROOMS, SECTOR D / FLOORS 1–5</b></p>
+        <p>DATE: <b>${new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)}</b></p>
         <p>TERMS: <b>${terms}</b></p>
       </div></div>
-      <p class="win-signoff">CLIENT FEEDBACK: <b>"We appreciate your cooperation and the orderly handling of the assignment"</b>.</p>
+      <p class="win-signoff">CLIENT FEEDBACK: <b>"We appreciate the orderly handling of the assignment"</b>.</p>
     </section>
     <section class="win-section">
-      <h2>RUN REPORT</h2>
-      <p class="win-summary">You sealed <b>${sealed}</b> leaks and got back through the door on all <b>${floors}</b> floors.<br>
-      Fatalities on duty: <b>${deaths}</b><br>
-      Time: <b>${elapsed}</b></p>
+      <h3>RUN REPORT</h3>
+      <p>Overall Time: <b>${elapsed}</b></p>
       <table class="win-table">
-        <thead><tr><th scope="col">FLOOR</th><th scope="col">SEALED</th><th scope="col">FATALITIES</th><th scope="col">AIR LEFT</th></tr></thead>
+        <thead><tr><th scope="col">FLOOR</th><th scope="col">REPARATIONS</th><th scope="col">FATALITIES</th><th scope="col">AIR LEFT</th></tr></thead>
         <tbody>${rows.join('')}</tbody>
       </table>
     </section>
     <section class="win-section">
-      <h2>INVOICE <span class="win-unit">CREDITS</span></h2>
+      <h3>INVOICE <span class="win-unit">CREDITS</span></h3>
       <table class="win-invoice">
         <tbody>
           <tr><th scope="row">Leaks sealed (${sealed} × ${LEAK_RATE})</th><td>${leakPay}</td></tr>
@@ -47,7 +45,6 @@ function winReport({ sealed, deaths, noises, floors, time, terms, runHistory }){
           <tr class="win-total"><th scope="row">TOTAL</th><td>${leakPay + floorPay - lostPay}</td></tr>
         </tbody>
       </table>
-      <p class="win-denied">RAISE REQUEST: DENIED</p>
     </section>`;
 }
 
