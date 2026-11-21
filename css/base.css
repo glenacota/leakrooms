@@ -13,7 +13,7 @@ html, body{ overscroll-behavior:none; }
 .screen, button{ touch-action:manipulation; }
 
 /* Visibility: one mechanism for hiding UI. */
-[hidden], .hidden{ display:none; }
+[hidden], .screen[hidden], .binder-page[hidden], .binder-tabs [hidden]{ display:none; }
 
 /* Keyboard focus ring: yellow to match the palette, shown only for
    keyboard focus (never for mouse/touch). */

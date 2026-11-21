@@ -21,7 +21,7 @@ test('a throwing frame is caught, reported, and stops the loop', () => {
   setFrameHooks({ render(){ throw new Error('render blew up'); } });
 
   const fatal = document.getElementById('fatal');
-  assert.ok(fatal.classList.contains('hidden'), 'the fatal card starts up — it must be hidden until something breaks');
+  assert.ok(fatal.hidden, 'the fatal card starts up — it must be hidden until something breaks');
 
   /* One throwing frame still schedules the next one. A loop that armed at the
      end of the frame would leave the count at zero. */
@@ -29,11 +29,11 @@ test('a throwing frame is caught, reported, and stops the loop', () => {
   assert.ok(armed >= 1, `a throwing frame armed ${armed} successor frames — the loop dies with the first exception`);
 
   A.frame(1000 + 1000/60);
-  assert.ok(fatal.classList.contains('hidden'), 'the fatal card came up after two failures — one bad frame is not fatal');
+  assert.ok(fatal.hidden, 'the fatal card came up after two failures — one bad frame is not fatal');
 
   /* ...and the third is. */
   A.frame(1000 + 2*(1000/60));
-  assert.equal(fatal.classList.contains('hidden'), false, 'three consecutive failing frames and nothing was shown to the player');
+  assert.equal(fatal.hidden, false, 'three consecutive failing frames and nothing was shown to the player');
 
   /* Having given up, it stays given up: no fourth frame is requested, so the
      loop cannot keep throwing into the console forever. */

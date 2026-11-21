@@ -109,7 +109,7 @@
 
   <!-- ============ SCREENS ============
        Overlay screens. Only one is visible at a time, and src/ui/dom.js 
-       switches between them by adding or removing the hidden class. -->
+       switches between them by setting the native hidden attribute. -->
 
   <!-- ------------ TITLE SCREEN ------------ -->
   <div id="screen-splash" class="screen splash">
@@ -138,20 +138,20 @@
          shift  before a run, opened from the title. Tabs: YOUR MISSION, FIELD MANUAL, SETTINGS.
                 Starting the run happens here.
          pause  during a run (STATE 'pause'). Tabs: RUN, FIELD MANUAL, SETTINGS. -->
-  <div id="screen-binder" class="screen hidden" data-binder-mode="shift">
+  <div id="screen-binder" class="screen" data-binder-mode="shift" hidden>
     <div class="order-wrap">
       <div class="order perf binder">
         <div class="binder-spine" aria-hidden="true"><span>LEAKROOMS Inc. &middot; CONTRACTOR BINDER</span></div>
         <div class="order-body">
           <div class="binder-tabs" role="tablist" aria-label="BINDER PAGES">
-            <button type="button" id="tab-binder-order" data-binder-tab="order" data-binder-for="shift" role="tab" aria-selected="true">YOUR MISSION</button>
-            <button type="button" id="tab-binder-run" data-binder-tab="run" data-binder-for="pause" role="tab" aria-selected="false">STATS</button>
-            <button type="button" id="tab-binder-manual" data-binder-tab="manual" role="tab" aria-selected="false">FIELD MANUAL</button>
-            <button type="button" id="tab-binder-settings" data-binder-tab="settings" role="tab" aria-selected="false">SETTINGS</button>
+            <button type="button" id="tab-binder-order" data-binder-tab="order" data-binder-for="shift" role="tab" aria-controls="binder-page-order" aria-selected="true" tabindex="0">YOUR MISSION</button>
+            <button type="button" id="tab-binder-run" data-binder-tab="run" data-binder-for="pause" role="tab" aria-controls="binder-page-run" aria-selected="false" tabindex="-1" hidden>STATS</button>
+            <button type="button" id="tab-binder-manual" data-binder-tab="manual" role="tab" aria-controls="binder-page-manual" aria-selected="false" tabindex="-1">FIELD MANUAL</button>
+            <button type="button" id="tab-binder-settings" data-binder-tab="settings" role="tab" aria-controls="binder-page-settings" aria-selected="false" tabindex="-1">SETTINGS</button>
           </div>
 
           <!-- Page: work order (shift mode). The job briefing, in the game's voice. -->
-          <div class="binder-page" data-binder-page="order">
+          <div class="binder-page" id="binder-page-order" data-binder-page="order" role="tabpanel" aria-labelledby="tab-binder-order" tabindex="0">
             <div class="order-head">
               <h2>WORK ORDER 88D</h2>
               <p class="meta">CLIENT: <b>ASYNC</b> &middot; LOCATION: <b>BACKROOMS, SEC D/F01-05</b></p>
@@ -179,7 +179,7 @@
           </div>
 
           <!-- Page: run (pause mode). The numbers are written by src/ui/pause.js. -->
-          <div class="binder-page hidden" data-binder-page="run">
+          <div class="binder-page" id="binder-page-run" data-binder-page="run" role="tabpanel" aria-labelledby="tab-binder-run" tabindex="0" hidden>
             <div class="order-head">
               <h2>SHIFT PAUSED</h2>
             </div>
@@ -205,7 +205,7 @@
           <!-- Page: field manual. How to play: controls, the screen legend and the
                rules. Plain words, no story. The numbers are written by
                src/ui/terms.js so they match the chosen terms. -->
-          <div class="binder-page hidden" data-binder-page="manual">
+          <div class="binder-page" id="binder-page-manual" data-binder-page="manual" role="tabpanel" aria-labelledby="tab-binder-manual" tabindex="0" hidden>
             <div class="manual-cols">
               <section>
                 <h3>ADVICES</h3>
@@ -252,7 +252,7 @@
           </div>
 
           <!-- Page: settings. The controls are wired by src/ui/settings-panel.js. -->
-          <div class="binder-page hidden" data-binder-page="settings">
+          <div class="binder-page" id="binder-page-settings" data-binder-page="settings" role="tabpanel" aria-labelledby="tab-binder-settings" tabindex="0" hidden>
             <div class="settings-grid">
 
               <div class="setrow section"><span>AUDIO</span></div>
@@ -360,7 +360,7 @@
        but the player is held out until they press the button, and the clock
        is frozen while the card is up. That way nobody starts a floor they have
        not read about. -->
-  <div id="screen-clear" class="screen hidden">
+  <div id="screen-clear" class="screen" hidden>
     <div class="tape clear">
       <h1>FLOOR SEALED</h1>
       <p class="sub" id="clear-sub">The flood is contained. Management appreciates your continued availability. Air unit renewed for the next deployment.</p>
@@ -383,7 +383,7 @@
        Shown when a lifeform catches you or the air supply runs out. Both cost a
        crew member, so they share one screen. The reason is written into the line
        below the title. -->
-  <div id="screen-dead" class="screen hidden">
+  <div id="screen-dead" class="screen" hidden>
     <div class="tape">
       <h2 class="bad">PERSONNEL LOSS</h2>
       <h1 id="dead-title" class="bad">SHIFT OVER</h1>
@@ -396,7 +396,7 @@
   <!-- ------------ WIN SCREEN ------------
        Shown after the fifth floor. The totals are for the whole run and are
        written in by script. -->
-  <div id="screen-win" class="screen hidden">
+  <div id="screen-win" class="screen" hidden>
     <div class="order-wrap win-wrap" id="win-wrap">
       <article class="order win-paper">
         <div class="order-body">
@@ -410,7 +410,7 @@
   <!-- ------------ DESKTOP-ONLY NOTICE ------------
        Shown instead of the title when the game is opened on a phone or a
        tablet. The detection and the swap live in src/ui/mobile.js. -->
-  <div id="screen-mobile" class="screen hidden">
+  <div id="screen-mobile" class="screen" hidden>
     <div class="tape">
       <h1 class="bad">UNIT NOT AUTHORISED</h1>
       <p class="sub">THIS DEVICE IS NOT APPROVED FOR TOUCH ORDERS</p>
@@ -437,7 +437,7 @@
 
   <!-- ============ FATAL ERROR ============
        Shown if the game loop keeps crashing. -->
-  <div id="fatal" class="fatal hidden">
+  <div id="fatal" class="fatal" hidden>
     <div class="tape">
       <h1 class="bad">SYSTEM FAULT</h1>
       <p class="sub">THE FLOOR STOPPED ANSWERING</p>

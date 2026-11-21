@@ -18,8 +18,8 @@
 /* The binder is one screen with a row of tabs and one page showing at a time.
    The selected tab uses the same filled style as the pressed settings
    buttons, so "the filled one is active" is true everywhere. A tab with
-   .hidden belongs to the other mode (src/ui/binder.js). */
-.order-body .binder-page.hidden, .binder-tabs button.hidden{ display:none; }
+   Native hidden belongs to the other mode (src/ui/binder.js). */
+.order-body .binder-page[hidden], .binder-tabs button[hidden]{ display:none; }
 .binder-tabs{ display:flex; gap:6px; margin-bottom:20px; flex-wrap:wrap; }
 .binder-tabs button{
   padding:6px 14px; font-size:var(--text-label); font-weight:900; letter-spacing:.2em;
@@ -511,7 +511,7 @@ h2.bad{ color:var(--danger); letter-spacing:1em; font-size:var(--text-heading); 
   background:rgba(6,5,3,.94);
   z-index:var(--z-fatal);
 }
-#fatal.hidden{ display:none; }
+#fatal[hidden]{ display:none; }
 
 /* ---------- Desktop-only notice ---------- */
 
@@ -599,7 +599,7 @@ button:active,.btn:active{ transform:translateY(1px); }
 }
 
 /* Fatal overrides every screen, so the shared footer must not show through it. */
-#fatal:not(.hidden) ~ #page-footer{ display:none; }
+#fatal:not([hidden]) ~ #page-footer{ display:none; }
 
 /* Splash keeps the footer transparent so it does not cover the title artwork. */
 .screen-footer--splash{

@@ -7,7 +7,7 @@ const { A, els } = await loadGame();
 const html = readHtml();
 const css = readCss();
 const visibleScreens = () => A.SCREENS.filter(screenId =>
-  !els[`screen-${screenId}`].classList.contains('hidden'));
+  !els[`screen-${screenId}`].hidden);
 
 test('screen and binder vocabulary matches markup and CSS', () => {
   const screenIds = [...html.matchAll(/id="screen-([^"]+)"/g)].map(([, id]) => id);

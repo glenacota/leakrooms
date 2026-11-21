@@ -46,7 +46,7 @@ test('the handheld notice swaps in, and cannot be walked past', () => {
   /* The card is a real screen, ships hidden, and can be brought up. */
   const html = readHtml();
   t.assert(/id="screen-mobile"/.test(html), 'index.html has no #screen-mobile');
-  t.assert(/class="screen hidden"/.test(html.slice(html.indexOf('id="screen-mobile"'), html.indexOf('id="fatal"'))),
+  t.assert(/id="screen-mobile"[^>]*\ hidden(?:="")?>/.test(html.slice(html.indexOf('id="screen-mobile"'), html.indexOf('id="fatal"'))),
     'the desktop-only notice ships visible — it would cover the title');
   t.assert(A.SCREENS.includes('mobile'),
     `'mobile' is not in SCREENS, so showScreen()/hideScreens() will never reach it`);
@@ -54,13 +54,13 @@ test('the handheld notice swaps in, and cannot be walked past', () => {
   /* The swap: the notice comes up over the riser, and the keys stop. */
   A.STATE = 'splash';
   A.showScreen('splash');
-  t.assert(els['screen-mobile'].classList.contains('hidden'),
+  t.assert(els['screen-mobile'].hidden,
     'the notice was up before it was shown');
   showMobileNotice();
   t.assert(isMobileBlocked(), 'showMobileNotice did not report itself as blocking');
-  t.assert(!els['screen-mobile'].classList.contains('hidden'), 'the notice did not come up');
-  t.assert(els['screen-splash'].classList.contains('hidden')
-      && els['screen-binder'].classList.contains('hidden'),
+  t.assert(!els['screen-mobile'].hidden, 'the notice did not come up');
+  t.assert(els['screen-splash'].hidden
+      && els['screen-binder'].hidden,
     'the notice came up without dismissing the screens behind it');
 
   /* A key that would otherwise walk the riser does nothing. */

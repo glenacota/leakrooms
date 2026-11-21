@@ -231,7 +231,6 @@ html:not([data-input=touch]) .touch-only{ display:none; }
 #rotate{
   display:none;
   position:absolute; inset:0;
-  z-index:30;
   flex-direction:column; align-items:center; justify-content:center;
   gap:14px;
   padding:24px;

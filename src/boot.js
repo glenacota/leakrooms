@@ -109,5 +109,5 @@ function start(){
 function showFatal(err){
   if (err) console.error(err);
   const el = document.getElementById('fatal');
-  if (el) el.classList.remove('hidden');
+  if (el) el.hidden = false;
 }

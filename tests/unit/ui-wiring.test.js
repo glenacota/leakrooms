@@ -86,7 +86,7 @@ test('[36] the controls change what they claim to change', () => {
   A.STATE = 'binder'; A.openBinder('shift', 'order');
   const manual = el('tab-binder-manual');
   manual.click();
-  const shown = document.querySelectorAll('[data-binder-page]').filter(p => !p.classList.contains('hidden'));
+  const shown = document.querySelectorAll('[data-binder-page]').filter(p => !p.hidden);
   t.assert(shown.length === 1 && shown[0].dataset.binderPage === 'manual',
     `after clicking FIELD MANUAL the visible pages are [${shown.map(p => p.dataset.binderPage).join(', ')}]`);
   t.assert(manual.getAttribute('aria-selected') === 'true', 'the manual tab did not select itself');

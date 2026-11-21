@@ -66,7 +66,7 @@ export function openBinder(mode, tab){
   const screen = document.getElementById('screen-binder');
   if (screen) screen.dataset.binderMode = mode;
   for (const t of document.querySelectorAll('[data-binder-tab]'))
-    t.classList.toggle('hidden', !!(t.dataset.binderFor && t.dataset.binderFor !== mode));
+    t.hidden = !!(t.dataset.binderFor && t.dataset.binderFor !== mode);
   setBinderTab(tab);
 }
 
@@ -81,9 +81,12 @@ export function setBinderTab(tab){
   binderTab = list.includes(tab) ? tab : list[0];
   disarmReset();
   for (const p of document.querySelectorAll('[data-binder-page]'))
-    p.classList.toggle('hidden', p.dataset.binderPage !== binderTab);
-  for (const t of document.querySelectorAll('[data-binder-tab]'))
-    t.setAttribute('aria-selected', String(t.dataset.binderTab === binderTab));
+    p.hidden = p.dataset.binderPage !== binderTab;
+  for (const t of document.querySelectorAll('[data-binder-tab]')){
+    const selected = t.dataset.binderTab === binderTab;
+    t.setAttribute('aria-selected', String(selected));
+    t.tabIndex = selected ? 0 : -1;
+  }
 }
 
 /** Turns one tab left (-1) or right (+1), wrapping at the ends. @param {number} delta */

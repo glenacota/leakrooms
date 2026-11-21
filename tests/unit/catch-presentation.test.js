@@ -33,7 +33,7 @@ test('[catch] the beat is a fixed length on the browser timeline', () => {
 });
 
 const { A, els } = await loadGame();
-const cardShown = () => !els['screen-dead'].classList.contains('hidden');
+const cardShown = () => !els['screen-dead'].hidden;
 
 function floorInPlay(){
   A.hideScreens();

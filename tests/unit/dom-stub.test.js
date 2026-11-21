@@ -50,7 +50,7 @@ test('[37] the DOM stub resolves the markup it claims to', () => {
   /* Initial class state comes from the markup: only the work order page
      ships showing. */
   const pages = querySelectorAll('[data-binder-page]');
-  const hidden = pages.filter(p => p.classList.contains('hidden')).map(p => p.dataset.binderPage);
+  const hidden = pages.filter(p => p.hidden).map(p => p.dataset.binderPage);
   assert.deepEqual(hidden, ['run', 'manual', 'settings'], `pages that ship hidden: [${hidden}]`);
 });
 

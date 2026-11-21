@@ -40,7 +40,7 @@ test('the splash chain walks the riser, then the work order, then the run', () =
   /* Check the screen element itself. The touch-only tip inside the title is
      `hidden` on purpose, so a search of the whole title would always fail. */
   t.assert(/<div id="screen-splash" class="screen splash">/.test(html), 'the title ships hidden — the boot frame would be a blank canvas');
-  t.assert(/class="screen hidden"/.test(binderHtml), 'the binder ships visible over the title');
+  t.assert(/id="screen-binder"[^>]*\ hidden(?:="")?>/.test(html), 'the binder ships visible over the title');
   t.assert(/id="btn-start"/.test(binderHtml), 'the binder has no start button for btn-start to bind');
   const cta = binderHtml.match(/<div class="order-cta">([\s\S]*?)<\/div>/)?.[1] || '';
   for (const id of ['btn-start', 'btn-resume', 'btn-reset-run'])
@@ -87,7 +87,7 @@ test('the splash chain walks the riser, then the work order, then the run', () =
   t.assert(typeof keydown==='function', 'no keydown handler was registered');
   const press = (key, extra={})=> keydown({ key, repeat:false, metaKey:false, ctrlKey:false,
                                             altKey:false, preventDefault(){}, ...extra });
-  const vis = ()=> A.SCREENS.filter(s=>!els['screen-'+s].classList.contains('hidden'));
+  const vis = ()=> A.SCREENS.filter(s=>!els['screen-'+s].hidden);
 
   A.hideScreens(); A.STATE='splash'; A.showScreen('splash');
   t.assert(vis().join()==='splash', `boot shows ${vis().join()||'nothing'}, expected the riser`);
@@ -268,7 +268,7 @@ test('the pause screen is the binder with the run written on it', () => {
   A.togglePause();
   t.assert(A.STATE==='pause', 'ESC did not pause');
   t.assert(A.binderMode==='pause' && A.binderTab==='run', `a pause lands on '${A.binderMode}/${A.binderTab}', expected pause/run`);
-  const shownTabs = document.querySelectorAll('[data-binder-tab]').filter(x=>!x.classList.contains('hidden'));
+  const shownTabs = document.querySelectorAll('[data-binder-tab]').filter(x=>!x.hidden);
   t.assert(shownTabs.map(x=>x.dataset.binderTab).join()==='run,manual,settings',
     'a pause does not show exactly its own three tabs');
 
@@ -358,7 +358,7 @@ test('the pause screen is the binder with the run written on it', () => {
   resetBtn.click();
   resetBtn.click();
   t.assert(A.STATE==='splash', `RESTART SHIFT did not return to the title (STATE=${A.STATE})`);
-  t.assert(!els['screen-splash'].classList.contains('hidden'), 'RESTART SHIFT left the title hidden');
+  t.assert(!els['screen-splash'].hidden, 'RESTART SHIFT left the title hidden');
   t.assert(A.RUN_SEED!==seedBefore, 'RESTART SHIFT kept the seed');
   t.assert(G.floor===0 && G.openLeaks===G.totalLeaks && G.clock>=A.FLOOR_CLOCK,
     'the floor after RESTART SHIFT is not a fresh floor 0');
@@ -387,7 +387,7 @@ test('the floor-clear card shows the clock left and the next floor', () => {
   const at = html.indexOf('id="screen-clear"');
   const clearHtml = at>=0 ? html.slice(at, html.indexOf('id="screen-dead"')) : '';
   t.assert(at>=0, 'there is no #screen-clear in index.html');
-  t.assert(/class="screen hidden"/.test(clearHtml),
+  t.assert(/id="screen-clear"[^>]*\ hidden(?:="")?>/.test(clearHtml),
     'the clear card ships visible — it would cover the first frame of the run');
   t.assert(/id="btn-descend"/.test(clearHtml), 'the clear card has no button for btn-descend to bind');
   for (const id of ['clear-clock','clear-leaks','clear-forms','clear-floor','clear-sub'])
@@ -413,9 +413,9 @@ test('the floor-clear card shows the clock left and the next floor', () => {
   t.assert(A.clearCard.leaks===spec.leaks && A.clearCard.lifeforms===spec.lifeforms,
     `the briefing says ${A.clearCard.leaks} bursts / ${A.clearCard.lifeforms} lifeforms, `+
     `LEVELS[1] says ${spec.leaks} / ${spec.lifeforms}`);
-  t.assert(!els['screen-clear'].classList.contains('hidden'), 'showScreen(\'clear\') left the card hidden');
-  t.assert(els['screen-splash'].classList.contains('hidden')
-      && els['screen-binder'].classList.contains('hidden'),
+  t.assert(!els['screen-clear'].hidden, 'showScreen(\'clear\') left the card hidden');
+  t.assert(els['screen-splash'].hidden
+      && els['screen-binder'].hidden,
     'the clear card came up without dismissing the screens behind it');
   t.assert(els['hud'].classList.contains('on')===false, 'the HUD is still lit behind the clear card');
 
@@ -444,7 +444,7 @@ test('the floor-clear card shows the clock left and the next floor', () => {
   t.assert(Object.keys(A.keys).every(k=>A.keys[k]===false || A.keys[k]===undefined),
     `keys were still held after the card cleared: ${JSON.stringify(A.keys)}`);
   t.assert(els['hud'].classList.contains('on'), 'the HUD did not come back on after the card');
-  t.assert(els['screen-clear'].classList.contains('hidden'), 'the clear card stayed up after descending');
+  t.assert(els['screen-clear'].hidden, 'the clear card stayed up after descending');
 
   const c1 = G.clock;
   for (let i=0;i<60;i++){

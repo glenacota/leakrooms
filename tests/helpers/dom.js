@@ -13,8 +13,8 @@
    actually uses. Anything unrecognised answers [], so an unfamiliar selector
    degrades instead of breaking boot.
 
-   Read: id, tag, class tokens, data-*, type, and the `hidden` class for the two
-   pause pages. Modelled: children, dataset, attributes, listeners. Not modelled:
+   Read: id, tag, class tokens, data-*, type, and native `hidden`.
+   Modelled: children, dataset, attributes, listeners. Not modelled:
    layout, events beyond direct dispatch, and the cascade. */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -161,6 +161,12 @@ export function makeEl(id, node){
     value: node && node.attrs.value !== undefined ? node.attrs.value : '',
     clientWidth: 1280, clientHeight: 720,
     width: 0, height: 0,
+
+    get hidden(){ return attrs.hidden !== undefined; },
+    set hidden(v){
+      if (v) attrs.hidden = '';
+      else delete attrs.hidden;
+    },
 
     /* className mirrors classList so a test reads the same string whichever one it
        happens to look at. */

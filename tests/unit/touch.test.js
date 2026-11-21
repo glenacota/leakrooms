@@ -287,7 +287,7 @@ test('[TOUCH] portrait shows the rotate card, pauses the run once, and rotating 
   const css = fs.readFileSync(new URL('../../css/touch.css', import.meta.url), 'utf8');
   assert.ok(/@media\s*\(orientation:\s*portrait\)\s*and\s*\(pointer:\s*coarse\)\s*\{\s*#rotate\s*\{\s*display:\s*flex/.test(css),
     'the card is not shown by a portrait + coarse query');
-  assert.ok(/#rotate\s*\{[^}]*z-index:\s*30/.test(css), 'the card is not above the screens');
+  assert.ok(/#rotate\s*\{[^}]*z-index:\s*var\(--z-rotate\)/.test(css), 'the card is not above the screens');
 
   const mq = { matches: false, fns: [], addEventListener(t, f){ this.fns.push(f); },
     set(v){ this.matches = v; for (const f of this.fns) f({ matches: v }); } };
