@@ -16,7 +16,7 @@ function orderHeading(terms, copy){
   const now = new Date();
   const date = new Date(now - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
   return `<div class="end-order-heading"><div>
-        <h2>COMPLETION PROTOCOL</h2>
+        <h2>SHIFT OVER: Completion Protocol</h2>
         <h1>WORK ORDER 88D</h1>
         <p>DELIVERY DATE: <b>${date}</b> &uarr; TERMS: <b>${terms}</b></p>
         <br/>
@@ -116,7 +116,7 @@ export function bindCards(){
       tape.hidden = true;
       over.hidden = false;
       if (report) el('dead-stats').innerHTML = endReport(report, false);
-      btn.textContent = 'START OVER';
+      btn.textContent = 'TRY AGAIN';
     }
   });
   on(EVENT.win, report => {

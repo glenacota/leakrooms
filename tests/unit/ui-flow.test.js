@@ -102,6 +102,14 @@ test('the splash chain walks the riser, then the work order, then the run', () =
   press('Escape');
   t.assert(A.STATE==='splash', 'ESC on the title advanced anyway — there is nothing behind it');
 
+  A.hideScreens(); A.STATE='dead'; A.showScreen('dead');
+  press('Escape');
+  t.assert(A.STATE==='splash' && vis().join()==='splash', 'ESC did not leave the death screen for the title');
+
+  A.hideScreens(); A.STATE='win'; A.showScreen('win');
+  press('Escape');
+  t.assert(A.STATE==='splash' && vis().join()==='splash', 'ESC did not leave the win screen for the title');
+
   /* The title is a menu: an ordinary key does nothing, the arrows pick an entry. */
   press('q');
   t.assert(A.STATE==='splash', 'an ordinary key advanced the title');

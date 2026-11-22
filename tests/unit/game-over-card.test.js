@@ -29,7 +29,7 @@ test('the last crew member lost shows the termination sheet and hides the tape',
   assert.doesNotMatch(stats, /Floors walked back/);
   assert.match(stats, /CLIENT FEEDBACK/);
   assert.match(stats, /MANAGEMENT NOTE/);
-  assert.equal(document.getElementById('btn-retry').textContent, 'START OVER');
+  assert.equal(document.getElementById('btn-retry').textContent, 'TRY AGAIN');
 });
 
 test('the floor that was not finished shows its last attempt', () => {
@@ -55,6 +55,7 @@ test('the termination sheet sits inside the death screen and the sheet is hidden
   const dead = html.slice(html.indexOf('id="screen-dead"'), html.indexOf('id="screen-win"'));
   assert.ok(dead.includes('id="dead-over"'));
   assert.match(dead, /class="order end-paper"/);
+  assert.match(dead, /OR PRESS <b>ESC<\/b> TO EXIT TO MENU/);
   assert.equal((dead.match(/<button\b/g) || []).length, 1);
   assert.match(readCss(), /\.order\.end-paper\[hidden\][^{]*\{\s*display:\s*none/);
 });

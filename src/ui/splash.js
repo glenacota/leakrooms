@@ -51,9 +51,14 @@ export function beginShift(){
   syncAmbience();
 }
 
-// ESC: one step back (binder to title). Returns false when there is nothing behind the current screen.
+// ESC returns from end and binder screens to the title.
 export function backSplash(){
-  if (STATE==='binder'){ setState('splash'); showScreen('splash'); syncAmbience(); return true; }
+  if (STATE==='binder' || STATE==='dead' || STATE==='win'){
+    setState('splash');
+    showScreen('splash');
+    syncAmbience();
+    return true;
+  }
   return false;
 }
 
