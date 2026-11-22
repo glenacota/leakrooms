@@ -27,7 +27,8 @@ test('the last crew member lost shows the termination sheet and hides the tape',
   assert.match(stats, /Equipment lost \(2 × 75\)<\/th><td>−150/);
   assert.match(stats, /TOTAL<\/th><td>150/);
   assert.doesNotMatch(stats, /Floors walked back/);
-  assert.match(stats, /SEVERANCE: NONE/);
+  assert.match(stats, /CLIENT FEEDBACK/);
+  assert.match(stats, /MANAGEMENT NOTE/);
   assert.equal(document.getElementById('btn-retry').textContent, 'START OVER');
 });
 

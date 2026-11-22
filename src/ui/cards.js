@@ -12,13 +12,16 @@ function elapsed(time){
   return `${Math.floor(time/60)}:${String(Math.floor(time%60)).padStart(2,'0')}`;
 }
 
-function orderHeading(terms){
+function orderHeading(terms, copy){
   const now = new Date();
   const date = new Date(now - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
   return `<div class="end-order-heading"><div>
+        <h2>COMPLETION PROTOCOL</h2>
         <h1>WORK ORDER 88D</h1>
-        <p>DATE: <b>${date}</b></p>
-        <p>TERMS: <b>${terms}</b></p>
+        <p>DELIVERY DATE: <b>${date}</b> &uarr; TERMS: <b>${terms}</b></p>
+        <br/>
+        <p class="end-signoff">CLIENT FEEDBACK: <b>"${copy.client}"</b></p>
+        <p class="end-signoff">MANAGEMENT NOTE: <b>"${copy.management}"</b></p>
       </div></div>`;
 }
 
@@ -34,7 +37,7 @@ function runRows(runHistory, floors){
 
 function runSection(time, rows){
   return `<section class="end-section">
-      <h3>RUN REPORT</h3>
+      <h3>REPORT</h3>
       <p>Overall Time: <b>${elapsed(time)}</b></p>
       <table class="end-table">
         <thead><tr><th scope="col">FLOOR</th><th scope="col">REPAIR</th><th scope="col">FATALITIES</th><th scope="col">AIR LEFT</th></tr></thead>
@@ -53,22 +56,16 @@ function invoiceSection(lines, total){
     </section>`;
 }
 
-const SEVERANCE_SECTION = `
-    <section class="end-section">
-      <h3>SEVERANCE: NONE</h3>
-      <p>Employees are reminded that basic safety protocols exist for a reason.</p>
-    </section>`;
-
 const END_COPY = {
   won: {
     stamp: 'COMPLETED',
-    feedback: 'We appreciate the orderly handling of the assignment.',
-    severance: '',
+    client: 'We appreciate the orderly handling of the assignment.',
+    management: 'Salary raise rejected.',
   },
   lost: {
     stamp: 'FAILED',
-    feedback: "Stop charging us for people who aren't coming back.",
-    severance: SEVERANCE_SECTION,
+    client: "Stop charging us for people who aren't coming back.",
+    management: "Employees are reminded that basic safety protocols exist for a reason.",
   },
 };
 
@@ -87,11 +84,10 @@ function endReport({ sealed, deaths, floors, time, terms, runHistory }, won){
   return `
     <section class="end-section end-order">
       <div class="end-stamp">${copy.stamp}</div>
-      ${orderHeading(terms)}
-      <p class="end-signoff">CLIENT FEEDBACK: <b>"${copy.feedback}"</b></p>
+      ${orderHeading(terms, copy)}
     </section>
     ${runSection(time, runRows(runHistory, floors))}
-    ${invoiceSection(lines, total)}${copy.severance}`;
+    ${invoiceSection(lines, total)}`;
 }
 
 /** Binds the text shown on the dead, win, and floor-clear cards. */

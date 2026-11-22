@@ -417,7 +417,9 @@
 .end-section:last-child{ border-bottom:0; padding-bottom:0; }
 .end-section p{ font-size:var(--text-body); font-weight: normal;}
 .end-order-heading{ display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-top: -50px }
-.end-order-heading p, .end-signoff, .end-summary{ color:var(--yellow-dim); font-size:var(--text-body); line-height:1.7; margin-top:10px; }
+.end-order-heading h1 { margin-bottom:16px}
+.end-order-heading h2 { font-size:var(--text-heading);letter-spacing:0.15vi;}
+.end-order-heading p, .end-signoff, .end-summary{ color:var(--yellow-dim); font-size:var(--text-body); line-height: 1.8; }
 .end-stamp{
   display:inline-block; flex:none; padding:10px 20px;
   border:5px double var(--danger); color:var(--danger); background: rgba(0,0,0,0.8);
