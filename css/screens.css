@@ -406,45 +406,45 @@
   padding:var(--safe-t) var(--safe-r) var(--safe-b) var(--safe-l);
   cursor:default;            /* bring back the cursor that the page hides */
 }
-/* One closing sheet, with the approval stamp as its only animated accent. */
-.win-wrap{ width:min(94vw,680px); align-items:stretch; }
-.order.win-paper{ display:block; flex:none; }
-.win-paper .order-body{ padding:28px 32px; }
-.win-head{ margin:0; }
-.win-head h1{ font-size:var(--text-display); margin-top:-5% }
-.win-head p{ color:var(--yellow-dim); font-size:var(--text-body); line-height:1.6; }
-.win-section{ padding:20px 0; }
-.win-section:last-child{ border-bottom:0; padding-bottom:0; }
-.win-section p{ font-size:var(--text-body); font-weight: normal;}
-.win-order-heading{ display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-top: -50px }
-.win-order-heading p, .win-signoff, .win-summary{ color:var(--yellow-dim); font-size:var(--text-body); line-height:1.7; margin-top:10px; }
-.win-stamp{
+.end-wrap{ width:min(94vw,680px); align-items:stretch; }
+.order.end-paper{ display:block; flex:none; }
+.order.end-paper[hidden], .tape[hidden]{ display:none; }
+.end-paper .order-body{ padding:28px 32px; }
+.end-head{ margin:0; }
+.end-head h1{ font-size:var(--text-display); margin-top:-5% }
+.end-head p{ color:var(--yellow-dim); font-size:var(--text-body); line-height:1.6; }
+.end-section{ padding:20px 0; }
+.end-section:last-child{ border-bottom:0; padding-bottom:0; }
+.end-section p{ font-size:var(--text-body); font-weight: normal;}
+.end-order-heading{ display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-top: -50px }
+.end-order-heading p, .end-signoff, .end-summary{ color:var(--yellow-dim); font-size:var(--text-body); line-height:1.7; margin-top:10px; }
+.end-stamp{
   display:inline-block; flex:none; padding:10px 20px;
   border:5px double var(--danger); color:var(--danger); background: rgba(0,0,0,0.8);
   font-size:var(--text-display); font-weight:900; letter-spacing:.1em;
-  transform:rotate(-7deg); animation:win-stamp .16s .6s both; margin-left:70%
+  transform:rotate(-7deg); animation:end-stamp .16s .6s both; margin-left:70%
 }
-@keyframes win-stamp{
+@keyframes end-stamp{
   from{ opacity:0; transform:rotate(-7deg) scale(2); }
   to{ opacity:1; transform:rotate(-7deg) scale(1); }
 }
-.win-table, .win-invoice{ width:100%; border-collapse:collapse; margin-top:14px; font-size:var(--text-body); }
-.win-table th, .win-table td{ padding:7px 4px; border-bottom:1px solid rgba(var(--color-line-rgb), var(--tint-alpha-muted)); text-align:right; }
-.win-table th:first-child, .win-table td:first-child{ text-align:left; }
-.win-table thead{ color:var(--yellow-dim); font-size:var(--text-label); }
-.win-invoice th, .win-invoice td{ padding:5px 0; font-weight:400; }
-.win-invoice th{ text-align:left; color:var(--yellow-dim); }
-.win-invoice td{ text-align:right; white-space:nowrap; }
-.win-invoice .win-total th, .win-invoice .win-total td{ border-top:1px solid rgba(var(--color-line-rgb), .3); padding-top:10px; font-weight:900; color:var(--yellow); }
-.win-unit{ float:right; color:var(--yellow-dim); font-size:var(--text-label); }
+.end-table, .end-invoice{ width:100%; border-collapse:collapse; margin-top:14px; font-size:var(--text-body); }
+.end-table th, .end-table td{ padding:7px 4px; border-bottom:1px solid rgba(var(--color-line-rgb), var(--tint-alpha-muted)); text-align:right; }
+.end-table th:first-child, .end-table td:first-child{ text-align:left; }
+.end-table thead{ color:var(--yellow-dim); font-size:var(--text-label); }
+.end-invoice th, .end-invoice td{ padding:5px 0; font-weight:400; }
+.end-invoice th{ text-align:left; color:var(--yellow-dim); }
+.end-invoice td{ text-align:right; white-space:nowrap; }
+.end-invoice .end-total th, .end-invoice .end-total td{ border-top:1px solid rgba(var(--color-line-rgb), .3); padding-top:10px; font-weight:900; color:var(--yellow); }
+.end-unit{ float:right; color:var(--yellow-dim); font-size:var(--text-label); }
 
 @media (max-width:480px){
-  .win-paper .order-body{ padding:20px 16px; }
-  .win-table{ font-size:var(--text-body); }
-  .win-table thead{ font-size:var(--text-label); }
+  .end-paper .order-body{ padding:20px 16px; }
+  .end-table{ font-size:var(--text-body); }
+  .end-table thead{ font-size:var(--text-label); }
 }
 @media (prefers-reduced-motion:reduce){
-  .win-stamp{ animation:none; }
+  .end-stamp{ animation:none; }
 }
 
 /* A small centred card, used by the death, win, clear and error screens. */

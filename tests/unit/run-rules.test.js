@@ -195,7 +195,7 @@ test('the run is five levels, three minutes and one door', () => {
     t.assert(A.STATE==='win', `the run ended on STATE=${A.STATE}, not the win screen`);
     t.assert(G.stat.sealed !== sealed,
       'this assertion needs G.stat to differ from the run total or it proves nothing');
-    const card = els['win-stats'].innerHTML;
+    const card = els['end-stats'].innerHTML;
     t.assert(A.runStat.noises === noises,
       `the run tally has ${A.runStat.noises} noises, want ${noises}`);
     t.assert(winPayload.terms === A.SETTINGS.difficulty.toUpperCase(), 'the win event did not include the run terms');

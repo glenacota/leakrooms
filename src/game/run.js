@@ -76,11 +76,7 @@ export function nextFloor(){
     died: false,
   });
   setFloorIdx(floorIdx+1);
-  if (floorIdx >= FLOORS){ transition('win'); emit(EVENT.win, {
-    sealed: runStat.sealed, deaths: runStat.deaths, noises: runStat.noises,
-    floors: FLOORS, time: runTime, terms: currentTerms().label,
-    runHistory: runHistory.map(entry => ({ ...entry })),
-  });
+  if (floorIdx >= FLOORS){ transition('win'); emit(EVENT.win, runReport(FLOORS));
     return;
   }
   /* buildFloor replaces G, so read the remaining clock first. */
@@ -89,6 +85,15 @@ export function nextFloor(){
   const spec = LEVELS[Math.min(floorIdx, LEVELS_N-1)];
   setClearCard({ floor:floorIdx, clock:clockLeft, leaks:spec.leaks, lifeforms:isEasyFloor() ? 0 : spec.lifeforms });
   showClear();
+}
+
+/* Results for the end-of-shift sheets. `floors` is how many floors the crew reached. */
+function runReport(floors){
+  return {
+    sealed: runStat.sealed, deaths: runStat.deaths, noises: runStat.noises,
+    floors, time: runTime, terms: currentTerms().label,
+    runHistory: runHistory.map(entry => ({ ...entry })),
+  };
 }
 
 /* The shell uses these codes to select death copy. */
@@ -119,7 +124,7 @@ export function lose(cause){
   if (cause === DEATH_CAUSE.CAUGHT) beginCatchPresentation();
   transition('dead');
   emit(EVENT.lives);
-  emit(EVENT.dead, { lives, cause });
+  emit(EVENT.dead, { lives, cause, report: runReport(floorIdx+1) });
 }
 
 export function caught(){ lose(DEATH_CAUSE.CAUGHT); }

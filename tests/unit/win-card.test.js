@@ -21,7 +21,7 @@ const report = {
 test('win sheet reports totals, completed floors and itemized invoice', () => {
   A.STATE = 'win';
   emit('win', report);
-  const html = els['win-stats'].innerHTML;
+  const html = els['end-stats'].innerHTML;
   assert.match(html, /WORK ORDER 88D/);
   assert.match(html, /COMPLETED/);
   assert.match(html, /CLIENT FEEDBACK: <b>"We appreciate the orderly handling of the assignment"<\/b>/);
@@ -39,10 +39,10 @@ test('win sheet reports totals, completed floors and itemized invoice', () => {
 test('invoice preserves a negative total and handles zero deaths', () => {
   A.STATE = 'win';
   emit('win', { ...report, sealed: 0, deaths: 4 });
-  assert.match(els['win-stats'].innerHTML, /TOTAL<\/th><td>-100/);
+  assert.match(els['end-stats'].innerHTML, /TOTAL<\/th><td>-100/);
   emit('win', { ...report, deaths: 0 });
-  assert.match(els['win-stats'].innerHTML, /Equipment lost \(0 × 75\)<\/th><td>−0/);
-  assert.match(els['win-stats'].innerHTML, /TOTAL<\/th><td>1400/);
+  assert.match(els['end-stats'].innerHTML, /Equipment lost \(0 × 75\)<\/th><td>−0/);
+  assert.match(els['end-stats'].innerHTML, /TOTAL<\/th><td>1400/);
 });
 
 test('a new win returns the sheet to the top', () => {
@@ -59,12 +59,12 @@ test('stamp sounds at the landing, or immediately for reduced motion', () => {
   A.STATE = 'win';
   emit('win', report);
   assert.equal(sounds.length, 0);
-  els['win-stats']._fire('animationend', { animationName: 'other' });
+  els['end-stats']._fire('animationend', { animationName: 'other' });
   assert.equal(sounds.length, 0);
-  els['win-stats']._fire('animationend', { animationName: 'win-stamp' });
+  els['end-stats']._fire('animationend', { animationName: 'end-stamp' });
   assert.equal(sounds.length, 1);
   A.STATE = 'splash';
-  els['win-stats']._fire('animationend', { animationName: 'win-stamp' });
+  els['end-stats']._fire('animationend', { animationName: 'end-stamp' });
   assert.equal(sounds.length, 1);
   A.STATE = 'win';
   window.matchMedia = () => ({ matches: true });
@@ -77,10 +77,12 @@ test('stamp sounds at the landing, or immediately for reduced motion', () => {
 test('win sheet scrolls with the existing button and has a static reduced-motion stamp', () => {
   const html = readHtml();
   const win = html.slice(html.indexOf('id="screen-win"'), html.indexOf('id="screen-mobile"'));
-  assert.ok(win.indexOf('id="win-stats"') < win.indexOf('id="btn-again"'));
+  assert.ok(win.indexOf('id="end-stats"') < win.indexOf('id="btn-again"'));
   assert.equal((win.match(/<button\b/g) || []).length, 1);
   const css = readCss();
   assert.match(css, /\.order-wrap\s*\{[^}]*overflow-y:auto/s);
-  assert.match(css, /\.order\.win-paper\s*\{\s*display:block/);
-  assert.match(css, /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{\s*\.win-stamp\s*\{\s*animation:none/s);
+  assert.match(css, /\.order\.end-paper\s*\{\s*display:block/);
+  assert.match(win, /class="order-wrap end-wrap"/);
+  assert.match(win, /class="order end-paper"/);
+  assert.match(css, /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{\s*\.end-stamp\s*\{\s*animation:none/s);
 });

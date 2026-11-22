@@ -142,8 +142,8 @@ export const EVENT_CONTRACTS = Object.freeze({
     args: '[]',
   },
   [EVENT.dead]: {
-    purpose: 'Provide remaining lives and death cause to game-over UI.',
-    args: '[{lives: number, cause: string}]',
+    purpose: 'Provide remaining lives and death cause to the death card.',
+    args: '[{lives: number, cause: string, report: object}]',
     producers: ['src/game/run.js'],
     consumers: ['src/ui/cards.js', 'src/ui/haptics.js'],
   },
