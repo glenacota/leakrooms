@@ -34,6 +34,8 @@ export const EVENT = Object.freeze({
   inputLost: 'input:lost',
   tutorialsReset: 'tutorials:reset',
   tutorialsResetResult: 'tutorials:reset-result',
+  tutorialsReplayStarted: 'tutorials:replay-started',
+  tutorialsReplayCardOpened: 'tutorials:replay-card-opened',
 });
 
 /* Event contracts stay beside their names so producers and consumers can
@@ -196,6 +198,14 @@ export const EVENT_CONTRACTS = Object.freeze({
   [EVENT.tutorialsResetResult]: {
     purpose: 'Report whether tutorial history was reset.',
     args: '[success: boolean]',
+  },
+  [EVENT.tutorialsReplayStarted]: {
+    purpose: 'Report that tutorial replay became pending.',
+    args: '[]',
+  },
+  [EVENT.tutorialsReplayCardOpened]: {
+    purpose: 'Report that the first replayed tutorial card opened.',
+    args: '[]',
   },
 });
 

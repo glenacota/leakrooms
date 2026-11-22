@@ -7,6 +7,9 @@ import { repaintDirty } from '../util/repaint.js';
 import { G } from '../sim/state.js';
 import { Audio_ } from '../audio/index.js';
 import { paintTerms } from './terms.js';
+import { tutorialReplayState, resetTutorialReplayStatus } from './tutorials.js';
+
+export { resetTutorialReplayStatus };
 
 /* The buttons for each segmented row (value and label pairs). They are listed
    here and not in the HTML, so the allowed values and their labels cannot
@@ -48,9 +51,26 @@ export function buildSettingsUI(){
 
   document.getElementById('btn-reset-tutorials').onclick = () => emit(EVENT.tutorialsReset);
   on(EVENT.tutorialsResetResult, success => {
-    let message = 'COULD NOT RESET TUTORIALS. CHECK BROWSER STORAGE AND TRY AGAIN.';
-    if (success) message = 'DONE.';
+    let message = 'COULD NOT REPLAY TUTORIALS. CHECK BROWSER STORAGE AND TRY AGAIN.';
+    if (success){
+      const replay = tutorialReplayState();
+      message = replay.pending
+        ? 'Tutorials will reappear as mechanics arise.'
+        : 'Tutorial cards appear as mechanics arise.';
+    }
     document.getElementById('tutorials-reset-status').textContent = message;
+  });
+  on(EVENT.tutorialsReplayStarted, () => {
+    const replay = document.getElementById('btn-reset-tutorials');
+    const status = document.getElementById('tutorials-reset-status');
+    if (replay) replay.disabled = true;
+    if (status) status.textContent = 'Tutorials will reappear as mechanics arise.';
+  });
+  on(EVENT.tutorialsReplayCardOpened, () => {
+    const replay = document.getElementById('btn-reset-tutorials');
+    const status = document.getElementById('tutorials-reset-status');
+    if (replay) replay.disabled = false;
+    if (status) status.textContent = 'TUTORIAL CARD OPENED.';
   });
 }
 
@@ -67,6 +87,18 @@ export function syncSettingsUI(){
     for (const b of row.querySelectorAll('button')){
       b.setAttribute('aria-pressed', String(b.dataset.value === cur));
     }
+  }
+  const replay = document.getElementById('btn-reset-tutorials');
+  const status = document.getElementById('tutorials-reset-status');
+  const replayState = tutorialReplayState();
+  if (replay) replay.disabled = !SETTINGS.tutorials || replayState.pending;
+  if (status){
+    if (!SETTINGS.tutorials){
+      status.textContent = 'Turn on tutorial cards to replay them during play.';
+    }
+    else if (replayState.pending) status.textContent = 'Tutorials will reappear as mechanics arise.';
+    else if (replayState.acknowledged) status.textContent = 'TUTORIAL CARD OPENED.';
+    else status.textContent = 'Tutorial cards appear as mechanics arise.';
   }
   // The difficulty text in three places is painted from here, so they always match.
   paintTerms();

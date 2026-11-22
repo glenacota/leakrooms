@@ -115,6 +115,12 @@ input[type=range]::-moz-range-thumb{
 #btn-reset-tutorials{
   padding:6px 18px; font-size:var(--text-control); letter-spacing:.14em; font-weight:700;
 }
+.btn--ghost:disabled{
+  opacity:.45;
+  cursor:not-allowed;
+  box-shadow:none;
+}
+#tutorials-reset-status { display: inline-block}
 
 @media (max-height:520px){
   :root{ --pause-chrome:112px; }

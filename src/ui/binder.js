@@ -14,6 +14,7 @@ import { disarmReset } from '../game/run.js';
 import { on, EVENT } from '../util/events.js';
 import { catchPresenting } from '../util/catch-presentation.js';
 import { showScreen, hideScreens } from './dom.js';
+import { resetTutorialReplayStatus, syncSettingsUI } from './settings-panel.js';
 
 const SCREEN_FOR_STATE = Object.freeze({
   splash: 'splash',
@@ -78,7 +79,9 @@ export function openBinder(mode, tab){
  */
 export function setBinderTab(tab){
   const list = tabsFor(binderMode);
+  const leavingSettings = binderTab === 'settings' && tab !== 'settings';
   binderTab = list.includes(tab) ? tab : list[0];
+  if (leavingSettings) resetTutorialReplayStatus();
   disarmReset();
   for (const p of document.querySelectorAll('[data-binder-page]'))
     p.hidden = p.dataset.binderPage !== binderTab;
@@ -87,6 +90,7 @@ export function setBinderTab(tab){
     t.setAttribute('aria-selected', String(selected));
     t.tabIndex = selected ? 0 : -1;
   }
+  if (binderTab === 'settings') syncSettingsUI();
 }
 
 /** Turns one tab left (-1) or right (+1), wrapping at the ends. @param {number} delta */

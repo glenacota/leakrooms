@@ -62,6 +62,16 @@ let remaining = 0;
 let hovering = false;
 let focused = false;
 let lastOpenLeaks = 0;
+let replayPending = false;
+let replayAcknowledged = false;
+
+export function tutorialReplayState(){
+  return { pending: replayPending, acknowledged: replayAcknowledged };
+}
+
+export function resetTutorialReplayStatus(){
+  replayAcknowledged = false;
+}
 
 function loadCompleted(){
   try {
@@ -121,6 +131,11 @@ function displayNext(){
   paintTutorial(document.getElementById('tutorial-art'), current);
   document.getElementById('tutorial-overlay').hidden = false;
   syncCountdown();
+  if (replayPending){
+    replayPending = false;
+    replayAcknowledged = true;
+    emit(EVENT.tutorialsReplayCardOpened);
+  }
 }
 
 function syncCountdown(){
@@ -207,8 +222,11 @@ export function bindTutorials(){
       return;
     }
     completed.clear();
+    replayPending = SETTINGS.tutorials;
+    replayAcknowledged = false;
     clearTutorialCards();
     emit(EVENT.tutorialsResetResult, true);
+    if (replayPending) emit(EVENT.tutorialsReplayStarted);
   });
   on(EVENT.settingsChanged, key => {
     if (key !== 'tutorials' && key !== '*') return;

@@ -168,6 +168,12 @@ export function makeEl(id, node){
       else delete attrs.hidden;
     },
 
+    get disabled(){ return attrs.disabled !== undefined; },
+    set disabled(v){
+      if (v) attrs.disabled = '';
+      else delete attrs.disabled;
+    },
+
     /* className mirrors classList so a test reads the same string whichever one it
        happens to look at. */
     get className(){ return [...classes].join(' '); },

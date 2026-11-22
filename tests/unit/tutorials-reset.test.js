@@ -9,7 +9,7 @@ import { tickTutorials } from '../../src/ui/tutorials.js';
 
 const historyKey = 'leakrooms.tutorials.v1';
 global.__store.set(historyKey, JSON.stringify(['sprint', 'radar']));
-const { G, els, store, press } = await loadGame();
+const { A, G, els, store, press } = await loadGame();
 
 function quietFloor(){
   G.wetArr.fill(0);
@@ -21,7 +21,12 @@ function quietFloor(){
 
 test('settings reset persists and completed tutorials reappear only on their triggers', () => {
   els['btn-reset-tutorials'].click();
-  assert.equal(els['tutorials-reset-status'].textContent, 'DONE.');
+  assert.equal(els['tutorials-reset-status'].textContent, 'Tutorials will reappear as mechanics arise.');
+  assert.equal(els['btn-reset-tutorials'].disabled, true);
+  A.openBinder('shift', 'manual');
+  A.openBinder('shift', 'settings');
+  assert.equal(els['tutorials-reset-status'].textContent, 'Tutorials will reappear as mechanics arise.');
+  assert.equal(els['btn-reset-tutorials'].disabled, true);
   assert.deepEqual(JSON.parse(store.get(historyKey)), []);
   assert.equal(STATE, 'splash');
   startRun();
@@ -31,8 +36,13 @@ test('settings reset persists and completed tutorials reappear only on their tri
   emit('sprint', 0);
   tickTutorials();
   assert.equal(els['tutorial-title'].textContent, 'Save your legs');
+  assert.equal(els['tutorials-reset-status'].textContent, 'TUTORIAL CARD OPENED.');
+  assert.equal(els['btn-reset-tutorials'].disabled, false);
   press('Enter');
   assert.deepEqual(JSON.parse(store.get(historyKey)), ['sprint']);
+  A.openBinder('shift', 'manual');
+  A.openBinder('shift', 'settings');
+  assert.equal(els['tutorials-reset-status'].textContent, 'Tutorial cards appear as mechanics arise.');
 });
 
 test('reset while paused discards current and queued cards without restarting', () => {
@@ -113,7 +123,7 @@ test('storage failure reports an error and preserves history and pending card', 
   console.warn = (...args) => warnings.push(args);
   try {
     els['btn-reset-tutorials'].click();
-    assert.match(els['tutorials-reset-status'].textContent, /COULD NOT RESET/);
+    assert.match(els['tutorials-reset-status'].textContent, /COULD NOT REPLAY/);
     assert.equal(warnings.length, 1);
     assert.equal(store.get(historyKey), before);
   } finally {
