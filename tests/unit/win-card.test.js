@@ -24,7 +24,7 @@ test('win sheet reports totals, completed floors and itemized invoice', () => {
   const html = els['end-stats'].innerHTML;
   assert.match(html, /WORK ORDER 88D/);
   assert.match(html, /COMPLETED/);
-  assert.match(html, /CLIENT FEEDBACK: <b>"We appreciate the orderly handling of the assignment"<\/b>/);
+  assert.match(html, /CLIENT FEEDBACK: <b>"We appreciate the orderly handling of the assignment\."<\/b>/);
   assert.match(html, /Time: <b>2:05<\/b>/);
   assert.match(html, /TERMS: <b>RELAXED<\/b>/);
   assert.equal((html.match(/<th scope="row">[1-5]<\/th>/g) || []).length, 5);
