@@ -38,7 +38,7 @@ test('plumber head icon and spent-life styles are available to both readouts', (
   const css = readCss();
   assert.match(html, /<symbol id="i-plumber-head"[^>]*>[\s\S]*?fill="#e8c11f"[\s\S]*?fill="#000"[\s\S]*?<\/symbol>/);
   assert.match(css, /\.life-pip\.gone\s*\{[^}]*opacity\s*:\s*\.2/);
-  assert.match(css, /\.run-stats \.life-pip\s*\{[^}]*width\s*:\s*20px/);
+  assert.match(css, /\.binder-grid--run \.life-pip\s*\{[^}]*width\s*:\s*20px/);
 });
 
 test('field manual shows two remaining plumber heads and one spent head', () => {

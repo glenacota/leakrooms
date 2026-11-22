@@ -71,9 +71,9 @@ test('the splash chain walks the riser, then the work order, then the run', () =
          'the controls summary body text does not use the shared body token');
   t.assert(/\.controls-big b\{[^}]*font-size:\s*var\(--text-control\)/.test(css),
          'the control keys do not use the shared control token');
-  t.assert(/\.order \.field\s*\{[^}]*?font-size:\s*var\(--text-body\)/.test(css),
+  t.assert(/\.binder-field\s*\{[^}]*?font-size:\s*var\(--text-body\)/.test(css),
          'the work order body text does not use the shared body token');
-  t.assert(/\.order-head h2\{[^}]*font-size:\s*var\(--text-display\)/.test(css),
+  t.assert(/\.binder-page-header h2\{[^}]*font-size:\s*var\(--text-display\)/.test(css),
          'the work order title does not use the shared display token');
   t.assert(/--text-body:\s*clamp\(14px/.test(css),
          'the shared body text token does not start at 14px');

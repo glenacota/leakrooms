@@ -8,12 +8,86 @@
 
 /* ---------- The binder: tabs, pages, terms ---------- */
 
-/* Section headings inside the binder pages. Scoped to .order so they do not
-   leak to any h3 elsewhere on the page. */
+/* Shared binder headings. Scoped to binder sections so they do not leak
+   to win or other screen cards. */
+.binder-page-header{
+  border-bottom:1px solid rgba(var(--color-line-rgb), .2);
+  margin:30px 0 20px;
+}
+.binder-page-header h2{
+  font-size:var(--text-display);
+  letter-spacing:.22em;
+  font-weight:400;
+  margin:0;
+  text-shadow:2px 0 0 rgba(216,80,60,.45), -2px 0 0 rgba(80,150,216,.3);
+}
+.binder-page-header .meta{
+  margin:8px 0 0;
+  font-size:var(--text-label);
+  letter-spacing:.18em;
+  color:var(--yellow-deep);
+  font-weight:900;
+}
+.binder-page-header .meta b{ color:#8fc4cc; }
+
+.binder-section-title,
 .order h3{
   font-size:var(--text-heading); font-weight:900; letter-spacing:.22em; color:var(--yellow);
   margin:0 0 8px; padding-bottom:4px; border-bottom:1px solid rgba(var(--color-line-rgb), .2);
+  width:100%
 }
+.binder-section{ min-width:0; margin-top:20px; }
+.binder-grid{ display:grid; }
+.binder-grid--manual{
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px 55px;
+  margin-top:20px;
+}
+.binder-grid--settings{
+  grid-template-columns:1fr 1fr;
+  gap:50px;
+  margin:44px 0 6px;
+  text-align:left;
+}
+.binder-grid--run{
+  grid-template-columns:repeat(auto-fit,minmax(130px,1fr));
+  gap:12px 18px;
+  margin:4px 0 6px;
+  padding-bottom:12px;
+}
+.binder-field{ margin:8px 0; font-size:var(--text-body); }
+.binder-field b{ line-height:1.5; font-weight:400; color:var(--yellow-dim); }
+.binder-field dt,
+.binder-field .binder-field-label{
+  display:block;
+  font-size:var(--text-label);
+  letter-spacing:.2em;
+  color:var(--yellow-dim);
+  font-weight:900;
+  margin-bottom:2px;
+}
+.binder-field dd{
+  font-size:var(--text-heading);
+  letter-spacing:.1em;
+  color:#8fc4cc;
+  font-weight:400;
+}
+.binder-field-note{
+  margin:8px 0 0;
+  font-size:var(--text-label);
+  line-height:1.6;
+  color:var(--yellow-dim);
+  font-weight:900;
+  opacity:.55;
+}
+.binder-actions{
+  display:flex;
+  flex-direction:row;
+  gap:12px;
+  justify-content:flex-end;
+  margin-top:50px;
+}
+.binder-actions button{ font-weight:900; padding:10px 15px; }
 
 /* The binder is one screen with a row of tabs and one page showing at a time.
    The selected tab uses the same filled style as the pressed settings
@@ -49,50 +123,38 @@
   font-size:var(--text-label); font-weight:900; letter-spacing:.3em; color:var(--yellow-deep);
 }
 
-/* ---------- Terms chooser (work order page) ---------- */
-
-/* The terms are a fixed panel of three buttons and a note. There is nothing
-   to open: choosing is the one thing the work order asks for. */
-.terms{
-  border:1px solid rgba(var(--color-line-rgb), var(--tint-alpha-solid)); font-size:var(--text-body);
-  padding:10px 12px; background:rgba(var(--color-line-rgb), .04);
-}
-.terms .note{ line-height:1.6; color:var(--yellow-dim); margin-top:8px; }
-.terms .note.fixed{ margin-top:2px; font-size:var(--text-label); letter-spacing:.12em; color:var(--yellow-deep); }
-
-/* The run page: the live numbers of the shift. */
-.run-stats{ display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:12px 18px; margin:4px 0 6px; padding-bottom:12px}
-.run-stats small{ display:block; font-size:var(--text-label); letter-spacing:.2em; color:var(--yellow-dim); font-weight:900; margin-bottom:2px; }
-.run-stats b{ font-size:var(--text-heading); letter-spacing:.1em; color:#8fc4cc; font-weight:400; }
 /* The pause page gives the shared life icons more room than the HUD. */
-.run-stats .life-pip{ width:20px; height:20px; }
+.binder-grid--run .life-pip{ width:20px; height:20px; }
 
 /* ---------- The timeline: how each floor of the attempt went ---------- */
 
-.run-timeline{ margin-top:10px; border:1px solid rgba(var(--color-line-rgb), var(--tint-alpha-solid)); }
-.run-timeline-head{
-  display:grid; grid-template-columns:1fr 1fr 1fr 1fr;
-  padding:6px 10px; border-bottom:1px solid rgba(var(--color-line-rgb), .2);
+.run-timeline{
+  width:100%;
+  margin-top:10px;
+  border-collapse:collapse;
+  border:1px solid rgba(var(--color-line-rgb), var(--tint-alpha-solid));
+}
+.run-timeline th{
+  padding:6px 10px;
+  border-bottom:1px solid rgba(var(--color-line-rgb), .2);
   font-size:var(--text-label); letter-spacing:.3em; font-weight:900; color:var(--yellow-deep);
+  text-align:left;
 }
-.run-timeline-row{
-  display:grid; grid-template-columns:1fr 1fr 1fr 1fr;
+.run-timeline td{
   padding:6px 10px; font-size:var(--text-body); border-bottom:1px solid rgba(var(--color-line-rgb), var(--tint-alpha-muted));
-  align-items:center;
 }
-.run-timeline-row:last-child{ border-bottom:none; }
-.run-timeline-row.now{ background:rgba(var(--color-line-rgb), .06); }
+.run-timeline tr:last-child td{ border-bottom:none; }
+.run-timeline tr.now{ background:rgba(var(--color-line-rgb), .06); }
 .run-timeline-floor{ color:var(--yellow); font-weight:900; letter-spacing:.1em; }
-.run-timeline-status.ok{ color:var(--carpet); font-weight:900; letter-spacing:.1em; }
-.run-timeline-status.bad{ color:var(--danger); font-weight:900; letter-spacing:.1em; }
-.run-timeline-status.now{ color:var(--yellow-dim); font-weight:900; letter-spacing:.1em; }
+.binder-status--ok{ color:var(--carpet); font-weight:900; letter-spacing:.1em; }
+.binder-status--bad{ color:var(--danger); font-weight:900; letter-spacing:.1em; }
+.binder-status--now{ color:var(--yellow-dim); font-weight:900; letter-spacing:.1em; }
 .run-timeline-leaks{ color:#8fc4cc; font-weight:400; letter-spacing:.08em; }
 .run-timeline-clock{ color:var(--yellow-dim); font-weight:900; letter-spacing:.08em; }
 
 /* The field manual: columns of short sections. */
-.manual-cols{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px 55px; margin-top:48px; }
-.manual-cols h3:not(:first-child){ margin-top:16px; }
-.manual-cols .notes li{ font-size:var(--text-body); }
+.binder-grid--manual h3:not(:first-child){ margin-top:16px; }
+.binder-grid--manual .notes li{ font-size:var(--text-body); }
 
 /* The screen legend: small drawings of the HUD pieces, in CSS, so a player
    can match a word to the thing on screen. */
@@ -272,24 +334,12 @@
 }
 
 .order-body{ padding:22px 26px 20px; text-align:left; }
-.order-head{ border-bottom:1px solid rgba(var(--color-line-rgb), .2); padding-bottom:12px; margin:30px 0 }
-.order-head h2{
-  font-size:var(--text-display); letter-spacing:.22em; font-weight:400; margin:0;
-  text-shadow:2px 0 0 rgba(216,80,60,.45), -2px 0 0 rgba(80,150,216,.3);
-}
-.order-head .meta{
-  margin:8px 0 0; font-size:var(--text-label); letter-spacing:.18em; color:var(--yellow-deep); font-weight: 900;
-}
-.order-head .meta b{ color:#8fc4cc; }
-
-.order .field { margin:12px 0; font-size:var(--text-body); padding-bottom: 12px}
-.order .field span{
+.binder-field span.highlight{
   font-weight: 900; line-height:2; letter-spacing:.22em; margin-bottom:4px; color:var(--yellow);
 }
-.order .field span.highlight{
+.binder-field span.highlight{
   background-color: var(--yellow-deep); letter-spacing: normal; line-height: normal; color: black; padding: 0 5px
 }
-.order .field b{ line-height:1.5; font-weight:400; color:var(--yellow-dim); }
 
 /* Controls list: the main reason the work order screen exists, so the
    text is kept large enough to read. */
@@ -528,7 +578,6 @@ h2.bad{ color:var(--danger); letter-spacing:1em; font-size:var(--text-heading); 
     border-left:none; border-top:2px dashed rgba(var(--color-line-rgb), var(--line-alpha));
     flex-direction:row; flex-wrap:wrap; gap:0 20px; align-items:baseline;
   }
-  .order-head h2{ font-size:var(--text-heading); }
 }
 
 @media (max-width:620px){
@@ -607,23 +656,22 @@ h2.bad{ color:var(--danger); letter-spacing:1em; font-size:var(--text-heading); 
 @media (max-height:480px){
   .order-wrap{ max-height:100%; gap:18px; }
   .order-body{ padding:10px 14px 8px; }
-  .order-head{ padding-bottom:6px; margin-bottom:8px; }
-  .order-head h2{ font-size:var(--text-heading); letter-spacing:.16em; }
-  .order-head .meta{ font-size:var(--text-label); margin-top:4px; }
-  .order .field{ margin:6px 0; font-size:var(--text-body); }
-  .order .field span{ line-height:1.6; margin-bottom:0; }
+  .binder-page-header{ padding-bottom:6px; margin-bottom:8px; }
+  .binder-page-header h2{ font-size:var(--text-heading); letter-spacing:.16em; }
+  .binder-page-header .meta{ font-size:var(--text-label); margin-top:4px; }
+  .binder-field{ margin:6px 0; font-size:var(--text-body); }
+  .binder-field span{ line-height:1.6; margin-bottom:0; }
   .order .notes li{ font-size:var(--text-body); }
   .binder-tabs{ margin-bottom:8px; }
-  .settings-grid{ gap:8px 18px; margin:4px 0 2px; }
-  .setrow.section{ margin-top:2px; padding-top:0; }
+  .binder-grid--settings{ gap:8px 18px; margin:4px 0 2px; }
   /* The spine is not worth a strip of a 360 px screen, and the manual reads
      in one column. */
   .binder-spine{ display:none; }
   .order.binder{ grid-template-columns:1fr; }
-  .manual-cols{ grid-template-columns:1fr; }
+  .binder-grid--manual{ grid-template-columns:1fr; }
 
-  .setrow.buttons{ margin-top:8px; gap:8px; }
-  .setrow.buttons button{
+  .binder-actions{ margin-top:8px; gap:8px; }
+  .binder-actions button{
     padding:8px 10px; font-size:var(--text-label); letter-spacing:.12em; white-space:nowrap;
   }
   #btn-start, #btn-resume{ padding:8px 10px; font-size:var(--text-label); letter-spacing:.12em; white-space:nowrap; }
@@ -640,7 +688,7 @@ h2.bad{ color:var(--danger); letter-spacing:1em; font-size:var(--text-heading); 
     position:sticky; bottom:0; width:100%; padding:6px 0;
     background:rgb(6,5,3);        /* solid: text must not show through the bar */
   }
-  [data-input=touch] .setrow.buttons{
+  [data-input=touch] .binder-actions{
     position:sticky; bottom:0; padding:6px 0;
     background:rgb(12,10,6);
   }
@@ -653,7 +701,7 @@ h2.bad{ color:var(--danger); letter-spacing:1em; font-size:var(--text-heading); 
 
 /* Narrow windows: the manual reads in one column. */
 @media (max-width:820px){
-  .manual-cols{ grid-template-columns:1fr; }
+  .binder-grid--manual{ grid-template-columns:1fr; }
 }
 
 /* Wide enough for it, keep the stub beside the body. */
@@ -805,10 +853,10 @@ h2.bad{ color:var(--danger); letter-spacing:1em; font-size:var(--text-heading); 
     }
     .order{ grid-template-columns:1fr 170px; }
     .order-body{ padding:12px 16px; }
-    .order-head{ padding-bottom:6px; margin-bottom:8px; }
-    .order-head h2{ font-size:var(--text-heading); letter-spacing:.16em; }
-    .order-head .meta{ font-size:var(--text-label); margin-top:4px; }
-    .order .field{ margin:6px 0; font-size:var(--text-body); }
+    .binder-page-header{ padding-bottom:6px; margin-bottom:8px; }
+    .binder-page-header h2{ font-size:var(--text-heading); letter-spacing:.16em; }
+    .binder-page-header .meta{ font-size:var(--text-label); margin-top:4px; }
+    .binder-field{ margin:6px 0; font-size:var(--text-body); }
     .order .notes li{ font-size:var(--text-body); line-height:1.4; }
 
     .order-side{

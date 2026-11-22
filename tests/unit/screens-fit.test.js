@@ -118,7 +118,7 @@ test('[FIT] the compact binder pages scroll inside the ticket and pin their tab 
   assert.ok(/--pause-chrome\s*:\s*\d+px/.test(b), 'no --pause-chrome');
   assert.ok(/\[data-binder-page="settings"\][\s\S]*?overflow-y\s*:\s*auto/.test(b));
   assert.ok(/\.binder-tabs\s*\{[^}]*position\s*:\s*sticky/.test(b));
-  assert.ok(/\.setrow\.buttons\s*\{[^}]*position\s*:\s*sticky/.test(ui));
+  assert.ok(/\.binder-actions\s*\{[^}]*position\s*:\s*sticky/.test(ui));
 });
 
 test('[FIT] compact tier pins the HUD to the <=680px values at every width', () => {

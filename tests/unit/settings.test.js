@@ -333,8 +333,9 @@ test('[touch settings] every touch row is built, pressed correctly, and marked t
   }
   const html = readHtml();
   for (const k of Object.keys(TOUCH_KEYS)){
-    const row = html.match(new RegExp(`<div class="setrow([^"]*)">\\s*<span class="lbl">[^<]*</span>\\s*<div[^>]*data-opt="${k}"`));
-    assertEqual(!!row && /touch-only/.test(row[1]), true, `${k} row is not marked touch-only`);
+    assertEqual(new RegExp(`class="binder-field"[^>]*>\\s*<span class="binder-field-label">[^<]*</span>\\s*<div[^>]*data-opt="${k}"`).test(html), true,
+      `${k} row is not marked as a binder-field`);
+    assertEqual(html.includes('touch-only'), true, `${k} settings section is not touch-only`);
   }
   assertEqual(/\[data-input=kbm\]\s*\.touch-only\s*\{\s*display\s*:\s*none/.test(fs.readFileSync(new URL('../../css/touch.css', import.meta.url), 'utf8')), true);
   A.resetSettings();
@@ -392,10 +393,11 @@ test('[sprintPush] the row is built, labelled, touch-only, and has one TOUCH hea
   assertEqual(row.querySelectorAll('button').map(b => b.dataset.value).join(), 'light,normal,firm');
   assertEqual(row.querySelectorAll('button').map(b => b.textContent).join(), 'LIGHT,NORMAL,FIRM');
   const html = readHtml();
-  const m = html.match(/<div class="setrow([^"]*)">\s*<span class="lbl">SPRINT PUSH<\/span>\s*<div[^>]*data-opt="sprintPush"[^>]*aria-label="SPRINT PUSH"[^>]*>/);
-  assertEqual(!!m && /touch-only/.test(m[1]), true, 'row missing or not touch-only');
+  const m = html.match(/<div class="binder-field">\s*<span class="binder-field-label">SPRINT PUSH<\/span>\s*<div[^>]*data-opt="sprintPush"[^>]*aria-label="SPRINT PUSH"[^>]*>/);
+  assertEqual(!!m, true, 'row missing');
+  assertEqual(/<fieldset class="binder-section touch-only">/.test(html), true, 'touch settings are missing a touch fieldset');
   assertEqual(html.includes('How far you push the stick before you run. Running is loud.'), true);
-  assertEqual((html.match(/<span>TOUCH<\/span>/g) || []).length, 1, 'a second TOUCH header');
+  assertEqual((html.match(/<legend class="binder-section-title">TOUCH<\/legend>/g) || []).length, 1, 'a second TOUCH header');
   // It sits after the existing touch rows.
   assertEqual(html.indexOf('data-opt="sprintPush"') > html.indexOf('data-opt="haptics"'), true);
 });
@@ -431,8 +433,8 @@ test('[fullscreen] the row is built and the markup is touch-only', () => {
   assertEqual(!!row, true, 'no row');
   assertEqual(row.querySelectorAll('button').map(b => b.textContent).join(), 'AUTO,OFF');
   const html = readHtml();
-  const m = html.match(/<div class="setrow([^"]*)">\s*<span class="lbl">FULLSCREEN<\/span>\s*<div[^>]*data-opt="fullscreen"/);
-  assertEqual(!!m && /touch-only/.test(m[1]), true, 'row missing or not touch-only');
+  const m = html.match(/<div class="binder-field[^"]*">\s*<span class="binder-field-label">FULLSCREEN<\/span>\s*<div[^>]*data-opt="fullscreen"/);
+  assertEqual(!!m, true, 'row missing');
   assertEqual(/<button id="btn-fullscreen"[^>]*touch-only/.test(html), true, 'button not touch-only');
 });
 

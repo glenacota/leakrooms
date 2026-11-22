@@ -54,12 +54,12 @@ function renderTimeline(){
     const label = now ? 'now' : (ok ? 'sealed' : 'crew loss');
     const cls = now ? 'now' : (ok ? 'ok' : 'bad');
     return `
-<div class="run-timeline-row${now?' now':''}">
-  <span class="run-timeline-floor">${floor}</span>
-  <span class="run-timeline-status ${cls}">${label}</span>
-  <span class="run-timeline-leaks">${sealed}/${total}</span>
-  <span class="run-timeline-clock">${clockText(clockLeft)} left</span>
-</div>`;
+<tr${now?' class="now"':''}>
+  <td class="run-timeline-floor">${floor}</td>
+  <td class="binder-status binder-status--${cls}">${label}</td>
+  <td class="run-timeline-leaks">${sealed}/${total}</td>
+  <td class="run-timeline-clock">${clockText(clockLeft)} left</td>
+</tr>`;
   };
 
   const rows = [];

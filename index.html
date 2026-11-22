@@ -152,63 +152,68 @@
 
           <!-- Page: work order (shift mode). The job briefing, in the game's voice. -->
           <div class="binder-page" id="binder-page-order" data-binder-page="order" role="tabpanel" aria-labelledby="tab-binder-order" tabindex="0">
-            <div class="order-head">
+            <header class="binder-page-header">
               <h2>WORK ORDER 88D</h2>
               <p class="meta">CLIENT: <b>ASYNC</b> &middot; LOCATION: <b>BACKROOMS, SEC D/F01-05</b></p>
-            </div>
-            <div class="field">
-              <b>The crew must locate and seal all reported pipe failures across floors 01-05 of Sector D. 
-                Floor plans may have changed since the last intervention.</b>
-            </div>
-            <div class="field">
-              <h3>SAFETY MEASURES</h3><span class="highlight">INSURANCE-COVERAGE</span> <b>.. Only one worker per floor at a time.</b> <br/>
-              <span class="highlight">AIRBORNE-HAZARD</span> <b>..... Breathing units with limited air supply are provided.</b> <br/>
-              <span class="highlight">FLOOD-CONTAINMENT</span> <b>... The exit door opens when every leak is sealed.</b> <br/>
-              <span class="highlight">HOSTILE-ENTITIES</span> <b>.... Reported sector-wide. Maintain a safe distance.</b> <br/>
-            </div>
-            <div class="field">
-              <h3>NON-SUSPENSION CLAUSE</h3>
-              <b>Personnel loss <em>DOES NOT</em> suspend the assignment. Replacements resume work.</b>
-            </div>
+            </header>
+            <section class="binder-section">
+              <p class="binder-field"><b>The crew must locate and seal all reported pipe failures across floors 01-05 of Sector D.
+                Floor plans may have changed since the last intervention.</b></p>
+            </section>
+            <section class="binder-section">
+              <h3 class="binder-section-title">SAFETY MEASURES</h3>
+              <p class="binder-field"><span class="highlight">INSURANCE-COVERAGE</span> <b>.. Only one worker per floor at a time.</b></p>
+              <p class="binder-field"><span class="highlight">AIRBORNE-HAZARD</span> <b>..... Breathing units with limited air supply are provided.</b></p>
+              <p class="binder-field"><span class="highlight">FLOOD-CONTAINMENT</span> <b>... The exit door opens when every leak is sealed.</b></p>
+              <p class="binder-field"><span class="highlight">HOSTILE-ENTITIES</span> <b>.... Reported sector-wide. Maintain a safe distance.</b></p>
+            </section>
+            <section class="binder-section">
+              <h3 class="binder-section-title">NON-SUSPENSION CLAUSE</h3>
+              <p class="binder-field"><b>Personnel loss <em>DOES NOT</em> suspend the assignment. Replacements resume work.</b></p>
+            </section>
             <!-- Terms are chosen here, before the run, and nowhere else, so a run keeps the same rules from its first frame to its last. -->
-            <h3>TERMS</h3>
-            <div class="terms">
+            <section class="binder-section">
+              <h3 class="binder-section-title">TERMS</h3>
               <div class="seg" id="set-difficulty" data-opt="difficulty" role="group" aria-label="TERMS"></div>
-              <p class="note" id="note-difficulty"></p>
-            </div>
+              <p class="binder-field-note" id="note-difficulty"></p>
+            </section>
           </div>
 
           <!-- Page: run (pause mode). The numbers are written by src/ui/pause.js. -->
           <div class="binder-page" id="binder-page-run" data-binder-page="run" role="tabpanel" aria-labelledby="tab-binder-run" tabindex="0" hidden>
-            <div class="order-head">
+            <header class="binder-page-header">
               <h2>SHIFT PAUSED</h2>
-            </div>
-            <div class="run-stats">
-              <div><small>AIR SUPPLY</small><b id="pause-clock">3:00</b></div>
-              <div><small>FLOOR</small><b id="pause-floor">1/5</b></div>
-              <div><small>LEAKS SEALED</small><b id="pause-leaks">0/1</b></div>
-              <div><small>CREW</small><b class="lives-row" id="pause-lives"></b></div>
-              <div><small>TERMS</small><b id="pause-terms">NORMAL</b></div>
-            </div>
-            <div class="field"><h3>TIMELOG</h3></div>
-            <div class="run-timeline">
-              <div class="run-timeline-head">
-                <span class="run-timeline-label">FLOOR</span>
-                <span class="run-timeline-label">RESULT</span>
-                <span class="run-timeline-label">LEAKS</span>
-                <span class="run-timeline-label">AIR LEFT</span>
-              </div>
-              <div id="pause-timeline" class="run-timeline-body"></div>
-            </div>
+            </header>
+            <dl class="binder-grid binder-grid--run">
+              <div class="binder-field"><dt>AIR SUPPLY</dt><dd id="pause-clock">3:00</dd></div>
+              <div class="binder-field"><dt>FLOOR</dt><dd id="pause-floor">1/5</dd></div>
+              <div class="binder-field"><dt>LEAKS SEALED</dt><dd id="pause-leaks">0/1</dd></div>
+              <div class="binder-field"><dt>CREW</dt><dd class="lives-row" id="pause-lives"></dd></div>
+              <div class="binder-field"><dt>TERMS</dt><dd id="pause-terms">NORMAL</dd></div>
+            </dl>
+            <section class="binder-section">
+              <h3 class="binder-section-title">TIMELOG</h3>
+              <table class="run-timeline">
+                <thead>
+                  <tr>
+                    <th scope="col">FLOOR</th>
+                    <th scope="col">RESULT</th>
+                    <th scope="col">LEAKS</th>
+                    <th scope="col">AIR LEFT</th>
+                  </tr>
+                </thead>
+                <tbody id="pause-timeline"></tbody>
+              </table>
+            </section>
           </div>
 
           <!-- Page: field manual. How to play: controls, the screen legend and the
                rules. Plain words, no story. The numbers are written by
                src/ui/terms.js so they match the chosen terms. -->
           <div class="binder-page" id="binder-page-manual" data-binder-page="manual" role="tabpanel" aria-labelledby="tab-binder-manual" tabindex="0" hidden>
-            <div class="manual-cols">
-              <section>
-                <h3>ADVICES</h3>
+            <div class="binder-grid binder-grid--manual">
+              <section class="binder-section">
+                <h3 class="binder-section-title">ADVICES</h3>
                 <ul class="notes">
                   <li><b>In the Backrooms, the quieter you are, the safer you stay.</b></li>
                   <li><b>Follow the wet carpet to identify the source of the leak.</b></li>
@@ -219,8 +224,8 @@
                   <li><b>If something chases you, flee the area fast. Keep quiet once you're out of sight to lose your pursuer.</b></li>
               </ul>
               </section>
-              <section>
-                <h3>CONTROLS</h3>
+              <section class="binder-section">
+                <h3 class="binder-section-title">CONTROLS</h3>
                 <div class="controls controls-big kbd-only">
                   <div class="controls-wide"><b>WASD / arrows</b>move</div>
                   <div><b>SHIFT</b>sprint</div>
@@ -236,7 +241,7 @@
                   <div><b>RADAR</b><span>corner button</span></div>
                   <div><b>II</b><span>pause</span></div>
                 </div>
-                <h3>SCREEN LEGEND</h3>
+                <h3 class="binder-section-title">SCREEN LEGEND</h3>
                 <ul class="legend">
                   <li><i class="lg lg-clock">2:41</i><span><b>AIR SUPPLY</b> on this floor.</span></li>
                   <li><i class="lg lg-lives" aria-hidden="true"><svg class="life-pip" viewBox="0 0 16 16" focusable="false"><use href="#i-plumber-head"/></svg><svg class="life-pip" viewBox="0 0 16 16" focusable="false"><use href="#i-plumber-head"/></svg><svg class="life-pip gone" viewBox="0 0 16 16" focusable="false"><use href="#i-plumber-head"/></svg></i><span><b>CREW</b> members available.</span></li>
@@ -253,89 +258,84 @@
 
           <!-- Page: settings. The controls are wired by src/ui/settings-panel.js. -->
           <div class="binder-page" id="binder-page-settings" data-binder-page="settings" role="tabpanel" aria-labelledby="tab-binder-settings" tabindex="0" hidden>
-            <div class="settings-grid">
-
-              <div class="setrow section"><span>AUDIO</span></div>
-
-              <div class="setrow">
-                <label for="set-master">VOL</label>
-                <input type="range" id="set-master" min="0" max="1" step="0.05" data-opt="master">
-              </div>
-
-              <div class="setrow">
-                <label for="set-ambience">AMBIENCE BEDS</label>
-                <input type="range" id="set-ambience" min="0" max="1" step="0.05" data-opt="ambience">
-              </div>
-
-              <div class="setrow section"><span>DISPLAY</span></div>
-
-              <div class="setrow">
-                <label for="set-contrast">WATER CONTRAST</label>
-                <input type="range" id="set-contrast" min="0.4" max="2" step="0.1" data-opt="waterContrast">
-              </div>
-
-              <div class="setrow">
-                <label for="set-crt">CRT INTENSITY</label>
-                <input type="range" id="set-crt" min="0" max="1" step="0.05" data-opt="crt">
-              </div>
-
-              <div class="setrow">
-                <span class="lbl">WATER TINT</span>
-                <div class="seg" id="set-hue" data-opt="waterHue" role="group" aria-label="WATER TINT"></div>
-              </div>
-
-              <div class="setrow">
-                <span class="lbl">FLASH</span>
-                <div class="seg" id="set-flash" data-opt="flash" role="group" aria-label="FLASH"></div>
-              </div>
-
-              <div class="setrow">
-                <span class="lbl">TUTORIALS</span>
-                <div class="seg" id="set-tutorials" data-opt="tutorials" role="group" aria-label="TUTORIALS"></div>
-              </div>
-              
-              <div class="setrow">
-                <span class="lbl">REPLAY TUTORIALS</span>
-                <div>
-                  <button type="button" id="btn-reset-tutorials" class="btn--ghost">SHOW TUTORIALS AGAIN</button>
-                  <span id="tutorials-reset-status" class="note" role="status" aria-live="polite"></span>
+            <div class="binder-grid binder-grid--settings">
+              <fieldset class="binder-section">
+                <legend class="binder-section-title">DISPLAY</legend>
+                <div class="binder-field">
+                  <label for="set-crt">CRT INTENSITY</label>
+                  <input type="range" id="set-crt" min="0" max="1" step="0.05" data-opt="crt">
                 </div>
-              </div>
+                <div class="binder-field">
+                  <label for="set-contrast">WATER CONTRAST</label>
+                  <input type="range" id="set-contrast" min="0.4" max="2" step="0.1" data-opt="waterContrast">
+                </div>
+                <div class="binder-field">
+                  <span class="binder-field-label">WATER TINT</span>
+                  <div class="seg" id="set-hue" data-opt="waterHue" role="group" aria-label="WATER TINT"></div>
+                </div>
+              </fieldset>
+
+              <fieldset class="binder-section">
+                <legend class="binder-section-title">CUES</legend>
+                <div class="binder-field">
+                  <span class="binder-field-label">FLASH</span>
+                  <div class="seg" id="set-flash" data-opt="flash" role="group" aria-label="FLASH"></div>
+                </div>
+                <div class="binder-field">
+                  <span class="binder-field-label">TUTORIALS</span>
+                  <div class="seg" id="set-tutorials" data-opt="tutorials" role="group" aria-label="TUTORIALS"></div>
+                </div>
+                <div class="binder-field">
+                  <span class="binder-field-label">REPLAY TUTORIALS</span>
+                  <div>
+                    <button type="button" id="btn-reset-tutorials" class="btn--ghost">SHOW TUTORIALS AGAIN</button>
+                    <span id="tutorials-reset-status" class="binder-field-note" role="status" aria-live="polite"></span>
+                  </div>
+                </div>
+              </fieldset>
+
+              <fieldset class="binder-section">
+                <legend class="binder-section-title">AUDIO</legend>
+                <div class="binder-field">
+                  <label for="set-master">VOL</label>
+                  <input type="range" id="set-master" min="0" max="1" step="0.05" data-opt="master">
+                </div>
+                <div class="binder-field">
+                  <label for="set-ambience">AMBIENCE BEDS</label>
+                  <input type="range" id="set-ambience" min="0" max="1" step="0.05" data-opt="ambience">
+                </div>
+              </fieldset>
 
               <!-- Touch settings. Hidden in keyboard mode (css/touch.css). -->
-              <div class="setrow section touch-only"><span>TOUCH</span></div>
-
-              <div class="setrow touch-only">
-                <span class="lbl">HUD PANEL</span>
-                <div class="seg" id="set-touch-hud" data-opt="touchHud" role="group" aria-label="HUD PANEL"></div>
-              </div>
-
-              <div class="setrow touch-only">
-                <span class="lbl">MOVE STICK</span>
-                <div class="seg" id="set-touch-side" data-opt="touchSide" role="group" aria-label="MOVE STICK"></div>
-              </div>
-
-              <div class="setrow touch-only">
-                <span class="lbl">BUZZ</span>
-                <div class="seg" id="set-haptics" data-opt="haptics" role="group" aria-label="BUZZ"></div>
-              </div>
-
-              <div class="setrow touch-only">
-                <span class="lbl">SPRINT PUSH</span>
-                <div class="seg" id="set-sprint-push" data-opt="sprintPush" role="group" aria-label="SPRINT PUSH"></div>
-                <p class="note">How far you push the stick before you run. Running is loud.</p>
-              </div>
-
-              <div class="setrow touch-only fs-ui">
-                <span class="lbl">FULLSCREEN</span>
-                <div class="seg" id="set-fullscreen" data-opt="fullscreen" role="group" aria-label="FULLSCREEN"></div>
-              </div>
-
-              <p class="fs-hint touch-only" hidden><span>TIP: SHARE, THEN ADD TO HOME SCREEN, TO PLAY WITHOUT BROWSER BARS.</span><button type="button" id="btn-hint-pause" aria-label="Dismiss tip">OK</button></p>
-
+              <fieldset class="binder-section touch-only">
+                <legend class="binder-section-title">TOUCH</legend>
+                <div class="binder-field">
+                  <span class="binder-field-label">HUD PANEL</span>
+                  <div class="seg" id="set-touch-hud" data-opt="touchHud" role="group" aria-label="HUD PANEL"></div>
+                </div>
+                <div class="binder-field">
+                  <span class="binder-field-label">MOVE STICK</span>
+                  <div class="seg" id="set-touch-side" data-opt="touchSide" role="group" aria-label="MOVE STICK"></div>
+                </div>
+                <div class="binder-field">
+                  <span class="binder-field-label">BUZZ</span>
+                  <div class="seg" id="set-haptics" data-opt="haptics" role="group" aria-label="BUZZ"></div>
+                </div>
+                <div class="binder-field">
+                  <span class="binder-field-label">SPRINT PUSH</span>
+                  <div class="seg" id="set-sprint-push" data-opt="sprintPush" role="group" aria-label="SPRINT PUSH"></div>
+                  <p class="binder-field-note">How far you push the stick before you run. Running is loud.</p>
+                </div>
+                <div class="binder-field fs-ui">
+                  <span class="binder-field-label">FULLSCREEN</span>
+                  <div class="seg" id="set-fullscreen" data-opt="fullscreen" role="group" aria-label="FULLSCREEN"></div>
+                </div>
+              </fieldset>
             </div>
 
-            <div class="setrow buttons">
+            <p class="fs-hint touch-only" hidden><span>TIP: SHARE, THEN ADD TO HOME SCREEN, TO PLAY WITHOUT BROWSER BARS.</span><button type="button" id="btn-hint-pause" aria-label="Dismiss tip">OK</button></p>
+
+            <div class="binder-actions">
               <button id="btn-fullscreen" class="btn--ghost touch-only fs-ui">ENTER FULLSCREEN</button>
               <button id="btn-settings-reset" class="btn--ghost">RESET SETTINGS</button>
             </div>
