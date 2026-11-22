@@ -262,11 +262,11 @@
               <fieldset class="binder-section">
                 <legend class="binder-section-title">DISPLAY</legend>
                 <div class="binder-field">
-                  <label for="set-crt">CRT INTENSITY</label>
+                  <label class="binder-field-label" for="set-crt">CRT INTENSITY</label>
                   <input type="range" id="set-crt" min="0" max="1" step="0.05" data-opt="crt">
                 </div>
                 <div class="binder-field">
-                  <label for="set-contrast">WATER CONTRAST</label>
+                  <label class="binder-field-label" for="set-contrast">WATER CONTRAST</label>
                   <input type="range" id="set-contrast" min="0.4" max="2" step="0.1" data-opt="waterContrast">
                 </div>
                 <div class="binder-field">
@@ -297,11 +297,11 @@
               <fieldset class="binder-section">
                 <legend class="binder-section-title">AUDIO</legend>
                 <div class="binder-field">
-                  <label for="set-master">VOL</label>
+                  <label class="binder-field-label" for="set-master">VOL</label>
                   <input type="range" id="set-master" min="0" max="1" step="0.05" data-opt="master">
                 </div>
                 <div class="binder-field">
-                  <label for="set-ambience">AMBIENCE BEDS</label>
+                  <label class="binder-field-label" for="set-ambience">AMBIENCE BEDS</label>
                   <input type="range" id="set-ambience" min="0" max="1" step="0.05" data-opt="ambience">
                 </div>
               </fieldset>
@@ -337,7 +337,7 @@
 
             <div class="binder-actions">
               <button id="btn-fullscreen" class="btn--ghost touch-only fs-ui">ENTER FULLSCREEN</button>
-              <button id="btn-settings-reset" class="btn--ghost">RESET SETTINGS</button>
+              <button id="btn-settings-reset" class="btn--ghost btn--danger">RESET SETTINGS</button>
             </div>
           </div>
         </div>

@@ -45,7 +45,7 @@
 }
 .binder-grid--settings{
   grid-template-columns:1fr 1fr;
-  gap:50px;
+  gap:20px 50px;
   margin:44px 0 6px;
   text-align:left;
 }
@@ -80,6 +80,7 @@
   font-weight:900;
   opacity:.55;
 }
+.binder-field-label { margin-top:1em}
 .binder-actions{
   display:flex;
   flex-direction:row;
