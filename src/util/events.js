@@ -133,7 +133,7 @@ export const EVENT_CONTRACTS = Object.freeze({
   },
   [EVENT.win]: {
     purpose: 'Provide run results to the win screen.',
-    args: '[{sealed: number, deaths: number, noises: number, floors: number, time: number, terms: string, runHistory: object[]}]',
+    args: '[{sealed: number, deaths: number, noises: number, floors: number, time: number, parTime: number, terms: string, runHistory: object[]}]',
     producers: ['src/game/run.js'],
     consumers: ['src/ui/cards.js'],
   },

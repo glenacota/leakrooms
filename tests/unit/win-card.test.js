@@ -6,7 +6,7 @@ import { readCss, readHtml } from '../helpers/src-text.js';
 
 const { A, els } = await loadGame();
 const report = {
-  sealed: 12, deaths: 2, noises: 17, floors: 5, time: 125.9, terms: 'RELAXED',
+  sealed: 12, deaths: 2, noises: 17, floors: 5, time: 125.9, terms: 'RELAXED', parTime: 1200,
   runHistory: [
     { floor: 0, sealed: 1, total: 1, clockLeft: 120, died: false },
     { floor: 1, sealed: 1, total: 2, clockLeft: 0, died: true },
@@ -30,19 +30,21 @@ test('win sheet reports totals, completed floors and itemized invoice', () => {
   assert.equal((html.match(/<th scope="row">[1-5]<\/th>/g) || []).length, 5);
   assert.match(html, /<th scope="row">2<\/th><td>2\/2<\/td><td>1<\/td><td>1:31<\/td>/);
   assert.match(html, /Leaks sealed \(12 × 100\)<\/th><td>1200/);
-  assert.match(html, /Floors walked back \(5 × 40\)<\/th><td>200/);
-  assert.match(html, /Equipment lost \(2 × 75\)<\/th><td>−150/);
-  assert.match(html, /TOTAL<\/th><td>1250/);
+  assert.match(html, /Floors secured \(5 × 50\)<\/th><td>250/);
+  assert.match(html, /Early-completion premium<\/th><td>269/);
+  assert.match(html, /Casualties \(insurance, equipment\) \(2 × 150\)<\/th><td>−300/);
+  assert.doesNotMatch(html, /Continuity clause breach/);
+  assert.match(html, /TOTAL<\/th><td>1419/);
   assert.doesNotMatch(html.replace(/<[^>]+>/g, ' '), /\b(levels?|difficulty|fix(?:es|ing)?)\b/i);
 });
 
 test('invoice preserves a negative total and handles zero deaths', () => {
   A.STATE = 'win';
-  emit('win', { ...report, sealed: 0, deaths: 4 });
-  assert.match(els['end-stats'].innerHTML, /TOTAL<\/th><td>-100/);
+  emit('win', { ...report, sealed: 0, deaths: 8 });
+  assert.match(els['end-stats'].innerHTML, /TOTAL<\/th><td>-681/);
   emit('win', { ...report, deaths: 0 });
-  assert.match(els['end-stats'].innerHTML, /Equipment lost \(0 × 75\)<\/th><td>−0/);
-  assert.match(els['end-stats'].innerHTML, /TOTAL<\/th><td>1400/);
+  assert.match(els['end-stats'].innerHTML, /Casualties \(insurance, equipment\) \(0 × 150\)<\/th><td>−0/);
+  assert.match(els['end-stats'].innerHTML, /TOTAL<\/th><td>1719/);
 });
 
 test('a new win returns the sheet to the top', () => {

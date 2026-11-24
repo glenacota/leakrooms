@@ -24,9 +24,11 @@ test('the last crew member lost shows the termination sheet and hides the tape',
   assert.match(stats, /TERMS: <b>NORMAL<\/b>/);
   assert.match(stats, /Overall Time: <b>1:10<\/b>/);
   assert.match(stats, /Leaks sealed \(3 × 100\)<\/th><td>300/);
-  assert.match(stats, /Equipment lost \(2 × 75\)<\/th><td>−150/);
-  assert.match(stats, /TOTAL<\/th><td>150/);
+  assert.match(stats, /Casualties \(insurance, equipment\) \(2 × 150\)<\/th><td>−300/);
+  assert.match(stats, /Continuity clause breach \(assignment incomplete\)<\/th><td>−300/);
+  assert.match(stats, /TOTAL<\/th><td>-300/);
   assert.doesNotMatch(stats, /Floors walked back/);
+  assert.doesNotMatch(stats, /Early-completion premium/);
   assert.match(stats, /CLIENT FEEDBACK/);
   assert.match(stats, /MANAGEMENT NOTE/);
   assert.equal(document.getElementById('btn-retry').textContent, 'TRY AGAIN');

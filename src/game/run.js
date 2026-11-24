@@ -92,6 +92,8 @@ function runReport(floors){
   return {
     sealed: runStat.sealed, deaths: runStat.deaths, noises: runStat.noises,
     floors, time: runTime, terms: currentTerms().label,
+    /* The air for every floor: the time the early-completion premium is measured against. */
+    parTime: FLOORS*currentTerms().clock,
     runHistory: runHistory.map(entry => ({ ...entry })),
   };
 }

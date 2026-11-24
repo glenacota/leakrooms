@@ -33,6 +33,21 @@ Each completed tutorial is remembered across runs in the same browser. Disable
 tutorials under **Settings → Tutorials** to use concise flashnotes instead;
 re-enabling them lets unseen tutorials appear.
 
+## 💰 Scoring
+
+The INVOICE on the end card is also the score of a shift. Each terms level (RELAXED, NORMAL, HARD) is scored on its own, so no weighting is needed. The rates are in `src/config/scoring.js`, the formula is `scoreRun()` in `src/game/score.js`, and the reasoning is in `docs/adr/0008-the-invoice-is-the-score.md`.
+
+| Line | Credits | When |
+|---|---|---|
+| Leaks sealed | +100 each | always |
+| Floors secured | +50 each | completed shift only |
+| Early-completion premium | up to +300, falling to 0 as the shift time approaches the air for all five floors | completed shift only |
+| Casualties | −150 per crew member lost | always |
+| Continuity clause breach | −300 | shift ended without clearing floor 5 |
+
+The total can be negative. On the same terms a failed shift always scores below a completed one (`tests/unit/score.test.js` pins this).
+
+
 ## 🕹️ Controls
 
 | Key | Action |

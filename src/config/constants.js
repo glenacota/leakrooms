@@ -160,3 +160,14 @@ export const NOISE = Object.freeze({
     NOISE_VALUES.BRUSH,
   ]),
 });
+
+/* Fictional contractor credits, not game currency. */
+export const SCORE = Object.freeze({
+  LEAK_PAY: 100,
+  FLOOR_PAY: 50,
+  // The most the early-completion premium can pay: the flood damage avoided by a fast shift.
+  PREMIUM_MAX: 300,
+  CASUALTY_COST: 150,
+  // Charged once when a shift ends without clearing the last floor.
+  BREACH_FEE: 300,
+});

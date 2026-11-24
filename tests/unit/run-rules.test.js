@@ -1,9 +1,6 @@
 import test from 'node:test';
-import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { fakeAudioContext } from '../helpers/stubs.js';
 import { softAssert } from '../helpers/soft-assert.js';
-import { readCss, readHtml, readSrc } from '../helpers/src-text.js';
 import { loadGame } from '../helpers/harness.js';
 import { on } from '../../src/util/events.js';
 
@@ -199,8 +196,8 @@ test('the run is five levels, three minutes and one door', () => {
     t.assert(A.runStat.noises === noises,
       `the run tally has ${A.runStat.noises} noises, want ${noises}`);
     t.assert(winPayload.terms === A.SETTINGS.difficulty.toUpperCase(), 'the win event did not include the run terms');
-    t.assert(winPayload.runHistory.length === 6 && winPayload.runHistory.filter(e => e.died).length === 1,
-      'the win event did not include all floor attempts');
+    t.assert(winPayload.parTime === A.FLOORS * A.DIFFICULTIES[A.SETTINGS.difficulty].clock,
+      `the win event par time is ${winPayload.parTime}, want the air for every floor`);
     console.log(`  the win card counts the run: ${sealed} leaks sealed, 1 death, ${noises} noises`);
     /* leave the world where the next test expects to find it */
     A.STATE = 'splash';

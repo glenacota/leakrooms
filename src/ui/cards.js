@@ -1,9 +1,8 @@
+import { SCORE } from '../config/constants.js';
 import { FLOOR_CLOCK } from '../config/tuning.js';
 import { clearCard, clockText, DEATH_CAUSE, STATE } from '../game/run.js';
+import { scoreRun } from '../game/score.js';
 import { emit, on, EVENT } from '../util/events.js';
-
-// Fictional invoice rates: placeholders for the contractor's paperwork, not game currency.
-const LEAK_RATE = 100, FLOOR_RATE = 40, DEATH_COST = 75;
 
 const el = id => document.getElementById(id);
 
@@ -69,25 +68,26 @@ const END_COPY = {
   },
 };
 
-function endReport({ sealed, deaths, floors, time, terms, runHistory }, won){
+function endReport(report, won){
   const copy = won ? END_COPY.won : END_COPY.lost;
-  const leakPay = sealed * LEAK_RATE;
-  const lostPay = deaths * DEATH_COST;
-  const lines = [[`Leaks sealed (${sealed} × ${LEAK_RATE})`, leakPay]];
-  let total = leakPay - lostPay;
+  
+  const score = scoreRun(report, won);
+  const lines = [[`Leaks sealed (${report.sealed} × ${SCORE.LEAK_PAY})`, score.leaks]];
   if (won){
-    const floorPay = floors * FLOOR_RATE;
-    lines.push([`Floors walked back (${floors} × ${FLOOR_RATE})`, floorPay]);
-    total += floorPay;
+    lines.push([`Floors secured (${report.floors} × ${SCORE.FLOOR_PAY})`, score.floors]);
+    lines.push(['Early-completion premium', score.premium]);
   }
-  lines.push([`Equipment lost (${deaths} × ${DEATH_COST})`, `−${lostPay}`]);
+  
+  lines.push([`Casualties \(insurance, equipment\) (${report.deaths} × ${SCORE.CASUALTY_COST})`, `−${score.casualties}`]);
+  if (!won) lines.push(['Continuity clause breach (assignment incomplete)', `−${score.breach}`]);
+   
   return `
     <section class="end-section end-order">
       <div class="end-stamp">${copy.stamp}</div>
-      ${orderHeading(terms, copy)}
+      ${orderHeading(report.terms, copy)}
     </section>
-    ${runSection(time, runRows(runHistory, floors))}
-    ${invoiceSection(lines, total)}`;
+    ${runSection(report.time, runRows(report.runHistory, report.floors))}
+    ${invoiceSection(lines, score.total)}`;
 }
 
 /** Binds the text shown on the dead, win, and floor-clear cards. */
