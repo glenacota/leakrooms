@@ -73,10 +73,10 @@ function renderLeaderboard(){
   rows.innerHTML = result.ok ? renderRows(selected) : '';
   table.hidden = !result.ok || selected.length === 0;
   empty.hidden = !result.ok || selected.length > 0;
-  empty.textContent = `No scores yet. Complete a ${activeTerms} shift to appear.`;
+  empty.textContent = `No scores for ${activeTerms} shifts yet.`;
   message.textContent = notice || (result.ok
-    ? 'Records stay in this browser. No player names are stored.'
-    : 'Local records are unavailable in this browser.');
+    ? '> Records stay in this browser.'
+    : '> Local records are unavailable in this browser.');
   message.dataset.state = result.ok ? 'ready' : 'error';
 }
 
