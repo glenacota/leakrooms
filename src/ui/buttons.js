@@ -5,6 +5,7 @@ import { setBinderTab } from './binder.js';
 import { toggleFullscreen, dismissHint } from './fullscreen.js';
 import { resetSettings } from '../settings/store.js';
 import { syncSettingsUI } from './settings-panel.js';
+import { openLeaderboard } from './leaderboard.js';
 
 /* Attaches the buttons and screen clicks to the run functions that do the
    work. This function is the only place where that wiring happens. Adding the
@@ -36,6 +37,8 @@ export function bindButtons(){
      does nothing: the menu is the only way in. */
   for (const el of document.querySelectorAll('[data-menu]'))
     el.onclick = ()=> activateMenu(el.dataset.menu);
+  for (const el of document.querySelectorAll('[data-open-leaderboard]'))
+    el.onclick = ()=> openLeaderboard(el.dataset.terms, el.dataset.returnScreen);
 
   const resetSettingsBtn = document.getElementById('btn-settings-reset');
   if (resetSettingsBtn) resetSettingsBtn.onclick = ()=>{ resetSettings({keepTerms:true}); syncSettingsUI(); };

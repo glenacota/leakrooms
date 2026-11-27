@@ -2,6 +2,7 @@ import { SCORE } from '../config/constants.js';
 import { FLOOR_CLOCK } from '../config/tuning.js';
 import { clearCard, clockText, DEATH_CAUSE, STATE } from '../game/run.js';
 import { scoreRun } from '../game/score.js';
+import { recordLeaderboardResult } from '../settings/leaderboard-store.js';
 import { emit, on, EVENT } from '../util/events.js';
 
 const el = id => document.getElementById(id);
@@ -58,10 +59,21 @@ const END_COPY = {
   },
 };
 
-function endReport(report, won){
-  const copy = won ? END_COPY.won : END_COPY.lost;
-  
+function saveLeaderboardResult(report, won){
   const score = scoreRun(report, won);
+  const result = recordLeaderboardResult({
+    terms: report.terms,
+    total: score.total,
+    status: won ? 'COMPLETED' : 'FAILED',
+    elapsedSeconds: Math.floor(report.time),
+    timestamp: new Date().toISOString(),
+  });
+  if (!result.ok) console.warn('Leaderboard result could not be saved:', result.error);
+  return score;
+}
+
+function endReport(report, won, score){
+  const copy = won ? END_COPY.won : END_COPY.lost;
   const lines = [{
     description: `Leaks sealed`,
     qty: report.sealed,
@@ -130,13 +142,17 @@ export function bindCards(){
     } else {
       tape.hidden = true;
       over.hidden = false;
-      if (report) el('dead-stats').innerHTML = endReport(report, false);
+      if (report){
+        const score = saveLeaderboardResult(report, false);
+        el('dead-stats').innerHTML = endReport(report, false, score);
+      }
       btn.textContent = 'TRY AGAIN';
     }
   });
   on(EVENT.win, report => {
     el('win-wrap').scrollTop = 0;
-    winStats.innerHTML = endReport(report, true);
+    const score = saveLeaderboardResult(report, true);
+    winStats.innerHTML = endReport(report, true, score);
     if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)
       emit(EVENT.sfx, 'stamp');
   });

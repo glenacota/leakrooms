@@ -126,6 +126,7 @@
           <button type="button" id="menu-start" class="sel touch-target" data-menu="start">PLAY</button>
           <button type="button" id="menu-manual" class="touch-target" data-menu="manual">MANUAL</button>
           <button type="button" id="menu-settings" class="touch-target" data-menu="settings">SETTINGS</button>
+          <button type="button" id="menu-leaderboard" class="touch-target" data-menu="leaderboard">LEADERBOARD</button>
         </nav>
         <p class="go kbd-only">&uarr;&darr; SELECT &middot; <b>ENTER</b> CONFIRM</p>
         <p class="fs-hint touch-only" hidden><span>TIP: SHARE, THEN ADD TO HOME SCREEN, TO PLAY WITHOUT BROWSER BARS.</span><button type="button" id="btn-hint-title" aria-label="Dismiss tip">OK</button></p>
@@ -413,6 +414,44 @@
       <div class="order-cta">
         <button id="btn-again" class="btn">PLAY AGAIN</button> 
         <span class="cta-hint kbd-only">OR PRESS <b>ESC</b> TO EXIT TO MENU</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ------------ LEADERBOARD ------------ -->
+  <div id="screen-leaderboard" class="screen" hidden>
+    <div class="order-wrap leaderboard-wrap">
+      <div class="order leaderboard-sheet" role="dialog" aria-modal="true" aria-labelledby="leaderboard-title">
+        <div class="order-body">
+          <header class="leaderboard-heading">
+            <div>
+              <p class="leaderboard-meta">LEAKROOMS Inc.</p>
+              <h2 id="leaderboard-title" tabindex="-1">REPARATION LEADERBOARD</h2>
+            </div>
+            <div class="leaderboard-tabs" role="tablist" aria-label="Terms">
+              <p><b>Boards by Terms:</b></p>
+              <button type="button" role="tab" id="leaderboard-relaxed" data-leaderboard-terms="RELAXED" aria-controls="leaderboard-panel" aria-selected="false" tabindex="-1">RELAXED</button>
+              <button type="button" role="tab" id="leaderboard-normal" data-leaderboard-terms="NORMAL" aria-controls="leaderboard-panel" aria-selected="true" tabindex="0">NORMAL</button>
+              <button type="button" role="tab" id="leaderboard-hard" data-leaderboard-terms="HARD" aria-controls="leaderboard-panel" aria-selected="false" tabindex="-1">HARD</button>
+            </div>
+          </header>
+          <div id="leaderboard-panel" role="tabpanel" aria-labelledby="leaderboard-normal" tabindex="0">
+            <p class="leaderboard-empty" id="leaderboard-empty" hidden></p>
+            <div class="leaderboard-table-wrap">
+              <table class="leaderboard-table" id="leaderboard-table" hidden>
+                <thead>
+                  <tr><th scope="col">RANK</th><th scope="col">DATE / TIME</th><th scope="col">RESULT</th><th scope="col">TIME</th><th scope="col">TOTAL ₵</th></tr>
+                </thead>
+                <tbody id="leaderboard-rows"></tbody>
+              </table>
+            </div>
+          </div>
+          <p class="leaderboard-message" id="leaderboard-message" aria-live="polite"></p>
+        </div>
+      </div>
+      <div class="order-cta">
+        <button type="button" id="btn-leaderboard-back" class="btn">BACK</button> &nbsp;&middot;&nbsp;
+        <button type="button" id="btn-clear-leaderboard" class="btn--ghost btn--danger">CLEAR LOCAL RECORDS</button>
       </div>
     </div>
   </div>

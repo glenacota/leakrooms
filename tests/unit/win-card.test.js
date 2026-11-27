@@ -90,7 +90,7 @@ test('stamp sounds at the landing, or immediately for reduced motion', () => {
 
 test('win sheet scrolls with the existing button and has a static reduced-motion stamp', () => {
   const html = readHtml();
-  const win = html.slice(html.indexOf('id="screen-win"'), html.indexOf('id="screen-mobile"'));
+  const win = html.slice(html.indexOf('id="screen-win"'), html.indexOf('id="screen-leaderboard"'));
   assert.ok(win.indexOf('id="end-stats"') < win.indexOf('id="btn-again"'));
   assert.equal((win.match(/<button\b/g) || []).length, 1);
   const css = readCss();

@@ -100,6 +100,7 @@ const MATCHERS = [
   { sel: '[data-binder-tab]', test: n => dataKeys(n).some(k => k === 'data-binder-tab') },
   { sel: '[data-binder-page]',test: n => dataKeys(n).some(k => k === 'data-binder-page') },
   { sel: '[data-binder-for]', test: n => dataKeys(n).some(k => k === 'data-binder-for') },
+  { sel: '[data-leaderboard-terms]', test: n => dataKeys(n).some(k => k === 'data-leaderboard-terms') },
   { sel: '[data-menu]',       test: n => dataKeys(n).some(k => k === 'data-menu') },
   { sel: 'button',           test: n => n.tag === 'button' },
 ];

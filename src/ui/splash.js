@@ -1,6 +1,9 @@
 import { Audio_ } from '../audio/index.js';
 import { setState, startRun, STATE } from '../game/run.js';
 import { openBinder } from './binder.js';
+
+import { currentTerms } from '../settings/store.js';
+import { openLeaderboard } from './leaderboard.js';
 import { showScreen } from './dom.js';
 import { on, EVENT } from '../util/events.js';
 
@@ -10,7 +13,7 @@ export function syncAmbience(){
 }
 
 /* The title menu. Each entry opens the binder on its own page. */
-export const TITLE_MENU = ['start', 'manual', 'settings'];
+export const TITLE_MENU = ['start', 'manual', 'settings', 'leaderboard'];
 export let menuIndex = 0;
 
 function paintMenu(){
@@ -44,9 +47,12 @@ export function activateMenu(entry){
   if (STATE!=='splash') return;
   if (entry) selectMenu(entry);
   const name = TITLE_MENU[menuIndex];
-  const tab = name==='start' ? 'order'
-            : name==='manual' ? 'manual' : 'settings';
-  openShiftBinder(tab);
+  if (name === 'leaderboard') {
+    openLeaderboard(currentTerms().label, 'splash');
+  } else {
+    const tab = name==='start' ? 'order' : name;
+    openShiftBinder(tab);
+  }
 }
 
 /** Returns to the start binder on the Order tab. */

@@ -11,12 +11,14 @@ import { bindScreen } from './binder.js';
 import { bindHud, bindFlash } from './hud.js';
 import { bindSplashRepaint, bindResize } from '../render/splash-plan.js';
 import { bindStateAmbience } from './splash.js';
+import { bindLeaderboard } from './leaderboard.js';
 
 export { applySettings } from './settings-panel.js';
 
 export function bindDom(){
   bindSettings();
   bindScreen();
+  bindLeaderboard();
   bindHud();
   bindFlash();
   bindSfx();

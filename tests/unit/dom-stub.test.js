@@ -33,14 +33,16 @@ test('[37] the DOM stub resolves the markup it claims to', () => {
   assert.equal(querySelectorAll('input[type=range][data-opt]').length, 4, 'wrong number of range inputs');
   assert.equal(querySelectorAll('[data-binder-tab]').length, 4, 'wrong number of binder tabs');
   assert.equal(querySelectorAll('[data-binder-page]').length, 4, 'wrong number of binder pages');
+  assert.equal(querySelectorAll('[data-leaderboard-terms]').length, 3, 'wrong number of leaderboard terms tabs');
   /* Ten since the fatal card shipped its RELOAD: the markup gained a button, so
      this count moved with it. Thirteen since the touch layer: RESUME, and the
      radar and pause buttons. Seventeen since fullscreen: its glyph, its
      pause-page button and the two dismiss buttons of the home-screen tip.
      Twenty-one since the binder: three title menu entries and four tabs, less
      the old CHANGE link and two pause tabs. Twenty-three with the tutorial
-     close and tutorial reset buttons. */
-  assert.equal(querySelectorAll('button').length, 23, 'wrong number of buttons');
+     close and tutorial reset buttons. Twenty-nine with the leaderboard menu,
+     terms tabs, back button, and two-step clear button. */
+  assert.equal(querySelectorAll('button').length, 29, 'wrong number of buttons');
 
   /* Attributes become dataset properties in camelCase — the direction that
      matters, since `data-binder-tab` is `dataset.binderTab` and not the reverse. */

@@ -1002,3 +1002,163 @@ h2.bad{ color:var(--danger); letter-spacing:1em; font-size:var(--text-heading); 
   .controls-big b{ font-size:var(--text-control); min-width:0; }
   .controls-big span{ font-size:var(--text-body); }
 }
+
+.leaderboard-result-rail{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  flex-wrap:wrap;
+  gap:8px 16px;
+  padding:10px 12px;
+  margin-right:3em;
+  border:1px solid rgba(var(--color-line-rgb), .35);
+  background:rgba(6,5,3,.72);
+  color:var(--yellow);
+}
+.leaderboard-result-rail button { margin-left:10px; font-weight:900}
+.leaderboard-result-rail[hidden]{ display:none; }
+.leaderboard-result-copy{ display:grid; gap:3px; }
+.leaderboard-result-copy strong{ font-size:var(--text-body); }
+.leaderboard-result-copy span{ color:var(--yellow-dim); font-size:var(--text-label); }
+
+#screen-leaderboard{ overflow-y:auto; }
+.leaderboard-wrap{
+  width:min(94vw,960px);
+  max-height:calc(94dvh - var(--safe-t) - var(--safe-b));
+}
+.leaderboard-wrap button { font-weight: 900}
+.leaderboard-sheet{
+  min-width:0;
+  display:block;
+  border-bottom:0;
+  background:repeating-linear-gradient(0deg, rgba(28,26,20,.035) 0 1px, transparent 1px 5px), var(--yellow);
+}
+.leaderboard-sheet .order-body{
+  padding:24px 48px 48px;
+  color:var(--ink);
+}
+.leaderboard-tabs{
+  display:flex;
+  gap:6px;
+  margin-top:18px;
+  flex-wrap:wrap;
+}
+.leaderboard-tabs p {padding-top:5px; font-size: var(--text-body);}
+.leaderboard-tabs button{
+  padding:6px 14px;
+  font-size:var(--text-label);
+  font-weight:900;
+  letter-spacing:.2em;
+  background:transparent;
+  color:var(--ink);
+  border:1px solid rgba(28,26,20,.4);
+  cursor:pointer;
+}
+.leaderboard-tabs button[aria-selected="true"]{
+  background:var(--ink);
+  color:var(--yellow);
+  border-color:var(--ink);
+}
+@media (hover:hover){
+  .leaderboard-tabs button[aria-selected="false"]:hover{
+    background:rgba(28,26,20,.08);
+  }
+}
+.leaderboard-heading{
+  margin-bottom:24px;
+  padding-bottom:16px;
+}
+.leaderboard-heading h2{
+  margin:0;
+  color:var(--ink);
+  font-size:var(--text-display);
+  font-weight:900;
+}
+.leaderboard-meta{
+  margin:8px 0 0;
+  color:rgba(28,26,20,1);
+  font-size:var(--text-control);
+  font-weight:900;
+  letter-spacing:.08em;
+}
+.leaderboard-message{
+  min-height:1.5em;
+  margin:16px 0;
+  font-size:var(--text-label);
+  color:var(--ink);
+  background-color: rgba(0,0,0,0.1);
+  padding: 5px 20px
+}
+.leaderboard-message[data-state="error"]{ color:var(--danger); font-weight:900; }
+.leaderboard-empty{
+  padding:18px 0;
+  border-top:1px solid rgba(28,26,20,.2);
+  border-bottom:1px solid rgba(28,26,20,.2);
+  color:var(--ink);
+}
+#leaderboard-panel {
+  border: 1px solid black;
+  border-top-width: 3px;
+  background-color: rgba(255,255,255,0.1);
+  padding: 20px
+}
+.leaderboard-table-wrap{ overflow-x:auto; }
+.leaderboard-table{
+  width:100%;
+  border-collapse:collapse;
+  font-size:var(--text-body);
+}
+.leaderboard-table caption{
+  padding:6px 8px;
+  color:var(--ink);
+  font-size:var(--text-label);
+  text-align:left;
+}
+.leaderboard-table th, .leaderboard-table td{
+  padding:9px 8px;
+  border-bottom:1px solid rgba(28,26,20,.2);
+  text-align:right;
+  white-space:nowrap;
+}
+.leaderboard-table th{
+  font-size:var(--text-label);
+  font-weight:900;
+  color:var(--ink);
+}
+.leaderboard-table th:first-child, .leaderboard-table td:first-child,
+.leaderboard-table th:nth-child(2), .leaderboard-table td:nth-child(2){
+  text-align:left;
+}
+.leaderboard-rank, .leaderboard-total{ font-weight:900; color:var(--ink); }
+.leaderboard-sheet .btn--ghost{
+  color:var(--ink);
+  border-color:rgba(28,26,20,.4);
+}
+@media (hover:hover){
+  .leaderboard-sheet .btn--ghost:hover{
+    background:rgba(28,26,20,.08);
+    color:var(--ink);
+  }
+}
+@media (hover:none){
+  .leaderboard-sheet .btn--ghost:active{
+    background:rgba(28,26,20,.08);
+    color:var(--ink);
+  }
+}
+.leaderboard-sheet button:focus-visible{
+  outline:3px solid var(--danger);
+  outline-offset:3px;
+}
+
+@media (max-width:520px){
+  .end-quotes{ grid-template-columns:1fr; }
+  .leaderboard-tabs{ justify-content:space-between; }
+  .leaderboard-tabs button{ padding:8px 7px; }
+  .leaderboard-table{ font-size:var(--text-label); }
+  .leaderboard-table th, .leaderboard-table td{ padding:8px 4px; }
+}
+
+@media (max-width:480px){
+  .leaderboard-sheet .order-body{ padding:20px 16px; }
+}

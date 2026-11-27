@@ -5,7 +5,7 @@
    screen; they are a page of the binder. */
 
 /* 'mobile' is a device notice, not a run state. */
-export const SCREENS = ['splash','binder','clear','dead','win','mobile'];
+export const SCREENS = ['splash','binder','clear','dead','win','leaderboard','mobile'];
 
 /** Shows one known screen and hides all others. @param {string} screenId */
 export function showScreen(screenId){
