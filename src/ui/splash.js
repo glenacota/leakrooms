@@ -32,6 +32,13 @@ export function selectMenu(which){
   if (i >= 0){ menuIndex = i; paintMenu(); }
 }
 
+function openShiftBinder(tab){
+  setState('binder');
+  openBinder('shift', tab);
+  showScreen('binder');
+  syncAmbience();
+}
+
 /** Opens the binder from the title for the selected (or given) menu entry. @param {string} [entry] */
 export function activateMenu(entry){
   if (STATE!=='splash') return;
@@ -39,10 +46,12 @@ export function activateMenu(entry){
   const name = TITLE_MENU[menuIndex];
   const tab = name==='start' ? 'order'
             : name==='manual' ? 'manual' : 'settings';
-  setState('binder');
-  openBinder('shift', tab);
-  showScreen('binder');
-  syncAmbience();
+  openShiftBinder(tab);
+}
+
+/** Returns to the start binder on the Order tab. */
+export function returnToOrder(){
+  openShiftBinder('order');
 }
 
 /** BEGIN MISSION: starts the run. */

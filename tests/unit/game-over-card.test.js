@@ -16,6 +16,7 @@ const report = {
 
 test('the last crew member lost shows the termination sheet and hides the tape', () => {
   A.STATE = 'dead';
+  A.lives = 0;
   emit('dead', { lives: 0, cause: 'caught', report });
   const stats = document.getElementById('dead-stats').innerHTML;
   assert.equal(document.getElementById('dead-tape').hidden, true);
@@ -33,6 +34,11 @@ test('the last crew member lost shows the termination sheet and hides the tape',
   assert.match(stats, /CLIENT FEEDBACK/);
   assert.match(stats, /HR NOTE/);
   assert.equal(document.getElementById('btn-retry').textContent, 'TRY AGAIN');
+  document.getElementById('btn-retry').click();
+  assert.equal(A.STATE, 'binder');
+  assert.equal(A.binderMode, 'shift');
+  assert.equal(A.binderTab, 'order');
+  assert.equal(document.getElementById('screen-binder').hidden, false);
 });
 
 test('a death with crew left keeps the tape card and no termination sheet', () => {

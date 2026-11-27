@@ -1,5 +1,5 @@
-import { dismissClear, retryFloor, runAgain, STATE, armReset, resetArmed, resetRun } from '../game/run.js';
-import { activateMenu, beginShift } from './splash.js';
+import { dismissClear, retryFloor, rollRunSeed, lives, STATE, armReset, resetArmed, resetRun } from '../game/run.js';
+import { activateMenu, beginShift, returnToOrder } from './splash.js';
 import { togglePause } from './pause.js';
 import { setBinderTab } from './binder.js';
 import { toggleFullscreen, dismissHint } from './fullscreen.js';
@@ -13,8 +13,14 @@ import { syncSettingsUI } from './settings-panel.js';
 export function bindButtons(){
   document.getElementById('btn-start').onclick   = ()=>beginShift();
   document.getElementById('btn-descend').onclick = ()=>dismissClear();
-  document.getElementById('btn-retry').onclick   = ()=>retryFloor();
-  document.getElementById('btn-again').onclick   = ()=>runAgain();
+  document.getElementById('btn-retry').onclick   = ()=>{
+    if (STATE==='dead' && lives<=0){ returnToOrder(); return; }
+    retryFloor();
+  };
+  document.getElementById('btn-again').onclick   = ()=>{
+    rollRunSeed();
+    returnToOrder();
+  };
   /* The pause screen's way back into the run for a player with no ESC key.
      It only acts on the pause screen: togglePause() would also START a pause
      from play, which a RESUME button must never do. */

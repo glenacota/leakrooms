@@ -53,6 +53,20 @@ test('a new win returns the sheet to the top', () => {
   assert.equal(winWrap.scrollTop, 0);
 });
 
+test('play again returns to the Order tab before starting a new shift', () => {
+  A.STATE = 'win';
+  emit('win', report);
+  document.getElementById('btn-again').click();
+
+  assert.equal(A.STATE, 'binder');
+  assert.equal(A.binderMode, 'shift');
+  assert.equal(A.binderTab, 'order');
+  assert.equal(document.getElementById('screen-binder').hidden, false);
+
+  document.getElementById('btn-start').click();
+  assert.equal(A.STATE, 'play');
+});
+
 test('stamp sounds at the landing, or immediately for reduced motion', () => {
   const sounds = [];
   const unsubscribe = on('sfx', name => { if (name === 'stamp') sounds.push(name); });

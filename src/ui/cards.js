@@ -126,7 +126,7 @@ export function bindCards(){
       else if (cause === DEATH_CAUSE.CLOCK) title.textContent = 'RESPIRATORY FAILURE';
       btn.textContent = 'SEND NEXT CREW MEMBER';
       sub.textContent = `CREW COUNT: ${lives}`;
-      subMsg.textContent = 'We mourn the loss of a valued employee.\nThe position will be filled at the earliest feasible date.';
+      subMsg.textContent = 'We mourn the loss of a valued employee.\nDeployment of the replacement resource is underway.';
     } else {
       tape.hidden = true;
       over.hidden = false;
