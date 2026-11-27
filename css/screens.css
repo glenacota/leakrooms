@@ -36,7 +36,7 @@
   margin:0 0 8px; padding-bottom:4px; border-bottom:1px solid rgba(var(--color-line-rgb), .2);
   width:100%
 }
-.binder-section{ min-width:0; margin-top:20px; }
+.binder-section{ min-width:0; margin-top:30px; }
 .binder-grid{ display:grid; }
 .binder-grid--manual{
   grid-template-columns:repeat(2,minmax(0,1fr));
