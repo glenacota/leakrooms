@@ -120,7 +120,7 @@ function handleKey(e, k){
   }
 
   /* On the binder, left and right turn the tabs (a focused slider keeps its
-     arrows), and the number keys pick terms on the work order page. SPACE
+     arrows), and the number keys pick terms on shift-mode SETTINGS. SPACE
      begins the shift from any shift tab. Other keys are consumed so they do
      not walk the player off the spawn once the run starts. */
   if (STATE==='binder'){
@@ -128,7 +128,7 @@ function handleKey(e, k){
     if ((e.key==='ArrowLeft' || e.key==='ArrowRight') && !onSlider){
       stepBinderTab(e.key==='ArrowRight' ? 1 : -1);
       e.preventDefault();
-    } else if (binderTab==='order' && handleTermsKey(e)){
+    } else if (binderTab==='settings' && handleTermsKey(e)){
       // handled
     } else if (e.key===' ' && !onAction){
       beginShift();

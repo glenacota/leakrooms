@@ -132,12 +132,19 @@ test('the splash chain walks the riser, then the work order, then the run', () =
 
   A.selectMenu('start');
   press('Enter');
-  /* Terms are picked with the number keys on the work order page. */
+  /* The terms chooser is not on the work order page. */
   const at = ()=> A.SETTINGS.difficulty;
+  A.setOption('difficulty','normal');
   press('1');
-  t.assert(at()==='relaxed', 'the 1 key did not pick the first term');
+  t.assert(at()==='normal', 'a number key changed terms on the work order page');
+  press('ArrowRight');
+  press('ArrowRight');
+  t.assert(A.binderTab==='settings', 'the right arrow did not reach settings');
+  /* Terms are picked with the number keys on shift-mode SETTINGS. */
+  press('1');
+  t.assert(at()==='relaxed', 'the 1 key on settings did not pick the first term');
   press('3');
-  t.assert(at()==='hard', 'the 3 key did not pick the last term');
+  t.assert(at()==='hard', 'the 3 key on settings did not pick the last term');
   press('w');
   t.assert(A.STATE==='binder', 'an ordinary key on the work order clocked the player in');
   t.assert(!A.keys['w'], 'a key swallowed by the binder stayed held — the player walks on spawn');
@@ -265,12 +272,13 @@ test('the pause screen is the binder with the run written on it', () => {
     'an old order or pause screen is still in index.html');
   t.assert(!/id="screen-settings"/.test(html), 'the settings modal is still in index.html');
 
-  const page = name => {
-    const at = binder.indexOf(`data-binder-page="${name}"`);
-    return at < 0 ? '' : binder.slice(at);
-  };
-  t.assert(/id="set-difficulty"/.test(page('order')) && !/id="set-difficulty"/.test(page('run')),
-    'the terms chooser must be on the work order page, and not on the run page');
+  const termsAt = binder.indexOf('id="set-difficulty"');
+  t.assert(termsAt > binder.indexOf('<!-- Page: run'),
+    'the terms chooser must be after the work order and run pages');
+  t.assert(/<fieldset class="binder-section shift-only">[\s\S]*?<legend class="binder-section-title">TERMS<\/legend>/.test(binder),
+    'the terms group must be shift-only so it is hidden while paused');
+  t.assert(/#screen-binder\[data-binder-mode=pause\]\s+\.shift-only\s*\{\s*display:\s*none;/.test(readCss()),
+    'shift-only groups must be hidden in pause mode');
   for (const id of ['set-master','set-hue','set-contrast','btn-settings-reset'])
     t.assert(binder.includes(`id="${id}"`), `the binder has no ${id}`);
   t.assert(binder.split('id="set-master"').length===2, 'the settings rows are in the binder more than once');

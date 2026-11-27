@@ -166,12 +166,6 @@
               <p class="binder-field"><span class="highlight">FLOOD-CONTAINMENT</span> <b>.... The floor exit opens when every leak is sealed.</b></p>
               <p class="binder-field"><span class="highlight">HOSTILE-ENTITIES</span> <b>..... Reported sector-wide. Maintain a safe distance.</b></p>
             </section>
-            <!-- Terms are chosen here, before the run, and nowhere else, so a run keeps the same rules from its first frame to its last. -->
-            <section class="binder-section">
-              <h3 class="binder-section-title">TERMS</h3>
-              <div class="seg" id="set-difficulty" data-opt="difficulty" role="group" aria-label="TERMS"></div>
-              <p class="binder-field-note" id="note-difficulty"></p>
-            </section>
           </div>
 
           <!-- Page: run (pause mode). The numbers are written by src/ui/pause.js. -->
@@ -254,6 +248,24 @@
           <!-- Page: settings. The controls are wired by src/ui/settings-panel.js. -->
           <div class="binder-page" id="binder-page-settings" data-binder-page="settings" role="tabpanel" aria-labelledby="tab-binder-settings" tabindex="0" hidden>
             <div class="binder-grid binder-grid--settings">
+              <fieldset class="binder-section shift-only">
+                <legend class="binder-section-title">TERMS</legend>
+                <div class="seg" id="set-difficulty" data-opt="difficulty" role="group" aria-label="TERMS"></div>
+                <p class="binder-field-note" id="note-difficulty"></p>
+              </fieldset>
+
+              <fieldset class="binder-section">
+                <legend class="binder-section-title">AUDIO</legend>
+                <div class="binder-field">
+                  <label class="binder-field-label" for="set-master">VOL</label>
+                  <input type="range" id="set-master" min="0" max="1" step="0.05" data-opt="master">
+                </div>
+                <div class="binder-field">
+                  <label class="binder-field-label" for="set-ambience">AMBIENCE BEDS</label>
+                  <input type="range" id="set-ambience" min="0" max="1" step="0.05" data-opt="ambience">
+                </div>
+              </fieldset>
+
               <fieldset class="binder-section">
                 <legend class="binder-section-title">DISPLAY</legend>
                 <div class="binder-field">
@@ -286,18 +298,6 @@
                     <button type="button" id="btn-reset-tutorials" class="btn--ghost" aria-describedby="tutorials-reset-status">REPLAY TUTORIALS</button>
                     <span id="tutorials-reset-status" class="binder-field-note" role="status" aria-live="polite">Tutorial cards appear as mechanics arise.</span>
                   </div>
-                </div>
-              </fieldset>
-
-              <fieldset class="binder-section">
-                <legend class="binder-section-title">AUDIO</legend>
-                <div class="binder-field">
-                  <label class="binder-field-label" for="set-master">VOL</label>
-                  <input type="range" id="set-master" min="0" max="1" step="0.05" data-opt="master">
-                </div>
-                <div class="binder-field">
-                  <label class="binder-field-label" for="set-ambience">AMBIENCE BEDS</label>
-                  <input type="range" id="set-ambience" min="0" max="1" step="0.05" data-opt="ambience">
                 </div>
               </fieldset>
 

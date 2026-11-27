@@ -3,13 +3,13 @@ import { DIFFICULTIES } from '../config/presets.js';
 
 /* ============================================================
    THE TERMS OF THE SHIFT (difficulty)
-   The terms are chosen on the work order page of the binder, before the run
+   The terms are chosen on the shift-mode settings page, before the run
    starts, and not while paused. Changing them mid-run would rewrite the clock,
    repair time and chase speed under a floor already being played, while the
    number of lives was fixed at the start.
 
-   The chooser is always visible on the work order page, and whatever it shows
-   when the player clocks in is what the run is built with.
+   The chooser is visible on the shift-mode settings page, and whatever it
+   shows when the player clocks in is what the run is built with.
 
    The value is saved, so a returning player sees their last choice, and a new
    player sees NORMAL. paintTerms() is the one place the derived text is
@@ -45,9 +45,8 @@ export function paintTerms(){
 }
 
 /**
- * Handles a key press on the work order page. The number keys pick terms (in
- * DIFFICULTIES order). The arrow keys are not used here: they turn the binder
- * pages.
+ * Handles a key press on the shift-mode settings page. The number keys pick
+ * terms (in DIFFICULTIES order). The arrow keys turn the binder pages.
  *
  * @param {KeyboardEvent} e
  * @returns {boolean} true if the key was one of the chooser's.

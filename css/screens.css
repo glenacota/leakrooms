@@ -45,7 +45,7 @@
 }
 .binder-grid--settings{
   grid-template-columns:1fr 1fr;
-  gap:20px 50px;
+  gap:50px;
   margin:44px 0 6px;
   text-align:left;
 }
@@ -771,8 +771,8 @@ h2.bad{ color:var(--danger); letter-spacing:1em; font-size:var(--text-heading); 
   }
 }
 
-/* Mode visibility: BEGIN MISSION and its hint belong to the shift mode, the
-   pause hint to the pause mode. */
+/* Mode visibility: shift-only controls stay out of pause; pause controls stay
+   out of the shift setup. */
 #screen-binder[data-binder-mode=shift] .pause-only,
 #screen-binder[data-binder-mode=pause] .shift-only{ display:none; }
 

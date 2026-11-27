@@ -74,7 +74,7 @@ test('[36] the controls change what they claim to change', () => {
     `the master slider set ${master.value} and the store reads ${A.SETTINGS.master}`);
 
   /* A segmented row sets its key and repaints the pressed state everywhere the
-     key appears — the work order stamp and the ticket both read this one value. */
+     key appears — the terms note and pause page read this one value. */
   const hueRow = document.querySelectorAll('.seg[data-opt]').find(r => r.dataset.opt === 'waterHue');
   const teal = hueRow.querySelectorAll('button').find(b => b.dataset.value === 'teal');
   teal.click();
@@ -91,7 +91,8 @@ test('[36] the controls change what they claim to change', () => {
     `after clicking FIELD MANUAL the visible pages are [${shown.map(p => p.dataset.binderPage).join(', ')}]`);
   t.assert(manual.getAttribute('aria-selected') === 'true', 'the manual tab did not select itself');
 
-  /* The terms chooser is always open on the work order page: a term button writes the store. */
+  /* The terms chooser lives on shift SETTINGS: a term button writes the store. */
+  el('tab-binder-settings').click();
   const termsRow = document.querySelectorAll('.seg[data-opt]').find(r => r.dataset.opt === 'difficulty');
   termsRow.querySelectorAll('button').find(b => b.dataset.value === 'hard').click();
   t.assert(A.SETTINGS.difficulty === 'hard', `clicking HARD left difficulty at ${A.SETTINGS.difficulty}`);
