@@ -21,16 +21,17 @@ test('the last crew member lost shows the termination sheet and hides the tape',
   assert.equal(document.getElementById('dead-tape').hidden, true);
   assert.equal(document.getElementById('dead-over').hidden, false);
   assert.match(stats, /FAILED/);
-  assert.match(stats, /TERMS: <b>NORMAL<\/b>/);
-  assert.match(stats, /Shift time<\/b> 1:10/);
+  assert.match(stats, /<b>Terms:<\/b> NORMAL/);
+  assert.match(stats, /<b>Shift time:<\/b> 1:10/);
   assert.match(stats, /Leaks sealed<\/th><td>3<\/td><td>100<\/td><td>300/);
-  assert.match(stats, /Casualties \(insurance, equipment\)<\/th><td>2<\/td><td>150<\/td><td>−300/);
-  assert.match(stats, /Continuity clause breach \(assignment incomplete\)<\/th><td>1<\/td><td>300<\/td><td>−300/);
-  assert.match(stats, /<th scope="row" colspan="3">TOTAL<\/th><td class="end-invoice-total">−300<\/td>/);
+  assert.match(stats, /<th scope="row" class="end-cost">Casualties Costs<\/th><td class="end-cost">2<\/td><td class="end-cost">150<\/td><td class="end-cost">−300/);
+  assert.match(stats, /<th scope="row" class="end-cost">Incomplete Deliverable Fee<\/th><td class="end-cost">1<\/td><td class="end-cost">300<\/td><td class="end-cost">−300/);
+  assert.match(readCss(), /\.end-invoice-details \.end-cost\s*\{\s*color:\s*var\(--danger\);\s*text-shadow:0\s0\sblack\s*\}/);
+  assert.match(stats, /<th scope="row" colspan="3"><span>TOTAL<\/span><\/th><td class="end-invoice-total"><span>−300 ₵<\/span><\/td>/);
   assert.doesNotMatch(stats, /Floors walked back/);
   assert.doesNotMatch(stats, /Early-completion premium/);
   assert.match(stats, /CLIENT FEEDBACK/);
-  assert.match(stats, /MANAGEMENT NOTE/);
+  assert.match(stats, /HR NOTE/);
   assert.equal(document.getElementById('btn-retry').textContent, 'TRY AGAIN');
 });
 

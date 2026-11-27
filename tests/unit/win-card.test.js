@@ -25,24 +25,24 @@ test('win sheet reports totals, completed floors and itemized invoice', () => {
   assert.match(html, /WORK ORDER 88D/);
   assert.match(html, /COMPLETED/);
   assert.match(html, /CLIENT FEEDBACK/);
-  assert.match(html, /Shift time<\/b> 2:05/);
-  assert.match(html, /TERMS: <b>RELAXED<\/b>/);
+  assert.match(html, /<b>Shift time:<\/b> 2:05/);
+  assert.match(html, /<b>Terms:<\/b> RELAXED/);
   assert.match(html, /Leaks sealed<\/th><td>12<\/td><td>100<\/td><td>1,200/);
   assert.match(html, /Floors secured<\/th><td>5<\/td><td>50<\/td><td>250/);
   assert.match(html, /Early-completion premium<\/th><td>1<\/td><td>269<\/td><td>269/);
-  assert.match(html, /Casualties \(insurance, equipment\)<\/th><td>2<\/td><td>150<\/td><td>−300/);
-  assert.doesNotMatch(html, /Continuity clause breach/);
-  assert.match(html, /<th scope="row" colspan="3">TOTAL<\/th><td class="end-invoice-total">1,419<\/td>/);
+  assert.match(html, /<th scope="row" class="end-cost">Casualties Costs<\/th><td class="end-cost">2<\/td><td class="end-cost">150<\/td><td class="end-cost">−300/);
+  assert.doesNotMatch(html, /Incomplete Deliverable Fee/);
+  assert.match(html, /<th scope="row" colspan="3"><span>TOTAL<\/span><\/th><td class="end-invoice-total"><span>1,419 ₵<\/span><\/td>/);
   assert.doesNotMatch(html.replace(/<[^>]+>/g, ' '), /\b(levels?|difficulty|fix(?:es|ing)?)\b/i);
 });
 
 test('invoice preserves a negative total and handles zero deaths', () => {
   A.STATE = 'win';
   emit('win', { ...report, sealed: 0, deaths: 8 });
-  assert.match(els['end-stats'].innerHTML, /TOTAL<\/th><td class="end-invoice-total">−681/);
+  assert.match(els['end-stats'].innerHTML, /TOTAL<\/span><\/th><td class="end-invoice-total"><span>−681 ₵<\/span>/);
   emit('win', { ...report, deaths: 0 });
-  assert.match(els['end-stats'].innerHTML, /Casualties \(insurance, equipment\)<\/th><td>0<\/td><td>150<\/td><td>−0/);
-  assert.match(els['end-stats'].innerHTML, /TOTAL<\/th><td class="end-invoice-total">1,719/);
+  assert.match(els['end-stats'].innerHTML, /<th scope="row" class="end-cost">Casualties Costs<\/th><td class="end-cost">0<\/td><td class="end-cost">150<\/td><td class="end-cost">−0/);
+  assert.match(els['end-stats'].innerHTML, /TOTAL<\/span><\/th><td class="end-invoice-total"><span>1,719 ₵<\/span>/);
 });
 
 test('a new win returns the sheet to the top', () => {

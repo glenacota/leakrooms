@@ -410,11 +410,40 @@
 .end-wrap{ width:min(94vw,680px); align-items:stretch; }
 .order.end-paper{ display:block; flex:none; background: repeating-linear-gradient(0deg, var(--yellow) 0 9px, transparent 10px 5px), var(--yellow-dim)}
 .order.end-paper[hidden], .tape[hidden]{ display:none; }
-.end-paper .order-body{ padding:5% 10%; color: black }
+.end-paper .order-body{ padding:24px 48px 48px; color: black; }
+.end-paper {
+  clip-path: polygon(
+      0% 0%, 100% 0%, 100.0% 98.96%, 99.25% 99.77%, 98.72% 98.59%,
+      98.22% 99.92%, 97.64% 98.28%, 96.48% 99.87%, 95.9% 98.45%, 95.17% 99.62%,
+      94.1% 98.67%, 93.2% 99.21%, 91.85% 98.75%, 91.0% 99.56%, 90.23% 99.09%,
+      89.24% 99.63%, 88.7% 98.48%, 87.39% 99.32%, 86.67% 98.98%, 85.93% 99.28%,
+      84.87% 98.73%, 84.39% 99.66%, 83.35% 99.06%, 82.1% 99.11%, 81.42% 98.73%,
+      80.06% 99.09%, 79.17% 98.7%, 78.0% 99.62%, 77.17% 98.82%, 76.42% 99.85%,
+      75.82% 98.25%, 75.51% 99.85%, 74.97% 98.38%, 73.57% 99.34%, 72.67% 98.12%,
+      71.85% 99.48%, 70.54% 98.0%, 69.56% 99.24%, 68.17% 98.74%, 67.47% 99.72%,
+      66.93% 98.18%, 65.6% 99.76%, 65.11% 98.49%, 63.93% 99.13%, 62.96% 98.82%,
+      61.56% 99.71%, 60.21% 98.51%, 59.17% 99.48%, 58.82% 98.68%, 58.49% 99.59%,
+      57.66% 98.84%, 56.44% 99.75%, 56.05% 98.22%, 55.27% 98.92%, 54.87% 98.12%,
+      54.22% 99.24%, 53.91% 98.64%, 53.24% 99.96%, 52.35% 98.46%, 51.82% 99.31%,
+      50.64% 98.61%, 50.28% 99.94%, 49.74% 98.65%, 49.15% 99.22%, 48.39% 98.83%,
+      47.24% 99.99%, 46.54% 98.87%, 45.46% 99.34%, 44.13% 98.19%, 43.68% 99.41%,
+      42.41% 98.14%, 41.44% 99.04%, 40.31% 98.49%, 39.32% 99.84%, 38.57% 98.77%,
+      38.15% 99.36%, 37.69% 99.05%, 37.19% 99.1%, 36.69% 98.28%, 36.22% 99.2%,
+      35.69% 98.63%, 34.76% 99.88%, 33.6% 98.42%, 32.41% 99.81%, 31.16% 99.03%,
+      30.72% 99.43%, 29.5% 98.98%, 28.99% 99.88%, 28.61% 98.52%, 27.98% 99.09%,
+      27.03% 98.08%, 26.67% 99.16%, 26.13% 98.51%, 25.38% 98.92%, 24.16% 98.36%,
+      23.41% 99.44%, 22.64% 98.37%, 21.93% 99.71%, 21.52% 98.63%, 20.23% 99.49%,
+      18.9% 98.7%, 17.79% 99.54%, 17.05% 98.46%, 16.25% 99.08%, 15.6% 98.65%,
+      14.56% 98.95%, 13.53% 98.04%, 12.88% 99.28%, 11.6% 98.25%, 10.5% 99.73%,
+      9.95% 98.17%, 8.74% 99.38%, 7.69% 98.77%, 7.11% 99.36%, 6.47% 98.89%,
+      5.33% 99.03%, 4.94% 98.19%, 4.15% 99.2%, 2.77% 98.4%, 2.18% 99.52%,
+      1.31% 98.22%, 0.0% 99.51%
+    );
+}
 .end-section{ padding:20px 0; }
-.end-section:last-child{ border-bottom:0; padding-bottom:0; }
 .end-section p{ font-size:var(--text-body); font-weight: normal;}
 .end-section h3 { border-bottom: 1px solid black; color: black}
+
 .end-order-heading{
   display:flex;
   align-items:flex-start;
@@ -422,11 +451,44 @@
   gap:16px;
   flex-wrap:wrap;
   margin-top:0;
-  padding-bottom:14px;
-  border-bottom:1px solid rgba(0,0,0,.45);
+  padding-bottom:20px;
 }
-.end-order-heading h2{ font-size:var(--text-heading); margin:4px 0; letter-spacing:0; text-decoration:none; }
-.end-order-heading p, .end-signoff{ font-size:var(--text-body); line-height:1.8; }
+.end-order-heading h2{ 
+  font-size:var(--text-display); 
+  margin:4px 0; 
+  letter-spacing:0; 
+  text-decoration:none; 
+  text-transform: uppercase; 
+  padding: 0 0 5px
+}
+.end-order-heading h3 {
+  margin:0;
+  font-size:var(--text-control);
+  font-weight:900;
+  letter-spacing:.12em;
+  border: none;
+  padding:0;
+  letter-spacing:.08em; 
+}
+.end-order-heading .end-stamp{ margin:0; transform:rotate(-4deg); }
+.end-order-heading p, .end-signoff { line-height:1.8; font-size: var(--text-small) !important;}
+.end-metadata{
+  padding:12px 0;
+  font-size:var(--text-body)
+}
+.end-metadata b{ font-weight:900; }
+.end-quotes{
+  display:grid;
+  grid-template-columns:repeat(2, minmax(0, 1fr));
+  gap:30px;
+  padding:20px;
+  border: 1px solid black;
+  border-top-width: 3px;
+  background-color:rgba(255,255,255,0.1);
+}
+.end-quotes p:first-child { border-right: 1px solid rgba(0,0,0,.3) }
+.end-quotes p{ margin:0; }
+
 .end-stamp{
   display:inline-block; flex:none; padding:10px 20px;
   border:5px double var(--danger); color:var(--danger);
@@ -437,39 +499,22 @@
   from{ opacity:0; transform:rotate(-7deg) scale(2); }
   to{ opacity:1; transform:rotate(-7deg) scale(1); }
 }
-.end-invoice { padding: 10px; border: 1px solid black; margin-top:20px}
+.end-invoice { 
+  padding: 20px 20px 10px; 
+  border: 1px solid black; 
+  border-top-width: 3px; 
+  background-color:rgba(255,255,255,0.1)
+}
 .end-invoice-details{ width:100%; border-collapse:collapse; margin-top:14px; font-size:var(--text-body); }
-.end-invoice-details thead th{ padding:5px 0; font-weight:900; }
+.end-invoice-details thead th{ padding:5px 0; font-weight:900; border-bottom: 1px solid black}
 .end-invoice-details tbody th, .end-invoice-details tbody td{ padding:5px 0; font-weight:400; }
+.end-invoice-details tbody tr:nth-child(odd) {background: repeating-linear-gradient(0deg, rgba(228, 230, 168, 0.7) 0 9px, transparent 10px 5px),  var(--yellow-dim)}
 .end-invoice-details th{ text-align:left; }
+.end-invoice-details .end-cost{ color:var(--danger); text-shadow:0 0 black}
 .end-invoice-details thead th:not(:first-child){ text-align:right; }
 .end-invoice-details td{ text-align:right; white-space:nowrap; }
-.end-invoice-details .end-total th, .end-invoice-details .end-total td{ border-top:1px solid black; padding-top:10px; font-weight:900; }
-
-.end-order-heading .end-stamp{ margin:0; transform:rotate(-4deg); }
-.end-company, .end-work-id{
-  margin:0;
-  font-size:var(--text-label);
-  font-weight:900;
-  letter-spacing:.12em;
-}
-.end-work-id{ letter-spacing:.08em; }
-.end-metadata{
-  display:flex;
-  flex-wrap:wrap;
-  gap:8px 18px;
-  padding:12px 0;
-  border-bottom:1px solid rgba(0,0,0,.45);
-  font-size:var(--text-label);
-}
-.end-metadata b{ font-weight:900; }
-.end-quotes{
-  display:grid;
-  grid-template-columns:repeat(2, minmax(0, 1fr));
-  gap:8px 18px;
-  padding-top:10px;
-}
-.end-quotes p{ margin:0; }
+.end-invoice-details .end-total { line-height:40px; border-top: 1px solid black; padding-top:10px; font-weight:900; font-size: var(--text-heading)}
+.end-invoice-details .end-total span { padding:5px 10px; background: repeating-linear-gradient(0deg, rgba(0,0,0,0.7) 0 9px, transparent 10px 5px), rgb(0,0,0,0.6); color:white; font-weight:900; }
 .end-invoice h3{ margin:0; }
 
 @media (max-width:480px){

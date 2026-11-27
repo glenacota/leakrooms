@@ -17,32 +17,30 @@ function orderHeading(terms, copy, time){
   }).format(now);
   return `<div class="end-order-heading">
         <div>
-          <p class="end-company">MAINTENANCE / FINAL COPY</p>
-          <h2>Completion record</h2>
-          <p class="end-work-id">WORK ORDER 88D</p>
+          <h3>LEAKROOMS Inc. - COMPLETION RECORD </h3>
+          <h2>WORK ORDER 88D</h2>
         </div>
         <span class="end-stamp">${copy.stamp}</span>
       </div>
       <div class="end-metadata">
-        <span><b>Delivery date</b> <time datetime="${now.toISOString()}">${date}</time></span>
-        <span>TERMS: <b>${terms}</b></span>
-        <span><b>Shift time</b> ${elapsed(time)}</span>
+        <b>Delivery date:</b> <time datetime="${now.toISOString()}">${date}</time>
+        &middot; <b>Terms:</b> ${terms} &middot; <b>Shift time:</b> ${elapsed(time)}
       </div>
       <div class="end-quotes">
-        <p class="end-signoff"><b>CLIENT FEEDBACK</b> “${copy.client}”</p>
-        <p class="end-signoff"><b>MANAGEMENT NOTE</b> “${copy.management}”</p>
+        <p class="end-signoff"><b>CLIENT FEEDBACK:</b> “${copy.client}”</p>
+        <p class="end-signoff"><b>HR NOTE:</b> “${copy.management}”</p>
       </div>`;
 }
 
 function invoiceSection(lines, total){
-  const rows = lines.map(({description, qty, rate, amount}) => `
-    <tr><th scope="row">${description}</th><td>${qty}</td><td>${rate}</td><td>${formatCredits(amount)}</td></tr>
+  const rows = lines.map(({description, qty, rate, amount, isCost}) => `
+    <tr><th scope="row"${isCost ? ' class="end-cost"' : ''}>${description}</th><td${isCost ? ' class="end-cost"' : ''}>${qty}</td><td${isCost ? ' class="end-cost"' : ''}>${rate}</td><td${isCost ? ' class="end-cost"' : ''}>${formatCredits(amount)}</td></tr>
   `).join('');
   return `<section class="end-section end-invoice">
-      <h3>CHARGES / SETTLEMENT</h3>
+      <h3>CREDITS ₵</h3>
       <table class="end-invoice-details">
         <thead><tr><th scope="col">Description</th><th scope="col">Qty</th><th scope="col">Rate</th><th scope="col">Amount</th></tr></thead>
-        <tbody>${rows}<tr class="end-total"><th scope="row" colspan="3">TOTAL</th><td class="end-invoice-total">${formatCredits(total)}</td></tr></tbody>
+        <tbody>${rows}<tr class="end-total"><th scope="row" colspan="3"><span>TOTAL</span></th><td class="end-invoice-total"><span>${formatCredits(total)} ₵</span></td></tr></tbody>
       </table>
     </section>`;
 }
@@ -56,7 +54,7 @@ const END_COPY = {
   lost: {
     stamp: 'FAILED',
     client: "Stop charging us for people who aren't coming back.",
-    management: "Employees are reminded that basic safety protocols exist for a reason.",
+    management: "Employees are reminded that safety protocols exist for a reason.",
   },
 };
 
@@ -86,16 +84,18 @@ function endReport(report, won){
   }
   
   lines.push({
-    description: `Casualties (insurance, equipment)`,
+    description: `Casualties Costs`,
     qty: report.deaths,
     rate: SCORE.CASUALTY_COST,
     amount: -score.casualties,
+    isCost: true,
   });
   if (!won) lines.push({
-    description: `Continuity clause breach (assignment incomplete)`,
+    description: `Incomplete Deliverable Fee`,
     qty: 1,
     rate: SCORE.BREACH_FEE,
     amount: -score.breach,
+    isCost: true,
   });
    
   return `

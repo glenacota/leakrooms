@@ -24,6 +24,7 @@
   --mono: "Courier New", "Courier", monospace;
 
   --text-body: clamp(14px, 1.8vmin, 18px);
+  --text-small: clamp(13px, 1.6vmin, 16px);
   --text-label: clamp(12px, 1.3vmin, 14px);
   --text-control: clamp(14px, 1.5vmin, 16px);
   --text-heading: clamp(16px, 2vmin, 24px);
