@@ -22,21 +22,16 @@ test('the last crew member lost shows the termination sheet and hides the tape',
   assert.equal(document.getElementById('dead-over').hidden, false);
   assert.match(stats, /FAILED/);
   assert.match(stats, /TERMS: <b>NORMAL<\/b>/);
-  assert.match(stats, /Overall Time: <b>1:10<\/b>/);
-  assert.match(stats, /Leaks sealed \(3 × 100\)<\/th><td>300/);
-  assert.match(stats, /Casualties \(insurance, equipment\) \(2 × 150\)<\/th><td>−300/);
-  assert.match(stats, /Continuity clause breach \(assignment incomplete\)<\/th><td>−300/);
-  assert.match(stats, /TOTAL<\/th><td>-300/);
+  assert.match(stats, /Shift time<\/b> 1:10/);
+  assert.match(stats, /Leaks sealed<\/th><td>3<\/td><td>100<\/td><td>300/);
+  assert.match(stats, /Casualties \(insurance, equipment\)<\/th><td>2<\/td><td>150<\/td><td>−300/);
+  assert.match(stats, /Continuity clause breach \(assignment incomplete\)<\/th><td>1<\/td><td>300<\/td><td>−300/);
+  assert.match(stats, /<th scope="row" colspan="3">TOTAL<\/th><td class="end-invoice-total">−300<\/td>/);
   assert.doesNotMatch(stats, /Floors walked back/);
   assert.doesNotMatch(stats, /Early-completion premium/);
   assert.match(stats, /CLIENT FEEDBACK/);
   assert.match(stats, /MANAGEMENT NOTE/);
   assert.equal(document.getElementById('btn-retry').textContent, 'TRY AGAIN');
-});
-
-test('the floor that was not finished shows its last attempt', () => {
-  emit('dead', { lives: 0, cause: 'clock', report });
-  assert.match(document.getElementById('dead-stats').innerHTML, /<th scope="row">2<\/th><td>0\/3<\/td><td>2<\/td><td>0:00<\/td>/);
 });
 
 test('a death with crew left keeps the tape card and no termination sheet', () => {

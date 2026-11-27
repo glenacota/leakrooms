@@ -6,51 +6,43 @@ import { emit, on, EVENT } from '../util/events.js';
 
 const el = id => document.getElementById(id);
 
-// Unlike clockText, this rounds down: elapsed time should never read longer than it was.
 function elapsed(time){
   return `${Math.floor(time/60)}:${String(Math.floor(time%60)).padStart(2,'0')}`;
 }
 
-function orderHeading(terms, copy){
+function orderHeading(terms, copy, time){
   const now = new Date();
-  const date = new Date(now - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-  return `<div class="end-order-heading"><div>
-        <h2>SHIFT OVER: Completion Protocol</h2>
-        <h1>WORK ORDER 88D</h1>
-        <p>DELIVERY DATE: <b>${date}</b> &uarr; TERMS: <b>${terms}</b></p>
-        <br/>
-        <p class="end-signoff">CLIENT FEEDBACK: <b>"${copy.client}"</b></p>
-        <p class="end-signoff">MANAGEMENT NOTE: <b>"${copy.management}"</b></p>
-      </div></div>`;
-}
-
-/* One row per floor reached. A floor the crew did not finish shows its last attempt. */
-function runRows(runHistory, floors){
-  return Array.from({ length: floors }, (_, floor) => {
-    const attempts = runHistory.filter(entry => entry.floor === floor);
-    const shown = attempts.find(entry => !entry.died) ?? attempts[attempts.length - 1];
-    const lost = attempts.filter(entry => entry.died).length;
-    return `<tr><th scope="row">${floor+1}</th><td>${shown.sealed}/${shown.total}</td><td>${lost}</td><td>${clockText(shown.clockLeft)}</td></tr>`;
-  }).join('');
-}
-
-function runSection(time, rows){
-  return `<section class="end-section">
-      <h3>REPORT</h3>
-      <p>Overall Time: <b>${elapsed(time)}</b></p>
-      <table class="end-table">
-        <thead><tr><th scope="col">FLOOR</th><th scope="col">REPAIR</th><th scope="col">FATALITIES</th><th scope="col">AIR LEFT</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </section>`;
+  const date = new Intl.DateTimeFormat(undefined, {
+    day:'2-digit', month:'short', year:'numeric',
+  }).format(now);
+  return `<div class="end-order-heading">
+        <div>
+          <p class="end-company">MAINTENANCE / FINAL COPY</p>
+          <h2>Completion record</h2>
+          <p class="end-work-id">WORK ORDER 88D</p>
+        </div>
+        <span class="end-stamp">${copy.stamp}</span>
+      </div>
+      <div class="end-metadata">
+        <span><b>Delivery date</b> <time datetime="${now.toISOString()}">${date}</time></span>
+        <span>TERMS: <b>${terms}</b></span>
+        <span><b>Shift time</b> ${elapsed(time)}</span>
+      </div>
+      <div class="end-quotes">
+        <p class="end-signoff"><b>CLIENT FEEDBACK</b> “${copy.client}”</p>
+        <p class="end-signoff"><b>MANAGEMENT NOTE</b> “${copy.management}”</p>
+      </div>`;
 }
 
 function invoiceSection(lines, total){
-  const rows = lines.map(([label, value]) => `<tr><th scope="row">${label}</th><td>${value}</td></tr>`).join('');
-  return `<section class="end-section">
-      <h3>INVOICE <span class="end-unit">CREDITS</span></h3>
-      <table class="end-invoice">
-        <tbody>${rows}<tr class="end-total"><th scope="row">TOTAL</th><td>${total}</td></tr></tbody>
+  const rows = lines.map(({description, qty, rate, amount}) => `
+    <tr><th scope="row">${description}</th><td>${qty}</td><td>${rate}</td><td>${formatCredits(amount)}</td></tr>
+  `).join('');
+  return `<section class="end-section end-invoice">
+      <h3>CHARGES / SETTLEMENT</h3>
+      <table class="end-invoice-details">
+        <thead><tr><th scope="col">Description</th><th scope="col">Qty</th><th scope="col">Rate</th><th scope="col">Amount</th></tr></thead>
+        <tbody>${rows}<tr class="end-total"><th scope="row" colspan="3">TOTAL</th><td class="end-invoice-total">${formatCredits(total)}</td></tr></tbody>
       </table>
     </section>`;
 }
@@ -72,21 +64,44 @@ function endReport(report, won){
   const copy = won ? END_COPY.won : END_COPY.lost;
   
   const score = scoreRun(report, won);
-  const lines = [[`Leaks sealed (${report.sealed} × ${SCORE.LEAK_PAY})`, score.leaks]];
+  const lines = [{
+    description: `Leaks sealed`,
+    qty: report.sealed,
+    rate: SCORE.LEAK_PAY,
+    amount: score.leaks,
+  }];
   if (won){
-    lines.push([`Floors secured (${report.floors} × ${SCORE.FLOOR_PAY})`, score.floors]);
-    lines.push(['Early-completion premium', score.premium]);
+    lines.push({
+      description: `Floors secured`,
+      qty: report.floors,
+      rate: SCORE.FLOOR_PAY,
+      amount: score.floors,
+    });
+    lines.push({
+      description: `Early-completion premium`,
+      qty: 1,
+      rate: score.premium,
+      amount: score.premium,
+    });
   }
   
-  lines.push([`Casualties \(insurance, equipment\) (${report.deaths} × ${SCORE.CASUALTY_COST})`, `−${score.casualties}`]);
-  if (!won) lines.push(['Continuity clause breach (assignment incomplete)', `−${score.breach}`]);
+  lines.push({
+    description: `Casualties (insurance, equipment)`,
+    qty: report.deaths,
+    rate: SCORE.CASUALTY_COST,
+    amount: -score.casualties,
+  });
+  if (!won) lines.push({
+    description: `Continuity clause breach (assignment incomplete)`,
+    qty: 1,
+    rate: SCORE.BREACH_FEE,
+    amount: -score.breach,
+  });
    
   return `
     <section class="end-section end-order">
-      <div class="end-stamp">${copy.stamp}</div>
-      ${orderHeading(report.terms, copy)}
+      ${orderHeading(report.terms, copy, report.time)}
     </section>
-    ${runSection(report.time, runRows(report.runHistory, report.floors))}
     ${invoiceSection(lines, score.total)}`;
 }
 
@@ -138,4 +153,9 @@ export function bindCards(){
     const b = el('btn-reset-run');
     if (b) b.textContent = armed ? 'TAP AGAIN — LOSES THE SHIFT' : 'RESTART SHIFT';
   });
+}
+
+function formatCredits(amount){
+  const formatted = new Intl.NumberFormat('en-US').format(Math.abs(amount));
+  return amount < 0 || Object.is(amount, -0) ? `−${formatted}` : formatted;
 }

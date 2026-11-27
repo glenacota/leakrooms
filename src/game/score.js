@@ -31,9 +31,7 @@ export function earlyPremium(time, parTime){
 }
 
 /**
- * Scores a shift from its end-of-shift report. Pure: the invoice and the
- * leaderboard read this one function. Every field is a positive amount;
- * `equipment` and `breach` are charges, subtracted in `total`.
+ * Scores a shift from its end-of-shift report.
  *
  * @param {{sealed:number, deaths:number, floors:number, time:number, parTime?:number, runHistory:object[]}} report
  * @param {boolean} won - the crew cleared the last floor.
