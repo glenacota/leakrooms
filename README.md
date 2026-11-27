@@ -45,7 +45,7 @@ The INVOICE on the end card is also the score of a shift. Each terms level (RELA
 | Casualties | −150 per crew member lost | always |
 | Continuity clause breach | −300 | shift ended without clearing floor 5 |
 
-The total can be negative. On the same terms a failed shift always scores below a completed one (`tests/unit/score.test.js` pins this).
+The total can be negative. On the same terms a failed shift always scores below a completed one.
 
 
 ## 🕹️ Controls

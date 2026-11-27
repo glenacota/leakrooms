@@ -99,6 +99,7 @@ Full definitions and the words to avoid are in `docs/GLOSSARY.md`.
 - **Door compass**: a green `DOOR` chevron pinned to the screen edge, pointing toward the exit. It appears only after every leak is sealed, while the plumber is standing still and away from the door. Moving or reaching the door hides it.
 - **Air supply**: the per-floor reserve shown as AIR. Code names it `clock` (`FLOOR_CLOCK`). Do not call it "clock" in new player-facing copy.
 - **Terms**: the difficulty chosen at the door before a run (RELAXED, NORMAL, HARD). Per run.
+- **Leaderboard**: browser-local shift scores, separated by Terms; only completed shifts and final losses are recorded. See `docs/GLOSSARY.md`.
 - **Settings**: persisted preferences such as volume, water tint and touch options. Not per run. Do not confuse with terms.
 - **Tutorial card**: illustrated guidance shown without pausing play. Completed tutorials persist across runs; disabling Tutorial dialogs uses guidance flashnotes instead. See `docs/GLOSSARY.md`.
 - **"Mode" is overloaded**: input mode (keyboard or touch), HUD visibility mode and so on. Always say which one you mean.

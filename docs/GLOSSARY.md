@@ -170,6 +170,15 @@ Code: `RUN_SEED`, `startRun`.
 **Shift**
 Player-facing name for a run: one attempt through all five floors.
 
+**Score**
+The total credits earned or lost during a shift. The end-card invoice and leaderboard show the same score.
+
+**Leaderboard**
+A local ranking of shift results, shown separately for each Terms choice. It stores no crew names.
+
+**Leaderboard result**
+The score, outcome and elapsed time for an ended shift. A shift result is recorded only when the shift is completed or the last crew member is lost; earlier crew losses are part of the same shift.
+
 **Seed**
 The same seed always builds the same five floors.
 Code: `RUN_SEED`, `setRunSeed`.
