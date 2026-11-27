@@ -13,7 +13,7 @@ export function syncAmbience(){
 }
 
 /* The title menu. Each entry opens the binder on its own page. */
-export const TITLE_MENU = ['start', 'manual', 'settings', 'leaderboard'];
+export const TITLE_MENU = ['start', 'leaderboard'];
 export let menuIndex = 0;
 
 function paintMenu(){

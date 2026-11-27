@@ -57,9 +57,4 @@ test('[COPY] CLOCK IN opens the work order, and BEGIN starts the run', () => {
   assert.equal(A.binderTab, 'order');
   A.beginShift();
   assert.equal(A.STATE, 'play');
-
-  A.STATE = 'splash'; A.showScreen('splash'); A.selectMenu('settings');
-  A.activateMenu();
-  assert.equal(A.binderTab, 'settings');
-  A.STATE = 'play'; A.hideScreens();
 });

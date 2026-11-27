@@ -108,7 +108,7 @@ function handleKey(e, k){
     return consumed;
   }
 
-  /* The title is a three-entry menu: up and down select, ENTER or SPACE
+  /* The title is a two-entry menu: up and down select, ENTER or SPACE
      confirms. Other keys are consumed so they do not carry into the run. */
   if (STATE==='splash'){
     if (e.repeat) return true;

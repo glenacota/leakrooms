@@ -54,7 +54,7 @@ test('the splash chain walks the riser, then the work order, then the run', () =
     'field manual noise clue is not a 54px canvas');
   t.assert(calls.list.some(c => c[0] === 'ellipse' && c[1] === 0 && c[2] === 0 && c[3] === 10 && c[4] === 15),
     'field manual noise clue has no plumber marker');
-  for (const id of ['menu-start','menu-manual','menu-settings'])
+  for (const id of ['menu-start','menu-leaderboard'])
     t.assert(splashHtml.includes(`id="${id}"`), `the title has no #${id}`);
 
   /* The controls live in the field manual page, and only there. */
@@ -115,7 +115,16 @@ test('the splash chain walks the riser, then the work order, then the run', () =
   t.assert(A.STATE==='splash', 'an ordinary key advanced the title');
   press('ArrowDown');
   press('Enter');
-  t.assert(A.STATE==='binder' && A.binderTab==='manual', `FIELD MANUAL entry opened '${A.binderTab}'`);
+  t.assert(A.STATE==='splash' && vis().join()==='leaderboard',
+    `LEADERBOARD entry showed ${vis().join()||'nothing'} instead of the leaderboard`);
+  els['btn-leaderboard-back'].click();
+  t.assert(A.STATE==='splash' && vis().join()==='splash', 'BACK did not return to the title');
+
+  A.selectMenu('start');
+  press('Enter');
+  t.assert(A.STATE==='binder' && A.binderTab==='order', 'CLOCK IN did not open the work order');
+  press('ArrowRight');
+  t.assert(A.binderTab==='manual', 'the right arrow did not turn to the field manual');
   press('ArrowRight');
   t.assert(A.binderTab==='settings', 'the right arrow did not turn to the next tab');
   press('Escape');

@@ -42,7 +42,7 @@ test('[37] the DOM stub resolves the markup it claims to', () => {
      the old CHANGE link and two pause tabs. Twenty-three with the tutorial
      close and tutorial reset buttons. Twenty-nine with the leaderboard menu,
      terms tabs, back button, and two-step clear button. */
-  assert.equal(querySelectorAll('button').length, 29, 'wrong number of buttons');
+  assert.equal(querySelectorAll('button').length, 27, 'wrong number of buttons');
 
   /* Attributes become dataset properties in camelCase — the direction that
      matters, since `data-binder-tab` is `dataset.binderTab` and not the reverse. */
