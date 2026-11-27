@@ -14,7 +14,7 @@ let doorLast = -1e9;    // performance.now() of the last DOOR LOCKED cue
 export function tickLoudFlash(){
   if (!announced.has('NOISE.LOUD') && G && G.selfNoise >= NOISE.LOUD){
     announced.add('NOISE.LOUD');
-    emit(EVENT.flash, { cat: 'danger', text: 'YOU ARE LOUD. SOMETHING UNWANTED MAY HEAR YOU' });
+    emit(EVENT.flash, { cat: 'danger', text: 'LOUD SOUND. A LIFEFORM MAY HEAR YOU' });
   }
 }
 
@@ -40,7 +40,7 @@ export function tickCues(){
     if (now - doorSince >= 800 && now - doorLast >= 20000){
       doorLast = now;
       emit(EVENT.flash, { cat: 'alert',
-              text: `EXIT LOCKED — ${G.openLeaks} LEAK${G.openLeaks === 1 ? '' : 'S'} STILL OPEN` });
+              text: `DOOR LOCKED — ${G.openLeaks} LEAK${G.openLeaks === 1 ? '' : 'S'} STILL OPEN` });
     }
   } else {
     doorSince = 0;
@@ -52,7 +52,7 @@ export function tickCues(){
        player has no reason to stand there until told. */
     if (!f1Door && G.descend > 0.02){
       f1Door = true;
-      emit(EVENT.flash, { cat: 'guide', text: 'STAND BY THE DOOR TO OPEN IT' });
+      emit(EVENT.flash, { cat: 'guide', text: 'HOLD STILL AT THE DOOR UNTIL IT OPENS' });
     }
   }
 }

@@ -17,7 +17,7 @@ const AIR_TUTORIAL_SEC = 60;
 const TUTORIALS = {
   sprint: {
     title: 'Save your legs',
-    text: 'Running makes enough noise to bring something bad over. It also drains stamina. Walk or stand still to recover.',
+    text: 'Running drains stamina and makes enough noise to draw unwanted attention. Walk to recover and stay undetected.',
     flash: 'RUNNING IS LOUD AND DRAINS STAMINA. STOP RUNNING TO RECOVER',
   },
   radar: {
@@ -27,18 +27,18 @@ const TUTORIALS = {
   },
   water: {
     title: 'How to find a leak',
-    text: 'Water spreads from broken pipes. Follow the wet carpet to find them.',
+    text: 'Water runs from broken pipes. Follow the wet carpet to find the leak.',
     flash: 'FOLLOW THE WET CARPET TO FIND A LEAK',
   },
   repair: {
     title: 'How to seal a leak',
-    text: 'Stand still beside the leak to repair it. The wrench is not a quiet tool and can attract something dangerous.',
-    flash: 'STAND STILL BESIDE THE LEAK TO REPAIR IT. REPAIRING IS LOUD',
+    text: 'Hold still beside the leak to seal it. The clatter of your wrench could draw unwanted attention.',
+    flash: 'HOLD STILL BESIDE THE LEAK TO SEAL IT. REPAIR IS LOUD',
   },
   lifeform: {
     title: 'Watch for lifeforms',
-    text: 'Loud actions can wake a dormant lifeform or turn a search into a hunt. Awake lifeforms can see you all too well.',
-    flash: 'LOUD SOUNDS WAKE LIFEFORMS OR START A HUNT. AWAKE LIFEFORMS CAN SEE YOU',
+    text: 'Loud sounds can wake a dormant lifeform or start a hunt. Awake lifeforms can still see you nearby.',
+    flash: 'LOUD SOUNDS WAKE LIFEFORMS OR START A HUNT. AWAKE LIFEFORMS CAN SEE YOU NEARBY',
   },
   airsupply: {
     title: 'Limited air supply',
@@ -46,9 +46,9 @@ const TUTORIALS = {
     flash: 'USED ONE MINUTE OF AIR SUPPLY. MONITOR THE TIMER'
   },
   doorCompass: {
-    title: 'Job done! Run for the exit',
-    text: 'You remember which way you came. Stop and think. The direction will come back to you when you stand still.',
-    flash: 'STOP TO REMEMBER THE WAY. RUN FOR THE EXIT'
+    title: 'All leaks sealed. Find the door',
+    text: 'The door is open now. Stand still to remember which way you came.',
+    flash: 'STOP TO REMEMBER THE WAY BACK TO THE EXIT'
   }
 };
 

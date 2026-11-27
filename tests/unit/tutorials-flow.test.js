@@ -38,6 +38,9 @@ test('disabling tutorials in settings clears pending cards without completing th
   G.maskArr.fill(0);
   G.leaks = [];
   G.lifeforms = [];
+  G.floor = 1;
+  G.time = 0;
+  G.openLeaks = 1;
   G.radar = true;
   emit('sprint', 0);
   tickTutorials();
@@ -163,7 +166,7 @@ test('sealing the last leak queues the door compass tutorial', () => {
   assert.equal(els['tutorial-overlay'].hidden, true);
   G.openLeaks = 0;
   tickTutorials();
-  assert.equal(els['tutorial-title'].textContent, 'Job done! Run for the exit');
+  assert.equal(els['tutorial-title'].textContent, 'All leaks sealed. Find the door');
   assert.equal(els['tutorial-overlay'].hidden, false);
   dismissTutorial();
   assert.deepEqual(JSON.parse(store.get(historyKey)), ['doorCompass']);
@@ -180,7 +183,7 @@ test('disabled tutorials flash the door compass guide once', () => {
   const unsubscribe = on('flash', cue => cues.push(cue.text));
   try {
     tickTutorials();
-    assert.deepEqual(cues, ['STOP TO REMEMBER THE WAY. RUN FOR THE EXIT']);
+    assert.deepEqual(cues, ['STOP TO REMEMBER THE WAY BACK TO THE EXIT']);
   } finally {
     unsubscribe();
     setOption('tutorials', true);
@@ -194,7 +197,7 @@ test('rebuilding a floor re-arms the door compass trigger', () => {
   tickTutorials();
   G.openLeaks = 0;
   tickTutorials();
-  assert.equal(els['tutorial-title'].textContent, 'Job done! Run for the exit');
+  assert.equal(els['tutorial-title'].textContent, 'All leaks sealed. Find the door');
   dismissTutorial();
 
   emit('tutorials:reset');
@@ -210,6 +213,6 @@ test('rebuilding a floor re-arms the door compass trigger', () => {
   assert.equal(els['tutorial-overlay'].hidden, true);
   G.openLeaks = 0;
   tickTutorials();
-  assert.equal(els['tutorial-title'].textContent, 'Job done! Run for the exit');
+  assert.equal(els['tutorial-title'].textContent, 'All leaks sealed. Find the door');
   assert.equal(els['tutorial-overlay'].hidden, false);
 });
