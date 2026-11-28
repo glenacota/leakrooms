@@ -4,7 +4,7 @@ export const NOTES = [
     'Useless radar! Guess I\'ll just have to look for wet carpets.',
     'If I run, I get there closer. But not alone.',
     'Couldn\'t they just give me a respirator with more air in it?',
-    'Reparing the leak with a wrench is the loudest way to do it.',
+    'Repairing the leak with a wrench is the loudest way to do it.',
     'I don\'t have time to stand and think. Find the leak and leave.',
     'I bet they could open the exit now. They just don\'t want to.',
     'Hit a dead end. Turned around. The corridor had got longer.',
