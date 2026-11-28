@@ -32,7 +32,7 @@ function freshRun(){
 
 test('water waits for ten active seconds on floor one, including fixed-step rounding', () => {
   freshRun();
-  for (let i=0; i<599; i++){
+  for (let i=0; i<1199; i++){
     A.update(1/60);
     tickTutorials(1/60);
   }
@@ -59,7 +59,7 @@ test('water queues behind a card and pending cards are discarded on floor rebuil
   emit('sprint');
   tickTutorials();
   assert.equal(els['tutorial-title'].textContent, 'Save your legs');
-  G.time = 10;
+  G.time = 20;
   tickTutorials();
   assert.equal(els['tutorial-title'].textContent, 'Save your legs');
   dismissTutorial();
@@ -70,12 +70,12 @@ test('water queues behind a card and pending cards are discarded on floor rebuil
   assert.equal(G.time, 0);
   tickTutorials();
   assert.equal(els['tutorial-overlay'].hidden, true);
-  G.time = 10;
+  G.time = 20;
   tickTutorials();
   assert.equal(els['tutorial-title'].textContent, 'How to find a leak');
   emit('floorBuilt');
   G.floor = 1;
-  G.time = 10;
+  G.time = 20;
   tickTutorials();
   assert.equal(els['tutorial-overlay'].hidden, true);
   assert.deepEqual(JSON.parse(store.get(historyKey)), ['sprint']);
@@ -87,10 +87,10 @@ test('disabled cards use the timed guide and enabling or resetting uses elapsed 
   const cues = [];
   const unsubscribe = on('flash', cue => cues.push(cue.text));
   try {
-    G.time = 9.99;
+    G.time = 19.99;
     tickTutorials();
     assert.deepEqual(cues, []);
-    G.time = 10;
+    G.time = 20;
     tickTutorials();
     assert.deepEqual(cues, ['FOLLOW THE WET CARPET TO FIND A LEAK']);
     tickTutorials();

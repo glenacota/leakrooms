@@ -11,7 +11,7 @@ import { flashBusy } from './hud.js';
 const STORAGE_KEY = 'leakrooms.tutorials.v1';
 const TUTORIAL_SEC = 9;
 // Starting value for introducing the water clue early on the first floor.
-const WATER_TUTORIAL_SEC = 10;
+const WATER_TUTORIAL_SEC = 20;
 // One active minute gives the player a clear example of elapsed air supply.
 const AIR_TUTORIAL_SEC = 60;
 const TUTORIALS = {

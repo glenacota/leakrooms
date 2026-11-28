@@ -78,7 +78,7 @@ test('death discards visible and queued cards without completing them', () => {
   G.wetArr[i] = 1;
   G.maskArr[i] = G.lightArr[i] = 1;
   G.leaks = [{ x, y, fixed:false }];
-  G.time = 10;
+  G.time = 20;
   tickTutorials();
   assert.equal(els['tutorial-title'].textContent, 'How to find a leak');
   assert.equal(els['tutorial-overlay'].hidden, false);
@@ -90,7 +90,7 @@ test('death discards visible and queued cards without completing them', () => {
   startRun();
   quietFloor();
   G.wetArr[i] = G.maskArr[i] = G.lightArr[i] = 1;
-  G.time = 10;
+  G.time = 20;
   cam.x = x + 0.5;
   cam.y = y + 0.5;
   tickTutorials();
