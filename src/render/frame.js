@@ -7,10 +7,29 @@
 
 import { MAP } from '../config/constants.js';
 import { G } from '../sim/state.js';
-import { cvs, SCALE } from './canvas.js';
+import { cvs, DPR, SCALE } from './canvas.js';
 import { catchPresenting, catchProgress } from '../util/catch-presentation.js';
+import { SETTINGS } from '../settings/store.js';
+import { on, EVENT } from '../util/events.js';
 
 export const cam = { x: 0, y: 0, jx: 0, jy: 0 };
+
+const NO_SHAKE = Object.freeze({ x:0, y:0 });
+const SHAKE_CUES = Object.freeze({
+  loud: { duration:120, amplitude:10 },
+  seal: { duration:240, amplitude:20 },
+  door: { duration:100, amplitude:10 },
+});
+let pendingShake = null;
+let activeShake = null;
+let activeShakeStart = 0;
+let activeShakeAngle = 0;
+
+on(EVENT.cameraShake, cue => {
+  const next = SHAKE_CUES[cue];
+  if (next && (!pendingShake || next.amplitude >= SHAKE_CUES[pendingShake].amplitude))
+    pendingShake = cue;
+});
 
 /* One value per frame. The wall-clock dt is clamped against a tab returning
    from the background; the eased dt drives camera smoothing. Both are exposed
@@ -18,7 +37,6 @@ export const cam = { x: 0, y: 0, jx: 0, jy: 0 };
 let prevT = null;
 let prevTRaw = null;
 let dt = 0;
-let motionPreference = null;
 
 /**
  * Build one frame context.
@@ -39,16 +57,17 @@ export function buildFrame(t){
   cam.x += (p.x - cam.x) * k;
   cam.y += (p.y - cam.y) * k;
 
-  if (!motionPreference && typeof window !== 'undefined' && typeof window.matchMedia === 'function')
-    motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
-  if (motionPreference?.matches){
+  const shakeScale = SETTINGS.shake === 'off' ? 0 : SETTINGS.shake === 'reduced' ? 0.5 : 1;
+  if (shakeScale === 0){
     cam.jx = cam.jy = 0;
   } else {
     const breathe = Math.sin(t * 0.0009) * 0.06;
     const jscale = Math.sqrt(eased / 0.0167);
-    cam.jx = (Math.random() - 0.5) * 0.10 * jscale + breathe * 0.35;
-    cam.jy = (Math.random() - 0.5) * 0.10 * jscale;
+    cam.jx = ((Math.random() - 0.5) * 0.10 * jscale + breathe * 0.35) * shakeScale;
+    cam.jy = (Math.random() - 0.5) * 0.10 * jscale * shakeScale;
   }
+
+  const impact = tickCameraShake(t, shakeScale);
 
   // Clamp to the map, so the viewport never shows empty space beyond the edge
   const T = MAP.TILE_SIZE_PX * SCALE;
@@ -60,9 +79,9 @@ export function buildFrame(t){
   /* The catch kick: a short push of the view toward the lifeform that caught
      the plumber. It is zero outside the catch beat, and reduced motion skips it. */
   let kx = 0, ky = 0;
-  if (catchPresenting() && !motionPreference?.matches){
+  if (catchPresenting() && shakeScale > 0){
     const k = catchProgress(t);
-    const amp = Math.sin(k * Math.PI) * (1 - k) * 0.35 * MAP.TILE_SIZE_PX;
+    const amp = Math.sin(k * Math.PI) * (1 - k) * 0.35 * MAP.TILE_SIZE_PX * shakeScale;
     let near = null, nd = Infinity;
     for (const lf of G.lifeforms){
       const d = (lf.x - p.x) ** 2 + (lf.y - p.y) ** 2;
@@ -72,6 +91,19 @@ export function buildFrame(t){
       const d = Math.sqrt(nd);
       kx = -(near.x - p.x) / d * amp;
       ky = -(near.y - p.y) / d * amp;
+    }
+  }
+
+  const catchX = kx, catchY = ky;
+  kx += impact.x;
+  ky += impact.y;
+  if ((catchX || catchY) && (impact.x || impact.y)){
+    const transientLimit = Math.max(Math.hypot(catchX, catchY), Math.hypot(impact.x, impact.y));
+    const transientLength = Math.hypot(kx, ky);
+    if (transientLength > transientLimit && transientLimit > 0){
+      const scale = transientLimit / transientLength;
+      kx *= scale;
+      ky *= scale;
     }
   }
 
@@ -98,4 +130,40 @@ export function buildFrame(t){
   const vh = y1 - y0 + 1;
 
   return { t, dt, tx, ty, dx, dy, x0, y0, x1, y1, vw, vh, T, w2sx, w2sy, p };
+}
+
+function tickCameraShake(t, shakeScale){
+  if (shakeScale === 0){
+    pendingShake = null;
+    activeShake = null;
+    return NO_SHAKE;
+  }
+
+  if (pendingShake){
+    if (!activeShake || t - activeShakeStart >= SHAKE_CUES[activeShake].duration){
+      activeShake = pendingShake;
+      activeShakeStart = t;
+      activeShakeAngle = Math.random() * Math.PI * 2;
+    } else if (SHAKE_CUES[pendingShake].amplitude >= SHAKE_CUES[activeShake].amplitude){
+      activeShake = pendingShake;
+      activeShakeStart = t;
+      activeShakeAngle = Math.random() * Math.PI * 2;
+    }
+    pendingShake = null;
+  }
+
+  if (!activeShake) return NO_SHAKE;
+  const cue = SHAKE_CUES[activeShake];
+  const progress = (t - activeShakeStart) / cue.duration;
+  if (progress >= 1){
+    activeShake = null;
+    return NO_SHAKE;
+  }
+
+  const wave = Math.cos(progress * Math.PI * 2);
+  const amplitude = cue.amplitude * shakeScale * (1-progress) * wave * DPR / SCALE;
+  return {
+    x: Math.cos(activeShakeAngle) * amplitude,
+    y: Math.sin(activeShakeAngle) * amplitude,
+  };
 }

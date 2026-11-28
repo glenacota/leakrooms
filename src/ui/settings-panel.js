@@ -17,6 +17,7 @@ export { resetTutorialReplayStatus };
 export const SEGMENTS = {
   difficulty: () => Object.keys(DIFFICULTIES).map(k => [k, DIFFICULTIES[k].label]),
   waterHue:   () => [['slate','SLATE'],['teal','TEAL'],['violet','VIOLET'],['grey','GREY']],
+  shake:      () => [['off','OFF'],['reduced','REDUCED'],['full','FULL']],
   flash:      () => [['true','ON'],['false','OFF']],
   tutorials:    () => [['true','ON'],['false','OFF']],
   touchHud:   () => [['auto','AUTO'],['always','ALWAYS'],['minimal','MINIMAL']],

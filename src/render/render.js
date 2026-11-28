@@ -13,7 +13,7 @@ import { ground } from './passes/ground.js';
 import { leaks, puddles, repairRing } from './passes/leaks.js';
 import { lighting } from './passes/lighting.js';
 import { markers } from './passes/markers.js';
-import { particles } from './passes/particles.js';
+import { drawRepairSparks, particles } from './passes/particles.js';
 import { diegetic } from './passes/diegetic.js';
 import { doorCompass } from './passes/door-compass.js';
 import { ripples } from './passes/ripples.js';
@@ -40,6 +40,7 @@ export function render(t){
   drawWorld(rc);
   drawLightingAndPipes(rc);
   applyPostProcessing(rc);
+  drawRepairSparks(rc);
   drawReadableCues(rc, t);
   catchFx(t);
 }

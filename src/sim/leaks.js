@@ -3,10 +3,12 @@ import { REPAIR_TIME } from '../config/tuning.js';
 import { emit, EVENT } from '../util/events.js';
 import { sustainedNoise } from './noise.js';
 
+const REPAIR_SPARK_INTERVAL = 0.5; // Replenish before the previous cluster fades.
+
 /**
  * Leak state bundle passed by reference.
  * @typedef {{
- *   leaks: Array<{x:number,y:number,sx:number,sy:number,fixed:boolean,repair:number,repairing?:boolean,fixedAt:number,wrenchT:number}>,
+ *   leaks: Array<{x:number,y:number,sx:number,sy:number,fixed:boolean,repair:number,repairing?:boolean,fixedAt:number,wrenchT:number,sparkT:number}>,
  *   openLeaks: number,
  *   plumber: {x:number,y:number},
  *   time: number,
@@ -95,7 +97,10 @@ export function sealLeak(L, leakState){
   // Clear the progress bar, so a number that means "work in progress" does not sit at 100% forever.
   L.repair = 0;
   L.repairing = false;
+  emit(EVENT.repairSparksClear);
   leakState.openLeaks = Math.max(0, leakState.openLeaks-1);
+  emit(EVENT.sealBurst, L.x+0.5, L.y+0.5);
+  emit(EVENT.cameraShake, 'seal');
   emit(EVENT.sfx, 'seal');
   emit(EVENT.flash, leakState.openLeaks
     ? { cat: 'info', text: `LEAK SEALED \u2014 ${leakState.openLeaks} STILL OPEN` }
@@ -173,15 +178,32 @@ export function tickLeakNoise(leakState, dt){
 export function tickRepair(leakState, dt, moving, bumped){
   const p = leakState.plumber;
   const L = leakAt(leakState.leaks, p.x, p.y);
+  const previousRepair = leakState.leaks.find(leak => leak.repairing);
+  const wasRepairing = previousRepair === L;
   leakState.atLeak = !!L;
   for (const leak of leakState.leaks) leak.repairing = false;
+  if (previousRepair && previousRepair !== L)
+    emit(EVENT.repairSparksClear);
   if (L){
     if (!moving && !bumped){
+      if (!wasRepairing){
+        emit(EVENT.cameraShake, 'loud');
+        L.sparkT = 0;
+        emit(EVENT.repairSpark, L.x, L.y);
+      }
       L.repairing = true;
       if (L.repair === 0) L.wrenchT = 0;
       L.wrenchT = (L.wrenchT||0) - dt;
-      if (L.wrenchT <= 0){ emit(EVENT.sfx, 'wrench', NOISE.REPAIR); L.wrenchT = 1; }
+      if (L.wrenchT <= 0){
+        emit(EVENT.sfx, 'wrench', NOISE.REPAIR);
+        L.wrenchT = 1;
+      }
       L.repair = Math.min(REPAIR_TIME, L.repair + dt);
+      L.sparkT = (L.sparkT || 0) + dt;
+      if (L.sparkT >= REPAIR_SPARK_INTERVAL){
+        L.sparkT -= REPAIR_SPARK_INTERVAL;
+        emit(EVENT.repairSpark, L.x, L.y);
+      }
       sustainedNoise(leakState, NOISE.REPAIR, L.sx+0.5, L.sy+0.5, true);
       if (L.repair >= REPAIR_TIME){
         sealLeak(L, leakState);
@@ -189,4 +211,7 @@ export function tickRepair(leakState, dt, moving, bumped){
     }
     if (L.repair > 0) p.stepT = Math.min(p.stepT, dt);
   }
+  if (previousRepair && previousRepair === L &&
+      !previousRepair.repairing && !previousRepair.fixed)
+    emit(EVENT.repairSparksClear);
 }

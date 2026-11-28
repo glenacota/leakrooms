@@ -28,8 +28,8 @@ test('[37] the DOM stub resolves the markup it claims to', () => {
 
 
   /* The five collection shapes, against the counts the markup declares:
-     nine segmented rows, four range inputs, four binder tabs, four binder pages. */
-  assert.equal(querySelectorAll('.seg[data-opt]').length, 9, 'wrong number of segmented rows');
+     ten segmented rows, four range inputs, four binder tabs, four binder pages. */
+  assert.equal(querySelectorAll('.seg[data-opt]').length, 10, 'wrong number of segmented rows');
   assert.equal(querySelectorAll('input[type=range][data-opt]').length, 4, 'wrong number of range inputs');
   assert.equal(querySelectorAll('[data-binder-tab]').length, 4, 'wrong number of binder tabs');
   assert.equal(querySelectorAll('[data-binder-page]').length, 4, 'wrong number of binder pages');

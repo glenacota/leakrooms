@@ -29,6 +29,10 @@ export const EVENT = Object.freeze({
   resize: 'resize',
   settingsChanged: 'settings:changed',
   particle: 'particle',
+  sealBurst: 'seal:burst',
+  repairSpark: 'repair:spark',
+  repairSparksClear: 'repair:sparks-clear',
+  cameraShake: 'camera:shake',
   contextrestored: 'contextrestored',
   inputMode: 'input:mode',
   inputLost: 'input:lost',
@@ -178,6 +182,32 @@ export const EVENT_CONTRACTS = Object.freeze({
   [EVENT.particle]: {
     purpose: 'Request a visual particle at a world position.',
     args: '[x: number, y: number]',
+  },
+  [EVENT.sealBurst]: {
+    purpose: 'Request the visual burst when a leak seals.',
+    args: '[x: number, y: number] in world tiles.',
+    producers: ['src/sim/leaks.js'],
+    consumers: ['src/render/passes/particles.js'],
+  },
+  [EVENT.repairSpark]: {
+    purpose: 'Request repair sparks for a pipe on a wall tile.',
+    args: '[pipeTileX: number, pipeTileY: number] in world tiles.',
+    producers: ['src/sim/leaks.js'],
+    consumers: ['src/render/passes/particles.js'],
+  },
+  [EVENT.repairSparksClear]: {
+    purpose: 'Clear repair sparks when repair progress stops.',
+    args: '[]',
+    producers: ['src/sim/leaks.js'],
+    consumers: ['src/render/passes/particles.js'],
+  },
+  [EVENT.cameraShake]: {
+    purpose: 'Request a named camera shake cue.',
+    args: '[cue: "loud" | "seal" | "door"].',
+    producers: [
+      'src/sim/plumber.js', 'src/sim/leaks.js', 'src/sim/door.js',
+    ],
+    consumers: ['src/render/frame.js'],
   },
   [EVENT.contextrestored]: {
     purpose: 'Report that the game canvas graphics context was restored.',

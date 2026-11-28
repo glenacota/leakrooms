@@ -14,6 +14,8 @@ import { hash2 } from '../util/hash.js';
 
 /** The band's height as a fraction of a tile. */
 export const FACE = WALL.FACE_HEIGHT_PX / MAP.TILE_SIZE_PX;
+/** Where the wall-face band ends, measured down from the wall tile's top. */
+export const PIPE_FACE_BOTTOM = 1.1;
 
 /* Rectangles are {x, y, w, h}. */
 const BASE = {
@@ -77,6 +79,18 @@ export function pipeLayout(flip){
     glint:    [flip ? mx(GLINT[0]) : GLINT[0], GLINT[1], GLINT[2], GLINT[3]],
     /* which side the rounded outer corner of the elbow is on */
     elbowRight: !flip,
+  };
+}
+
+/**
+ * The split's world position for a pipe on wall tile (tx, ty).
+ * @returns {{x:number,y:number}} in world tiles
+ */
+export function pipeSplitAt(tx, ty){
+  const flip = pipeFlipped(tx, ty);
+  return {
+    x: tx + (flip ? mx(DROP_FROM.x) : DROP_FROM.x),
+    y: ty + PIPE_FACE_BOTTOM - FACE + DROP_FROM.y,
   };
 }
 

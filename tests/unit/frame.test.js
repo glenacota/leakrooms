@@ -3,10 +3,12 @@
 import test from 'node:test';
 import { strict as assert } from 'node:assert';
 import { MAP } from '../../src/config/constants.js';
+import { emit, EVENT } from '../../src/util/events.js';
 import { loadGame } from '../helpers/harness.js';
-import { buildFrame, cam } from '../../src/render/frame.js';
 
 const { A, G } = await loadGame();
+const { DPR } = await import('../../src/render/canvas.js');
+const { buildFrame, cam } = await import('../../src/render/frame.js');
 const buildFloor = A.buildFloor;
 const SCALE = A.SCALE;
 const CW = A.cvs.width;
@@ -97,42 +99,62 @@ test('dt is clamped after a long frame gap', () => {
   assert.ok(rc.dt <= 0.25, 'dt clamped to 0.25s after a 60s gap');
 });
 
-test('reduced motion removes camera jitter and follows preference changes', () => {
+test('shake setting controls ambient motion and event camera cues', () => {
   buildFloor(2, 31337);
-  const preference = { matches: false };
   const random = Math.random;
-  let queries = 0;
-  let randomCalls = 0;
-  window.matchMedia = query => {
-    assert.equal(query, '(prefers-reduced-motion: reduce)');
-    queries++;
-    return preference;
-  };
-  Math.random = () => { randomCalls++; return 0.75; };
+  Math.random = () => 0.5;
 
   try {
+    A.setOption('shake', 'off');
+    emit(EVENT.cameraShake, 'door');
     buildFrame(1000);
-    assert.notEqual(cam.jx, 0);
-    assert.notEqual(cam.jy, 0);
-    assert.equal(randomCalls, 2);
-
-    preference.matches = true;
-    const rc = buildFrame(1016);
     assert.equal(cam.jx, 0);
     assert.equal(cam.jy, 0);
-    assert.equal(rc.tx, -cam.x * MAP.TILE_SIZE_PX + CW / (2 * SCALE));
-    assert.equal(rc.ty, -cam.y * MAP.TILE_SIZE_PX + CH / (2 * SCALE));
-    assert.equal(randomCalls, 2, 'reduced motion does not sample camera jitter');
 
-    preference.matches = false;
-    buildFrame(1032);
-    assert.notEqual(cam.jx, 0);
-    assert.notEqual(cam.jy, 0);
-    assert.equal(randomCalls, 4);
-    assert.equal(queries, 1, 'the media query is reused');
+    A.setOption('shake', 'full');
+    emit(EVENT.cameraShake, 'door');
+    const full = buildFrame(1100);
+    const fullX = full.tx + cam.x * MAP.TILE_SIZE_PX - CW / (2 * SCALE) - cam.jx;
+    const fullY = full.ty + cam.y * MAP.TILE_SIZE_PX - CH / (2 * SCALE) - cam.jy;
+    assert.ok(Math.abs(Math.hypot(fullX, fullY) - 10 * DPR / SCALE) < 1e-6,
+      'full camera cue peaks at 10 CSS pixels');
+
+    emit(EVENT.cameraShake, 'door');
+    const repeated = buildFrame(1101);
+    const repeatedX = repeated.tx + cam.x * MAP.TILE_SIZE_PX - CW / (2 * SCALE) - cam.jx;
+    const repeatedY = repeated.ty + cam.y * MAP.TILE_SIZE_PX - CH / (2 * SCALE) - cam.jy;
+    assert.ok(Math.hypot(repeatedX, repeatedY) > 9.9 * DPR / SCALE,
+      'a repeated cue retriggers instead of fading out');
+
+    buildFrame(1216);
+    emit(EVENT.cameraShake, 'loud');
+    emit(EVENT.cameraShake, 'seal');
+    const seal = buildFrame(1232);
+    const sealX = seal.tx + cam.x * MAP.TILE_SIZE_PX - CW / (2 * SCALE) - cam.jx;
+    const sealY = seal.ty + cam.y * MAP.TILE_SIZE_PX - CH / (2 * SCALE) - cam.jy;
+    assert.ok(Math.abs(Math.hypot(sealX, sealY) - 20 * DPR / SCALE) < 1e-6,
+      'seal cue wins overlapping loud cue and peaks at 20 CSS pixels');
+    const ended = buildFrame(1472);
+    const endedX = ended.tx + cam.x * MAP.TILE_SIZE_PX - CW / (2 * SCALE) - cam.jx;
+    const endedY = ended.ty + cam.y * MAP.TILE_SIZE_PX - CH / (2 * SCALE) - cam.jy;
+    assert.ok(Math.hypot(endedX, endedY) < 1e-10, 'seal pulse ends after 240 ms');
+
+    A.setOption('shake', 'reduced');
+    emit(EVENT.cameraShake, 'door');
+    const reduced = buildFrame(1488);
+    const reducedX = reduced.tx + cam.x * MAP.TILE_SIZE_PX - CW / (2 * SCALE) - cam.jx;
+    const reducedY = reduced.ty + cam.y * MAP.TILE_SIZE_PX - CH / (2 * SCALE) - cam.jy;
+    assert.ok(Math.abs(Math.hypot(reducedX, reducedY) - 5 * DPR / SCALE) < 1e-6,
+      'reduced camera cue halves amplitude');
+
+    A.setOption('shake', 'off');
+    emit(EVENT.cameraShake, 'seal');
+    const off = buildFrame(1500);
+    const offX = off.tx + cam.x * MAP.TILE_SIZE_PX - CW / (2 * SCALE) - cam.jx;
+    const offY = off.ty + cam.y * MAP.TILE_SIZE_PX - CH / (2 * SCALE) - cam.jy;
+    assert.equal(Math.hypot(offX, offY), 0, 'off clears active and queued cues');
   } finally {
-    preference.matches = false;
     Math.random = random;
-    delete window.matchMedia;
+    A.setOption('shake', 'full');
   }
 });

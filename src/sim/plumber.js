@@ -19,6 +19,7 @@ const PULSE_FOR = 1;
  *   stepDur: number,
  *   moving: boolean,
  *   stamina: number,
+ *   sprinting?: boolean,
  *   px: number,
  *   py: number,
  *   rippleT?: number,
@@ -89,6 +90,8 @@ export function tickMovement(plumber, grid, floodState, dt){
 
   const sprintRequested = (keys['shift'] || pad.sprint) && (ix||iy);
   const sprinting = sprintRequested && plumber.stamina > 0;
+  if (sprinting && !plumber.sprinting) emit(EVENT.cameraShake, 'loud');
+  plumber.sprinting = sprinting;
   if (sprinting){
     plumber.stamina = Math.max(0, plumber.stamina - dt);
     if (plumber.stamina < 1e-9) plumber.stamina = 0;
@@ -150,6 +153,7 @@ export function tickMovement(plumber, grid, floodState, dt){
     if (!plumber.bumpedLastFrame){
       floodState.stat.noises++;
       emit(EVENT.stat, 'noises');
+      if (power >= NOISE.LOUD) emit(EVENT.cameraShake, 'loud');
       plumber.bumpedLastFrame = true;
     }
   } else {

@@ -13,6 +13,7 @@ export const SETTINGS_SPEC = {
   /* The VHS/tape post-pass strength, as a fraction of RENDER.VHS_PASS. 1.0 is the full
      tape look; 0 strips the scanlines, grain, tracking band and chroma ghost. */
   crt:            { default:1.0, type:'range', min:0, max:1 },
+  shake:          { default:'full', type:'enum', values:['off','reduced','full'] },
   // Whether the flash notes overlay shows at all
   flash:          { default:true, type:'bool' },
   // Illustrated tutorials appear during play when you encounter key mechanics

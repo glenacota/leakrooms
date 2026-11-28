@@ -5,7 +5,9 @@ import { SETTINGS } from '../../settings/store.js';
 import { G } from '../../sim/state.js';
 import { hash2 } from '../../util/hash.js';
 import { ctx, SCALE } from '../canvas.js';
-import { dropAt, LAND_Y, pipeFlipped, pipeLayout, waterCss } from '../pipe-layout.js';
+import {
+  dropAt, LAND_Y, pipeFlipped, pipeLayout, PIPE_FACE_BOTTOM, waterCss,
+} from '../pipe-layout.js';
 
 /* The pipe's colours: greys with the green cast of the wallpaper, so it sits on the
    wall and not on top of it. The collars are a shade darker, and each has a darker
@@ -122,9 +124,6 @@ export function drawTutorialLeak(g, x, y, size, deep){
   drawDrop(g, P, x, y, size, deep, 0.4);
 }
 
-/* How far below the wall tile's top its face band ends, in tiles. */
-const BAND_BOTTOM = 1.1;
-
 /* The puddles, in WORLD space and drawn before the actors, so the plumber walks
    over the water and not under it. The lighting pass that follows dims them like
    any other floor detail. */
@@ -133,7 +132,7 @@ export function puddles(rc){
   for (const L of G.leaks){
     if (L.fixed || !G.wetArr || G.maskArr[L.y*MAP.WIDTH_TILES + L.x] <= 0.02) continue;
     const P = pipeLayout(pipeFlipped(L.x, L.y));
-    drawPuddle(ctx, P, L.x*MAP.TILE_SIZE_PX, (L.y + BAND_BOTTOM)*MAP.TILE_SIZE_PX - WALL.FACE_HEIGHT_PX, MAP.TILE_SIZE_PX, deepOf);
+    drawPuddle(ctx, P, L.x*MAP.TILE_SIZE_PX, (L.y + PIPE_FACE_BOTTOM)*MAP.TILE_SIZE_PX - WALL.FACE_HEIGHT_PX, MAP.TILE_SIZE_PX, deepOf);
   }
 }
 
@@ -164,7 +163,7 @@ export function leaks(rc){
     const lt = L.y*MAP.WIDTH_TILES + L.x;
     if (!G.wetArr || G.maskArr[lt] <= 0.02) continue;
     const U  = MAP.TILE_SIZE_PX*SCALE;                 // one tile, in device pixels
-    const ox = w2sx(L.x), oy = w2sy(L.y+BAND_BOTTOM) - WALL.FACE_HEIGHT_PX*SCALE; // top-left of the wall face band
+    const ox = w2sx(L.x), oy = w2sy(L.y+PIPE_FACE_BOTTOM) - WALL.FACE_HEIGHT_PX*SCALE; // top-left of the wall face band
     const vis = G.maskArr[lt];
     const P = pipeLayout(pipeFlipped(L.x, L.y));
     const deep = (WATER_TINTS[SETTINGS.waterHue] || WATER_TINTS.slate).deep;

@@ -53,7 +53,7 @@ export function createLevelState(level, floorNum, seed) {
  * atLeak says whether the plumber is standing at a standing spot.
  */
 export function createLeakState(level) {
-  const leaks = level.leaks.map(L => ({ ...L }));
+  const leaks = level.leaks.map(L => ({ ...L, sparkT:0 }));
   return {
     leaks,
     openLeaks: level.leaks.length,
@@ -71,7 +71,7 @@ export function createLeakState(level) {
  */
 export function createPlumberState(level) {
   return {
-    plumber: { x: level.spawn.x, y: level.spawn.y, face: -Math.PI / 2, stepT: 0, stepDur: 0.46, moving: false, stamina: MOVEMENT.SPRINT_STAMINA_SECONDS },
+    plumber: { x: level.spawn.x, y: level.spawn.y, face: -Math.PI / 2, stepT: 0, stepDur: 0.46, moving: false, stamina: MOVEMENT.SPRINT_STAMINA_SECONDS, sprinting:false },
     batt: BATTERY.MAX_CHARGE,
     radar: false,
     radarRattleT: 0,

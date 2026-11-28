@@ -47,6 +47,7 @@ import { setPixels, surfaces, syncSurfaces } from '../../src/render/floor-surfac
 import { markWetAll, repaintDirty } from '../../src/util/repaint.js';
 import { paintSplashPlan } from '../../src/render/splash-plan.js';
 import { render } from '../../src/render/render.js';
+import { MAX_PARTICLES, getParticleCount } from '../../src/render/passes/particles.js';
 import { SETTINGS, loadSettings, saveSettings, resetSettings, setOption } from '../../src/settings/store.js';
 import { MAP, TILE_TYPES, WALL, DOOR, MOVEMENT, STICK, PLUMBER, LIFEFORM, RADAR, BATTERY, LEAK, WATER, ROOM_LIGHT, VISION, RENDER, NOISE } from '../../src/config/constants.js';
 
@@ -130,6 +131,7 @@ get floorIdx(){ return floorIdx; }, set floorIdx(v){ setFloorIdx(v); },
 get keys(){ return keys; },
  drawLifeform,
 get cvs(){ return cvs; }, get ctxRef(){ return ctx; }, get SCALE(){ return SCALE; }, viewScale,
+get MAX_PARTICLES(){ return MAX_PARTICLES; }, getParticleCount,
   /* The whole noise table, so a test can assert on the contract as a whole
      instead of naming four constants and hoping the rest are covered. */
   NOISE,

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { loadGame } from '../helpers/harness.js';
 import { MOVEMENT, NOISE, WALL } from '../../src/config/constants.js';
 import { pad, clearInput } from '../../src/sim/keys.js';
+import { on, EVENT } from '../../src/util/events.js';
 
 const { A, G } = await loadGame();
 const keys = A.keys;
@@ -108,6 +109,23 @@ test('[PAD] pad sprint with a direction sprints and is loud', () => {
   clearInput();
   assert.ok(Math.abs((r.x - x0) - 15*DT*MOVEMENT.SPRINT_SPEED_TILES_PER_SECOND) < 1e-9, `moved ${r.x - x0}`);
   assert.ok(r.peak >= NOISE.SPRINT - 1e-9, `peak ${r.peak}, want ${NOISE.SPRINT}`);
+});
+
+test('[PAD] a loud camera cue fires once per sprint, not per footstep', () => {
+  place();
+  pad.x = 1;
+  pad.sprint = true;
+  const cues = [];
+  const off = on(EVENT.cameraShake, cue => cues.push(cue));
+  run(17);
+  clearInput();
+  run(1);
+  pad.x = 1;
+  pad.sprint = true;
+  run(1);
+  off();
+  clearInput();
+  assert.deepEqual(cues, ['loud', 'loud']);
 });
 
 test('[PAD] pad sprint with the stick centred does not sprint', () => {

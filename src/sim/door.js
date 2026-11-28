@@ -37,10 +37,17 @@ export function tickDoor(doorState, dt){
       if (Math.hypot(e.x+0.5-p.x, e.y+0.5-p.y) < 1.25){ onExit=true; break; }
     }
     if (onExit){
-      if (doorState.descend===0) emit(EVENT.sfx, 'door', NOISE.DOOR);
+      if (doorState.descend===0){
+        emit(EVENT.sfx, 'door', NOISE.DOOR);
+        emit(EVENT.cameraShake, 'loud');
+      }
       doorState.descend += dt;
       sustainedNoise(doorState, NOISE.DOOR, p.x, p.y, true);
-      if (doorState.descend>=DOOR.HOLD_SECONDS){ emit(EVENT.doorCycled); return false; }
+      if (doorState.descend>=DOOR.HOLD_SECONDS){
+        emit(EVENT.cameraShake, 'door');
+        emit(EVENT.doorCycled);
+        return false;
+      }
     } else {
       doorState.descend = Math.max(0, doorState.descend - dt*2.5);
     }

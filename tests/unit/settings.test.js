@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { strict as assert } from 'node:assert';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { softAssert } from '../helpers/soft-assert.js';
@@ -179,19 +180,59 @@ console.log('[20] settings — persistence, validation, and the difficulty contr
 }
   t.done();
 });
-/* ============ TEST 27: the four removed settings are gone, and stay gone
+
+test('[shake] reduced-motion default, live preference, and explicit persistence', () => {
+  const oldMatchMedia = window.matchMedia;
+  const listeners = new Set();
+  const preference = {
+    matches: true,
+    addEventListener(type, fn){ if (type === 'change') listeners.add(fn); },
+    removeEventListener(type, fn){ if (type === 'change') listeners.delete(fn); },
+  };
+  window.matchMedia = () => preference;
+  global.__store.clear();
+
+  try {
+    A.loadSettings();
+    assert.equal(A.SETTINGS.shake, 'off');
+    A.setOption('master', 0.4);
+    assert.equal(JSON.parse(global.__store.get(A.SETTINGS_KEY)).shake, undefined);
+
+    preference.matches = false;
+    for (const listener of listeners) listener();
+    assert.equal(A.SETTINGS.shake, 'full');
+
+    A.setOption('shake', 'reduced');
+    assert.equal(JSON.parse(global.__store.get(A.SETTINGS_KEY)).shake, 'reduced');
+    preference.matches = true;
+    for (const listener of listeners) listener();
+    assert.equal(A.SETTINGS.shake, 'reduced');
+
+    A.loadSettings();
+    assert.equal(A.SETTINGS.shake, 'reduced');
+    A.resetSettings();
+    assert.equal(A.SETTINGS.shake, 'off');
+    assert.equal(JSON.parse(global.__store.get(A.SETTINGS_KEY)).shake, undefined);
+  } finally {
+    if (oldMatchMedia) window.matchMedia = oldMatchMedia;
+    else delete window.matchMedia;
+    A.loadSettings();
+  }
+});
+
+/* ============ TEST 27: the removed settings are gone, and stay gone
    Settings that only had their widgets deleted would still be readable from a
    stale localStorage blob, still settable through the API, and still rendered
-   by a branch nobody remembers writing. All four have to be absent from the
-   schema, the store, the markup, and the renderer. */
-test('[27] the removed settings — frame counter, flicker, tape, shake', () => {
+   by a branch nobody remembers writing. Removed settings must stay absent from
+   the schema, the store, the markup, and the renderer. */
+test('[27] the removed settings — frame counter, flicker, tape', () => {
   const t = softAssert();
-console.log('[27] the removed settings — frame counter, flicker, tape, shake');
+console.log('[27] the removed settings — frame counter, flicker, tape');
 {
   const html = readHtml();
   const css  = readCss();
   const src  = readSrc();
-  const GONE = ['showFps','flicker','vhs','shake'];
+  const GONE = ['showFps','flicker','vhs'];
 
   for (const k of GONE){
     t.assert(!(k in A.SETTINGS_SCHEMA), `${k} is still in the schema`);
@@ -202,10 +243,14 @@ console.log('[27] the removed settings — frame counter, flicker, tape, shake')
   }
 
   /* no control anywhere: the ids, the labels, the stylesheet rule */
-  for (const id of ['set-fps','set-flicker','set-vhs','set-shake']){
+  for (const id of ['set-fps','set-flicker','set-vhs']){
     t.assert(!html.includes(id), `index.html still has #${id}`);
   }
-  t.assert(!/FRAME COUNTER|FLUORESCENT FLICKER|TAPE DEGRADATION|CAMERA SHAKE/.test(html),
+  t.assert(/id="set-shake"[^>]*data-opt="shake"/.test(html), 'camera shake control is missing');
+  t.assert(/CAMERA SHAKE/.test(html), 'camera shake label is missing');
+  t.assert(A.SETTINGS_SCHEMA.shake.values.join(',') === 'off,reduced,full',
+    'camera shake options are missing or out of order');
+  t.assert(!/FRAME COUNTER|FLUORESCENT FLICKER|TAPE DEGRADATION/.test(html),
     'a removed setting still has a label on screen');
   t.assert(!/#fps\b/.test(css), 'the frame counter stylesheet rule survived');
 
@@ -223,10 +268,21 @@ console.log('[27] the removed settings — frame counter, flicker, tape, shake')
   t.assert(/ctx\.fillStyle=scanPat/.test(src), 'the scanline pass is gone — the game no longer looks like a tape');
   render(1000);
   render(2000);
-  console.log('  4 settings gone from schema, store, markup, stylesheet, and renderer');
+  console.log('  3 removed settings stay gone; camera shake is present');
   console.log('  and the effects they controlled are still on, as constants');
 }
   t.done();
+});
+
+test('[shake] DISPLAY control builds, updates, and persists the selection', () => {
+  const row = document.querySelectorAll('.seg[data-opt]').find(el => el.dataset.opt === 'shake');
+  assert.ok(row, 'camera shake row is missing');
+  assert.equal(row.querySelectorAll('button').map(button => button.dataset.value).join(','),
+    'off,reduced,full');
+  row.querySelectorAll('button').find(button => button.dataset.value === 'reduced').click();
+  assert.equal(A.SETTINGS.shake, 'reduced');
+  assert.equal(JSON.parse(global.__store.get(A.SETTINGS_KEY)).shake, 'reduced');
+  A.resetSettings();
 });
 
 
