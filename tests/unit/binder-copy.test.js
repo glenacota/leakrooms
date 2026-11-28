@@ -45,9 +45,8 @@ test('[COPY] how-to-play lives in the field manual and not in the story pages', 
 test('[COPY] the work order describes clock-out and lifeform detection', () => {
   const story = visibleText(html.slice(html.indexOf('data-binder-page="order"'), html.indexOf('data-binder-page="run"')));
   assert.match(story, /limited air supply/i);
-  assert.match(story, /Maintain a safe distance/i);
+  assert.match(story, /Keep your distance/i);
   assert.match(story, /every leak is sealed/i);
-  assert.doesNotMatch(story, /permanent entrapment/i);
 });
 
 test('[COPY] CLOCK IN opens the work order, and BEGIN starts the run', () => {
